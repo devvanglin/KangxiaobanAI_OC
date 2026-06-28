@@ -1,0 +1,52 @@
+{
+  "routerMap": [
+    {
+      "name": "HomePage",
+      "pageSourceFile": "src/main/ets/view/HomeCommonView.ets",
+      "buildFunction": "HomePageBuilder",
+      "data": {
+        "description": "HomePage"
+      }
+    },
+    {
+      "name": "HotPage",
+      "pageSourceFile": "src/main/ets/view/HotCommonView.ets",
+      "buildFunction": "HotPageBuilder",
+      "data": {
+        "description": "HotPage"
+      }
+    },
+    {
+      "name": "VideoPage",
+      "pageSourceFile": "src/main/ets/view/VideoCommonView.ets",
+      "buildFunction": "VideoPageBuilder",
+      "data": {
+        "description": "VideoPage"
+      }
+    },
+    {
+      "name": "MinePage",
+      "pageSourceFile": "src/main/ets/view/MineCommonView.ets",
+      "buildFunction": "MinePageBuilder",
+      "data": {
+        "description": "MinePage"
+      }
+    },
+    {
+      "name": "CommunityDetailPage",
+      "pageSourceFile": "src/main/ets/view/CommunityDetailView.ets",
+      "buildFunction": "CommunityDetailBuilder",
+      "data": {
+        "description": "CommunityDetailPage"
+      }
+    },
+    {
+      "name": "ImageDetailPage",
+      "pageSourceFile": "src/main/ets/view/ImageDetailView.ets",
+      "buildFunction": "ImageDetailBuilder",
+      "data": {
+        "description": "CommunityDetailPage"
+      }
+    }
+  ]
+}

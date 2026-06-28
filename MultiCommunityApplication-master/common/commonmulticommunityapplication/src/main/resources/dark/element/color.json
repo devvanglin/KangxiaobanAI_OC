@@ -1,0 +1,120 @@
+{
+  "color": [
+    {
+      "name": "start_window_background",
+      "value": "#000000"
+    },
+    {
+      "name": "background_primary",
+      "value": "#000000"
+    },
+    {
+      "name": "background_secondary",
+      "value": "#1A1A1A"
+    },
+    {
+      "name": "background_tertiary",
+      "value": "#2A2A2A"
+    },
+    {
+      "name": "font_primary",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "font_secondary",
+      "value": "#AAAAAA"
+    },
+    {
+      "name": "font_tertiary",
+      "value": "#777777"
+    },
+    {
+      "name": "font_emphasize",
+      "value": "#0A84FF"
+    },
+    {
+      "name": "font_on_primary",
+      "value": "#000000"
+    },
+    {
+      "name": "font_title",
+      "value": "#E5E5E5"
+    },
+    {
+      "name": "icon_primary",
+      "value": "#AAAAAA"
+    },
+    {
+      "name": "icon_secondary",
+      "value": "#777777"
+    },
+    {
+      "name": "border_primary",
+      "value": "#2A2A2A"
+    },
+    {
+      "name": "border_secondary",
+      "value": "#1A1A1A"
+    },
+    {
+      "name": "mask_dark",
+      "value": "#CC000000"
+    },
+    {
+      "name": "mask_gradient",
+      "value": "#66000000"
+    },
+    {
+      "name": "color_danger",
+      "value": "#FF6B6B"
+    },
+    {
+      "name": "comp_emphasize_tertiary",
+      "value": "#190A84FF"
+    },
+    {
+      "name": "contacts_icon",
+      "value": "#95b6f6"
+    },
+    {
+      "name": "background_focus",
+      "value": "#f3f3f3"
+    },
+    {
+      "name": "background_top",
+      "value": "#000000"
+    },
+    {
+      "name": "font_color_primary",
+      "value": "#626262"
+    },
+    {
+      "name": "font_color_secondary",
+      "value": "#1f1f1f"
+    },
+    {
+      "name": "font_contacts_subhead",
+      "value": "#666666"
+    },
+    {
+      "name": "label_font_color",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "placeholder_color",
+      "value": "#626262"
+    },
+    {
+      "name": "focus_background_color",
+      "value": "#1f1f1f"
+    },
+    {
+      "name": "image_background_color",
+      "value": "#000000"
+    },
+    {
+      "name": "search_bar_background_color",
+      "value": "#191919"
+    }
+  ]
+}

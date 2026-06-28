@@ -1,0 +1,9 @@
+{
+  "routerMap": [
+    {
+      "name": "FollowerPostsView",
+      "pageSourceFile": "src/main/ets/view/FollowerPostsView.ets",
+      "buildFunction": "FollowerPostsBuilder"
+    }
+  ]
+}

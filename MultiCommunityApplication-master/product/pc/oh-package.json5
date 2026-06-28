@@ -1,0 +1,13 @@
+{
+  "name": "multicommunityapplicationpcsample",
+  "version": "1.0.0",
+  "description": "Please describe the basic information.",
+  "main": "",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "commonmulticommunityapplication": "file:../../common/commonmulticommunityapplication",
+    "commoncommunityui": "file:../../features/commoncommunityui"
+  }
+}
+
