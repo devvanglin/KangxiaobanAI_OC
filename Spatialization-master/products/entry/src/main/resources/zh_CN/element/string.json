@@ -1,0 +1,163 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "模块描述"
+    },
+    {
+      "name": "SpatializationAbility_desc",
+      "value": "description"
+    },
+    {
+      "name": "SpatializationAbility_label",
+      "value": "沉浸光感开发案例"
+    },
+    {
+      "name": "banner_title",
+      "value": "沉浸光感开发案例"
+    },
+    {
+      "name": "banner_desc",
+      "value": "基于全新组件设计，打造更加沉浸化的应用视觉体验，以及更加智能化的交互体验。"
+    },{
+      "name": "sample_1_title",
+      "value": "全新沉浸式光感设计语言"
+    },
+    {
+      "name": "sample_1_desc",
+      "value": "讲原理，MO视频，设计语音介绍。"
+    },
+    {
+      "name": "sample_2_title",
+      "value": "全新沉浸光感材质"
+    },
+    {
+      "name": "sample_2_desc",
+      "value": "按压弹性反馈，按压点光源，材质流光，三挡介绍，反色。"
+    },
+    {
+      "name": "sample_3_title",
+      "value": "应用首眼的沉浸光感"
+    },
+    {
+      "name": "sample_3_desc",
+      "value": "基于HDS提供的Navigation&Tabs组件，打造焕然一新的首眼效果。"
+    },
+    {
+      "name": "sample_4_title",
+      "value": "自适应悬浮导航"
+    },
+    {
+      "name": "sample_4_desc",
+      "value": "通过自适应的悬浮导航以及MiniBar配置，快捷配置多设备效果，方便用户快捷操作。"
+    },
+    {
+      "name": "sample_5_title",
+      "value": "智感握姿，智能交互"
+    },
+    {
+      "name": "sample_5_desc",
+      "value": "在宽屏设备上，基于智能感知用户握持，提供智能化交互体验。"
+    },
+    {
+      "name": "sample_6_title",
+      "value": "丰富的沉浸式工具栏"
+    },
+    {
+      "name": "sample_6_desc",
+      "value": "基于多样化的定制效果，提供丰富的工具栏应用场景，打造沉浸式操作体验。"
+    },
+    {
+      "name": "tab_home",
+      "value": "首页"
+    },
+    {
+      "name": "tab_video",
+      "value": "视频"
+    },
+    {
+      "name": "tab_music",
+      "value": "音乐厅"
+    },
+    {
+      "name": "tab_cafe",
+      "value": "Cafe听"
+    },
+    {
+      "name": "tab_game",
+      "value": "游戏厅"
+    },
+    {
+      "name": "tab_explore",
+      "value": "探索"
+    },
+    {
+      "name": "tab_app",
+      "value": "应用"
+    },
+    {
+      "name": "tab_service",
+      "value": "元服务"
+    },
+    {
+      "name": "tab_shopping",
+      "value": "好物"
+    },
+    {
+      "name": "tab_mine",
+      "value": "我的"
+    },
+    {
+      "name": "cases",
+      "value": "案例%d：%s"
+    },
+    {
+      "name": "reading",
+      "value": "阅读源码"
+    },
+    {
+      "name": "experience",
+      "value": "立即体验"
+    },
+    {
+      "name": "level",
+      "value": "沉浸光感"
+    },
+    {
+      "name": "strong",
+      "value": "强"
+    },
+    {
+      "name": "balanced",
+      "value": "均衡（默认）"
+    },
+    {
+      "name": "weak",
+      "value": "弱"
+    },
+    {
+      "name": "alert_title",
+      "value": "功能提示"
+    },
+    {
+      "name": "alert_msg",
+      "value": "更换左、右手握持，轻松体验智感握姿智能交互。"
+    },
+    {
+      "name": "alert_desc",
+      "value": "*部分机型暂不支持该功能，请以设备实际体验为准。"
+    },
+    {
+      "name": "no_more_prompts",
+      "value": "不再提示"
+    },
+    {
+      "name": "okay",
+      "value": "知道了"
+    },
+    {
+      "name": "gesture_reason",
+      "value": "需要获取您的操作手状态变化来实现跟手操作"
+    }
+  ]
+}

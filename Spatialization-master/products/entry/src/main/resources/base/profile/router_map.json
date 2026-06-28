@@ -1,0 +1,34 @@
+{
+  "routerMap": [
+    {
+      "name": "DetailView",
+      "pageSourceFile": "src/main/ets/view/DetailView.ets",
+      "buildFunction": "DetailViewBuilder"
+    },
+    {
+      "name": "ImmersiveLightView",
+      "pageSourceFile": "src/main/ets/view/ImmersiveLightView.ets",
+      "buildFunction": "ImmersiveLightViewBuilder"
+    },
+    {
+      "name": "AdaptiveTabView",
+      "pageSourceFile": "src/main/ets/view/AdaptiveTabView.ets",
+      "buildFunction": "AdaptiveTabViewBuilder"
+    },
+    {
+      "name": "SmartReachView",
+      "pageSourceFile": "src/main/ets/view/SmartReachView.ets",
+      "buildFunction": "SmartReachViewBuilder"
+    },
+    {
+      "name": "ToolBarListView",
+      "pageSourceFile": "src/main/ets/view/ToolBarListView.ets",
+      "buildFunction": "ToolBarListViewBuilder"
+    },
+    {
+      "name": "DesignDetailView",
+      "pageSourceFile": "src/main/ets/view/DesignDetailView.ets",
+      "buildFunction": "DesignDetailViewBuilder"
+    }
+  ]
+}

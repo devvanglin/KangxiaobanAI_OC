@@ -1,0 +1,56 @@
+{
+  "app": {
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "C:\\Users\\Shenyi\\.ohos\\config\\default_Spatialization-master_v8GzxeI5aqqYiEefyIdjo30FSyPEXtlx5BCS2djwZ_4=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001B66335341C3752AF9D935ABCE6E0004A27C77484F80482EC2DCB64022B7AC4A8118716522F4B073",
+          "profile": "C:\\Users\\Shenyi\\.ohos\\config\\default_Spatialization-master_v8GzxeI5aqqYiEefyIdjo30FSyPEXtlx5BCS2djwZ_4=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "C:\\Users\\Shenyi\\.ohos\\config\\default_Spatialization-master_v8GzxeI5aqqYiEefyIdjo30FSyPEXtlx5BCS2djwZ_4=.p12",
+          "storePassword": "0000001B6688ABD4317B58215848DCCE42CB941E70D47AF50BF1D492FCB012CBF8DA8B43ADBC738AE3E8C9"
+        }
+      }
+    ],
+    "products": [
+      {
+        "name": "default",
+        "signingConfig": "default",
+        "targetSdkVersion": "6.1.0(23)",
+        "compatibleSdkVersion": "6.1.0(23)",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          "strictMode": {
+            "caseSensitiveCheck": true,
+            "useNormalizedOHMUrl": true
+          }
+        }
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug",
+      },
+      {
+        "name": "release"
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "spatialzationsample",
+      "srcPath": "./products/entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,164 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "module description"
+    },
+    {
+      "name": "SpatializationAbility_desc",
+      "value": "description"
+    },
+    {
+      "name": "SpatializationAbility_label",
+      "value": "Immersive Light Sensing"
+    },
+    {
+      "name": "banner_title",
+      "value": "Immersive Light Sensing Development Case"
+    },
+    {
+      "name": "banner_desc",
+      "value": "Based on a brand-new component design, create a more immersive visual experience for applications and a more intelligent interactive experience."
+    },
+    {
+      "name": "sample_1_title",
+      "value": "New Immersive Light Design Language"
+    },
+    {
+      "name": "sample_1_desc",
+      "value": "Explain principles, MO video, design language introduction."
+    },
+    {
+      "name": "sample_2_title",
+      "value": "New Immersive Light Material"
+    },
+    {
+      "name": "sample_2_desc",
+      "value": "Press elastic feedback, press point light source, material flowing light, three-level introduction, inverse color."
+    },
+    {
+      "name": "sample_3_title",
+      "value": "Immersive Light for App First View"
+    },
+    {
+      "name": "sample_3_desc",
+      "value": "Based on Navigation&Tabs components provided by HDS, create a refreshed first-view effect."
+    },
+    {
+      "name": "sample_4_title",
+      "value": "Adaptive Floating Navigation"
+    },
+    {
+      "name": "sample_4_desc",
+      "value": "Through adaptive floating navigation and MiniBar configuration, quickly configure multi-device effects, facilitating user quick operations."
+    },
+    {
+      "name": "sample_5_title",
+      "value": "Smart Grip, Intelligent Interaction"
+    },
+    {
+      "name": "sample_5_desc",
+      "value": "On widescreen devices, based on intelligent perception of user grip, provide intelligent interaction experience."
+    },
+    {
+      "name": "sample_6_title",
+      "value": "Rich Immersive Toolbar"
+    },
+    {
+      "name": "sample_6_desc",
+      "value": "Based on diverse customization effects, provide rich toolbar application scenarios, creating immersive operation experience."
+    },
+    {
+      "name": "tab_home",
+      "value": "Home"
+    },
+    {
+      "name": "tab_video",
+      "value": "Video"
+    },
+    {
+      "name": "tab_music",
+      "value": "Music"
+    },
+    {
+      "name": "tab_cafe",
+      "value": "Cafe"
+    },
+    {
+      "name": "tab_app",
+      "value": "Application"
+    },
+    {
+      "name": "tab_game",
+      "value": "Game"
+    },
+    {
+      "name": "tab_explore",
+      "value": "Explore"
+    },
+    {
+      "name": "tab_service",
+      "value": "Service"
+    },
+    {
+      "name": "tab_shopping",
+      "value": "Shopping"
+    },
+    {
+      "name": "tab_mine",
+      "value": "Mine"
+    },
+    {
+      "name": "cases",
+      "value": "Cases %d: %s"
+    },
+    {
+      "name": "reading",
+      "value": "Reading code"
+    },
+    {
+      "name": "experience",
+      "value": "Experience now"
+    },
+    {
+      "name": "level",
+      "value": "Immersive level"
+    },
+    {
+      "name": "strong",
+      "value": "Strong"
+    },
+    {
+      "name": "balanced",
+      "value": "Balanced(Default)"
+    },
+    {
+      "name": "weak",
+      "value": "Weak"
+    },
+    {
+      "name": "alert_title",
+      "value": "Feature hints"
+    },
+    {
+      "name": "alert_msg",
+      "value": "Switch between left and right hand grips to easily experience the smart gesture control and intelligent interaction."
+    },
+    {
+      "name": "alert_desc",
+      "value": "*The feature is not supported on some models. Actual experience may vary."
+    },
+    {
+      "name": "no_more_prompts",
+      "value": "No more prompts"
+    },
+    {
+      "name": "okay",
+      "value": "Okay"
+    },
+    {
+      "name": "gesture_reason",
+      "value": "Your hand movement status needs to be obtained to implement hand-based operations"
+    }
+  ]
+}
