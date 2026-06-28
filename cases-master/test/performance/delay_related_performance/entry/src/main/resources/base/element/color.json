@@ -1,0 +1,84 @@
+{
+  "color": [
+    {
+      "name": "bottomdrawerslidecase_list_first_backgroundcolor",
+      "value": "#f1f2f6"
+    },
+    {
+      "name": "bottomdrawerslidecase_list_header_text",
+      "value": "#4c69b9"
+    },
+    {
+      "name": "bottomdrawerslidecase_list_header_shadow",
+      "value": "#c6daf5"
+    },
+    {
+      "name": "bottomdrawerslidecase_list_header_backgroundcolor",
+      "value": "#e9f3ff"
+    },
+    {
+      "name": "bottomdrawerslidecase_setting_item_view_backgroundcolor",
+      "value": "#e5e5e5"
+    },
+    {
+      "name": "list_slide_to_history_title_font_color",
+      "value": "#182431"
+    },
+    {
+      "name": "list_slide_to_history_divider_color",
+      "value": "#0c000000"
+    },
+    {
+      "name": "list_slide_to_history_jump_button_bgc",
+      "value": "#FFAEAEAE"
+    },
+    {
+      "name": "list_slide_to_history_jump_button_font_color",
+      "value": "#000"
+    },
+    {
+      "name": "start_window_background",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "pull_refresh_start_window_background",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "pull_refresh_title_fontColor",
+      "value": "#000000"
+    },
+    {
+      "name": "pull_refresh_content_fontColor",
+      "value": "#000000"
+    },
+    {
+      "name": "pull_refresh_time_fontColor",
+      "value": "#FF989898"
+    },
+    {
+      "name": "pull_refresh_white",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "pull_refresh_listColor",
+      "value": "#F1F3F5"
+    },
+    {
+      "name": "pull_refresh_dividerColor",
+      "value": "#E2E2E2"
+    },
+    {
+      "name": "expanded_title_list_item_normal_color",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "expanded_title_background_color",
+      "value": "#eaf0ef"
+    },
+    {
+      "name": "expanded_title_font_color_light_dark",
+      "value": "#182431"
+    }
+  ]
+}

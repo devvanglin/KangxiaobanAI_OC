@@ -1,0 +1,276 @@
+{
+  "routerMap": [
+    {
+      "name": "pageOnePositive",
+      "pageSourceFile": "src/main/ets/pages/PageOnePositive.ets",
+      "buildFunction": "PageOneBuilder",
+      "data": {
+        "description": "this is PageOnePositive"
+      }
+    },
+    {
+      "name": "pageOneCounter",
+      "pageSourceFile": "src/main/ets/pages/PageOneCounter.ets",
+      "buildFunction": "PageOneBuilder",
+      "data": {
+        "description": "this is PageOneCounter"
+      }
+    },
+    {
+      "name": "pageTwoCounter",
+      "pageSourceFile": "src/main/ets/pages/PageTwoCounter.ets",
+      "buildFunction": "PageTwoBuilder",
+      "data": {
+        "description": "this is PageTwoCounter"
+      }
+    },
+    {
+      "name": "pageTwoPositive",
+      "pageSourceFile": "src/main/ets/pages/PageTwoPositive.ets",
+      "buildFunction": "PageTwoBuilder",
+      "data": {
+        "description": "this is PageTwoPositive"
+      }
+    },
+    {
+      "name": "pageThreeCounter",
+      "pageSourceFile": "src/main/ets/pages/PageThreeCounter.ets",
+      "buildFunction": "PageThreeBuilder",
+      "data": {
+        "description": "this is PageThreeCounter"
+      }
+    },
+    {
+      "name": "pageThreePositive",
+      "pageSourceFile": "src/main/ets/pages/PageThreePositive.ets",
+      "buildFunction": "PageThreeBuilder",
+      "data": {
+        "description": "this is pageThreePositive"
+      }
+    },
+    {
+      "name": "pageFourCounter",
+      "pageSourceFile": "src/main/ets/pages/PageFourCounter.ets",
+      "buildFunction": "PageFourBuilder",
+      "data": {
+        "description": "this is PageFourCounter"
+      }
+    },
+    {
+      "name": "pageFourPositive",
+      "pageSourceFile": "src/main/ets/pages/PageFourPositive.ets",
+      "buildFunction": "PageFourBuilder",
+      "data": {
+        "description": "this is pageFourPositive"
+      }
+    },
+    {
+      "name": "pageFiveCounter",
+      "pageSourceFile": "src/main/ets/pages/PageFiveCounter.ets",
+      "buildFunction": "PageFiveBuilder",
+      "data": {
+        "description": "this is PageFiveCounter"
+      }
+    },
+    {
+      "name": "pageFivePositive",
+      "pageSourceFile": "src/main/ets/pages/PageFivePositive.ets",
+      "buildFunction": "PageFiveBuilder",
+      "data": {
+        "description": "this is pageFivePositive"
+      }
+    },
+    {
+      "name": "pageSixCounter",
+      "pageSourceFile": "src/main/ets/pages/PageSixCounter.ets",
+      "buildFunction": "PageSixBuilder",
+      "data": {
+        "description": "this is PageSixCounter"
+      }
+    },
+    {
+      "name": "pageSixPositive",
+      "pageSourceFile": "src/main/ets/pages/PageSixPositive.ets",
+      "buildFunction": "PageSixBuilder",
+      "data": {
+        "description": "this is pageSixPositive"
+      }
+    },
+    {
+      "name": "pageSevenCounter",
+      "pageSourceFile": "src/main/ets/pages/PageSevenCounter.ets",
+      "buildFunction": "PageSevenBuilder",
+      "data": {
+        "description": "this is PageSevenCounter"
+      }
+    },
+    {
+      "name": "pageSevenPositive",
+      "pageSourceFile": "src/main/ets/pages/PageSevenPositive.ets",
+      "buildFunction": "PageSevenBuilder",
+      "data": {
+        "description": "this is pageSevenPositive"
+      }
+    },
+    {
+      "name": "pageEightCounter",
+      "pageSourceFile": "src/main/ets/pages/PageEightCounter.ets",
+      "buildFunction": "PageEightBuilder",
+      "data": {
+        "description": "this is PageEightCounter"
+      }
+    },
+    {
+      "name": "pageEightPositive",
+      "pageSourceFile": "src/main/ets/pages/PageEightPositive.ets",
+      "buildFunction": "PageEightBuilder",
+      "data": {
+        "description": "this is pageEightPositive"
+      }
+    },
+    {
+      "name": "pageNineCounter",
+      "pageSourceFile": "src/main/ets/pages/PageNineCounter.ets",
+      "buildFunction": "PageNineBuilder",
+      "data": {
+        "description": "this is PageNineCounter"
+      }
+    },
+    {
+      "name": "pageNinePositive",
+      "pageSourceFile": "src/main/ets/pages/PageNinePositive.ets",
+      "buildFunction": "PageNineBuilder",
+      "data": {
+        "description": "this is pageNinePositive"
+      }
+    },
+    {
+      "name": "pageTenCounter",
+      "pageSourceFile": "src/main/ets/pages/PageTenCounter.ets",
+      "buildFunction": "PageTenBuilder",
+      "data": {
+        "description": "this is PageTenCounter"
+      }
+    },
+    {
+      "name": "pageTenPositive",
+      "pageSourceFile": "src/main/ets/pages/PageTenPositive.ets",
+      "buildFunction": "PageTenBuilder",
+      "data": {
+        "description": "this is pageTenPositive"
+      }
+    },
+    {
+      "name": "pageElevenCounter",
+      "pageSourceFile": "src/main/ets/pages/PageElevenCounter.ets",
+      "buildFunction": "PageElevenBuilder",
+      "data": {
+        "description": "this is PageElevenCounter"
+      }
+    },
+    {
+      "name": "pageElevenPositive",
+      "pageSourceFile": "src/main/ets/pages/PageElevenPositive.ets",
+      "buildFunction": "PageElevenBuilder",
+      "data": {
+        "description": "this is pageElevenPositive"
+      }
+    },
+    {
+      "name": "pageTweCounter",
+      "pageSourceFile": "src/main/ets/pages/PageTweCounter.ets",
+      "buildFunction": "PageTweBuilder",
+      "data": {
+        "description": "this is PageTweCounter"
+      }
+    },
+    {
+      "name": "pageTwePositive",
+      "pageSourceFile": "src/main/ets/pages/PageTwePositive.ets",
+      "buildFunction": "PageTweBuilder",
+      "data": {
+        "description": "this is pageTwePositive"
+      }
+    },
+    {
+      "name": "pageThirteenCounter",
+      "pageSourceFile": "src/main/ets/pages/PageThirteenCounter.ets",
+      "buildFunction": "PageThirteenBuilder",
+      "data": {
+        "description": "this is PageThirteenCounter"
+      }
+    },
+    {
+      "name": "pageThirteenPositive",
+      "pageSourceFile": "src/main/ets/pages/PageThirteenPositive.ets",
+      "buildFunction": "PageThirteenBuilder",
+      "data": {
+        "description": "this is pageThirteenPositive"
+      }
+    },
+    {
+      "name": "pageFourteenCounter",
+      "pageSourceFile": "src/main/ets/pages/PageFourteenCounter.ets",
+      "buildFunction": "PageFourteenBuilder",
+      "data": {
+        "description": "this is PageThirteenCounter"
+      }
+    },
+    {
+      "name": "pageFourteenPositive",
+      "pageSourceFile": "src/main/ets/pages/PageFourteenPositive.ets",
+      "buildFunction": "PageFourteenBuilder",
+      "data": {
+        "description": "this is pageFourteenPositive"
+      }
+    },
+    {
+      "name": "pageFifteenCounter",
+      "pageSourceFile": "src/main/ets/pages/PageFifteenCounter.ets",
+      "buildFunction": "PageFifteenBuilder",
+      "data": {
+        "description": "this is PageFifteenCounter"
+      }
+    },
+    {
+      "name": "pageFifteenPositive",
+      "pageSourceFile": "src/main/ets/pages/PageFifteenPositive.ets",
+      "buildFunction": "PageFifteenBuilder",
+      "data": {
+        "description": "this is pageFifteenPositive"
+      }
+    },
+    {
+      "name": "pageSixteenCounter",
+      "pageSourceFile": "src/main/ets/pages/PageSixteenCounter.ets",
+      "buildFunction": "PageSixteenBuilder",
+      "data": {
+        "description": "this is PageSixteenCounter"
+      }
+    },
+    {
+      "name": "pageSixteenPositive",
+      "pageSourceFile": "src/main/ets/pages/PageSixteenPositive.ets",
+      "buildFunction": "PageSixteenBuilder",
+      "data": {
+        "description": "this is pageSixteenPositive"
+      }
+    },
+    {
+      "name": "pageSeventeenCounter",
+      "pageSourceFile": "src/main/ets/pages/PageSeventeenCounter.ets",
+      "buildFunction": "PageSeventeenBuilder",
+      "data": {
+        "description": "this is PageSeventeenCounter"
+      }
+    },
+    {
+      "name": "pageSeventeenPositive",
+      "pageSourceFile": "src/main/ets/pages/PageSeventeenPositive.ets",
+      "buildFunction": "PageSeventeenBuilder",
+      "data": {
+        "description": "this is pageSeventeenPositive"
+      }
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "modelVersion": "5.0.0",
+  "dependencies": {
+    "@app/ets-generator": "file:../libs/autobuildrouter-1.0.5.tgz",
+    "@app/ets-decoration-generator": "file:../libs/autobuilddecoration-1.0.2.tgz"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "模块描述"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "description"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "cameraDemo"
+    },
+    {
+      "name": "reason",
+      "value": "test"
+    },
+    {
+      "name": "single_stage_mode",
+      "value": "单段拍照"
+    },
+    {
+      "name": "subsection_mode",
+      "value": "分段拍照"
+    },
+    {
+      "name": "200px",
+      "value": "200px"
+    },
+    {
+      "name": "120px",
+      "value": "120px"
+    },
+    {
+      "name": "100px",
+      "value": "100px"
+    },
+    {
+      "name": "60px",
+      "value": "60px"
+    },
+    {
+      "name": "50px",
+      "value": "50px"
+    },
+    {
+      "name": "40px",
+      "value": "40px"
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "string": [
+    {
+      "name": "customcalendarpickerdialog_departure",
+      "value": "北京"
+    },
+    {
+      "name": "customcalendarpickerdialog_destination",
+      "value": "上海"
+    },
+    {
+      "name": "customcalendarpickerdialog_check_ticket",
+      "value": "检查车票"
+    },
+    {
+      "name": "customcalendarpickerdialog_departure_date",
+      "value": "出发日期"
+    },
+    {
+      "name": "customcalendarpickerdialog_button_text",
+      "value": "仅演示，可自行实现业务功能"
+    },
+    {
+      "name": "customcalendarpickerdialog_week_width",
+      "value": "14.3%"
+    },
+    {
+      "name": "customcalendarpickerdialog_calendar_height",
+      "value": "90%"
+    },
+    {
+      "name": "ohos_id_text_size_body2",
+      "value": "14"
+    },
+    {
+      "name": "ohos_id_corner_radius_default_l",
+      "value": "16"
+    },
+    {
+      "name": "ohos_id_corner_radius_default_m",
+      "value": "12"
+    },
+    {
+      "name": "ohos_id_text_size_headline",
+      "value": "20"
+    },
+    {
+      "name": "ohos_id_text_size_body1",
+      "value": "14"
+    }
+  ]
+}

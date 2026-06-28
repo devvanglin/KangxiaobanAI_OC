@@ -1,0 +1,22 @@
+{
+  "modelVersion": "5.0.0",
+  "license": "",
+  "devDependencies": {
+    "@ohos/hypium": "1.0.11"
+  },
+  "author": "",
+  "name": "commonappdevelopment",
+  "description": "Please describe the basic information.",
+  "main": "",
+  "version": "1.0.0",
+  "overrides": {
+    '@ohos/mp4parser': '2.0.5-rc.1'
+  },
+  "dependencies": {
+    "@ohos/axios": "^2.1.1",
+    "@umeng/common": "^1.1.2",
+    "@umeng/analytics": "^1.2.2",
+    "@umeng/apm": "^1.1.0"
+  },
+  "dynamicDependencies": {}
+}

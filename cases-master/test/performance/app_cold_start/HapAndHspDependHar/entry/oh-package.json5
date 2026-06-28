@@ -1,0 +1,13 @@
+{
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "Please describe the basic information.",
+  "main": "",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "hsp_library": "file:../hsp_library",
+    "har_common": "file:../har_common"
+  }
+}
+

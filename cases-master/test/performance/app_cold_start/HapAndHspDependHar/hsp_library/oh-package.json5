@@ -1,0 +1,12 @@
+{
+  "name": "hsp_library",
+  "version": "1.0.0",
+  "description": "Please describe the basic information.",
+  "main": "Index.ets",
+  "author": "",
+  "license": "Apache-2.0",
+  "packageType": "InterfaceHar",
+  "dependencies": {
+    "har_common": "file:../har_common"
+  }
+}

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<user_config>
+    <environment>
+        <device type="usb-hdc">
+            <sn></sn>
+        </device>
+    </environment>
+    <testcases>
+        <dir></dir>
+    </testcases>
+    <loglevel>INFO</loglevel>
+    <devicelog>ON</devicelog>
+</user_config>

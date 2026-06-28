@@ -1,0 +1,16 @@
+{
+  "color": [
+    {
+      "name": "highlyloadedcomponentrender_color_year_background",
+      "value": "#33000000"
+    },
+    {
+      "name": "ohos_id_color_background",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "ohos_id_color_palette9",
+      "value": "#ED6F21"
+    }
+  ]
+}

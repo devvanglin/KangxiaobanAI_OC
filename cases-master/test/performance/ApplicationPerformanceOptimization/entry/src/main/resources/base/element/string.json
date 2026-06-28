@@ -1,0 +1,120 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "module description"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "description"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "DealStrideSolution"
+    },
+    {
+      "name": "camera_reason",
+      "value": "This permission is required for using the camera"
+    },
+    {
+      "name": "startup_text",
+      "value": "反例：不建议在首次加载完主页后，切换到第二个Tab页时才加载和处理网络数据，导致第二个Tab页的页面显示较慢，有较大的完成时延。"
+    },
+    {
+      "name": "startup_text2",
+      "value": "正例：建议在生命周期aboutToAppear中，使用TaskPool执行第二个Tab页的网络数据访问解析、数据加载等耗时操作，既可以提前完成数据加载，也不会影响主线程UI绘制和渲染。"
+    },
+    {
+      "name": "startup_text3",
+      "value": "反例：在aboutToAppear生命周期函数中，运行了业务数据解析和处理等耗时操作。"
+    },
+    {
+      "name": "startup_text4",
+      "value": "正例：把耗时操作的执行从同步执行改为异步或者延后执行。"
+    },
+    {
+      "name": "container_nested_only_show_for_ux",
+      "value": "仅做样式展示"
+    },
+    {
+      "name": "task_text",
+      "value": "2.正例"
+    },
+    {
+      "name": "task_text2",
+      "value": "2.反例"
+    },
+    {
+      "name": "only_show_for_ux",
+      "value": "only show for ux"
+    },
+    {
+      "name": "title_one",
+      "value": "DealStrideOne"
+    },
+    {
+      "name": "title_two",
+      "value": "DealStrideTwo"
+    },
+    {
+      "name": "title_three",
+      "value": "NoDealStride"
+    },
+    {
+      "name": "total_title",
+      "value": "Camera preview flower screen solution"
+    },
+    {
+      "name": "btn_one",
+      "value": "Dealing with stride: Option One"
+    },
+    {
+      "name": "btn_two",
+      "value": "Dealing with stride: Option two"
+    },
+    {
+      "name": "btn_three",
+      "value": "Counter example: stride not processed"
+    },
+    {
+      "name": "with_func_title",
+      "value": "List%d"
+    },
+    {
+      "name": "jump_text_one",
+      "value": "This is message number %d:"
+    },
+    {
+      "name": "pic_text_list",
+      "value": "picture and text list"
+    },
+    {
+      "name": "test",
+      "value": "test"
+    },
+    {
+      "name": "ske_load_failed",
+      "value": "网络加载失败"
+    },
+    {
+      "name": "ske_reload",
+      "value": "重新加载"
+    },
+    {
+      "name": "ske_to_view",
+      "value": "去浏览第一篇文章"
+    },
+    {
+      "name": "ske_photography_works",
+      "value": "摄影作品"
+    },
+    {
+      "name": "ske_natural_scenery",
+      "value": "自然风光"
+    },
+    {
+      "name": "ske_prompt_text",
+      "value": "仅演示，可自行实现业务功能"
+    }
+  ]
+}

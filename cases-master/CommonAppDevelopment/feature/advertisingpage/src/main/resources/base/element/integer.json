@@ -1,0 +1,48 @@
+{
+  "integer": [
+    {
+      "name": "advertising_page_gif_margin",
+      "value": 180
+    },
+    {
+      "name": "advertising_page_font_size",
+      "value": 24
+    },
+    {
+      "name": "advertising_description_font_size",
+      "value": 20
+    },
+    {
+      "name": "advertising_description_text_margin",
+      "value": 10
+    },
+    {
+      "name": "advertising_description_margin",
+      "value": 200
+    },
+    {
+      "name": "advertising_description_skip_font_size",
+      "value": 16
+    },
+    {
+      "name": "advertising_description_pageCountDown_margin",
+      "value": 4
+    },
+    {
+      "name": "advertising_description_skip_position_x",
+      "value": 280
+    },
+    {
+      "name": "advertising_description_skip_position_y",
+      "value": 40
+    },
+    {
+      "name": "advertising_description_skip_width",
+      "value": 80
+    },
+    {
+      "name": "advertising_description_skip_borderRadius",
+      "value": 18
+    }
+  ]
+}

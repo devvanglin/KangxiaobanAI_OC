@@ -1,0 +1,20 @@
+{
+  "string": [
+    {
+      "name": "skip",
+      "value": "跳过"
+    },
+    {
+      "name": "advertising_page",
+      "value": "通用场景开发案例集"
+    },
+    {
+      "name": "advertising_description",
+      "value": "帮助开发者快速上手鸿蒙应用开发"
+    },
+    {
+      "name": "advertising_description_backgroundColor",
+      "value": "rgba(0,0,0,0.3)"
+    }
+  ]
+}

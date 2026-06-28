@@ -1,0 +1,12 @@
+{
+  "routerMap": [
+    {
+      "name": "SecondPage",
+      "pageSourceFile": "src/main/ets/pages/SecondPage.ets",
+      "buildFunction": "SecondPageBuilder",
+      "data": {
+        "description": "this is SecondPage"
+      }
+    }
+  ]
+}

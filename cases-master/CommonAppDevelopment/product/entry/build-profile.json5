@@ -1,0 +1,256 @@
+/*
+ * Copyright (c) 2024 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+{
+  "apiType": "stageMode",
+  "buildOption": {
+    "arkOptions": {
+      // TODO：知识点：动态路由中使用了动态import变量表达式的能力，需要在这里配置模块名，和oh-package.json5中dependencies下面配置的模块名相同。
+      "runtimeOnly": {
+        "sources": [
+        ],
+        "packages": [
+          "collapsemenu",
+          "eventpropagation",
+          "nativerawfile",
+          "customtabbar",
+          "secondarylinkage",
+          "barchart",
+          "addressexchange",
+          "imageviewer",
+          "pendingitems",
+          "gbktranscoding",
+          "handletabs",
+          "modalwindow",
+          "slidetohideanddisplace",
+          "navigationparametertransfer",
+          "akiusepractice",
+          "variablewatch",
+          "photopickandsave",
+          "pageturninganimation",
+          "fitfordarkmode",
+          "marquee",
+          "pulltorefreshnews",
+          "verifycode",
+          "nativeprogressnotify",
+          "xcomponentvsync",
+          "vibrateeffect",
+          "swipersmoothvariation",
+          "applicationexception",
+          "navigationbarchange",
+          "mediafullscreen",
+          "citysearch",
+          "waterripples",
+          "foldablescreencases",
+          "imagecomment",
+          "searchcomponent",
+          "nativesavepictosandbox",
+          "componentstack",
+          "customview",
+          "dragandexchange",
+          "customcalendarpickerdialog",
+          "decompressfile",
+          "paintcomponent",
+          "shortvideo",
+          "digitalscrollanimation",
+          "lottieview",
+          "votingcomponent",
+          "webgetcameraimage",
+          "sidebaranimation",
+          "imagecompression",
+          "imageenableanalyzer",
+          "chinesetopinyin",
+          "bottomdrawerslidecase",
+          "expandtitle",
+          "listslidetohistory",
+          "pageloading",
+          "hilogmonitormanagement",
+          "bigfilecopy",
+          "diggingholescreen",
+          "dragtoswitchpictures",
+          "listitemoverflow",
+          "componentinstancesharedinpages",
+          "customsafekeyboard",
+          "databaseupgrade",
+          "listitemoverflow",
+          "transitionanimation",
+          "imagegridlayout",
+          "dynamicattributes",
+          "etswrapper",
+          "handwritingtoimage",
+          "indicatorbelowswiper",
+          "multimodaltransion",
+          "multiplefilesdownload",
+          "nativeembed",
+          "sideslipintercept",
+          "webpdfviewer",
+          "imagetheft",
+          "cardswiperanimation",
+          "fontdynamicregistration",
+          "customscan",
+          "imagedepthcopy",
+          "pageflip",
+          "videocache",
+          "iconmaincolor",
+          "effectkit",
+          "highlightguide",
+          "wordrecognition",
+          "analogclock",
+          "webcustompressmenu",
+          "bottompanelslide",
+          "danmakuplayer",
+          "listexchange",
+          "tabcontentoverflow",
+          "chatwithexpression",
+          "floatwindow",
+          "gridexchange",
+          "miniplayeranimation",
+          "refreshtimeline",
+          "webpagesnapshot",
+          "navigationinterceptor",
+          "voicerecordynamiceffect",
+          "blendmode",
+          "secondfloorloadanimation",
+          "styledtext",
+          "customdialog",
+          "textexpand",
+          "imageresizable",
+          "swipercomponent",
+          "fadingedge",
+          "textoverflow",
+          "watermark",
+          "customstepper",
+          "navdestinationdialog",
+          "searchswiper",
+          "highlyloadedcomponentrender",
+          "videolinkagelist",
+          "customkeyboardtoh5",
+          "customreusablepool",
+          "operaterdbintaskpool",
+          "sendmessage",
+          "palette",
+          "skeletondiagram",
+          "imagemosaic",
+          "calendarswitch",
+          "videoscreendirectionswitching",
+          "customdrawtabbar",
+          "eraser",
+          "bluetooth",
+          "imperativedynamiclayouts",
+          "customdecoration",
+          "videolistautoplay",
+          "editaddress",
+          "customanimationtab",
+          "statusbaranimation",
+          "verticalhorizontallinkage",
+          "livedetectionandencryptiond",
+          "addressrecognize",
+          "groupavatar",
+          "h5cache",
+          "publishmultimediaupdates",
+          "keyboardavoid",
+          "patternlock",
+          "selecttextmenu",
+          "shareimagepage",
+          "immersive",
+          "containernestedslide",
+          "healthchart",
+          "backgroundblur",
+          "pipwindow",
+          "clockin",
+          "compressfile",
+          "privacyagreement",
+          "decodeheifimage",
+          "videocreategif",
+          "customaddresspicker",
+          "clickanimation",
+          "toolbox",
+          "networkstatusobserver",
+          "multiplescreening",
+          "limitedheightbottomdialog",
+          "faceandfingerprintunlocking",
+          "cuberotateanimation",
+          "multicolumndisplay",
+          "dealstridesolution",
+          "videotrimmer",
+          "encapsulationdialog",
+          "smartfill",
+          "sharebutton"
+        ]
+      }
+    }
+  },
+  "targets": [
+    {
+      "name": "default",
+      "runtimeOS": "HarmonyOS",
+      "source": {
+        // 定义stage模型中tablet版本target的pages源码文件，可根据需求选择区别于默认版本的源码文件。
+        "pages": [
+          "pages/EntryView",
+          "pages/AdvertisingPage"
+        ]
+      }
+    },
+    {
+      // TODO: 知识点：在生产环境下配置target为phone版本的打包规则
+      "name": "phone_target_product",
+      "runtimeOS": "HarmonyOS",
+      "config": {
+        "buildOption": {
+          "arkOptions": {
+            "buildProfileFields": {
+              // buildProfileFields自定义参数"productName"
+              "productName": "phone_target_product"
+            }
+          }
+        }
+      },
+      "source": {
+        // 定义stage模型中tablet版本target的pages源码文件，可根据需求选择区别于默认版本的源码文件。
+        "pages": [
+          "pages/EntryView",
+          "pages/AdvertisingPage"
+        ]
+      }
+    },
+    // TODO: 知识点：配置target为tablet版本的打包规则
+    {
+      // tablet版本target名称。
+      "name": "tablet_target",
+      "runtimeOS": "HarmonyOS",
+      "config": {
+        "deviceType": [  // 定义tablet版本支持的设备类型为tablet，支持的设备类型必须在config.json或module.json5中已经定义。
+          "tablet"
+        ]
+      },
+      "source": {
+        // 定义stage模型中tablet版本target的pages源码文件，可根据需求选择区别于默认版本的源码文件。
+        "pages": [
+          "tablet/pages/EntryView"
+        ]
+      },
+      "resource": {
+        // 定义tablet版本使用的资源文件目录，该功能在API 9及以上版本的工程中生效，可根据需求选择区别于默认版本的资源文件。
+        "directories": [
+          "./src/main/resources"
+        ]
+      }
+    },
+    {
+      "name": "ohosTest",
+    }
+  ]
+}
