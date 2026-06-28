@@ -1,0 +1,207 @@
+{
+  "strarray": [
+    {
+      "name": "week_message",
+      "value": [
+        {
+          "value": "Sun."
+        },
+        {
+          "value": "Mon."
+        },
+        {
+          "value": "Tue."
+        },
+        {
+          "value": "Wed."
+        },
+        {
+          "value": "Thu."
+        },
+        {
+          "value": "Fri."
+        },
+        {
+          "value": "Sat."
+        }
+      ]
+    },
+    {
+      "name": "trip_schedule_view",
+      "value": [
+        {
+          "value": "Today"
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "September"
+        }
+      ]
+    },
+    {
+      "name": "calendar_side_bar_text",
+      "value": [
+        {
+          "value": "Calendar"
+        },
+        {
+          "value": "Calendar Account"
+        },
+        {
+          "value": "Add"
+        },
+        {
+          "value": "Huawei Account"
+        },
+        {
+          "value": "My Calendar"
+        },
+        {
+          "value": "Chinese Mainland Holidays"
+        },
+        {
+          "value": "Welink"
+        },
+        {
+          "value": "0012345678..."
+        },
+        {
+          "value": "Subscription"
+        },
+        {
+          "value": "Adm."
+        },
+        {
+          "value": "Huangli (Chinese almanac)"
+        },
+        {
+          "value": "Constellation"
+        },
+        {
+          "value": "Message Center"
+        },
+        {
+          "value": "Unread"
+        },
+        {
+          "value": "Read Already"
+        }
+      ]
+    },
+    {
+      "name": "september",
+      "value": [
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        },
+        {
+          "value": "  "
+        }
+      ]
+    }
+  ]
+}

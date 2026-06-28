@@ -1,0 +1,560 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "module description"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "description"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "ResponseLayout"
+    },
+    {
+      "name": "tabs",
+      "value": "Bottom/Side Tabs Layout"
+    },
+    {
+      "name": "list",
+      "value": "List Layout"
+    },
+    {
+      "name": "grid",
+      "value": "Grid Layout"
+    },
+    {
+      "name": "swiper",
+      "value": "Swiper Layout"
+    },
+    {
+      "name": "water_flow",
+      "value": "Water Flow Layout"
+    },
+    {
+      "name": "sidebar",
+      "value": "Sidebar Layout"
+    },
+    {
+      "name": "double_column",
+      "value": "Double Column Layout"
+    },
+    {
+      "name": "double_column_conversation",
+      "value": "Double Column Example - Chat"
+    },
+    {
+      "name": "triple_column",
+      "value": "Triple Column Layout"
+    },
+    {
+      "name": "move_layout",
+      "value": "Move Layout"
+    },
+    {
+      "name": "indented_layout",
+      "value": "Indented Layout"
+    },
+    {
+      "name": "tab_home",
+      "value": "home"
+    },
+    {
+      "name": "tab_category",
+      "value": "category"
+    },
+    {
+      "name": "tab_discovery",
+      "value": "find"
+    },
+    {
+      "name": "tab_shopping_bag",
+      "value": "bag"
+    },
+    {
+      "name": "tab_mine",
+      "value": "mine"
+    },
+    {
+      "name": "navigation_content_home",
+      "value": "Content area homepage"
+    },
+    {
+      "name": "navigation_content_detail",
+      "value": "Content details page"
+    },
+    {
+      "name": "navigation_content_switch",
+      "value": "Switch content area"
+    },
+    {
+      "name": "navigation_content_area_2",
+      "value": "Content area 2"
+    },
+    {
+      "name": "navigation_bar",
+      "value": "Navigation bar"
+    },
+    {
+      "name": "song_list",
+      "value": "Song list"
+    },
+    {
+      "name": "side_bar",
+      "value": "Side bar"
+    },
+    {
+      "name": "main_page",
+      "value": "Main page"
+    },
+    {
+      "name": "song_description",
+      "value": "Song description"
+    },
+    {
+      "name": "playlist",
+      "value": "Playlist"
+    },
+    {
+      "name": "jump_content_home",
+      "value": "Jump to content homepage"
+    },
+    {
+      "name": "jump_content_detail",
+      "value": "Jump to content detail page"
+    },
+    {
+      "name": "sample_name",
+      "value": "Responsive Layout Based on Multi Capability"
+    },
+    {
+      "name": "recvBox",
+      "value": "Inbox"
+    },
+    {
+      "name": "searchMail",
+      "value": "Searching for Messages"
+    },
+    {
+      "name": "nonSense",
+      "value": "xxxx"
+    },
+    {
+      "name": "textPartOne",
+      "value": "Welcome to your membership space"
+    },
+    {
+      "name": "textPartTwo",
+      "value": "Dear jiaozi, your xxxx membership space has been created..."
+    },
+    {
+      "name": "account",
+      "value": "Account"
+    },
+    {
+      "name": "addAccount",
+      "value": "Adding an Account"
+    },
+    {
+      "name": "unRead",
+      "value": "Unread Messages"
+    },
+    {
+      "name": "sended",
+      "value": "Sent"
+    },
+    {
+      "name": "allFolders",
+      "value": "Show All Folders"
+    },
+    {
+      "name": "reply",
+      "value": "Reply"
+    },
+    {
+      "name": "replyAll",
+      "value": "Reply to all"
+    },
+    {
+      "name": "send",
+      "value": "Forwarding"
+    },
+    {
+      "name": "delete",
+      "value": "Deletion"
+    },
+    {
+      "name": "more",
+      "value": "More"
+    },
+    {
+      "name": "recUser",
+      "value": "Recipient："
+    },
+    {
+      "name": "mailDesc",
+      "value": "Imjiaozi and 3 others"
+    },
+    {
+      "name": "textData",
+      "value": "Want to try xx mailbox now?"
+    },
+    {
+      "name": "bodyTextPartOne",
+      "value": "Let's log in to e-mail together. Add a personal email account: Open the email, select an email service provider or touch Other, enter the email address and password, touch Login, and follow the prompts to configure the account. The system will automatically connect to the server and check the server settings."
+    },
+    {
+      "name": "bodyTextPartTwo",
+      "value": "Add xxxxxx account: xxxxxx is developed by xx company and is used for the internal email exchange system of the enterprise. If your company mailbox uses the xxxxxx server, you can log in to the company mailbox on your mobile phone. Choose Email > [xxxxxx], enter the email address, user name, and password, click Login, and configure as prompted. The system automatically connects to the server and checks the server settings."
+    },
+    {
+      "name": "bodyTextPartThree",
+      "value": "After the configuration is successful, the Inbox page is displayed by default. During the login, some mailboxes require an authorization code. Follow the onscreen instructions to obtain and enter the authorization code. The xx mailbox can automatically obtain the authorization code and log in to the system with one click."
+    },
+    {
+      "name": "triple_column_mail",
+      "value": "Triple Column Example - Mailbox"
+    },
+    {
+      "name": "trip_content",
+      "value": "Go to Beijing..."
+    },
+    {
+      "name": "trip_conflicting",
+      "value": "Conflict"
+    },
+    {
+      "name": "trip_schedule1",
+      "value": "[Meeting Notice] Regular Joint Meeting for Procurement, Sales and Other Teams"
+    },
+    {
+      "name": "trip_schedule2",
+      "value": "Weekly Regular Meeting - All Staff Required"
+    },
+    {
+      "name": "trip_schedule3",
+      "value": "Regular Meeting for Annual Sales Growth"
+    },
+    {
+      "name": "trip_schedule4",
+      "value": "Monthly Work Summary and Plan"
+    },
+    {
+      "name": "trip_schedule5",
+      "value": "Team Collaboration Improvement"
+    },
+    {
+      "name": "year",
+      "value": "Year"
+    },
+    {
+      "name": "month",
+      "value": "Month"
+    },
+    {
+      "name": "week",
+      "value": "Week"
+    },
+    {
+      "name": "day",
+      "value": "Day"
+    },
+    {
+      "name": "triple_column_calendar",
+      "value": "Triple Column Example - Calendar"
+    },
+    {
+      "name": "eighty_percent",
+      "value": "80%"
+    },
+    {
+      "name": "tab_moments",
+      "value": "Moments"
+    },
+    {
+      "name": "tab_shopping",
+      "value": "Shopping"
+    },
+    {
+      "name": "tab_me",
+      "value": "Me"
+    },
+    {
+      "name": "selected",
+      "value": "Selected"
+    },
+    {
+      "name": "video",
+      "value": "Video"
+    },
+    {
+      "name": "community",
+      "value": "Community"
+    },
+    {
+      "name": "news",
+      "value": "News"
+    },
+    {
+      "name": "compare",
+      "value": "Compare"
+    },
+    {
+      "name": "PRODUCT_PRICE_NAMES1",
+      "value": "There are still"
+    },
+    {
+      "name": "PRODUCT_PRICE_NAMES2",
+      "value": "Enjoy up to 12 interest-free installments"
+    },
+    {
+      "name": "PRODUCT_PRICE_NAMES3",
+      "value": "Boutique"
+    },
+    {
+      "name": "PRODUCT_PRICE_NAMES4",
+      "value": "Direct ¥800 off (Ltd Time)"
+    },
+    {
+      "name": "PRODUCT_PRICE_NAMES5",
+      "value": "Trade in subsidy"
+    },
+    {
+      "name": "PRODUCT_PRICE_NAMES6",
+      "value": "Disc."
+    },
+    {
+      "name": "PRODUCT_PRICE_NAMES7",
+      "value": "Longgang, Shenzhen, Guangdong"
+    },
+    {
+      "name": "PRODUCT_PRICE_NAMES8",
+      "value": "In stock"
+    },
+    {
+      "name": "PRODUCT_CONFIG_NAMES4",
+      "value": "Rec."
+    },
+    {
+      "name": "PRODUCT_DISCOUNT_NAMES1",
+      "value": "【 Stock Quick Release 】 HUAWEI Mate X5 12GB+512GB Phantom Purple"
+    },
+    {
+      "name": "PRODUCT_DISCOUNT_NAMES2",
+      "value": "【 Huawei Super New Product Season 】 1. Limited edition purchase with a smart window protection case worth 299 yuan 2. Student authentication discount of 100 yuan (click down to learn more) 3. Trade in for new up to 500 yuan subsidy | More selected phones click to learn>>Ultra clear mirror dual screen | Ultra thin four fold folding"
+    },
+    {
+      "name": "PRODUCT_DISCOUNT_NAMES3",
+      "value": "Limited edition gift with unlimited earphones, Vitality Edition"
+    },
+    {
+      "name": "PRODUCT_CONFIG_NAMES1",
+      "value": "Selected"
+    },
+    {
+      "name": "PRODUCT_CONFIG_NAMES2",
+      "value": "Phantom Purple · 512GB · Instant Delivery in Stock"
+    },
+    {
+      "name": "PRODUCT_CONFIG_NAMES3",
+      "value": "Pair"
+    },
+    {
+      "name": "PRODUCT_CONFIG_NAMES5",
+      "value": "Recycle"
+    },
+    {
+      "name": "PRODUCT_CONFIG_NAMES6",
+      "value": "High recycling, extra subsidies"
+    },
+    {
+      "name": "PRODUCT_CONFIG_NAMES7",
+      "value": "Free shipping for orders over 48 yuan"
+    },
+    {
+      "name": "PRODUCT_CONFIG_NAMES8",
+      "value": "Products, shipping invoices, and after-sales services provided by Huawei terminals"
+    },
+    {
+      "name": "USER_COMMENT_NAMES1",
+      "value": "User reviews (1500+)"
+    },
+    {
+      "name": "USER_COMMENT_NAMES2",
+      "value": "Most Popular 77"
+    },
+    {
+      "name": "USER_COMMENT_NAMES3",
+      "value": "Content 858"
+    },
+    {
+      "name": "USER_COMMENT_NAMES4",
+      "value": "There is Figures 217"
+    },
+    {
+      "name": "USER_COMMENT_NAMES5",
+      "value": "Y**********"
+    },
+    {
+      "name": "USER_COMMENT_NAMES6",
+      "value": "Huawei phones have good battery life, clear camera performance, smooth operation, and powerful functions. The key is their outstanding appearance, which is highly recommended!"
+    },
+    {
+      "name": "USER_COMMENT_NAMES7",
+      "value": "All reviews"
+    },
+    {
+      "name": "USER_COMMENT_NAMES8",
+      "value": "Yaojin Black, 256GB, in stock quick delivery"
+    },
+    {
+      "name": "add_cart",
+      "value": "Add to cart"
+    },
+    {
+      "name": "buy",
+      "value": "Buy"
+    },
+    {
+      "name": "shopping_title",
+      "value": "HUAWEI Mate X5"
+    },
+    {
+      "name": "message",
+      "value": "Message"
+    },
+    {
+      "name": "TongT",
+      "value": "Free TongT"
+    },
+    {
+      "name": "Tom",
+      "value": "Tom"
+    },
+    {
+      "name": "football",
+      "value": "Football Association"
+    },
+    {
+      "name": "Lily",
+      "value": "Lily"
+    },
+    {
+      "name": "Jack2",
+      "value": "Jack2"
+    },
+    {
+      "name": "ZhangXT",
+      "value": "ZhangXT"
+    },
+    {
+      "name": "sport_club",
+      "value": "Sport club"
+    },
+    {
+      "name": "happy_thing",
+      "value": "Ha ha, what's the happy event?"
+    },
+    {
+      "name": "product_view",
+      "value": "Huawei has released a new phone, take a look"
+    },
+    {
+      "name": "waiting_for_long",
+      "value": "I have been waiting for this for a long time!"
+    },
+    {
+      "name": "Speed",
+      "value": "Please drink milk tea, quickly order it!! Speed, speed, all that's missing is you"
+    },
+    {
+      "name": "withdraw",
+      "value": "A message was withdrawn"
+    },
+    {
+      "name": "okay",
+      "value": "Okay, I'll be there tomorrow"
+    },
+    {
+      "name": "yesterday",
+      "value": "yesterday"
+    },
+    {
+      "name": "ZhangXM",
+      "value": "ZhangXM"
+    },
+    {
+      "name": "LiuXX",
+      "value": "LiuXX"
+    },
+    {
+      "name": "LiuXXMsg",
+      "value": "A message was withdrawn"
+    },
+    {
+      "name": "DengSS",
+      "value": "DengSS"
+    },
+    {
+      "name": "DengSSMsg",
+      "value": "I'll treat you to milk tea, hurry up and order, it's about to sell out"
+    },
+    {
+      "name": "FenF",
+      "value": "FenF"
+    },
+    {
+      "name": "FenFMsg",
+      "value": "Ok"
+    },
+    {
+      "name": "Jack",
+      "value": "Jack"
+    },
+    {
+      "name": "jack",
+      "value": "This is the material for tomorrow's meeting. Please send it to Jack for his confirmation"
+    },
+    {
+      "name": "ok",
+      "value": "Ok, copy that"
+    },
+    {
+      "name": "milk",
+      "value": "Fen-fen invited you for milk tea"
+    },
+    {
+      "name": "plan",
+      "value": "Marketing Department 2023 new product promotion plan"
+    },
+    {
+      "name": "search",
+      "value": "Search..."
+    },
+    {
+      "name": "group",
+      "value": "group"
+    },
+    {
+      "name": "card",
+      "value": "name card holder"
+    },
+    {
+      "name": "Alan",
+      "value": "Alan"
+    },
+    {
+      "name": "happy",
+      "value": "Ha-ha, what's the happy news today"
+    },
+    {
+      "name": "url",
+      "value": "link"
+    },
+    {
+      "name": "default_username",
+      "value": "ZhangXM"
+    }
+  ]
+}

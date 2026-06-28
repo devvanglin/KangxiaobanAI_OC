@@ -1,0 +1,152 @@
+{
+  "color": [
+    {
+      "name": "start_window_background",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "button_background",
+      "value": "#007DFF"
+    },
+    {
+      "name": "window_background",
+      "value": "#F1F3F5"
+    },
+    {
+      "name": "orange",
+      "value": "#F76045"
+    },
+    {
+      "name": "background_gray",
+      "value": "#0d000000"
+    },
+    {
+      "name": "font_color_gray",
+      "value": "#66000000"
+    },
+    {
+      "name": "index_button_background_color",
+      "value": "#FCFDFF"
+    },
+    {
+      "name": "sidebar_stack",
+      "value": "#33000000"
+    },
+    {
+      "name": "notes_sidebar_color",
+      "value": "#E6BA0B"
+    },
+    {
+      "name": "black",
+      "value": "#000000"
+    },
+    {
+      "name": "search_color",
+      "value": "#cc000000"
+    },
+    {
+      "name": "purple",
+      "value": "#7A6FEB"
+    },
+    {
+      "name": "trip_background_color",
+      "value": "#337a6feb"
+    },
+    {
+      "name": "notes_sidebar_content",
+      "value": "#33e6ba0b"
+    },
+    {
+      "name": "gray",
+      "value": "#808080"
+    },
+    {
+      "name": "swiper_indicator_background",
+      "value": "#66000000"
+    },
+    {
+      "name": "products_compare",
+      "value": "#0D000000"
+    },
+    {
+      "name": "products_info",
+      "value": "#F1F3F5"
+    },
+    {
+      "name": "products_info_background_2",
+      "value": "#B3CF0A2C"
+    },
+    {
+      "name": "time_tip_background",
+      "value": "#FFAE0D0D"
+    },
+    {
+      "name": "service_font_color",
+      "value": "#CF0A2C"
+    },
+    {
+      "name": "price_tag_border_color",
+      "value": "#CF0A2C"
+    },
+    {
+      "name": "products_info_text",
+      "value": "#CF0A2C"
+    },
+    {
+      "name": "products_info_background_1",
+      "value": "#1ACF0A2C"
+    },
+    {
+      "name": "divider_color",
+      "value": "#19000000"
+    },
+    {
+      "name": "config_tip_background",
+      "value": "#05000000"
+    },
+    {
+      "name": "user_comments_tag_background",
+      "value": "#0D000000"
+    },
+    {
+      "name": "common_divider_color",
+      "value": "#0D000000"
+    },
+    {
+      "name": "background_color_grey",
+      "value": "#F6F6F6"
+    },
+    {
+      "name": "conversation_default_text_color",
+      "value": "#182431"
+    },
+    {
+      "name": "conversation_clicked_bg_color",
+      "value": "#33D8D8D8"
+    },
+    {
+      "name": "background_color_grey_three",
+      "value": "#8A9097"
+    },
+    {
+      "name": "divider_background_color",
+      "value": "#E6E6E6"
+    },
+    {
+      "name": "text_input_default_color",
+      "value": "#99000000"
+    },
+    {
+      "name": "text_input_default_background_color",
+      "value": "#F1F3F5"
+    },
+    {
+      "name": "text_input_default_care_color",
+      "value": "#007DFF"
+    },
+    {
+      "name": "conversation_none_icon_bg_color",
+      "value": "#F6F6F6"
+    }
+  ]
+}

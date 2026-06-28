@@ -1,0 +1,560 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "module description"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "description"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "响应式布局"
+    },
+    {
+      "name": "tabs",
+      "value": "底部/侧边导航"
+    },
+    {
+      "name": "list",
+      "value": "列表布局"
+    },
+    {
+      "name": "grid",
+      "value": "宫格布局"
+    },
+    {
+      "name": "swiper",
+      "value": "轮播布局"
+    },
+    {
+      "name": "water_flow",
+      "value": "瀑布流布局"
+    },
+    {
+      "name": "sidebar",
+      "value": "侧边栏"
+    },
+    {
+      "name": "double_column",
+      "value": "二分栏"
+    },
+    {
+      "name": "double_column_conversation",
+      "value": "二分栏示例——聊天"
+    },
+    {
+      "name": "triple_column",
+      "value": "三分栏"
+    },
+    {
+      "name": "move_layout",
+      "value": "挪移布局"
+    },
+    {
+      "name": "indented_layout",
+      "value": "缩进布局"
+    },
+    {
+      "name": "tab_home",
+      "value": "首页"
+    },
+    {
+      "name": "tab_category",
+      "value": "分类"
+    },
+    {
+      "name": "tab_discovery",
+      "value": "发现"
+    },
+    {
+      "name": "tab_shopping_bag",
+      "value": "购物袋"
+    },
+    {
+      "name": "tab_mine",
+      "value": "我的"
+    },
+    {
+      "name": "navigation_content_home",
+      "value": "内容区首页"
+    },
+    {
+      "name": "navigation_content_detail",
+      "value": "内容区详情页"
+    },
+    {
+      "name": "navigation_content_switch",
+      "value": "切换内容区2并单栏显示"
+    },
+    {
+      "name": "navigation_content_area_2",
+      "value": "内容区2"
+    },
+    {
+      "name": "navigation_bar",
+      "value": "导航栏"
+    },
+    {
+      "name": "song_list",
+      "value": "歌曲列表"
+    },
+    {
+      "name": "side_bar",
+      "value": "侧边栏"
+    },
+    {
+      "name": "main_page",
+      "value": "主页面"
+    },
+    {
+      "name": "song_description",
+      "value": "歌单描述"
+    },
+    {
+      "name": "playlist",
+      "value": "歌单"
+    },
+    {
+      "name": "jump_content_home",
+      "value": "跳转内容区首页"
+    },
+    {
+      "name": "jump_content_detail",
+      "value": "跳转内容区详情页"
+    },
+    {
+      "name": "sample_name",
+      "value": "基于一多能力实现响应式布局"
+    },
+    {
+      "name": "recvBox",
+      "value": "收件箱"
+    },
+    {
+      "name": "searchMail",
+      "value": "搜索邮件"
+    },
+    {
+      "name": "nonSense",
+      "value": "xxxx"
+    },
+    {
+      "name": "textPartOne",
+      "value": "欢迎来到您的会员空间"
+    },
+    {
+      "name": "textPartTwo",
+      "value": "亲爱的 jiaozi ，  您的xxxx 会员空间已经创..."
+    },
+    {
+      "name": "account",
+      "value": "账户"
+    },
+    {
+      "name": "addAccount",
+      "value": "添加账户"
+    },
+    {
+      "name": "unRead",
+      "value": "未读邮件"
+    },
+    {
+      "name": "sended",
+      "value": "已发送"
+    },
+    {
+      "name": "allFolders",
+      "value": "显示全部文件夹"
+    },
+    {
+      "name": "reply",
+      "value": "回复"
+    },
+    {
+      "name": "replyAll",
+      "value": "全部回复"
+    },
+    {
+      "name": "send",
+      "value": "转发"
+    },
+    {
+      "name": "delete",
+      "value": "删除"
+    },
+    {
+      "name": "more",
+      "value": "更多"
+    },
+    {
+      "name": "recUser",
+      "value": "收件人："
+    },
+    {
+      "name": "mailDesc",
+      "value": "imjiaozi以及其他3个"
+    },
+    {
+      "name": "textData",
+      "value": "想要马上试用xx邮箱吗？"
+    },
+    {
+      "name": "bodyTextPartOne",
+      "value": "来我们一起登录电子邮件。添加个人邮箱账户：打开电子邮件，选择一个邮箱服务提供商或点击其他，输入电子邮件地址和密码，点击登录，按照提示进行配置，系统会自动连接服务器并检查服务器设置。"
+    },
+    {
+      "name": "bodyTextPartTwo",
+      "value": "添加xxxxxx账户：xxxxxx是由xx公司开发，用于企业内部的邮件交换系统，如果您的公司邮箱使用xxxxxx服务器，您可以在手机上登录公司邮箱。打开【电子邮箱】>【xxxxxx】，输入电子邮箱地址，用户名和密码，点击登录，按照提示进行配置，系统会自动连接服务器并检查服务器设置。"
+    },
+    {
+      "name": "bodyTextPartThree",
+      "value": "配置成功后，系统默认进入收件箱界面。在登录过程中，有些邮箱需要收入授权码，请按照屏幕提示获取并输入授权码，其中xx邮箱可以自动获取授权码并一键登录。"
+    },
+    {
+      "name": "triple_column_mail",
+      "value": "三分栏示例——邮箱"
+    },
+    {
+      "name": "trip_content",
+      "value": "去北京..."
+    },
+    {
+      "name": "trip_conflicting",
+      "value": "冲突"
+    },
+    {
+      "name": "trip_schedule1",
+      "value": "【会议通知】采购、销售等团队会议例会串讲"
+    },
+    {
+      "name": "trip_schedule2",
+      "value": "周例会全员参加"
+    },
+    {
+      "name": "trip_schedule3",
+      "value": "年度销售额提升例会"
+    },
+    {
+      "name": "trip_schedule4",
+      "value": "月度工作总结与计划"
+    },
+    {
+      "name": "trip_schedule5",
+      "value": "团队协作提升"
+    },
+    {
+      "name": "year",
+      "value": "年"
+    },
+    {
+      "name": "month",
+      "value": "月"
+    },
+    {
+      "name": "week",
+      "value": "周"
+    },
+    {
+      "name": "day",
+      "value": "日"
+    },
+    {
+      "name": "triple_column_calendar",
+      "value": "三分栏示例——日历"
+    },
+    {
+      "name": "eighty_percent",
+      "value": "80%"
+    },
+    {
+      "name": "tab_moments",
+      "value": "动态"
+    },
+    {
+      "name": "tab_shopping",
+      "value": "会员购"
+    },
+    {
+      "name": "tab_me",
+      "value": "我的"
+    },
+    {
+      "name": "selected",
+      "value": "精选"
+    },
+    {
+      "name": "video",
+      "value": "视频"
+    },
+    {
+      "name": "community",
+      "value": "社区"
+    },
+    {
+      "name": "news",
+      "value": "新闻"
+    },
+    {
+      "name": "compare",
+      "value": "机型对比"
+    },
+    {
+      "name": "PRODUCT_PRICE_NAMES1",
+      "value": "距离结束还剩"
+    },
+    {
+      "name": "PRODUCT_PRICE_NAMES2",
+      "value": "最高可享12期0分期利息"
+    },
+    {
+      "name": "PRODUCT_PRICE_NAMES3",
+      "value": "精品"
+    },
+    {
+      "name": "PRODUCT_PRICE_NAMES4",
+      "value": "限时直降800元"
+    },
+    {
+      "name": "PRODUCT_PRICE_NAMES5",
+      "value": "以旧换新补贴"
+    },
+    {
+      "name": "PRODUCT_PRICE_NAMES6",
+      "value": "优惠"
+    },
+    {
+      "name": "PRODUCT_PRICE_NAMES8",
+      "value": "现货"
+    },
+    {
+      "name": "PRODUCT_PRICE_NAMES7",
+      "value": "广东 深圳市 龙岗区"
+    },
+    {
+      "name": "PRODUCT_CONFIG_NAMES4",
+      "value": "推荐"
+    },
+    {
+      "name": "PRODUCT_DISCOUNT_NAMES1",
+      "value": "【现货速发】HUAWEI Mate X5 12GB+512GB 幻影紫"
+    },
+    {
+      "name": "PRODUCT_DISCOUNT_NAMES2",
+      "value": "【华为超级新品季】1.限量买赠价值299元智能视窗保护套 2.学生认证优惠100元（下拉了了解详情）3.以旧换新至高补贴500元｜更多甄选手机点击了解>>超清临镜双屏｜超轻薄四曲折叠"
+    },
+    {
+      "name": "PRODUCT_DISCOUNT_NAMES3",
+      "value": "限量赠无限耳机活力版"
+    },
+    {
+      "name": "PRODUCT_CONFIG_NAMES1",
+      "value": "已选"
+    },
+    {
+      "name": "PRODUCT_CONFIG_NAMES2",
+      "value": "幻影紫·512GB·现货速发"
+    },
+    {
+      "name": "PRODUCT_CONFIG_NAMES3",
+      "value": "搭配"
+    },
+    {
+      "name": "PRODUCT_CONFIG_NAMES5",
+      "value": "回收"
+    },
+    {
+      "name": "PRODUCT_CONFIG_NAMES6",
+      "value": "高价回收送多重新补贴"
+    },
+    {
+      "name": "PRODUCT_CONFIG_NAMES7",
+      "value": "满48元包邮"
+    },
+    {
+      "name": "PRODUCT_CONFIG_NAMES8",
+      "value": "由华为终端提供商品、发货开票及售后服务"
+    },
+    {
+      "name": "USER_COMMENT_NAMES1",
+      "value": "用户评价（1500+）"
+    },
+    {
+      "name": "USER_COMMENT_NAMES2",
+      "value": "最热门77"
+    },
+    {
+      "name": "USER_COMMENT_NAMES3",
+      "value": "有内容858"
+    },
+    {
+      "name": "USER_COMMENT_NAMES4",
+      "value": "有图217"
+    },
+    {
+      "name": "USER_COMMENT_NAMES5",
+      "value": "几**********"
+    },
+    {
+      "name": "USER_COMMENT_NAMES6",
+      "value": "华为手机续航很好，拍照清晰，运行畅快，功能也很强大，关键是颜值出众，非常值得推荐！"
+    },
+    {
+      "name": "USER_COMMENT_NAMES7",
+      "value": "全部评价"
+    },
+    {
+      "name": "USER_COMMENT_NAMES8",
+      "value": "曜金黑，256GB，现货速发"
+    },
+    {
+      "name": "add_cart",
+      "value": "加入购物袋"
+    },
+    {
+      "name": "buy",
+      "value": "购买"
+    },
+    {
+      "name": "shopping_title",
+      "value": "HUAWEI Mate X5"
+    },
+    {
+      "name": "message",
+      "value": "消息"
+    },
+    {
+      "name": "TongT",
+      "value": "自由的彤彤"
+    },
+    {
+      "name": "Tom",
+      "value": "Tom"
+    },
+    {
+      "name": "football",
+      "value": "足球协会"
+    },
+    {
+      "name": "Lily",
+      "value": "Lily"
+    },
+    {
+      "name": "Jack2",
+      "value": "Jack2"
+    },
+    {
+      "name": "ZhangXT",
+      "value": "张晓彤"
+    },
+    {
+      "name": "sport_club",
+      "value": "运动俱乐部"
+    },
+    {
+      "name": "happy_thing",
+      "value": "哈哈，今天有什么喜事说来听听"
+    },
+    {
+      "name": "product_view",
+      "value": "华为手机出新品了，快来看看"
+    },
+    {
+      "name": "waiting_for_long",
+      "value": "这款手机我等了好久了！"
+    },
+    {
+      "name": "Speed",
+      "value": "请你喝奶茶，快点单吧！！速度速度，就差你了"
+    },
+    {
+      "name": "withdraw",
+      "value": "撤回了一条信息"
+    },
+    {
+      "name": "okay",
+      "value": "好的，我明天过去"
+    },
+    {
+      "name": "yesterday",
+      "value": "昨天"
+    },
+    {
+      "name": "ZhangXM",
+      "value": "张小萌"
+    },
+    {
+      "name": "LiuXX",
+      "value": "刘信玄"
+    },
+    {
+      "name": "LiuXXMsg",
+      "value": "撤回了一条信息"
+    },
+    {
+      "name": "DengSS",
+      "value": "邓霜霜"
+    },
+    {
+      "name": "DengSSMsg",
+      "value": "请你喝奶茶，快点单吧，速度马上要被抢没了"
+    },
+    {
+      "name": "FenF",
+      "value": "芬芬"
+    },
+    {
+      "name": "FenFMsg",
+      "value": "Ok"
+    },
+    {
+      "name": "Jack",
+      "value": "Jack"
+    },
+    {
+      "name": "jack",
+      "value": "这是明天会议的资料，请发给Jack，让他确认"
+    },
+    {
+      "name": "ok",
+      "value": "好的，收到"
+    },
+    {
+      "name": "milk",
+      "value": "芬芬邀请你喝奶茶啦"
+    },
+    {
+      "name": "plan",
+      "value": "市场部2023年新产品宣传规划"
+    },
+    {
+      "name": "search",
+      "value": "搜索..."
+    },
+    {
+      "name": "group",
+      "value": "群组"
+    },
+    {
+      "name": "card",
+      "value": "名片夹"
+    },
+    {
+      "name": "Alan",
+      "value": "阿兰"
+    },
+    {
+      "name": "happy",
+      "value": "哈哈，今天有什么喜事说来听听"
+    },
+    {
+      "name": "url",
+      "value": "链接"
+    },
+    {
+      "name": "default_username",
+      "value": "张小萌"
+    }
+  ]
+}
