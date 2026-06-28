@@ -1,0 +1,151 @@
+{
+  "module": {
+    "name": "entry",
+    "type": "entry",
+    "description": "$string:module_desc",
+    "mainElement": "EntryAbility",
+    "deviceTypes": [
+      "phone",
+      "tablet",
+      "2in1"
+    ],
+    "deliveryWithInstall": true,
+    "installationFree": false,
+    "pages": "$profile:main_pages",
+    "abilities": [
+      {
+        "name": "EntryAbility",
+        "srcEntry": "./ets/entryability/EntryAbility.ets",
+        "description": "$string:EntryAbility_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:EntryAbility_label",
+        "startWindowIcon": "$media:startIcon",
+        "startWindowBackground": "$color:start_window_background",
+        "exported": true,
+        "skills": [
+          {
+            "entities": [
+              "entity.system.home"
+            ],
+            "actions": [
+              // The configuration action.system.home is for versions earlier than API 19 and has been discarded
+              "ohos.want.action.home"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "TestAbility",
+        "srcEntry": "./ets/abilities/TestAbility.ets",
+        "description": "$string:TestAbility_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:TestAbility_label",
+        "startWindowIcon": "$media:startIcon",
+        "startWindowBackground": "$color:start_window_background",
+        "skills": [
+          // Add an independent skill object and set the actions parameter.
+          {
+            "actions": [
+              "com.test.action"
+            ]
+          },
+          // Add an independent skill object, and set the uris and actions parameters for it.
+          //The actions parameter must be set to an empty string
+          {
+            "actions": [
+              ""
+            ],
+            "uris": [
+              {
+                "scheme": "https",
+                "host": "www.xxx.com",
+                "port": "8080",
+                "path": "push/test"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "PushMessageAbility",
+        "srcEntry": "./ets/abilities/PushMessageAbility.ets",
+        "description": "$string:PushMessageAbility_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:PushMessageAbility_label",
+        "startWindowIcon": "$media:startIcon",
+        "startWindowBackground": "$color:start_window_background",
+        "launchType": "singleton",
+        "exported": false,
+        "skills": [
+          // Add an independent skill object and set the actions parameter.
+          {
+            "actions": [
+              "action.ohos.push.listener"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "VoIPUIAbility",
+        "srcEntry": "./ets/entryability/VoIPUIAbility.ets",
+        "description": "$string:VoIPUIAbility_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:VoIPUIAbility_label",
+        "startWindowIcon": "$media:startIcon",
+        "startWindowBackground": "$color:start_window_background"
+      }
+    ],
+    "extensionAbilities": [
+      {
+        "name": "EntryBackupAbility",
+        "srcEntry": "./ets/entrybackupability/EntryBackupAbility.ets",
+        "type": "backup",
+        "exported": false,
+        "metadata": [
+          {
+            "name": "ohos.extension.backup",
+            "resource": "$profile:backup_config"
+          }
+        ],
+      },
+      {
+        "name": "EntryFormAbility",
+        "srcEntry": "./ets/entryformability/EntryFormAbility.ets",
+        "label": "$string:EntryFormAbility_label",
+        "description": "$string:EntryFormAbility_desc",
+        "type": "form",
+        "metadata": [
+          {
+            "name": "ohos.extension.form",
+            "resource": "$profile:form_config"
+          }
+        ]
+      },
+      {
+        "name": "RemoteNotificationExtAbility",
+        "srcEntry": "./ets/entryability/RemoteNotificationExtAbility.ets",
+        "type": "remoteNotification",
+        "skills": [
+          // Add an independent skill object and set the actions parameter.
+          {
+            "actions": [
+              "action.hms.push.extension.remotenotification"
+            ]
+          }
+        ]
+      }
+    ],
+    "requestPermissions": [
+      {
+        "name": "ohos.permission.LOCATION_IN_BACKGROUND",
+        "reason": "$string:PushMessageAbility_desc",
+        "usedScene": {
+          "abilities": [
+            "PushMessageAbility",
+          ],
+          "when": "always"
+        }
+      }
+    ]
+  }
+}
