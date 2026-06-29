@@ -1,6 +1,5 @@
 /node_modules
 /oh_modules
-oh_modules
 /local.properties
 /.idea
 **/build
@@ -11,5 +10,3 @@ oh_modules
 /.clang-tidy
 **/.test
 /.appanalyzer
-*-lock.json5
-**/BuildProfile.ets

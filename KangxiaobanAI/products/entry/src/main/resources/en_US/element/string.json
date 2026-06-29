@@ -1,0 +1,36 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "Kanxiaoban module"
+    },
+    {
+      "name": "KanxiaobanAbility_desc",
+      "value": "Kanxiaoban AI main ability"
+    },
+    {
+      "name": "KanxiaobanAbility_label",
+      "value": "Kanxiaoban AI"
+    },
+    {
+      "name": "home_title",
+      "value": "Adaptive Floating Navigation"
+    },
+    {
+      "name": "tab_home",
+      "value": "Home"
+    },
+    {
+      "name": "tab_music",
+      "value": "Music"
+    },
+    {
+      "name": "tab_cafe",
+      "value": "Cafe"
+    },
+    {
+      "name": "tab_mine",
+      "value": "Mine"
+    }
+  ]
+}

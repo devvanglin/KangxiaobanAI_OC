@@ -1,0 +1,36 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "Kanxiaoban 模块"
+    },
+    {
+      "name": "KanxiaobanAbility_desc",
+      "value": "Kanxiaoban AI 主能力"
+    },
+    {
+      "name": "KanxiaobanAbility_label",
+      "value": "Kanxiaoban AI"
+    },
+    {
+      "name": "home_title",
+      "value": "自适应悬浮导航"
+    },
+    {
+      "name": "tab_home",
+      "value": "首页"
+    },
+    {
+      "name": "tab_music",
+      "value": "音乐"
+    },
+    {
+      "name": "tab_cafe",
+      "value": "Cafe"
+    },
+    {
+      "name": "tab_mine",
+      "value": "我的"
+    }
+  ]
+}

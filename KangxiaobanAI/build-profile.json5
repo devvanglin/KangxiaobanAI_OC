@@ -1,12 +1,10 @@
 {
   "app": {
-    "signingConfigs": [],
     "products": [
       {
         "name": "default",
-        "signingConfig": "default",
-        "targetSdkVersion": "6.1.1(24)",
-        "compatibleSdkVersion": "6.1.1(24)",
+        "targetSdkVersion": "6.1.0(23)",
+        "compatibleSdkVersion": "6.1.0(23)",
         "runtimeOS": "HarmonyOS",
         "buildOption": {
           "strictMode": {
@@ -18,53 +16,32 @@
     ],
     "buildModeSet": [
       {
-        "name": "debug",
+        "name": "debug"
       },
       {
         "name": "release"
+      }
+    ],
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "C:\\Users\\Shenyi\\.ohos\\config\\default_KangxiaobanAI_F7_WrjNQMfl5K_y0DsMzh8M9MKaNGpZzjB4JAqWA0tY=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001BEA31D94A1B1DC319E5957363DBADBA0E9815615D7B38D867DFBCEAF80F717CF0BB95F5812B5344",
+          "profile": "C:\\Users\\Shenyi\\.ohos\\config\\default_KangxiaobanAI_F7_WrjNQMfl5K_y0DsMzh8M9MKaNGpZzjB4JAqWA0tY=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "C:\\Users\\Shenyi\\.ohos\\config\\default_KangxiaobanAI_F7_WrjNQMfl5K_y0DsMzh8M9MKaNGpZzjB4JAqWA0tY=.p12",
+          "storePassword": "0000001BA15F87BAB5486FB40D7159F6BC5388B95CA7997B32BAF369700315A43733FDF9EE36F79B225A2B"
+        }
       }
     ]
   },
   "modules": [
     {
-      "name": "Kangxiaoban",
-      "srcPath": "./products/Kangxiaoban",
-      "targets": [
-        {
-          "name": "default",
-          "applyToProducts": [
-            "default"
-          ]
-        }
-      ]
-    },
-    {
-      "name": "common",
-      "srcPath": "./common",
-      "targets": [
-        {
-          "name": "default",
-          "applyToProducts": [
-            "default"
-          ]
-        }
-      ]
-    },
-    {
-      "name": "adaptiveLayout",
-      "srcPath": "./features/adaptiveLayout",
-      "targets": [
-        {
-          "name": "default",
-          "applyToProducts": [
-            "default"
-          ]
-        }
-      ]
-    },
-    {
-      "name": "responsiveLayout",
-      "srcPath": "./features/responsiveLayout",
+      "name": "kanxiaoban",
+      "srcPath": "./products/entry",
       "targets": [
         {
           "name": "default",

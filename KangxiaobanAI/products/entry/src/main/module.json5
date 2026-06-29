@@ -1,0 +1,37 @@
+{
+  "module": {
+    "name": "kanxiaoban",
+    "type": "entry",
+    "description": "$string:module_desc",
+    "mainElement": "KanxiaobanAbility",
+    "deviceTypes": [
+      "phone",
+      "tablet"
+    ],
+    "deliveryWithInstall": true,
+    "installationFree": false,
+    "pages": "$profile:main_pages",
+    "abilities": [
+      {
+        "name": "KanxiaobanAbility",
+        "srcEntry": "./ets/entryability/EntryAbility.ets",
+        "description": "$string:KanxiaobanAbility_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:KanxiaobanAbility_label",
+        "startWindowIcon": "$media:startIcon",
+        "startWindowBackground": "$color:start_window_background",
+        "exported": true,
+        "skills": [
+          {
+            "entities": [
+              "entity.system.home"
+            ],
+            "actions": [
+              "ohos.want.action.home"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
