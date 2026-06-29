@@ -11,7 +11,6 @@ import {
   HdsTabsController,
   ScrollEffectType
 } from '@kit.UIDesignKit';
-import { getWindowInfoState } from 'common';
 
 const TITLE_BAR_HEIGHT_MINI = 56;
 
@@ -88,13 +87,11 @@ struct Index {
   }
 
   build() {
-    let windowInfo = getWindowInfoState();
-
     HdsNavigation(this.navPathStack) {
       Column() {
         Blank()
           .width('100%')
-          .height(TITLE_BAR_HEIGHT_MINI + windowInfo.statusBarTopVp)
+          .height(TITLE_BAR_HEIGHT_MINI)
 
         Search({ placeholder: '搜索内容' })
           .width('100%')
