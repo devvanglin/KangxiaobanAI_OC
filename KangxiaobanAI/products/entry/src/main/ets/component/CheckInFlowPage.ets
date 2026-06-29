@@ -13,135 +13,163 @@
  * limitations under the License.
  */
 
+import { AppStorageV2 } from '@kit.ArkUI';
 import {
   DividerShowType,
   hdsMaterial,
   HdsNavDestination,
   ScrollEffectType
 } from '@kit.UIDesignKit';
+import { StorageKey } from '../common/CommonConstants';
+import { GlobalInfoModel } from '../model/GlobalInfoModel';
 
-interface CheckInFlowItem {
-  title: ResourceStr;
-  subtitle: ResourceStr;
-  tag: ResourceStr;
+interface CheckInStep {
+  title: string;
+  status: string;
 }
 
-interface CheckInFlowSection {
-  title: ResourceStr;
-  description: ResourceStr;
-  items: CheckInFlowItem[];
+interface CheckInInfoRow {
+  label: string;
+  value: string;
+}
+
+interface CheckInChecklistItem {
+  title: string;
+  detail: string;
 }
 
 @ComponentV2
 export struct CheckInFlowPage {
   @Consumer('mainPageStack') pathStack: NavPathStack = new NavPathStack();
-  private sections: CheckInFlowSection[] = [
-    {
-      title: $r('app.string.check_in_section_steps_title'),
-      description: $r('app.string.check_in_section_steps_desc'),
-      items: [
-        {
-          title: $r('app.string.check_in_step_1_title'),
-          subtitle: $r('app.string.check_in_step_1_subtitle'),
-          tag: $r('app.string.check_in_step_1_tag')
-        },
-        {
-          title: $r('app.string.check_in_step_2_title'),
-          subtitle: $r('app.string.check_in_step_2_subtitle'),
-          tag: $r('app.string.check_in_step_2_tag')
-        },
-        {
-          title: $r('app.string.check_in_step_3_title'),
-          subtitle: $r('app.string.check_in_step_3_subtitle'),
-          tag: $r('app.string.check_in_step_3_tag')
-        },
-        {
-          title: $r('app.string.check_in_step_4_title'),
-          subtitle: $r('app.string.check_in_step_4_subtitle'),
-          tag: $r('app.string.check_in_step_4_tag')
-        },
-        {
-          title: $r('app.string.check_in_step_5_title'),
-          subtitle: $r('app.string.check_in_step_5_subtitle'),
-          tag: $r('app.string.check_in_step_5_tag')
-        }
-      ]
-    },
-    {
-      title: $r('app.string.check_in_section_ready_title'),
-      description: $r('app.string.check_in_section_ready_desc'),
-      items: [
-        {
-          title: $r('app.string.check_in_ready_1_title'),
-          subtitle: $r('app.string.check_in_ready_1_subtitle'),
-          tag: $r('app.string.check_in_ready_1_tag')
-        },
-        {
-          title: $r('app.string.check_in_ready_2_title'),
-          subtitle: $r('app.string.check_in_ready_2_subtitle'),
-          tag: $r('app.string.check_in_ready_2_tag')
-        },
-        {
-          title: $r('app.string.check_in_ready_3_title'),
-          subtitle: $r('app.string.check_in_ready_3_subtitle'),
-          tag: $r('app.string.check_in_ready_3_tag')
-        }
-      ]
-    }
-  ];
+  @Local globalInfoModel: GlobalInfoModel =
+    AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
+
+  private contentTopPadding(): number {
+    return this.globalInfoModel.statusBarHeight + 84;
+  }
+
+  private steps(): CheckInStep[] {
+    return [
+      {
+        title: '资料确认',
+        status: '当前'
+      },
+      {
+        title: '房间床位',
+        status: '待办'
+      },
+      {
+        title: '健康初评',
+        status: '待办'
+      },
+      {
+        title: '交接完成',
+        status: '末步'
+      }
+    ];
+  }
+
+  private infoRows(): CheckInInfoRow[] {
+    return [
+      {
+        label: '入住长者',
+        value: '肖爷爷'
+      },
+      {
+        label: '预计到院',
+        value: '14:30'
+      },
+      {
+        label: '家属联系人',
+        value: '女儿 / 已尝试回电'
+      },
+      {
+        label: '预留床位',
+        value: '3F-302 / 靠窗'
+      }
+    ];
+  }
+
+  private checklistItems(): CheckInChecklistItem[] {
+    return [
+      {
+        title: '核验基础信息',
+        detail: '确认身份、既往病史、过敏信息和紧急联系人。'
+      },
+      {
+        title: '同步护理计划',
+        detail: '根据饮食、用药、作息和情绪风险建立首日提醒。'
+      },
+      {
+        title: '通知值班组',
+        detail: '把家属联络情况、情绪线索和夜间观察点写入交接摘要。'
+      }
+    ];
+  }
 
   @Builder
-  private sectionHeader(title: ResourceStr, description: ResourceStr) {
+  private pill(text: string, backgroundColor: ResourceColor, fontColor: ResourceColor = '#344054') {
+    Text(text)
+      .fontSize($r('sys.float.Caption_M'))
+      .fontColor(fontColor)
+      .padding({
+        left: $r('sys.float.padding_level3'),
+        right: $r('sys.float.padding_level3'),
+        top: 4,
+        bottom: 4
+      })
+      .backgroundColor(backgroundColor)
+      .borderRadius($r('sys.float.corner_radius_level8'))
+  }
+
+  @Builder
+  private sectionTitle(title: string, detail: string) {
     Column({ space: 4 }) {
       Text(title)
-        .fontSize($r('sys.float.Subtitle_S'))
+        .fontSize($r('sys.float.Body_L'))
         .fontWeight(FontWeight.Bold)
         .fontColor($r('sys.color.font_primary'))
-      Text(description)
-        .fontSize($r('sys.float.Caption_M'))
+      Text(detail)
+        .fontSize($r('sys.float.Body_S'))
         .fontColor($r('sys.color.font_secondary'))
     }
     .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
-  private flowItem(item: CheckInFlowItem, index: number, isLast: boolean) {
-    Row({ space: $r('sys.float.padding_level4') }) {
-      Text(`${index + 1}`)
-        .width(26)
-        .height(26)
-        .textAlign(TextAlign.Center)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontWeight(FontWeight.Bold)
-        .fontColor($r('sys.color.font_primary'))
-        .backgroundColor($r('sys.color.comp_background_secondary'))
-        .borderRadius(13)
-
-      Column({ space: 4 }) {
-        Text(item.title)
-          .fontSize($r('sys.float.Body_L'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-        Text(item.subtitle)
+  private stepRow(step: CheckInStep, index: number) {
+    Column({ space: 8 }) {
+      Stack({ alignContent: Alignment.Center }) {
+        Circle()
+          .width(30)
+          .height(30)
+          .fill(index === 0 ? '#1F8EFA' : '#E8ECF2')
+        Text(`${index + 1}`)
           .fontSize($r('sys.float.Caption_M'))
-          .fontColor($r('sys.color.font_secondary'))
+          .fontWeight(FontWeight.Bold)
+          .fontColor(index === 0 ? '#FFFFFF' : '#344054')
       }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
-
-      Text(item.tag)
+      Text(step.title)
         .fontSize($r('sys.float.Caption_M'))
         .fontColor($r('sys.color.font_primary'))
-        .padding({
-          left: $r('sys.float.padding_level3'),
-          right: $r('sys.float.padding_level3'),
-          top: 4,
-          bottom: 4
-        })
-        .backgroundColor($r('sys.color.comp_background_secondary'))
-        .borderRadius($r('sys.float.corner_radius_level8'))
+      this.pill(step.status, index === 0 ? '#EAF3FF' : '#F2F4F7', index === 0 ? '#245BDB' : '#475467')
     }
-    .alignItems(VerticalAlign.Center)
+    .width(72)
+    .alignItems(HorizontalAlign.Center)
+  }
+
+  @Builder
+  private infoRow(row: CheckInInfoRow, isLast: boolean) {
+    Row() {
+      Text(row.label)
+        .fontSize($r('sys.float.Body_M'))
+        .fontColor($r('sys.color.font_secondary'))
+      Blank()
+      Text(row.value)
+        .fontSize($r('sys.float.Body_M'))
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+    }
     .padding({
       top: $r('sys.float.padding_level4'),
       bottom: $r('sys.float.padding_level4')
@@ -150,77 +178,148 @@ export struct CheckInFlowPage {
       width: {
         bottom: isLast ? 0 : 1
       },
-      color: $r('sys.color.comp_divider')
+      color: '#E8EAED'
     })
   }
 
   @Builder
-  private sectionCard(section: CheckInFlowSection) {
-    Column({ space: $r('sys.float.padding_level2') }) {
-      this.sectionHeader(section.title, section.description)
-      Column() {
-        Repeat(section.items)
-          .each((repeatItem: RepeatItem<CheckInFlowItem>) => {
-            this.flowItem(repeatItem.item, repeatItem.index, repeatItem.index === section.items.length - 1)
-          })
+  private checklistRow(item: CheckInChecklistItem, isLast: boolean) {
+    Row({ space: $r('sys.float.padding_level4') }) {
+      Circle()
+        .width(8)
+        .height(8)
+        .fill('#1F8EFA')
+        .margin({ top: 7 })
+
+      Column({ space: 4 }) {
+        Text(item.title)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+        Text(item.detail)
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_secondary'))
       }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
     }
-    .alignItems(HorizontalAlign.Start)
-    .padding($r('sys.float.padding_level6'))
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius($r('sys.float.corner_radius_level16'))
+    .alignItems(VerticalAlign.Top)
+    .padding({
+      top: $r('sys.float.padding_level4'),
+      bottom: $r('sys.float.padding_level4')
+    })
+    .border({
+      width: {
+        bottom: isLast ? 0 : 1
+      },
+      color: '#E8EAED'
+    })
   }
 
   build() {
     HdsNavDestination() {
       List({ space: 16 }) {
         ListItem() {
-          Column({ space: $r('sys.float.padding_level3') }) {
-            Row({ space: $r('sys.float.padding_level4') }) {
-              Stack({ alignContent: Alignment.Center }) {
-                Circle()
-                  .width(72)
-                  .height(72)
-                  .fill('#00000000')
-                SymbolGlyph($r('sys.symbol.plus'))
-                  .fontSize($r('sys.float.Title_L'))
-                  .fontColor([$r('sys.color.icon_primary')])
+          Column({ space: 16 }) {
+            Column({ space: 12 }) {
+              Row() {
+                Column({ space: 4 }) {
+                  Text('入住登记')
+                    .fontSize($r('sys.float.Title_S'))
+                    .fontWeight(FontWeight.Bold)
+                    .fontColor($r('sys.color.font_primary'))
+                  Text('把资料确认、房间安排、健康初评和交接摘要一次完成。')
+                    .fontSize($r('sys.float.Body_S'))
+                    .fontColor($r('sys.color.font_secondary'))
+                }
+                .alignItems(HorizontalAlign.Start)
+                .layoutWeight(1)
+                this.pill('剩余床位 XX', '#EEF2F6')
               }
 
-              Column({ space: 4 }) {
-                Text($r('app.string.mini_bar_title'))
-                  .fontSize($r('sys.float.Title_S'))
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor($r('sys.color.font_primary'))
-                Text($r('app.string.mini_bar_operator'))
-                  .fontSize($r('sys.float.Body_S'))
-                  .fontColor($r('sys.color.font_secondary'))
-              }
-              .layoutWeight(1)
-              .alignItems(HorizontalAlign.Start)
+              Row({ space: $r('sys.float.padding_level5') }) {
+                Column({ space: 2 }) {
+                  Text('3')
+                    .fontSize($r('sys.float.Title_L'))
+                    .fontWeight(FontWeight.Bold)
+                    .fontColor($r('sys.color.font_primary'))
+                  Text('今日待办理')
+                    .fontSize($r('sys.float.Caption_M'))
+                    .fontColor($r('sys.color.font_secondary'))
+                }
+                .layoutWeight(1)
+                .alignItems(HorizontalAlign.Start)
 
-              Text($r('app.string.check_in_current_stage'))
-                .fontSize($r('sys.float.Caption_M'))
-                .fontColor($r('sys.color.font_primary'))
-                .padding({
-                  left: $r('sys.float.padding_level3'),
-                  right: $r('sys.float.padding_level3'),
-                  top: 4,
-                  bottom: 4
-                })
-                .backgroundColor($r('sys.color.comp_background_secondary'))
-                .borderRadius($r('sys.float.corner_radius_level8'))
+                Column({ space: 2 }) {
+                  Text('1')
+                    .fontSize($r('sys.float.Title_L'))
+                    .fontWeight(FontWeight.Bold)
+                    .fontColor($r('sys.color.font_primary'))
+                  Text('家属未接通')
+                    .fontSize($r('sys.float.Caption_M'))
+                    .fontColor($r('sys.color.font_secondary'))
+                }
+                .layoutWeight(1)
+                .alignItems(HorizontalAlign.Start)
+
+                Column({ space: 2 }) {
+                  Text('14:30')
+                    .fontSize($r('sys.float.Title_L'))
+                    .fontWeight(FontWeight.Bold)
+                    .fontColor($r('sys.color.font_primary'))
+                  Text('预计到院')
+                    .fontSize($r('sys.float.Caption_M'))
+                    .fontColor($r('sys.color.font_secondary'))
+                }
+                .layoutWeight(1)
+                .alignItems(HorizontalAlign.Start)
+              }
             }
+            .padding($r('sys.float.padding_level6'))
+            .backgroundColor($r('sys.color.comp_background_primary'))
+            .borderRadius(20)
 
-            Text($r('app.string.check_in_page_subtitle'))
-              .fontSize($r('sys.float.Body_M'))
-              .fontColor($r('sys.color.font_secondary'))
-              .maxLines(2)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
+            Column({ space: 14 }) {
+              this.sectionTitle('流程', '保持简洁，先确认信息，再做床位与交接。')
+              Row() {
+                Repeat(this.steps())
+                  .each((repeatItem: RepeatItem<CheckInStep>) => {
+                    this.stepRow(repeatItem.item, repeatItem.index)
+                    if (repeatItem.index < this.steps().length - 1) {
+                      Blank()
+                        .height(1)
+                        .layoutWeight(1)
+                        .backgroundColor('#D8DEE6')
+                        .margin({ top: 15, left: 8, right: 8 })
+                    }
+                  })
+              }
+              .alignItems(VerticalAlign.Top)
+            }
+            .padding($r('sys.float.padding_level6'))
+            .backgroundColor($r('sys.color.comp_background_primary'))
+            .borderRadius(20)
           }
-          .padding($r('sys.float.padding_level6'))
-          .backgroundColor($r('sys.color.comp_background_primary'))
-          .borderRadius($r('sys.float.corner_radius_level16'))
+        }
+        .padding({
+          left: $r('sys.float.padding_level8'),
+          right: $r('sys.float.padding_level8'),
+          top: this.contentTopPadding()
+        })
+
+        ListItem() {
+          Column({ space: 12 }) {
+            this.sectionTitle('入住对象', '护工先看到最关键的信息，不把页面做成冗长表单。')
+            Column() {
+              Repeat(this.infoRows())
+                .each((repeatItem: RepeatItem<CheckInInfoRow>) => {
+                  this.infoRow(repeatItem.item, repeatItem.index === this.infoRows().length - 1)
+                })
+            }
+            .padding($r('sys.float.padding_level6'))
+            .backgroundColor($r('sys.color.comp_background_primary'))
+            .borderRadius(20)
+          }
         }
         .padding({
           left: $r('sys.float.padding_level8'),
@@ -228,15 +327,18 @@ export struct CheckInFlowPage {
         })
 
         ListItem() {
-          this.sectionCard(this.sections[0])
-        }
-        .padding({
-          left: $r('sys.float.padding_level8'),
-          right: $r('sys.float.padding_level8')
-        })
-
-        ListItem() {
-          this.sectionCard(this.sections[1])
+          Column({ space: 12 }) {
+            this.sectionTitle('办理清单', '重点不是填很多东西，而是把首日照护真正准备好。')
+            Column() {
+              Repeat(this.checklistItems())
+                .each((repeatItem: RepeatItem<CheckInChecklistItem>) => {
+                  this.checklistRow(repeatItem.item, repeatItem.index === this.checklistItems().length - 1)
+                })
+            }
+            .padding($r('sys.float.padding_level6'))
+            .backgroundColor($r('sys.color.comp_background_primary'))
+            .borderRadius(20)
+          }
         }
         .padding({
           left: $r('sys.float.padding_level8'),
@@ -248,9 +350,9 @@ export struct CheckInFlowPage {
       .height('100%')
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
-      .backgroundColor('#FFF7F8FA')
+      .backgroundColor('#F5F7FA')
     }
-    .backgroundColor('#FFF7F8FA')
+    .backgroundColor('#F5F7FA')
     .titleBar({
       content: {
         title: {
