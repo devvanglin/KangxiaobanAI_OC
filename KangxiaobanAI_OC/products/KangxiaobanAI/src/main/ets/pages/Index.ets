@@ -4,8 +4,9 @@
 import { SymbolGlyphModifier } from '@kit.ArkUI';
 import {
   HdsBarStyle,
+  HdsNavigation,
+  HdsNavigationTitleMode,
   hdsMaterial,
-  HdsNavDestination,
   HdsTabs,
   HdsTabsController,
   ScrollEffectType
@@ -15,6 +16,10 @@ import { getWindowInfoState } from 'common';
 @Entry
 @ComponentV2
 struct Index {
+  @Provider('navPathStack') private navPathStack: NavPathStack = new NavPathStack();
+  private controller: HdsTabsController = new HdsTabsController();
+  @Local isMiniBar: boolean = true;
+
   private tabsBar: BottomTabBarStyle[] = [
     new BottomTabBarStyle({
       normal: new SymbolGlyphModifier($r('sys.symbol.house_fill')).fontColor([$r('sys.color.icon_primary')]),
@@ -33,8 +38,6 @@ struct Index {
       selected: new SymbolGlyphModifier($r('sys.symbol.person_fill')).fontColor([$r('sys.color.icon_emphasize')])
     }, $r('app.string.tab_mine')).labelStyle({ unselectedColor: $r('sys.color.icon_primary'), selectedColor: $r('sys.color.icon_emphasize') }),
   ];
-  private controller: HdsTabsController = new HdsTabsController();
-  @Local isMiniBar: boolean = true;
 
   @Builder
   miniBarBuilder() {
@@ -83,76 +86,78 @@ struct Index {
   }
 
   build() {
-    HdsNavDestination() {
-      HdsTabs({ controller: this.controller }) {
-        ForEach(this.tabsBar, (tab: BottomTabBarStyle, index: number) => {
-          TabContent() {
-            Column() {
-              Search({ placeholder: '搜索内容' })
-                .width('100%')
-                .margin({ bottom: $r('sys.float.padding_level4') })
-                .borderRadius($r('sys.float.corner_radius_level8'))
-                .height(40)
+    HdsNavigation(this.navPathStack) {
+      Column() {
+        Search({ placeholder: '搜索内容' })
+          .width('100%')
+          .margin({ bottom: $r('sys.float.padding_level4'), top: $r('sys.float.padding_level4') })
+          .borderRadius($r('sys.float.corner_radius_level8'))
+          .height(40)
 
-              Text('Tab ' + index)
-                .fontSize(24)
+        HdsTabs({ controller: this.controller }) {
+          ForEach(this.tabsBar, (tab: BottomTabBarStyle, index: number) => {
+            TabContent() {
+              Column() {
+                Text('Tab ' + index)
+                  .fontSize(24)
+              }
+              .width('100%')
+              .height('100%')
+              .justifyContent(FlexAlign.Center)
             }
-            .width('100%')
-            .height('100%')
-            .padding({
-              left: $r('sys.float.padding_level4'),
-              right: $r('sys.float.padding_level4'),
-              top: $r('sys.float.padding_level4')
-            })
-            .justifyContent(FlexAlign.Start)
+            .tabBar(tab)
+          })
+        }
+        .barOverlap(true)
+        .vertical(false)
+        .barPosition(BarPosition.End)
+        .barFloatingStyle({
+          barBottomMargin: getWindowInfoState().navigationBarBottomVp > 0 ? getWindowInfoState().navigationBarBottomVp :
+            $r('sys.float.padding_level8'),
+          systemMaterialEffect: {
+            materialType: hdsMaterial.MaterialType.IMMERSIVE,
+            materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+          },
+          miniBar: {
+            miniBarBuilder: () => this.miniBarBuilder(),
+            onBarStyleChange: (miniBarStyle: HdsBarStyle) => {
+              this.isMiniBar = miniBarStyle === HdsBarStyle.COLLAPSE
+            }
           }
-          .tabBar(tab)
+        })
+        .onAttach(() => {
+          try {
+            this.controller.preloadItems([0, 1, 2, 3]);
+          } catch (error) {
+            console.error('OnAttach preloadItems failed');
+          }
         })
       }
-      .barOverlap(true)
-      .vertical(false)
-      .barPosition(BarPosition.End)
-      .barFloatingStyle({
-        barBottomMargin: getWindowInfoState().navigationBarBottomVp > 0 ? getWindowInfoState().navigationBarBottomVp :
-          $r('sys.float.padding_level8'),
-        systemMaterialEffect: {
-          materialType: hdsMaterial.MaterialType.IMMERSIVE,
-          materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
-        },
-        miniBar: {
-          miniBarBuilder: () => this.miniBarBuilder(),
-          onBarStyleChange: (miniBarStyle: HdsBarStyle) => {
-            this.isMiniBar = miniBarStyle === HdsBarStyle.COLLAPSE
-          }
-        }
-      })
-      .onAttach(() => {
-        try {
-          this.controller.preloadItems([0, 1, 2, 3]);
-        } catch (error) {
-          console.error('OnAttach preloadItems failed');
-        }
+      .width('100%')
+      .height('100%')
+      .padding({
+        left: $r('sys.float.padding_level4'),
+        right: $r('sys.float.padding_level4')
       })
     }
     .titleBar({
       content: {
         title: {
-          mainTitle: '首页',
-        },
+          mainTitle: '首页'
+        }
       },
       style: {
         scrollEffectOpts: {
           enableScrollEffect: true,
-          scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
+          scrollEffectType: ScrollEffectType.GRADIENT_BLUR
         },
         systemMaterialEffect: {
           materialType: hdsMaterial.MaterialType.ADAPTIVE,
-          materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE,
-        },
-      },
-      avoidLayoutSafeArea: false,
-      enableComponentSafeArea: false
+          materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+        }
+      }
     })
+    .titleMode(HdsNavigationTitleMode.MINI)
     .hideBackButton(true)
     .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
   }
