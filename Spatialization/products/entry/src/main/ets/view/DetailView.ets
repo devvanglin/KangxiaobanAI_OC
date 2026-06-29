@@ -13,13 +13,12 @@
  * limitations under the License.
  */
 
-import { AppStorageV2, CommonModifier } from '@kit.ArkUI';
+import { AppStorageV2 } from '@kit.ArkUI';
 import { hdsMaterial, HdsNavDestination, ScrollEffectType } from '@kit.UIDesignKit';
 import { StorageKey } from '../common/CommonConstants';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { DetailParam, SampleData, SAMPLE_LIST } from '../model/SampleModel';
 import { BreakpointType } from '../util/BreakpointSystem';
-import { CustomImmersiveStyle, MaterialUtil } from '../util/MaterialUtil';
 
 @ComponentV2
 struct DetailView {
@@ -137,12 +136,7 @@ struct DetailView {
                   .buttonStyle(ButtonStyleMode.NORMAL)
                   .height(40)
                   .layoutWeight(1)
-                  .attributeModifier(MaterialUtil.getMaterialModifier({
-                    modifier: new CommonModifier(),
-                    style: CustomImmersiveStyle.ULTRA_THIN,
-                    backgroundColor: $r('sys.color.comp_background_tertiary'),
-                    materialColor: $r('sys.color.comp_background_tertiary')
-                  }))
+                  .backgroundColor($r('sys.color.comp_background_tertiary'))
                 Button($r('app.string.experience'))
                   // [StartExclude immersive_button]
                   .onClick(() => {
@@ -157,12 +151,7 @@ struct DetailView {
                   .buttonStyle(ButtonStyleMode.EMPHASIZED)
                   .height(40)
                   .layoutWeight(1)
-                  .attributeModifier(MaterialUtil.getMaterialModifier({
-                    modifier: new CommonModifier(),
-                    style: CustomImmersiveStyle.ULTRA_THIN,
-                    backgroundColor: $r('sys.color.background_emphasize'),
-                    materialColor: $r('sys.color.background_emphasize')
-                  }))
+                  .backgroundColor($r('sys.color.background_emphasize'))
               }
               // [End immersive_button]
             }

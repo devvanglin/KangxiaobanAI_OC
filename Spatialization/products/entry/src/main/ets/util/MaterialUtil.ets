@@ -16,66 +16,48 @@
 // [Start immersive_button]
 // [Start immersive_menu]
 // [Start immersive_dialog]
-import { uiMaterial } from '@kit.ArkUI';
-import { deviceInfo } from '@kit.BasicServicesKit';
 import { hdsMaterial } from '@kit.UIDesignKit';
 
 export class MaterialUtil {
-  // [StartExclude immersive_menu]
-  // [StartExclude immersive_dialog]
-  public static getMaterialModifier(options: ModifierOptions): CommonModifier {
-    if (deviceInfo.apiAvailable('26.0.0') && hdsMaterial.getSystemMaterialTypes().length > 0) {
-      const materialOptions: uiMaterial.ImmersiveOptions = {
-        style: uiMaterial.ImmersiveStyle.ULTRA_THIN,
-        interactive: true,
-        lightEffect: { color: undefined }
-      }
-      if (options.materialColor) {
-        materialOptions.materialColor = options.materialColor;
-      }
-      options.modifier.systemMaterial(new uiMaterial.ImmersiveMaterial(materialOptions));
-    } else {
-      if (options.backgroundColor) {
-        options.modifier.backgroundColor(options.backgroundColor);
-      }
-      if (options.backgroundBlurStyle) {
-        options.modifier.backgroundBlurStyle(options.backgroundBlurStyle);
-      }
-    }
-    return options.modifier;
+  public static isMaterialSupported(): boolean {
+    return hdsMaterial.getSystemMaterialTypes().length > 0;
   }
-  // [EndExclude immersive_dialog]
-  // [EndExclude immersive_menu]
 
-  // [StartExclude immersive_button]
-  public static getMaterialOptions<T>(option: T): MaterialOptions<T> | T {
-    if (deviceInfo.apiAvailable('26.0.0') && hdsMaterial.getSystemMaterialTypes().length > 0) {
-      const materialOptions = option as MaterialOptions<T>;
-      materialOptions.systemMaterial = new uiMaterial.ImmersiveMaterial({
-        style: uiMaterial.ImmersiveStyle.THICK,
-        interactive: true,
-        lightEffect: { color: undefined }
-      });
-      return materialOptions;
-    }
-    return option;
+  public static getSystemMaterialEffectOptions(): SystemMaterialEffectOptions {
+    return {
+      materialType: hdsMaterial.MaterialType.ADAPTIVE,
+      materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE,
+      color: undefined
+    };
   }
-  // [EndExclude immersive_button]
+
+  public static applyFallbackBackground(modifier: CommonModifier, options: FallbackOptions): CommonModifier {
+    if (options.backgroundColor) {
+      modifier.backgroundColor(options.backgroundColor);
+    }
+    if (options.backgroundBlurStyle) {
+      modifier.backgroundBlurStyle(options.backgroundBlurStyle);
+    }
+    return modifier;
+  }
 }
 
 // [StartExclude immersive_button]
 interface MaterialOptions<T> extends ThisType<T> {
-  systemMaterial?: SystemUiMaterial;
+  systemMaterialEffect?: SystemMaterialEffectOptions;
+}
+
+interface SystemMaterialEffectOptions {
+  materialType: hdsMaterial.MaterialType;
+  materialLevel: hdsMaterial.MaterialLevel;
+  color?: ResourceColor;
 }
 // [EndExclude immersive_button]
 // [End immersive_dialog]
 // [End immersive_menu]
 
-interface ModifierOptions {
-  modifier: CommonModifier;
-  style: CustomImmersiveStyle;
+interface FallbackOptions {
   backgroundColor?: ResourceColor;
-  materialColor?: ResourceColor;
   backgroundBlurStyle?: BlurStyle;
 }
 

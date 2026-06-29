@@ -32,7 +32,6 @@ import { SampleData } from '../model/SampleModel';
 import { PageKeyEnum, PAGE_SCROLLER_MAP, TabsBarModel } from '../model/TabsBarModel';
 import { BreakpointType } from '../util/BreakpointSystem';
 import Logger from '../util/Logger';
-import { MaterialUtil } from '../util/MaterialUtil';
 
 const NEVER_ALERT_KEY: string = 'NEVER_ALERT';
 const TAG: string = '[SmartReachView]';
@@ -106,12 +105,12 @@ struct SmartReachView {
   showAlert() {
     try {
       const smartPromptAction = this.getUIContext().getPromptAction();
-      smartPromptAction.openCustomDialog(MaterialUtil.getMaterialOptions<promptAction.CustomDialogOptions>({
+      smartPromptAction.openCustomDialog({
         builder: () => {
           this.alertBuilder();
         },
         autoCancel: false,
-      }) as promptAction.CustomDialogOptions)
+      })
         .then((dialogId: number) => {
           this.dialogComponentId = dialogId;
         })

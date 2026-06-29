@@ -34,7 +34,6 @@ import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { SampleData } from '../model/SampleModel';
 import { PageKeyEnum, TabsBarModel } from '../model/TabsBarModel';
 import Logger from '../util/Logger';
-import { MaterialUtil } from '../util/MaterialUtil';
 
 const TAG: string = '[ImmersiveLightView]';
 
@@ -70,8 +69,10 @@ struct ImmersiveLightView {
               const uiContext = this.getUIContext();
               const promptAction = this.getUIContext().getPromptAction();
               const contentNode = new ComponentContent(uiContext, wrapBuilder(materialLevelMenu))
-              promptAction.openMenu(contentNode, { id: this.menuId }, MaterialUtil.getMaterialOptions<MenuOptions>(
-                { mask: false, backgroundBlurStyle: BlurStyle.COMPONENT_THICK }) as MenuOptions)
+              promptAction.openMenu(contentNode, { id: this.menuId }, {
+                mask: false,
+                backgroundBlurStyle: BlurStyle.COMPONENT_THICK
+              })
                 .catch((error: BusinessError) => {
                   Logger.error(TAG, `Show menu failed. cause code: ${error.code}, msg: ${error.message}`);
                 });
