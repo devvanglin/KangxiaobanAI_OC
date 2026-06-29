@@ -47,6 +47,454 @@
     {
       "name": "mini_bar_capacity_value",
       "value": "XX"
+    },
+    {
+      "name": "page_home_subtitle",
+      "value": "Today's caregiver shift overview"
+    },
+    {
+      "name": "page_home_hero_value",
+      "value": "12 pending items"
+    },
+    {
+      "name": "page_home_hero_note",
+      "value": "4 hours left in this shift"
+    },
+    {
+      "name": "page_home_stat_1_label",
+      "value": "Check-Ins Today"
+    },
+    {
+      "name": "page_home_stat_1_value",
+      "value": "08"
+    },
+    {
+      "name": "page_home_stat_1_note",
+      "value": "5 completed"
+    },
+    {
+      "name": "page_home_stat_2_label",
+      "value": "Priority Alerts"
+    },
+    {
+      "name": "page_home_stat_2_value",
+      "value": "03"
+    },
+    {
+      "name": "page_home_stat_2_note",
+      "value": "Follow up within 30 min"
+    },
+    {
+      "name": "page_home_section_1_title",
+      "value": "Shift Focus"
+    },
+    {
+      "name": "page_home_section_1_desc",
+      "value": "Handle these items first in the current shift"
+    },
+    {
+      "name": "page_home_section_1_item_1_title",
+      "value": "3F new resident intake"
+    },
+    {
+      "name": "page_home_section_1_item_1_subtitle",
+      "value": "Verify profile, bed and caregiver needs"
+    },
+    {
+      "name": "page_home_section_1_item_1_tag",
+      "value": "In Progress"
+    },
+    {
+      "name": "page_home_section_1_item_2_title",
+      "value": "Room A12 round check"
+    },
+    {
+      "name": "page_home_section_1_item_2_subtitle",
+      "value": "Update mobility and rest notes"
+    },
+    {
+      "name": "page_home_section_1_item_2_tag",
+      "value": "Pending"
+    },
+    {
+      "name": "page_home_section_1_item_3_title",
+      "value": "Evening handoff prep"
+    },
+    {
+      "name": "page_home_section_1_item_3_subtitle",
+      "value": "Collect medication and risk reminders"
+    },
+    {
+      "name": "page_home_section_1_item_3_tag",
+      "value": "Not Started"
+    },
+    {
+      "name": "page_home_section_2_title",
+      "value": "Coming Up"
+    },
+    {
+      "name": "page_home_section_2_desc",
+      "value": "Items due within the next 60 minutes"
+    },
+    {
+      "name": "page_home_section_2_item_1_title",
+      "value": "Midday medication check"
+    },
+    {
+      "name": "page_home_section_2_item_1_subtitle",
+      "value": "Confirm 6 residents in East Wing 2F"
+    },
+    {
+      "name": "page_home_section_2_item_1_tag",
+      "value": "14:00"
+    },
+    {
+      "name": "page_home_section_2_item_2_title",
+      "value": "Family visit reception"
+    },
+    {
+      "name": "page_home_section_2_item_2_subtitle",
+      "value": "Prepare visit room and guest record"
+    },
+    {
+      "name": "page_home_section_2_item_2_tag",
+      "value": "14:30"
+    },
+    {
+      "name": "page_elder_subtitle",
+      "value": "Resident condition and care groups"
+    },
+    {
+      "name": "page_elder_hero_value",
+      "value": "128 residents"
+    },
+    {
+      "name": "page_elder_hero_note",
+      "value": "6 under close watch"
+    },
+    {
+      "name": "page_elder_stat_1_label",
+      "value": "Stable Status"
+    },
+    {
+      "name": "page_elder_stat_1_value",
+      "value": "116"
+    },
+    {
+      "name": "page_elder_stat_1_note",
+      "value": "Morning rounds done"
+    },
+    {
+      "name": "page_elder_stat_2_label",
+      "value": "Risk Watch"
+    },
+    {
+      "name": "page_elder_stat_2_value",
+      "value": "12"
+    },
+    {
+      "name": "page_elder_stat_2_note",
+      "value": "Need continued follow-up"
+    },
+    {
+      "name": "page_elder_section_1_title",
+      "value": "Priority Care"
+    },
+    {
+      "name": "page_elder_section_1_desc",
+      "value": "Residents requiring closer attention this shift"
+    },
+    {
+      "name": "page_elder_section_1_item_1_title",
+      "value": "Mr. Li"
+    },
+    {
+      "name": "page_elder_section_1_item_1_subtitle",
+      "value": "Lower appetite at lunch, review again"
+    },
+    {
+      "name": "page_elder_section_1_item_1_tag",
+      "value": "A"
+    },
+    {
+      "name": "page_elder_section_1_item_2_title",
+      "value": "Ms. Zhou"
+    },
+    {
+      "name": "page_elder_section_1_item_2_subtitle",
+      "value": "Starts new rehab plan today"
+    },
+    {
+      "name": "page_elder_section_1_item_2_tag",
+      "value": "New"
+    },
+    {
+      "name": "page_elder_section_1_item_3_title",
+      "value": "Mr. Wu"
+    },
+    {
+      "name": "page_elder_section_1_item_3_subtitle",
+      "value": "Family callback due before 16:00"
+    },
+    {
+      "name": "page_elder_section_1_item_3_tag",
+      "value": "Call"
+    },
+    {
+      "name": "page_elder_section_2_title",
+      "value": "Care Groups"
+    },
+    {
+      "name": "page_elder_section_2_desc",
+      "value": "Browse residents by area and condition"
+    },
+    {
+      "name": "page_elder_section_2_item_1_title",
+      "value": "2F East Wing"
+    },
+    {
+      "name": "page_elder_section_2_item_1_subtitle",
+      "value": "32 residents, morning care completed"
+    },
+    {
+      "name": "page_elder_section_2_item_1_tag",
+      "value": "Normal"
+    },
+    {
+      "name": "page_elder_section_2_item_2_title",
+      "value": "3F West Wing"
+    },
+    {
+      "name": "page_elder_section_2_item_2_subtitle",
+      "value": "28 residents, 2 need extra watch"
+    },
+    {
+      "name": "page_elder_section_2_item_2_tag",
+      "value": "Watch"
+    },
+    {
+      "name": "page_task_subtitle",
+      "value": "Shift tasks and time checkpoints"
+    },
+    {
+      "name": "page_task_hero_value",
+      "value": "18 open tasks"
+    },
+    {
+      "name": "page_task_hero_note",
+      "value": "9 completed"
+    },
+    {
+      "name": "page_task_stat_1_label",
+      "value": "Due Soon"
+    },
+    {
+      "name": "page_task_stat_1_value",
+      "value": "04"
+    },
+    {
+      "name": "page_task_stat_1_note",
+      "value": "2 within 30 min"
+    },
+    {
+      "name": "page_task_stat_2_label",
+      "value": "Review Needed"
+    },
+    {
+      "name": "page_task_stat_2_value",
+      "value": "03"
+    },
+    {
+      "name": "page_task_stat_2_note",
+      "value": "Supervisor confirmation"
+    },
+    {
+      "name": "page_task_section_1_title",
+      "value": "Today's Tasks"
+    },
+    {
+      "name": "page_task_section_1_desc",
+      "value": "Tasks sorted by caregiving priority"
+    },
+    {
+      "name": "page_task_section_1_item_1_title",
+      "value": "Afternoon round notes"
+    },
+    {
+      "name": "page_task_section_1_item_1_subtitle",
+      "value": "Cover 2F and 3F before 15:30"
+    },
+    {
+      "name": "page_task_section_1_item_1_tag",
+      "value": "High"
+    },
+    {
+      "name": "page_task_section_1_item_2_title",
+      "value": "Medication stock review"
+    },
+    {
+      "name": "page_task_section_1_item_2_subtitle",
+      "value": "Sync shortage list with nursing station"
+    },
+    {
+      "name": "page_task_section_1_item_2_tag",
+      "value": "Review"
+    },
+    {
+      "name": "page_task_section_1_item_3_title",
+      "value": "Pre-dinner condition check"
+    },
+    {
+      "name": "page_task_section_1_item_3_subtitle",
+      "value": "Review high blood sugar and unattended cases"
+    },
+    {
+      "name": "page_task_section_1_item_3_tag",
+      "value": "Next"
+    },
+    {
+      "name": "page_task_section_2_title",
+      "value": "Shift Checkpoints"
+    },
+    {
+      "name": "page_task_section_2_desc",
+      "value": "Time-based reminders for this shift"
+    },
+    {
+      "name": "page_task_section_2_item_1_title",
+      "value": "Handoff file prep"
+    },
+    {
+      "name": "page_task_section_2_item_1_subtitle",
+      "value": "Include incidents, meds and visits"
+    },
+    {
+      "name": "page_task_section_2_item_1_tag",
+      "value": "17:30"
+    },
+    {
+      "name": "page_task_section_2_item_2_title",
+      "value": "Weekly hygiene check"
+    },
+    {
+      "name": "page_task_section_2_item_2_subtitle",
+      "value": "Add sterilization photo record today"
+    },
+    {
+      "name": "page_task_section_2_item_2_tag",
+      "value": "16:00"
+    },
+    {
+      "name": "page_mine_subtitle",
+      "value": "Shift, handoff and personal work settings"
+    },
+    {
+      "name": "page_mine_hero_value",
+      "value": "Day Shift 08:00-18:00"
+    },
+    {
+      "name": "page_mine_hero_note",
+      "value": "Checked in at 07:46"
+    },
+    {
+      "name": "page_mine_stat_1_label",
+      "value": "Reminders"
+    },
+    {
+      "name": "page_mine_stat_1_value",
+      "value": "05"
+    },
+    {
+      "name": "page_mine_stat_1_note",
+      "value": "2 handoff messages"
+    },
+    {
+      "name": "page_mine_stat_2_label",
+      "value": "Shifts This Week"
+    },
+    {
+      "name": "page_mine_stat_2_value",
+      "value": "06"
+    },
+    {
+      "name": "page_mine_stat_2_note",
+      "value": "Next shift tomorrow morning"
+    },
+    {
+      "name": "page_mine_section_1_title",
+      "value": "My Work"
+    },
+    {
+      "name": "page_mine_section_1_desc",
+      "value": "Items assigned to you in this shift"
+    },
+    {
+      "name": "page_mine_section_1_item_1_title",
+      "value": "Handoff notes"
+    },
+    {
+      "name": "page_mine_section_1_item_1_subtitle",
+      "value": "2 messages from previous shift unread"
+    },
+    {
+      "name": "page_mine_section_1_item_1_tag",
+      "value": "Required"
+    },
+    {
+      "name": "page_mine_section_1_item_2_title",
+      "value": "Training reminder"
+    },
+    {
+      "name": "page_mine_section_1_item_2_subtitle",
+      "value": "Continuous care course starts Friday"
+    },
+    {
+      "name": "page_mine_section_1_item_2_tag",
+      "value": "This Week"
+    },
+    {
+      "name": "page_mine_section_1_item_3_title",
+      "value": "Supply request"
+    },
+    {
+      "name": "page_mine_section_1_item_3_subtitle",
+      "value": "Protective item refill request submitted"
+    },
+    {
+      "name": "page_mine_section_1_item_3_tag",
+      "value": "Sent"
+    },
+    {
+      "name": "page_mine_section_2_title",
+      "value": "Common Settings"
+    },
+    {
+      "name": "page_mine_section_2_desc",
+      "value": "Account and work preference settings"
+    },
+    {
+      "name": "page_mine_section_2_item_1_title",
+      "value": "Notifications"
+    },
+    {
+      "name": "page_mine_section_2_item_1_subtitle",
+      "value": "Critical reminders remain enabled"
+    },
+    {
+      "name": "page_mine_section_2_item_1_tag",
+      "value": "On"
+    },
+    {
+      "name": "page_mine_section_2_item_2_title",
+      "value": "Font and Display"
+    },
+    {
+      "name": "page_mine_section_2_item_2_subtitle",
+      "value": "Care records use larger readable text"
+    },
+    {
+      "name": "page_mine_section_2_item_2_tag",
+      "value": "Standard"
     }
   ]
 }

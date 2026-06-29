@@ -23,10 +23,11 @@ import {
   HdsTabsController,
   ScrollEffectType,
 } from '@kit.UIDesignKit';
-import { WaterFlowView } from '../component/WaterFlowView';
+import { TabPageView } from '../component/TabPageView';
 import { StorageKey } from '../common/CommonConstants';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { PAGE_SCROLLER_MAP, PageKeyEnum, TabsBarModel } from '../model/TabsBarModel';
+import { TAB_PAGE_CONFIGS, TabPageConfig } from '../model/TabPageModel';
 import Logger from '../util/Logger';
 
 const TAG: string = '[MainPage]';
@@ -38,7 +39,13 @@ struct MainPage {
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
   private controller: HdsTabsController = new HdsTabsController();
   private tabsBar: BottomTabBarStyle[] = TabsBarModel.getTabBarByPage(PageKeyEnum.ADAPTIVE_TAB) ?? [];
+  private pageConfigs: TabPageConfig[] = TAB_PAGE_CONFIGS;
   @Local isMiniBar: boolean = true;
+  @Local currentTabIndex: number = 0;
+
+  private getCurrentPageTitle(): ResourceStr {
+    return this.pageConfigs[this.currentTabIndex]?.title ?? $r('app.string.tab_home');
+  }
 
   @Builder
   miniBarBuilder() {
@@ -98,19 +105,47 @@ struct MainPage {
   build() {
     HdsNavigation() {
       HdsTabs({ controller: this.controller }) {
-        Repeat(this.tabsBar)
-          .each((repeatItem: RepeatItem<BottomTabBarStyle>) => {
-            TabContent() {
-              WaterFlowView({
-                currentTabIndex: repeatItem.index,
-                pageKey: PageKeyEnum.ADAPTIVE_TAB
-              })
-            }
-            .tabBar(repeatItem.item)
+        TabContent() {
+          TabPageView({
+            currentTabIndex: 0,
+            pageKey: PageKeyEnum.ADAPTIVE_TAB,
+            config: this.pageConfigs[0]
           })
+        }
+        .tabBar(this.tabsBar[0])
+
+        TabContent() {
+          TabPageView({
+            currentTabIndex: 1,
+            pageKey: PageKeyEnum.ADAPTIVE_TAB,
+            config: this.pageConfigs[1]
+          })
+        }
+        .tabBar(this.tabsBar[1])
+
+        TabContent() {
+          TabPageView({
+            currentTabIndex: 2,
+            pageKey: PageKeyEnum.ADAPTIVE_TAB,
+            config: this.pageConfigs[2]
+          })
+        }
+        .tabBar(this.tabsBar[2])
+
+        TabContent() {
+          TabPageView({
+            currentTabIndex: 3,
+            pageKey: PageKeyEnum.ADAPTIVE_TAB,
+            config: this.pageConfigs[3]
+          })
+        }
+        .tabBar(this.tabsBar[3])
       }
       .barOverlap(true)
       .vertical(false)
+      .onChange((index: number) => {
+        this.currentTabIndex = index;
+      })
       .barPosition(BarPosition.End)
       .barFloatingStyle({
         barBottomMargin: this.globalInfoModel.naviIndicatorHeight > 0 ? this.globalInfoModel.naviIndicatorHeight :
@@ -138,7 +173,7 @@ struct MainPage {
     .titleBar({
       content: {
         title: {
-          mainTitle: $r('app.string.home_title'),
+          mainTitle: this.getCurrentPageTitle(),
         },
       },
       style: {

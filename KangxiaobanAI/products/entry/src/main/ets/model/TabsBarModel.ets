@@ -52,28 +52,28 @@ export enum PageKeyEnum {
 const PAGE_BAR_MAP: Map<PageKeyEnum, BarItem[]> = new Map([
   [PageKeyEnum.ADAPTIVE_TAB, [
     {
-      label: $r('app.string.tab_home'),
+      label: '',
       normalColor: $r('sys.color.icon_primary'),
       normalSymbolResource: $r('sys.symbol.house_fill'),
       selectedColor: '#FF1949',
       selectedSymbolResource: $r('sys.symbol.house_fill'),
     } as BarItem,
     {
-      label: $r('app.string.tab_music'),
+      label: '',
       normalColor: $r('sys.color.icon_primary'),
-      normalSymbolResource: $r('sys.symbol.person_fill'),
+      normalSymbolResource: $r('sys.symbol.person_2_fill'),
       selectedColor: '#FF1949',
-      selectedSymbolResource: $r('sys.symbol.person_fill'),
+      selectedSymbolResource: $r('sys.symbol.person_2_fill'),
     },
     {
-      label: $r('app.string.tab_cafe'),
+      label: '',
       normalColor: $r('sys.color.icon_primary'),
       normalSymbolResource: $r('sys.symbol.square_and_pencil_fill'),
       selectedColor: '#FF1949',
       selectedSymbolResource: $r('sys.symbol.square_and_pencil_fill'),
     },
     {
-      label: $r('app.string.tab_mine'),
+      label: '',
       normalColor: $r('sys.color.icon_primary'),
       normalSymbolResource: $r('sys.symbol.person_crop_circle_fill'),
       selectedColor: '#FF1949',
