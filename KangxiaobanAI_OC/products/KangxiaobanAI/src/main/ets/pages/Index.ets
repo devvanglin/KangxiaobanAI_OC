@@ -89,12 +89,23 @@ struct Index {
         ForEach(this.tabsBar, (tab: BottomTabBarStyle, index: number) => {
           TabContent() {
             Column() {
+              Search({ placeholder: '搜索内容' })
+                .width('100%')
+                .margin({ bottom: $r('sys.float.padding_level4') })
+                .borderRadius($r('sys.float.corner_radius_level8'))
+                .height(40)
+
               Text('Tab ' + index)
                 .fontSize(24)
             }
             .width('100%')
             .height('100%')
-            .justifyContent(FlexAlign.Center)
+            .padding({
+              left: $r('sys.float.padding_level4'),
+              right: $r('sys.float.padding_level4'),
+              top: $r('sys.float.padding_level4')
+            })
+            .justifyContent(FlexAlign.Start)
           }
           .tabBar(tab)
         })
@@ -143,6 +154,7 @@ struct Index {
       avoidLayoutSafeArea: false,
       enableComponentSafeArea: false
     })
+    .hideBackButton(true)
     .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
   }
 }
