@@ -196,11 +196,19 @@ export struct TabPageView {
   }
 
   private titleBarHeight(): number {
-    return 48;
+    return 40;
+  }
+
+  private homeTitleBarHeight(): number {
+    return 33;
   }
 
   private contentTopPadding(): number {
     return this.topPadding() + this.titleBarHeight();
+  }
+
+  private homeContentTopPadding(): number {
+    return this.topPadding() + this.homeTitleBarHeight();
   }
 
   private currentScroller(): Scroller | undefined {
@@ -1336,7 +1344,7 @@ export struct TabPageView {
               .fontSize($r('sys.float.Body_M'))
               .fontColor($r('sys.color.font_primary'))
               .width('100%')
-              .padding({ top: 16, bottom: 8 })
+              .padding({ top: 12, bottom: 8 })
 
             Row({ space: 8 }) {
               Text('肖爷爷')
@@ -1391,17 +1399,26 @@ export struct TabPageView {
   private homePage() {
     List({
       scroller: this.currentScroller(),
-      space: 16
+      space: 12
     }) {
       ListItem() {
-        Column({ space: 16 }) {
+        Column() {
           this.homeSearchBar()
-          this.overviewGrid()
         }
         .padding({
           left: this.pagePadding(),
           right: this.pagePadding(),
-          top: this.contentTopPadding()
+          top: this.homeContentTopPadding()
+        })
+      }
+
+      ListItem() {
+        Column() {
+          this.overviewGrid()
+        }
+        .padding({
+          left: this.pagePadding(),
+          right: this.pagePadding()
         })
       }
 
