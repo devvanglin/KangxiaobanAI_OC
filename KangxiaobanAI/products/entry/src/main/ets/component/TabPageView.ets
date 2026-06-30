@@ -23,6 +23,7 @@ import {
 } from '@kit.UIDesignKit';
 import { StorageKey } from '../common/CommonConstants';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
+import { HomeSearchState } from '../model/HomeSearchState';
 import { PageKeyEnum, PAGE_SCROLLER_MAP } from '../model/TabsBarModel';
 import { TabPageConfig } from '../model/TabPageModel';
 import { BreakpointType } from '../util/BreakpointSystem';
@@ -161,8 +162,11 @@ export struct TabPageView {
   @Param @Require currentTabIndex: number;
   @Param @Require pageKey: PageKeyEnum;
   @Param @Require config: TabPageConfig;
+  @Param onOpenSearch?: () => void;
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
+  @Local homeSearchState: HomeSearchState =
+    AppStorageV2.connect(HomeSearchState, StorageKey.HOME_SEARCH_STATE) ?? new HomeSearchState();
   @Local isProfileSheetOpen: boolean = false;
   @Local selectedResidentId: string = '';
   @Local selectedTaskId: string = '';
@@ -171,7 +175,7 @@ export struct TabPageView {
   @Local taskFilter: 'all' | 'ai' | 'elder' | 'staff' = 'all';
 
   private topPadding(): number {
-    return this.globalInfoModel.statusBarHeight + 68;
+    return this.globalInfoModel.statusBarHeight + 16;
   }
 
   private currentScroller(): Scroller | undefined {
@@ -632,6 +636,41 @@ export struct TabPageView {
     .alignItems(HorizontalAlign.Start)
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(16)
+  }
+
+  @Builder
+  private homeSearchBar() {
+    Row({ space: 10 }) {
+      SymbolGlyph($r('sys.symbol.magnifyingglass'))
+        .fontSize(18)
+        .fontColor([$r('sys.color.font_tertiary')])
+
+      Text('搜索姓名、房间或设备')
+        .fontSize($r('sys.float.Body_M'))
+        .fontColor($r('sys.color.font_tertiary'))
+        .layoutWeight(1)
+
+      SymbolGlyph($r('sys.symbol.mic'))
+        .fontSize(18)
+        .fontColor([$r('sys.color.font_tertiary')])
+    }
+    .width('100%')
+    .height(44)
+    .padding({ left: 14, right: 14 })
+    .backgroundColor('rgba(255,255,255,0.72)')
+    .backgroundBlurStyle(BlurStyle.Thin)
+    .borderRadius(12)
+    .border({
+      width: 0.5,
+      color: 'rgba(255,255,255,0.4)'
+    })
+    .sharedTransition('homeSearchBar', {
+      duration: 350,
+      curve: Curve.EaseInOut
+    })
+    .onClick(() => {
+      this.onOpenSearch?.();
+    })
   }
 
 
@@ -1192,7 +1231,8 @@ export struct TabPageView {
       space: 16
     }) {
       ListItem() {
-        Column() {
+        Column({ space: 16 }) {
+          this.homeSearchBar()
           this.overviewGrid()
         }
         .padding({
@@ -1250,6 +1290,9 @@ export struct TabPageView {
     .backgroundColor(this.pageBackgroundColor())
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
+    .onScroll((scrollOffset: number, scrollState: ScrollState) => {
+      this.homeSearchState.scrollY = scrollOffset;
+    })
   }
 
   @Builder

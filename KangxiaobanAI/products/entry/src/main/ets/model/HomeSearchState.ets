@@ -13,15 +13,7 @@
  * limitations under the License.
  */
 
-export class CommonConstants {
-  // device aspect threshold
-  public static ASPECT_LANDSCAPE_SQUARE: number = 9 / 7.2;
-  public static ASPECT_SQUARE_PORTRAIT: number = 9 / 10.8;
-}
-
-export enum StorageKey {
-  UI_CONTEXT = 'kanxiaoban_UIContext',
-  GLOBAL_INFO = 'kanxiaoban_GlobalInfoModel',
-  MATERIAL_LEVEL = 'kanxiaoban_CustomMaterialLevel',
-  HOME_SEARCH_STATE = 'kanxiaoban_HomeSearchState',
+@ObservedV2
+export class HomeSearchState {
+  @Trace public scrollY: number = 0;
 }

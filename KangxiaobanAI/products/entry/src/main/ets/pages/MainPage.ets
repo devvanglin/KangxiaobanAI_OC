@@ -18,15 +18,19 @@ import {
   HdsBarStyle,
   hdsMaterial,
   HdsNavigation,
+  HdsNavigationMenuContentOptions,
   HdsNavigationTitleMode,
   HdsTabs,
   HdsTabsController,
   ScrollEffectType,
+  TextStyleMode,
 } from '@kit.UIDesignKit';
 import { CheckInFlowPage } from '../component/CheckInFlowPage';
+import { SearchPage } from '../component/SearchPage';
 import { TabPageView } from '../component/TabPageView';
 import { StorageKey } from '../common/CommonConstants';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
+import { HomeSearchState } from '../model/HomeSearchState';
 import { PAGE_SCROLLER_MAP, PageKeyEnum, TabsBarModel } from '../model/TabsBarModel';
 import { TAB_PAGE_CONFIGS, TabPageConfig } from '../model/TabPageModel';
 import Logger from '../util/Logger';
@@ -34,6 +38,7 @@ import { BreakpointType } from '../util/BreakpointSystem';
 
 const TAG: string = '[MainPage]';
 const CHECK_IN_ROUTE_NAME: string = 'CheckInRegister';
+const SEARCH_ROUTE_NAME: string = 'SearchPage';
 
 interface WideNavItem {
   label: ResourceStr;
@@ -52,6 +57,8 @@ struct MainPage {
   private pageConfigs: TabPageConfig[] = TAB_PAGE_CONFIGS;
   @Local isMiniBar: boolean = true;
   @Local currentTabIndex: number = 0;
+  @Local homeSearchState: HomeSearchState =
+    AppStorageV2.connect(HomeSearchState, StorageKey.HOME_SEARCH_STATE) ?? new HomeSearchState();
 
   private getCurrentPageTitle(): ResourceStr {
     return this.pageConfigs[this.currentTabIndex]?.title ?? $r('app.string.tab_home');
@@ -59,6 +66,28 @@ struct MainPage {
 
   private openCheckInFlow(): void {
     this.pathStack.pushPath({ name: CHECK_IN_ROUTE_NAME });
+  }
+
+  private openSearchPage(): void {
+    this.pathStack.pushPath({ name: SEARCH_ROUTE_NAME });
+  }
+
+  private homeSearchMenu(): HdsNavigationMenuContentOptions {
+    const showSearchButton: boolean = this.currentTabIndex === 0 && this.homeSearchState.scrollY > 60;
+    return {
+      value: showSearchButton ? [
+        {
+          content: {
+            label: '搜索',
+            icon: $r('sys.symbol.magnifyingglass'),
+            type: TextStyleMode.NORMAL,
+            action: () => {
+              this.openSearchPage();
+            }
+          }
+        }
+      ] : []
+    };
   }
 
   private isWideLayout(): boolean {
@@ -414,7 +443,10 @@ struct MainPage {
         TabPageView({
           currentTabIndex: 0,
           pageKey: PageKeyEnum.ADAPTIVE_TAB,
-          config: this.pageConfigs[0]
+          config: this.pageConfigs[0],
+          onOpenSearch: () => {
+            this.openSearchPage();
+          }
         })
       }
       .tabBar(this.tabsBar[0])
@@ -423,7 +455,10 @@ struct MainPage {
         TabPageView({
           currentTabIndex: 1,
           pageKey: PageKeyEnum.ADAPTIVE_TAB,
-          config: this.pageConfigs[1]
+          config: this.pageConfigs[1],
+          onOpenSearch: () => {
+            this.openSearchPage();
+          }
         })
       }
       .tabBar(this.tabsBar[1])
@@ -432,7 +467,10 @@ struct MainPage {
         TabPageView({
           currentTabIndex: 2,
           pageKey: PageKeyEnum.ADAPTIVE_TAB,
-          config: this.pageConfigs[2]
+          config: this.pageConfigs[2],
+          onOpenSearch: () => {
+            this.openSearchPage();
+          }
         })
       }
       .tabBar(this.tabsBar[2])
@@ -441,7 +479,10 @@ struct MainPage {
         TabPageView({
           currentTabIndex: 3,
           pageKey: PageKeyEnum.ADAPTIVE_TAB,
-          config: this.pageConfigs[3]
+          config: this.pageConfigs[3],
+          onOpenSearch: () => {
+            this.openSearchPage();
+          }
         })
       }
       .tabBar(this.tabsBar[3])
@@ -484,7 +525,10 @@ struct MainPage {
         TabPageView({
           currentTabIndex: this.currentTabIndex,
           pageKey: PageKeyEnum.ADAPTIVE_TAB,
-          config: this.pageConfigs[this.currentTabIndex]
+          config: this.pageConfigs[this.currentTabIndex],
+          onOpenSearch: () => {
+            this.openSearchPage();
+          }
         })
       }
       .layoutWeight(1)
@@ -503,6 +547,8 @@ struct MainPage {
   private destinationBuilder(name: string, param?: ESObject) {
     if (name === CHECK_IN_ROUTE_NAME) {
       CheckInFlowPage()
+    } else if (name === SEARCH_ROUTE_NAME) {
+      SearchPage()
     }
   }
 
@@ -521,6 +567,7 @@ struct MainPage {
         title: {
           mainTitle: this.getCurrentPageTitle(),
         },
+        menu: this.homeSearchMenu(),
       },
       style: {
         scrollEffectOpts: {
@@ -528,7 +575,7 @@ struct MainPage {
           scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
         },
         systemMaterialEffect: {
-          materialType: hdsMaterial.MaterialType.ADAPTIVE,
+          materialType: hdsMaterial.MaterialType.IMMERSIVE,
           materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
         },
       },
