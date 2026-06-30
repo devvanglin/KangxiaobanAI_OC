@@ -1535,12 +1535,12 @@ export struct TabPageView {
           Row()
             .width(64)
             .height(64)
-            .backgroundColor('#F2F2F7')
+            .backgroundColor($r('sys.color.comp_background_secondary'))
             .borderRadius(32)
           Text('LT')
             .fontSize(24)
             .fontWeight(FontWeight.Medium)
-            .fontColor('#000000')
+            .fontColor($r('sys.color.font_primary'))
         }
 
         Column({ space: 6 }) {
@@ -1548,24 +1548,24 @@ export struct TabPageView {
             Text('刘婷')
               .fontSize(22)
               .fontWeight(FontWeight.Bold)
-              .fontColor('#000000')
+              .fontColor($r('sys.color.font_primary'))
             Row({ space: 2 }) {
               SymbolGlyph($r('sys.symbol.person_crop_circle_fill'))
                 .fontSize(11)
-                .fontColor(['#8E8E93'])
+                .fontColor([$r('sys.color.font_tertiary')])
               Text('L3')
                 .fontSize(11)
-                .fontColor('#8E8E93')
+                .fontColor($r('sys.color.font_tertiary'))
             }
             .padding({ left: 5, right: 5, top: 1, bottom: 1 })
-            .backgroundColor('#F2F2F7')
+            .backgroundColor($r('sys.color.comp_background_secondary'))
             .borderRadius(8)
           }
           .alignItems(VerticalAlign.Center)
 
           Text('阳光护士（2024）')
             .fontSize(14)
-            .fontColor('#6B7280')
+            .fontColor($r('sys.color.font_secondary'))
         }
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
@@ -1589,16 +1589,16 @@ export struct TabPageView {
       }
       .width('100%')
       .padding({ top: 12, bottom: 12 })
-      .backgroundColor('#F7F8FA')
+      .backgroundColor($r('sys.color.comp_background_secondary'))
       .borderRadius(12)
     }
     .width('100%')
     .padding(16)
-    .backgroundColor('#FFFFFF')
+    .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(16)
     .border({
       width: 0.5,
-      color: '#E5E5EA'
+      color: $r('sys.color.comp_divider')
     })
   }
 
@@ -1607,11 +1607,11 @@ export struct TabPageView {
     Row({ space: 6 }) {
       SymbolGlyph(icon)
         .fontSize(16)
-        .fontColor(['#000000'])
+        .fontColor([$r('sys.color.font_primary')])
         .opacity(0.7)
       Text(label)
         .fontSize(13)
-        .fontColor('#000000')
+        .fontColor($r('sys.color.font_primary'))
     }
     .layoutWeight(1)
     .justifyContent(FlexAlign.Center)
@@ -1624,10 +1624,10 @@ export struct TabPageView {
         Text('28')
           .fontSize(20)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#000000')
+          .fontColor($r('sys.color.font_primary'))
         Text('负责长者')
           .fontSize(12)
-          .fontColor('#8E8E93')
+          .fontColor($r('sys.color.font_secondary'))
       }
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Center)
@@ -1636,10 +1636,10 @@ export struct TabPageView {
         Text('92%')
           .fontSize(20)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#000000')
+          .fontColor($r('sys.color.font_primary'))
         Text('班次完成')
           .fontSize(12)
-          .fontColor('#8E8E93')
+          .fontColor($r('sys.color.font_secondary'))
       }
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Center)
@@ -1648,10 +1648,10 @@ export struct TabPageView {
         Text('4.9')
           .fontSize(20)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#000000')
+          .fontColor($r('sys.color.font_primary'))
         Text('服务评分')
           .fontSize(12)
-          .fontColor('#8E8E93')
+          .fontColor($r('sys.color.font_secondary'))
       }
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Center)
@@ -1660,21 +1660,21 @@ export struct TabPageView {
         Text('12h')
           .fontSize(20)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#000000')
+          .fontColor($r('sys.color.font_primary'))
         Text('培训时长')
           .fontSize(12)
-          .fontColor('#8E8E93')
+          .fontColor($r('sys.color.font_secondary'))
       }
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Center)
     }
     .width('100%')
     .padding({ top: 16, bottom: 16 })
-    .backgroundColor('#FFFFFF')
+    .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(16)
     .border({
       width: 0.5,
-      color: '#E5E5EA'
+      color: $r('sys.color.comp_divider')
     })
   }
 
@@ -1684,7 +1684,7 @@ export struct TabPageView {
       Stack({ alignContent: Alignment.TopEnd }) {
         SymbolGlyph(item.icon)
           .fontSize(26)
-          .fontColor(['#000000'])
+          .fontColor([$r('sys.color.font_primary')])
           .opacity(0.75)
         if (item.badge) {
           Text(item.badge)
@@ -1700,12 +1700,12 @@ export struct TabPageView {
 
       Text(item.label)
         .fontSize(13)
-        .fontColor('#000000')
+        .fontColor($r('sys.color.font_primary'))
 
       if (item.subLabel) {
         Text(item.subLabel)
           .fontSize(11)
-          .fontColor('#8E8E93')
+          .fontColor($r('sys.color.font_secondary'))
       }
     }
     .layoutWeight(1)
@@ -1720,7 +1720,7 @@ export struct TabPageView {
         iconSize: IconSize.SYSTEM_ICON,
         iconValue: {
           symbol: new SymbolGlyphModifier(item.icon)
-            .fontColor(['#000000'])
+            .fontColor([$r('sys.color.font_primary')])
             .fontSize(22)
         }
       }),
@@ -1731,7 +1731,7 @@ export struct TabPageView {
       },
       suffixItem: item.value ?
         new SuffixText({ text: item.value }) :
-        new SuffixArrow({ color: '#C7C7CC' }),
+        new SuffixArrow({ color: $r('sys.color.font_tertiary') }),
       cardBorderRadius: 0,
       cardBackgroundColor: 'rgba(0,0,0,0)',
       cardHeight: 52,
@@ -1744,7 +1744,7 @@ export struct TabPageView {
       width: {
         bottom: isLast ? 0 : 0.5
       },
-      color: '#E5E5EA'
+      color: $r('sys.color.comp_divider')
     })
   }
 
@@ -1755,7 +1755,7 @@ export struct TabPageView {
         Text(group.title)
           .fontSize(16)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#000000')
+          .fontColor($r('sys.color.font_primary'))
           .padding({ left: 16, right: 16, top: 14, bottom: 10 })
       }
 
@@ -1766,7 +1766,7 @@ export struct TabPageView {
           })
       }
       .width('100%')
-      .backgroundColor('#FFFFFF')
+      .backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius(16)
     }
     .width('100%')
@@ -1780,16 +1780,16 @@ export struct TabPageView {
         Text('我的任务')
           .fontSize(16)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#000000')
+          .fontColor($r('sys.color.font_primary'))
           .layoutWeight(1)
 
         Row({ space: 2 }) {
           Text('更多')
             .fontSize(14)
-            .fontColor('#8E8E93')
+            .fontColor($r('sys.color.font_secondary'))
           Text('›')
             .fontSize(18)
-            .fontColor('#C7C7CC')
+            .fontColor($r('sys.color.font_tertiary'))
         }
         .alignItems(VerticalAlign.Center)
       }
@@ -1803,11 +1803,11 @@ export struct TabPageView {
       }
     }
     .width('100%')
-    .backgroundColor('#FFFFFF')
+    .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(16)
     .border({
       width: 0.5,
-      color: '#E5E5EA'
+      color: $r('sys.color.comp_divider')
     })
   }
 
@@ -1817,10 +1817,10 @@ export struct TabPageView {
       Column({ space: 4 }) {
         Text(item.title)
           .fontSize(15)
-          .fontColor('#000000')
+          .fontColor($r('sys.color.font_primary'))
         Text(item.subtitle)
           .fontSize(13)
-          .fontColor('#8E8E93')
+          .fontColor($r('sys.color.font_secondary'))
       }
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start)
@@ -1837,7 +1837,7 @@ export struct TabPageView {
       width: {
         bottom: isLast ? 0 : 0.5
       },
-      color: '#E5E5EA'
+      color: $r('sys.color.comp_divider')
     })
   }
 
@@ -1869,7 +1869,9 @@ export struct TabPageView {
           Text('常用功能')
             .fontSize(16)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#000000')
+            .fontColor($r('sys.color.font_primary'))
+            .width('100%')
+            .textAlign(TextAlign.Start)
             .padding({ left: 16, right: 16, top: 14, bottom: 10 })
 
           Row({ space: 0 }) {
@@ -1889,11 +1891,11 @@ export struct TabPageView {
           .width('100%')
         }
         .padding({ bottom: 6 })
-        .backgroundColor('#FFFFFF')
+        .backgroundColor($r('sys.color.comp_background_primary'))
         .borderRadius(16)
         .border({
           width: 0.5,
-          color: '#E5E5EA'
+          color: $r('sys.color.comp_divider')
         })
       }
       .padding({
