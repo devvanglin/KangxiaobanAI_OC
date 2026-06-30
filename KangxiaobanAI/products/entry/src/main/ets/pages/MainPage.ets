@@ -79,9 +79,8 @@ struct MainPage {
       value: showSearchButton ? [
         {
           content: {
-            label: '搜索',
             icon: $r('sys.symbol.magnifyingglass'),
-            type: TextStyleMode.NORMAL,
+            isEnabled: true,
             action: () => {
               this.homeSearchState.searchTrigger++;
             }

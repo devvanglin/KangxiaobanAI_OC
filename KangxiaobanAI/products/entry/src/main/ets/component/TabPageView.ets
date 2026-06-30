@@ -181,7 +181,14 @@ export struct TabPageView {
 
   @Monitor('homeSearchState.searchTrigger')
   onSearchTriggerChange(): void {
-    this.onSearchClicked();
+    this.geometryId = '';
+    this.getUIContext().animateTo({
+      duration: 300,
+      curve: Curve.EaseInOut
+    }, () => {
+      this.isSearchPageShow = true;
+      this.homeSearchState.isSearchOpen = true;
+    })
   }
 
   private topPadding(): number {
@@ -1242,14 +1249,26 @@ export struct TabPageView {
   }
 
   private onArrowClicked(): void {
-    this.geometryId = 'search';
-    this.getUIContext().animateTo({
-      curve: curves.interpolatingSpring(0, 1, 342, 38)
-    }, () => {
-      this.isSearchPageShow = false;
-      this.homeSearchState.isSearchOpen = false;
-      this.homeSearchText = '';
-    })
+    const useGeo: boolean = this.geometryId !== '';
+    if (useGeo) {
+      this.getUIContext().animateTo({
+        curve: curves.interpolatingSpring(0, 1, 342, 38)
+      }, () => {
+        this.isSearchPageShow = false;
+        this.homeSearchState.isSearchOpen = false;
+        this.homeSearchText = '';
+        this.geometryId = '';
+      })
+    } else {
+      this.getUIContext().animateTo({
+        duration: 300,
+        curve: Curve.EaseInOut
+      }, () => {
+        this.isSearchPageShow = false;
+        this.homeSearchState.isSearchOpen = false;
+        this.homeSearchText = '';
+      })
+    }
   }
 
   // ---------------- pages ----------------
