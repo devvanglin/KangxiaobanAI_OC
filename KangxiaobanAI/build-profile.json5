@@ -3,6 +3,7 @@
     "products": [
       {
         "name": "default",
+        "signingConfig": "default",
         "targetSdkVersion": "6.1.0(23)",
         "compatibleSdkVersion": "6.1.0(23)",
         "runtimeOS": "HarmonyOS",
@@ -29,11 +30,11 @@
         "material": {
           "certpath": "C:\\Users\\Shenyi\\.ohos\\config\\default_KangxiaobanAI_F7_WrjNQMfl5K_y0DsMzh8M9MKaNGpZzjB4JAqWA0tY=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001BC6CF3D9489F33D90B7B8BB696399D1F447C8A65ECDF5E75E8F48712826622C5D67F9AE6A421600",
+          "keyPassword": "0000001B64063900CA6D779994158BA0EEEC111C912F7E33E361214E6DCA21583FA94DEFAC35700D88AAA4",
           "profile": "C:\\Users\\Shenyi\\.ohos\\config\\default_KangxiaobanAI_F7_WrjNQMfl5K_y0DsMzh8M9MKaNGpZzjB4JAqWA0tY=.p7b",
           "signAlg": "SHA256withECDSA",
           "storeFile": "C:\\Users\\Shenyi\\.ohos\\config\\default_KangxiaobanAI_F7_WrjNQMfl5K_y0DsMzh8M9MKaNGpZzjB4JAqWA0tY=.p12",
-          "storePassword": "0000001B6B036D0AE20F1F65AD6FDC8C3A8AEDA07B7545C843B912A929688EB2CC1A11E72704D2BF6933C8"
+          "storePassword": "0000001B302C85F761F2778CF424DC64F671A8346311AC24838015F5F041EA6CF8E78BFC28EA65F71ED4F4"
         }
       }
     ]

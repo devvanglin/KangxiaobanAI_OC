@@ -13,7 +13,15 @@
  * limitations under the License.
  */
 
-import { AppStorageV2 } from '@kit.ArkUI';
+import { AppStorageV2, SymbolGlyphModifier } from '@kit.ArkUI';
+import {
+  HdsListItemCard,
+  IconSize,
+  PrefixIcon,
+  SuffixArrow,
+  SuffixButton,
+  SuffixText
+} from '@kit.UIDesignKit';
 import { StorageKey } from '../common/CommonConstants';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { PageKeyEnum, PAGE_SCROLLER_MAP } from '../model/TabsBarModel';
@@ -91,11 +99,20 @@ interface ScheduleData {
 }
 
 interface QuickActionData {
+  icon: Resource;
   label: string;
+  subLabel?: string;
   badge?: string;
 }
 
+interface TaskItemData {
+  title: string;
+  subtitle: string;
+  buttonText: string;
+}
+
 interface SettingItemData {
+  icon: Resource;
   label: string;
   value?: string;
   showArrow: boolean;
@@ -1476,40 +1493,35 @@ export struct TabPageView {
 
   private quickActions(): QuickActionData[] {
     return [
-      { label: '入住登记', badge: '3' },
-      { label: '交接班' },
-      { label: '消息通知', badge: '5' },
-      { label: '培训学习' },
-      { label: '绩效统计' },
-      { label: '排班表' },
-      { label: '紧急联系' },
-      { label: '帮助中心' }
+      { icon: $r('sys.symbol.square_and_pencil'), label: '入住登记', subLabel: '3 待处理' },
+      { icon: $r('sys.symbol.doc_text'), label: '交接班' },
+      { icon: $r('sys.symbol.bell'), label: '消息通知', subLabel: '5 未读' },
+      { icon: $r('sys.symbol.paintpalette'), label: '培训学习' },
+      { icon: $r('sys.symbol.hand_thumbsup'), label: '我的评价', subLabel: '本月' },
+      { icon: $r('sys.symbol.square_and_pencil_fill'), label: '排班表' },
+      { icon: $r('sys.symbol.person_2_fill'), label: '紧急联系' },
+      { icon: $r('sys.symbol.questionmark_circle'), label: '帮助中心' }
+    ];
+  }
+
+  private taskItems(): TaskItemData[] {
+    return [
+      { title: '完成今日入住登记', subtitle: '待处理 3 位', buttonText: '去完成' },
+      { title: '提交交接班记录', subtitle: '17:30 截止', buttonText: '去完成' },
+      { title: '处理风险观察预警', subtitle: '情绪关注 2 例', buttonText: '去处理' }
     ];
   }
 
   private settingGroups(): SettingGroupData[] {
     return [
       {
-        title: '账号',
+        title: '',
         items: [
-          { label: '个人资料', value: '刘婷', showArrow: true },
-          { label: '账号安全', value: 'L3 权限', showArrow: true }
-        ]
-      },
-      {
-        title: '服务',
-        items: [
-          { label: '通知提醒', value: '关键提醒', showArrow: true },
-          { label: 'AI 数字助手', value: '已开启', showArrow: true },
-          { label: '登录设备', value: '2 台', showArrow: true },
-          { label: '数据同步', value: '正常', showArrow: true }
-        ]
-      },
-      {
-        title: '其他',
-        items: [
-          { label: '关于我们', showArrow: true },
-          { label: '通用设置', showArrow: true }
+          { icon: $r('sys.symbol.lock'), label: '账号安全', value: 'L3 权限', showArrow: true },
+          { icon: $r('sys.symbol.bell'), label: '通知提醒', value: '关键提醒', showArrow: true },
+          { icon: $r('sys.symbol.share'), label: '登录设备', value: '2 台', showArrow: true },
+          { icon: $r('sys.symbol.questionmark_circle'), label: '关于我们', showArrow: true },
+          { icon: $r('sys.symbol.gearshape'), label: '通用设置', showArrow: true }
         ]
       }
     ];
@@ -1521,91 +1533,69 @@ export struct TabPageView {
       Row({ space: 14 }) {
         Stack({ alignContent: Alignment.Center }) {
           Row()
-            .width(56)
-            .height(56)
+            .width(64)
+            .height(64)
             .backgroundColor('#F2F2F7')
-            .borderRadius(16)
+            .borderRadius(32)
           Text('LT')
-            .fontSize(20)
+            .fontSize(24)
             .fontWeight(FontWeight.Medium)
             .fontColor('#000000')
         }
 
-        Column({ space: 3 }) {
-          Text('刘婷')
-            .fontSize(20)
-            .fontWeight(FontWeight.Medium)
-            .fontColor('#000000')
-          Text('白班护工 · CG-021')
+        Column({ space: 6 }) {
+          Row({ space: 8 }) {
+            Text('刘婷')
+              .fontSize(22)
+              .fontWeight(FontWeight.Bold)
+              .fontColor('#000000')
+            Row({ space: 2 }) {
+              SymbolGlyph($r('sys.symbol.person_crop_circle_fill'))
+                .fontSize(11)
+                .fontColor(['#8E8E93'])
+              Text('L3')
+                .fontSize(11)
+                .fontColor('#8E8E93')
+            }
+            .padding({ left: 5, right: 5, top: 1, bottom: 1 })
+            .backgroundColor('#F2F2F7')
+            .borderRadius(8)
+          }
+          .alignItems(VerticalAlign.Center)
+
+          Text('阳光护士（2024）')
             .fontSize(14)
-            .fontColor('#8E8E93')
-          Text('A栋 2F-3F')
-            .fontSize(13)
-            .fontColor('#8E8E93')
+            .fontColor('#6B7280')
         }
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
+
+        Row({ space: 4 }) {
+          SymbolGlyph($r('sys.symbol.square_and_pencil'))
+            .fontSize(14)
+            .fontColor(['#007DFF'])
+          Text('编辑')
+            .fontSize(13)
+            .fontColor('#007DFF')
+        }
+        .alignItems(VerticalAlign.Center)
       }
       .width('100%')
 
       Row({ space: 0 }) {
-        Column({ space: 2 }) {
-          Text('28')
-            .fontSize(18)
-            .fontWeight(FontWeight.Medium)
-            .fontColor('#000000')
-          Text('负责长者')
-            .fontSize(12)
-            .fontColor('#8E8E93')
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Center)
-
-        Column({ space: 2 }) {
-          Text('92%')
-            .fontSize(18)
-            .fontWeight(FontWeight.Medium)
-            .fontColor('#000000')
-          Text('班次完成')
-            .fontSize(12)
-            .fontColor('#8E8E93')
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Center)
-
-        Column({ space: 2 }) {
-          Text('4.9')
-            .fontSize(18)
-            .fontWeight(FontWeight.Medium)
-            .fontColor('#000000')
-          Text('服务评分')
-            .fontSize(12)
-            .fontColor('#8E8E93')
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Center)
-
-        Column({ space: 2 }) {
-          Text('12h')
-            .fontSize(18)
-            .fontWeight(FontWeight.Medium)
-            .fontColor('#000000')
-          Text('培训时长')
-            .fontSize(12)
-            .fontColor('#8E8E93')
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Center)
+        this.privilegeItem($r('sys.symbol.person_2_fill'), '我的长者')
+        this.privilegeItem($r('sys.symbol.square_and_pencil'), '我的任务')
+        this.privilegeItem($r('sys.symbol.hand_thumbsup'), '我的评价')
       }
       .width('100%')
       .padding({ top: 12, bottom: 12 })
-      .backgroundColor('#F2F2F7')
+      .backgroundColor('#F7F8FA')
       .borderRadius(12)
     }
     .width('100%')
     .padding(16)
     .backgroundColor('#FFFFFF')
-    .borderRadius(14)
+    .borderRadius(16)
     .border({
       width: 0.5,
       color: '#E5E5EA'
@@ -1613,55 +1603,142 @@ export struct TabPageView {
   }
 
   @Builder
-  private quickActionItem(item: QuickActionData, isLastInRow: boolean) {
-    Row({ space: 4 }) {
-      Text(item.label)
-        .fontSize(15)
+  private privilegeItem(icon: Resource, label: string) {
+    Row({ space: 6 }) {
+      SymbolGlyph(icon)
+        .fontSize(16)
+        .fontColor(['#000000'])
+        .opacity(0.7)
+      Text(label)
+        .fontSize(13)
         .fontColor('#000000')
-      if (item.badge) {
-        Text(item.badge)
-          .fontSize(11)
-          .fontColor('#FF3B30')
-          .fontWeight(FontWeight.Medium)
-      }
     }
     .layoutWeight(1)
     .justifyContent(FlexAlign.Center)
-    .padding({ top: 10, bottom: 10 })
+  }
+
+  @Builder
+  private mineStatsCard() {
+    Row({ space: 0 }) {
+      Column({ space: 4 }) {
+        Text('28')
+          .fontSize(20)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#000000')
+        Text('负责长者')
+          .fontSize(12)
+          .fontColor('#8E8E93')
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Center)
+
+      Column({ space: 4 }) {
+        Text('92%')
+          .fontSize(20)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#000000')
+        Text('班次完成')
+          .fontSize(12)
+          .fontColor('#8E8E93')
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Center)
+
+      Column({ space: 4 }) {
+        Text('4.9')
+          .fontSize(20)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#000000')
+        Text('服务评分')
+          .fontSize(12)
+          .fontColor('#8E8E93')
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Center)
+
+      Column({ space: 4 }) {
+        Text('12h')
+          .fontSize(20)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#000000')
+        Text('培训时长')
+          .fontSize(12)
+          .fontColor('#8E8E93')
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Center)
+    }
+    .width('100%')
+    .padding({ top: 16, bottom: 16 })
+    .backgroundColor('#FFFFFF')
+    .borderRadius(16)
     .border({
-      width: {
-        right: isLastInRow ? 0 : 0.5
-      },
+      width: 0.5,
       color: '#E5E5EA'
     })
   }
 
   @Builder
-  private settingItem(item: SettingItemData, isLast: boolean) {
-    Row({ space: 10 }) {
-      Text(item.label)
-        .fontSize(16)
-        .fontColor('#000000')
-        .layoutWeight(1)
+  private quickActionItem(item: QuickActionData) {
+    Column({ space: 6 }) {
+      Stack({ alignContent: Alignment.TopEnd }) {
+        SymbolGlyph(item.icon)
+          .fontSize(26)
+          .fontColor(['#000000'])
+          .opacity(0.75)
+        if (item.badge) {
+          Text(item.badge)
+            .fontSize(10)
+            .fontColor('#FFFFFF')
+            .fontWeight(FontWeight.Medium)
+            .padding({ left: 4, right: 4, top: 1, bottom: 1 })
+            .backgroundColor('#FF3B30')
+            .borderRadius(8)
+            .offset({ x: 8, y: -4 })
+        }
+      }
 
-      if (item.value) {
-        Text(item.value)
-          .fontSize(15)
+      Text(item.label)
+        .fontSize(13)
+        .fontColor('#000000')
+
+      if (item.subLabel) {
+        Text(item.subLabel)
+          .fontSize(11)
           .fontColor('#8E8E93')
       }
-
-      if (item.showArrow) {
-        Text('›')
-          .fontSize(20)
-          .fontColor('#C7C7CC')
-          .margin({ left: 2 })
-      }
     }
-    .padding({
-      left: 16,
-      right: 16,
-      top: 12,
-      bottom: 12
+    .layoutWeight(1)
+    .alignItems(HorizontalAlign.Center)
+    .padding({ top: 10, bottom: 10 })
+  }
+
+  @Builder
+  private settingItem(item: SettingItemData, isLast: boolean) {
+    HdsListItemCard({
+      prefixItem: new PrefixIcon({
+        iconSize: IconSize.SYSTEM_ICON,
+        iconValue: {
+          symbol: new SymbolGlyphModifier(item.icon)
+            .fontColor(['#000000'])
+            .fontSize(22)
+        }
+      }),
+      textItem: {
+        primaryText: {
+          text: item.label
+        }
+      },
+      suffixItem: item.value ?
+        new SuffixText({ text: item.value }) :
+        new SuffixArrow({ color: '#C7C7CC' }),
+      cardBorderRadius: 0,
+      cardBackgroundColor: 'rgba(0,0,0,0)',
+      cardHeight: 52,
+      cardPrefixMargin: 0,
+      cardSuffixMargin: 0,
+      onClick: () => {
+      }
     })
     .border({
       width: {
@@ -1674,10 +1751,13 @@ export struct TabPageView {
   @Builder
   private settingGroup(group: SettingGroupData) {
     Column({ space: 0 }) {
-      Text(group.title)
-        .fontSize(13)
-        .fontColor('#8E8E93')
-        .padding({ left: 16, right: 16, top: 8, bottom: 6 })
+      if (group.title !== '') {
+        Text(group.title)
+          .fontSize(16)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#000000')
+          .padding({ left: 16, right: 16, top: 14, bottom: 10 })
+      }
 
       Column({ space: 0 }) {
         Repeat(group.items)
@@ -1685,10 +1765,80 @@ export struct TabPageView {
             this.settingItem(repeatItem.item, repeatItem.index === group.items.length - 1)
           })
       }
+      .width('100%')
       .backgroundColor('#FFFFFF')
-      .borderRadius(10)
+      .borderRadius(16)
     }
+    .width('100%')
     .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private mineTaskCard() {
+    Column({ space: 0 }) {
+      Row({ space: 0 }) {
+        Text('我的任务')
+          .fontSize(16)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#000000')
+          .layoutWeight(1)
+
+        Row({ space: 2 }) {
+          Text('更多')
+            .fontSize(14)
+            .fontColor('#8E8E93')
+          Text('›')
+            .fontSize(18)
+            .fontColor('#C7C7CC')
+        }
+        .alignItems(VerticalAlign.Center)
+      }
+      .padding({ left: 16, right: 16, top: 14, bottom: 10 })
+
+      Column({ space: 0 }) {
+        Repeat(this.taskItems())
+          .each((repeatItem: RepeatItem<TaskItemData>) => {
+            this.mineTaskRow(repeatItem.item, repeatItem.index === this.taskItems().length - 1)
+          })
+      }
+    }
+    .width('100%')
+    .backgroundColor('#FFFFFF')
+    .borderRadius(16)
+    .border({
+      width: 0.5,
+      color: '#E5E5EA'
+    })
+  }
+
+  @Builder
+  private mineTaskRow(item: TaskItemData, isLast: boolean) {
+    Row({ space: 12 }) {
+      Column({ space: 4 }) {
+        Text(item.title)
+          .fontSize(15)
+          .fontColor('#000000')
+        Text(item.subtitle)
+          .fontSize(13)
+          .fontColor('#8E8E93')
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      Text(item.buttonText)
+        .fontSize(13)
+        .fontColor('#007DFF')
+        .padding({ left: 14, right: 14, top: 6, bottom: 6 })
+        .backgroundColor('#F0F7FF')
+        .borderRadius(16)
+    }
+    .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+    .border({
+      width: {
+        bottom: isLast ? 0 : 0.5
+      },
+      color: '#E5E5EA'
+    })
   }
 
   @Builder
@@ -1707,29 +1857,40 @@ export struct TabPageView {
       })
 
       ListItem() {
+        this.mineStatsCard()
+      }
+      .padding({
+        left: this.pagePadding(),
+        right: this.pagePadding()
+      })
+
+      ListItem() {
         Column({ space: 0 }) {
+          Text('常用功能')
+            .fontSize(16)
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#000000')
+            .padding({ left: 16, right: 16, top: 14, bottom: 10 })
+
           Row({ space: 0 }) {
-            this.quickActionItem(this.quickActions()[0], false)
-            this.quickActionItem(this.quickActions()[1], false)
-            this.quickActionItem(this.quickActions()[2], false)
-            this.quickActionItem(this.quickActions()[3], true)
+            this.quickActionItem(this.quickActions()[0])
+            this.quickActionItem(this.quickActions()[1])
+            this.quickActionItem(this.quickActions()[2])
+            this.quickActionItem(this.quickActions()[3])
           }
           .width('100%')
 
-          Divider()
-            .strokeWidth(0.5)
-            .color('#E5E5EA')
-
           Row({ space: 0 }) {
-            this.quickActionItem(this.quickActions()[4], false)
-            this.quickActionItem(this.quickActions()[5], false)
-            this.quickActionItem(this.quickActions()[6], false)
-            this.quickActionItem(this.quickActions()[7], true)
+            this.quickActionItem(this.quickActions()[4])
+            this.quickActionItem(this.quickActions()[5])
+            this.quickActionItem(this.quickActions()[6])
+            this.quickActionItem(this.quickActions()[7])
           }
           .width('100%')
         }
+        .padding({ bottom: 6 })
         .backgroundColor('#FFFFFF')
-        .borderRadius(10)
+        .borderRadius(16)
         .border({
           width: 0.5,
           color: '#E5E5EA'
@@ -1741,27 +1902,15 @@ export struct TabPageView {
       })
 
       ListItem() {
-        if (this.isWideLayout()) {
-          Row({ space: 16 }) {
-            Column({ space: 12 }) {
-              this.settingGroup(this.settingGroups()[0])
-              this.settingGroup(this.settingGroups()[2])
-            }
-            .layoutWeight(1)
+        this.mineTaskCard()
+      }
+      .padding({
+        left: this.pagePadding(),
+        right: this.pagePadding()
+      })
 
-            Column({ space: 12 }) {
-              this.settingGroup(this.settingGroups()[1])
-            }
-            .layoutWeight(1)
-          }
-        } else {
-          Column({ space: 12 }) {
-            Repeat(this.settingGroups())
-              .each((repeatItem: RepeatItem<SettingGroupData>) => {
-                this.settingGroup(repeatItem.item)
-              })
-          }
-        }
+      ListItem() {
+        this.settingGroup(this.settingGroups()[0])
       }
       .padding({
         left: this.pagePadding(),
@@ -1771,7 +1920,7 @@ export struct TabPageView {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F2F2F7')
+    .backgroundColor(this.pageBackgroundColor())
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
   }
