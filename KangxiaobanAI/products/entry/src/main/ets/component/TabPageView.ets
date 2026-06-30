@@ -592,13 +592,29 @@ export struct TabPageView {
     .rowsTemplate('1fr 1fr')
     .columnsGap(12)
     .rowsGap(12)
-    .height(176)
+    .height(this.overviewGridHeight())
+  }
+
+  private overviewGridHeight(): number {
+    return new BreakpointType<number>({
+      sm: 280,
+      md: 320,
+      lg: 320
+    }).getValue(this.globalInfoModel.widthBreakpoint);
+  }
+
+  private ringSize(): number {
+    return new BreakpointType<number>({
+      sm: 72,
+      md: 84,
+      lg: 88
+    }).getValue(this.globalInfoModel.widthBreakpoint);
   }
 
   @Builder
   private overviewCard(label: string, value: string, unit: string, valueColor: ResourceColor, ratio: number) {
-    Column({ space: 0 }) {
-      Column({ space: 6 }) {
+    Row({ space: 0 }) {
+      Column({ space: 8 }) {
         Text(label)
           .fontSize($r('sys.float.Caption_M'))
           .fontColor($r('sys.color.font_secondary'))
@@ -614,20 +630,25 @@ export struct TabPageView {
         }
         .alignItems(VerticalAlign.Bottom)
       }
-      .width('100%')
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start)
+      .justifyContent(FlexAlign.Center)
 
-      DataPanel({ values: [ratio], max: 100, type: DataPanelType.Line })
-        .width('100%')
-        .height(6)
-        .valueColors([valueColor])
+      Stack({ alignContent: Alignment.Center }) {
+        DataPanel({ values: [ratio], max: 100, type: DataPanelType.Circle })
+          .width(this.ringSize())
+          .height(this.ringSize())
+          .valueColors([valueColor])
+
+        Text(`${ratio}%`)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor(valueColor)
+      }
     }
     .width('100%')
     .height('100%')
-    .padding({ left: 14, right: 14, top: 14, bottom: 14 })
-    .justifyContent(FlexAlign.SpaceBetween)
-    .alignItems(HorizontalAlign.Start)
+    .padding(16)
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(16)
   }
