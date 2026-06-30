@@ -22,18 +22,21 @@ import {
 } from '@kit.UIDesignKit';
 import { StorageKey } from '../common/CommonConstants';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
+import { BreakpointType } from '../util/BreakpointSystem';
 
 interface CheckInStep {
   title: string;
   status: string;
+  detail: string;
 }
 
-interface CheckInInfoRow {
+interface KeyValueData {
   label: string;
   value: string;
+  detail: string;
 }
 
-interface CheckInChecklistItem {
+interface ReadyItem {
   title: string;
   detail: string;
 }
@@ -45,70 +48,98 @@ export struct CheckInFlowPage {
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
 
   private contentTopPadding(): number {
-    return this.globalInfoModel.statusBarHeight + 84;
+    return this.globalInfoModel.statusBarHeight + 68;
+  }
+
+  private isWideLayout(): boolean {
+    const widthBreakpoint: WidthBreakpoint = this.globalInfoModel.widthBreakpoint;
+    return widthBreakpoint === WidthBreakpoint.WIDTH_MD ||
+      widthBreakpoint === WidthBreakpoint.WIDTH_LG ||
+      widthBreakpoint === WidthBreakpoint.WIDTH_XL;
+  }
+
+  private pagePadding(): number {
+    return new BreakpointType<number>({
+      sm: 16,
+      md: 24,
+      lg: 28,
+      xl: 32
+    }).getValue(this.globalInfoModel.widthBreakpoint);
+  }
+
+  private cardRadius(): number {
+    return this.isWideLayout() ? 16 : 14;
   }
 
   private steps(): CheckInStep[] {
     return [
       {
-        title: '资料确认',
-        status: '当前'
+        title: '资料核验',
+        status: '当前',
+        detail: '身份、病史、过敏与家属授权'
       },
       {
-        title: '房间床位',
-        status: '待办'
+        title: '床位安排',
+        status: '待办',
+        detail: '房间、陪护、呼叫器与安全标识'
       },
       {
-        title: '健康初评',
-        status: '待办'
+        title: '照护初评',
+        status: '待办',
+        detail: '生命体征、风险等级与作息习惯'
       },
       {
-        title: '交接完成',
-        status: '末步'
+        title: '交接同步',
+        status: '末步',
+        detail: '护理站、值班组与家属摘要'
       }
     ];
   }
 
-  private infoRows(): CheckInInfoRow[] {
+  private baseInfo(): KeyValueData[] {
     return [
       {
         label: '入住长者',
-        value: '肖爷爷'
+        value: '肖爷爷',
+        detail: '家属送住，首次接入情绪主动关怀方案'
       },
       {
         label: '预计到院',
-        value: '14:30'
-      },
-      {
-        label: '家属联系人',
-        value: '女儿 / 已尝试回电'
+        value: '14:30',
+        detail: '资料袋与病历摘要已到护理站'
       },
       {
         label: '预留床位',
-        value: '3F-302 / 靠窗'
+        value: '3F-302',
+        detail: '靠窗，靠近护理呼叫点，便于夜间观察'
+      },
+      {
+        label: '主要联系人',
+        value: '女儿',
+        detail: '电话暂未接通，建议晚饭后再次回访'
       }
     ];
   }
 
-  private checklistItems(): CheckInChecklistItem[] {
+  private readyItems(): ReadyItem[] {
     return [
       {
-        title: '核验基础信息',
-        detail: '确认身份、既往病史、过敏信息和紧急联系人。'
+        title: '基础资料齐备',
+        detail: '入住表、身份证明、过敏史、家属授权书和既往病史需全部存档。'
       },
       {
-        title: '同步护理计划',
-        detail: '根据饮食、用药、作息和情绪风险建立首日提醒。'
+        title: '房间环境就绪',
+        detail: '床品、扶手、防滑设施、呼叫器、夜灯和安全标识全部完成检查。'
       },
       {
-        title: '通知值班组',
-        detail: '把家属联络情况、情绪线索和夜间观察点写入交接摘要。'
+        title: '首日照护计划',
+        detail: '饮食、用药、康复、作息和夜间巡视频次要在入住后立即同步。'
       }
     ];
   }
 
   @Builder
-  private pill(text: string, backgroundColor: ResourceColor, fontColor: ResourceColor = '#344054') {
+  private tag(text: string, backgroundColor: ResourceColor, fontColor: ResourceColor = '#305C88') {
     Text(text)
       .fontSize($r('sys.float.Caption_M'))
       .fontColor(fontColor)
@@ -119,7 +150,7 @@ export struct CheckInFlowPage {
         bottom: 4
       })
       .backgroundColor(backgroundColor)
-      .borderRadius($r('sys.float.corner_radius_level8'))
+      .borderRadius(10)
   }
 
   @Builder
@@ -128,91 +159,221 @@ export struct CheckInFlowPage {
       Text(title)
         .fontSize($r('sys.float.Body_L'))
         .fontWeight(FontWeight.Bold)
-        .fontColor($r('sys.color.font_primary'))
+        .fontColor('#0F172A')
       Text(detail)
         .fontSize($r('sys.float.Body_S'))
-        .fontColor($r('sys.color.font_secondary'))
+        .fontColor('#526277')
+        .maxLines(2)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
     }
     .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
-  private stepRow(step: CheckInStep, index: number) {
-    Column({ space: 8 }) {
-      Stack({ alignContent: Alignment.Center }) {
-        Circle()
-          .width(30)
-          .height(30)
-          .fill(index === 0 ? '#1F8EFA' : '#E8ECF2')
-        Text(`${index + 1}`)
-          .fontSize($r('sys.float.Caption_M'))
-          .fontWeight(FontWeight.Bold)
-          .fontColor(index === 0 ? '#FFFFFF' : '#344054')
+  private stepCard(step: CheckInStep, index: number) {
+    Column({ space: 10 }) {
+      Row() {
+        Stack({ alignContent: Alignment.Center }) {
+          Row()
+            .width(32)
+            .height(32)
+            .backgroundColor(index === 0 ? '#1D63ED' : '#EFF4FA')
+            .borderRadius(12)
+          Text(`${index + 1}`)
+            .fontSize($r('sys.float.Caption_M'))
+            .fontWeight(FontWeight.Bold)
+            .fontColor(index === 0 ? '#FFFFFF' : '#45617E')
+        }
+        .width(32)
+        .height(32)
+        Blank()
+        this.tag(step.status, index === 0 ? '#EAF1FD' : '#F3F6FA', index === 0 ? '#1D63ED' : '#526277')
       }
       Text(step.title)
+        .fontSize($r('sys.float.Body_M'))
+        .fontWeight(FontWeight.Bold)
+        .fontColor('#0F172A')
+      Text(step.detail)
         .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_primary'))
-      this.pill(step.status, index === 0 ? '#EAF3FF' : '#F2F4F7', index === 0 ? '#245BDB' : '#475467')
+        .fontColor('#526277')
+        .maxLines(2)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
     }
-    .width(72)
-    .alignItems(HorizontalAlign.Center)
+    .alignItems(HorizontalAlign.Start)
+    .padding($r('sys.float.padding_level5'))
+    .layoutWeight(1)
+    .backgroundColor('#FFFFFF')
+    .borderRadius(this.cardRadius())
+    .border({
+      width: 1,
+      color: '#DCE5EF'
+    })
   }
 
   @Builder
-  private infoRow(row: CheckInInfoRow, isLast: boolean) {
+  private infoRow(item: KeyValueData, isLast: boolean) {
     Row() {
-      Text(row.label)
+      Column({ space: 2 }) {
+        Text(item.label)
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor('#6B7C93')
+        Text(item.detail)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor('#526277')
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
+
+      Text(item.value)
         .fontSize($r('sys.float.Body_M'))
-        .fontColor($r('sys.color.font_secondary'))
-      Blank()
-      Text(row.value)
-        .fontSize($r('sys.float.Body_M'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
+        .fontWeight(FontWeight.Bold)
+        .fontColor('#0F172A')
     }
     .padding({
-      top: $r('sys.float.padding_level4'),
-      bottom: $r('sys.float.padding_level4')
+      top: 12,
+      bottom: 12
     })
     .border({
       width: {
         bottom: isLast ? 0 : 1
       },
-      color: '#E8EAED'
+      color: '#E4EAF1'
     })
   }
 
   @Builder
-  private checklistRow(item: CheckInChecklistItem, isLast: boolean) {
-    Row({ space: $r('sys.float.padding_level4') }) {
-      Circle()
+  private readyRow(item: ReadyItem, isLast: boolean) {
+    Row({ space: 12 }) {
+      Blank()
         .width(8)
         .height(8)
-        .fill('#1F8EFA')
+        .backgroundColor('#1D63ED')
+        .borderRadius(4)
         .margin({ top: 7 })
 
       Column({ space: 4 }) {
         Text(item.title)
           .fontSize($r('sys.float.Body_M'))
           .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
+          .fontColor('#0F172A')
         Text(item.detail)
           .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_secondary'))
+          .fontColor('#526277')
       }
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
     }
     .alignItems(VerticalAlign.Top)
     .padding({
-      top: $r('sys.float.padding_level4'),
-      bottom: $r('sys.float.padding_level4')
+      top: 12,
+      bottom: 12
     })
     .border({
       width: {
         bottom: isLast ? 0 : 1
       },
-      color: '#E8EAED'
+      color: '#E4EAF1'
+    })
+  }
+
+  @Builder
+  private summaryHero() {
+    Column({ space: 16 }) {
+      Row() {
+        Column({ space: 4 }) {
+          Text('入住登记')
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor('#C3D2E2')
+          Text('首日办理工作台')
+            .fontSize($r('sys.float.Title_M'))
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#F8FBFF')
+          Text('围绕资料、床位、照护计划与交接同步，做一套真正适合护工端的入住流程。')
+            .fontSize($r('sys.float.Body_S'))
+            .fontColor('#D8E4F0')
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+
+        this.tag('可用床位 12', '#20496B', '#E6F1FF')
+      }
+
+      Row({ space: 12 }) {
+        Column({ space: 2 }) {
+          Text('03')
+            .fontSize($r('sys.float.Title_L'))
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#FFFFFF')
+          Text('今日待办理')
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor('#D8E4F0')
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        Column({ space: 2 }) {
+          Text('01')
+            .fontSize($r('sys.float.Title_L'))
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#FFFFFF')
+          Text('家属待回访')
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor('#D8E4F0')
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        Column({ space: 2 }) {
+          Text('14:30')
+            .fontSize($r('sys.float.Title_L'))
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#FFFFFF')
+          Text('预计到院')
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor('#D8E4F0')
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+      }
+    }
+    .alignItems(HorizontalAlign.Start)
+    .padding($r('sys.float.padding_level6'))
+    .backgroundColor('#16324A')
+    .borderRadius(this.cardRadius())
+    .border({
+      width: 1,
+      color: '#244B70'
+    })
+  }
+
+  @Builder
+  private rightSummaryCard() {
+    Column({ space: 14 }) {
+      this.sectionTitle('办理侧重点', '先确保护理真实可执行，再补齐系统信息。')
+
+      Column({ space: 8 }) {
+        this.tag('当前步骤：资料核验', '#EAF1FD', '#1D63ED')
+        this.tag('责任人：前台接待护工', '#F3F6FA', '#526277')
+        this.tag('需护理站复核', '#FDEFD8', '#B7791F')
+      }
+
+      Divider()
+        .strokeWidth(1)
+        .color('#E4EAF1')
+
+      Text('若家属再次未接通，系统将在晚饭后自动补发陪伴摘要，并提示值班护工人工跟进。')
+        .fontSize($r('sys.float.Body_S'))
+        .fontColor('#526277')
+    }
+    .alignItems(HorizontalAlign.Start)
+    .padding($r('sys.float.padding_level6'))
+    .backgroundColor('#FFFFFF')
+    .borderRadius(this.cardRadius())
+    .border({
+      width: 1,
+      color: '#DCE5EF'
     })
   }
 
@@ -220,139 +381,138 @@ export struct CheckInFlowPage {
     HdsNavDestination() {
       List({ space: 16 }) {
         ListItem() {
-          Column({ space: 16 }) {
-            Column({ space: 12 }) {
-              Row() {
-                Column({ space: 4 }) {
-                  Text('入住登记')
-                    .fontSize($r('sys.float.Title_S'))
-                    .fontWeight(FontWeight.Bold)
-                    .fontColor($r('sys.color.font_primary'))
-                  Text('把资料确认、房间安排、健康初评和交接摘要一次完成。')
-                    .fontSize($r('sys.float.Body_S'))
-                    .fontColor($r('sys.color.font_secondary'))
-                }
-                .alignItems(HorizontalAlign.Start)
-                .layoutWeight(1)
-                this.pill('剩余床位 XX', '#EEF2F6')
+          if (this.isWideLayout()) {
+            Row({ space: 16 }) {
+              this.summaryHero()
+              Column() {
+                this.rightSummaryCard()
               }
-
-              Row({ space: $r('sys.float.padding_level5') }) {
-                Column({ space: 2 }) {
-                  Text('3')
-                    .fontSize($r('sys.float.Title_L'))
-                    .fontWeight(FontWeight.Bold)
-                    .fontColor($r('sys.color.font_primary'))
-                  Text('今日待办理')
-                    .fontSize($r('sys.float.Caption_M'))
-                    .fontColor($r('sys.color.font_secondary'))
-                }
-                .layoutWeight(1)
-                .alignItems(HorizontalAlign.Start)
-
-                Column({ space: 2 }) {
-                  Text('1')
-                    .fontSize($r('sys.float.Title_L'))
-                    .fontWeight(FontWeight.Bold)
-                    .fontColor($r('sys.color.font_primary'))
-                  Text('家属未接通')
-                    .fontSize($r('sys.float.Caption_M'))
-                    .fontColor($r('sys.color.font_secondary'))
-                }
-                .layoutWeight(1)
-                .alignItems(HorizontalAlign.Start)
-
-                Column({ space: 2 }) {
-                  Text('14:30')
-                    .fontSize($r('sys.float.Title_L'))
-                    .fontWeight(FontWeight.Bold)
-                    .fontColor($r('sys.color.font_primary'))
-                  Text('预计到院')
-                    .fontSize($r('sys.float.Caption_M'))
-                    .fontColor($r('sys.color.font_secondary'))
-                }
-                .layoutWeight(1)
-                .alignItems(HorizontalAlign.Start)
-              }
+              .width(340)
             }
-            .padding($r('sys.float.padding_level6'))
-            .backgroundColor($r('sys.color.comp_background_primary'))
-            .borderRadius(20)
-
-            Column({ space: 14 }) {
-              this.sectionTitle('流程', '保持简洁，先确认信息，再做床位与交接。')
-              Row() {
-                Repeat(this.steps())
-                  .each((repeatItem: RepeatItem<CheckInStep>) => {
-                    this.stepRow(repeatItem.item, repeatItem.index)
-                    if (repeatItem.index < this.steps().length - 1) {
-                      Blank()
-                        .height(1)
-                        .layoutWeight(1)
-                        .backgroundColor('#D8DEE6')
-                        .margin({ top: 15, left: 8, right: 8 })
-                    }
-                  })
-              }
-              .alignItems(VerticalAlign.Top)
+          } else {
+            Column({ space: 16 }) {
+              this.summaryHero()
+              this.rightSummaryCard()
             }
-            .padding($r('sys.float.padding_level6'))
-            .backgroundColor($r('sys.color.comp_background_primary'))
-            .borderRadius(20)
           }
         }
         .padding({
-          left: $r('sys.float.padding_level8'),
-          right: $r('sys.float.padding_level8'),
+          left: this.pagePadding(),
+          right: this.pagePadding(),
           top: this.contentTopPadding()
         })
 
         ListItem() {
           Column({ space: 12 }) {
-            this.sectionTitle('入住对象', '护工先看到最关键的信息，不把页面做成冗长表单。')
-            Column() {
-              Repeat(this.infoRows())
-                .each((repeatItem: RepeatItem<CheckInInfoRow>) => {
-                  this.infoRow(repeatItem.item, repeatItem.index === this.infoRows().length - 1)
-                })
+            this.sectionTitle('办理流程', '减少冗长表单，把关键信息前置给护工。')
+            if (this.isWideLayout()) {
+              Row({ space: 12 }) {
+                Repeat(this.steps())
+                  .each((repeatItem: RepeatItem<CheckInStep>) => {
+                    this.stepCard(repeatItem.item, repeatItem.index)
+                  })
+              }
+            } else {
+              Column({ space: 12 }) {
+                Repeat(this.steps())
+                  .each((repeatItem: RepeatItem<CheckInStep>) => {
+                    this.stepCard(repeatItem.item, repeatItem.index)
+                  })
+              }
             }
-            .padding($r('sys.float.padding_level6'))
-            .backgroundColor($r('sys.color.comp_background_primary'))
-            .borderRadius(20)
           }
         }
         .padding({
-          left: $r('sys.float.padding_level8'),
-          right: $r('sys.float.padding_level8')
+          left: this.pagePadding(),
+          right: this.pagePadding()
         })
 
         ListItem() {
-          Column({ space: 12 }) {
-            this.sectionTitle('办理清单', '重点不是填很多东西，而是把首日照护真正准备好。')
-            Column() {
-              Repeat(this.checklistItems())
-                .each((repeatItem: RepeatItem<CheckInChecklistItem>) => {
-                  this.checklistRow(repeatItem.item, repeatItem.index === this.checklistItems().length - 1)
+          if (this.isWideLayout()) {
+            Row({ space: 16 }) {
+              Column({ space: 12 }) {
+                this.sectionTitle('入住对象', '先看到最关键的信息，而不是一长串表单。')
+                Column() {
+                  Repeat(this.baseInfo())
+                    .each((repeatItem: RepeatItem<KeyValueData>) => {
+                      this.infoRow(repeatItem.item, repeatItem.index === this.baseInfo().length - 1)
+                    })
+                }
+                .padding($r('sys.float.padding_level6'))
+                .backgroundColor('#FFFFFF')
+                .borderRadius(this.cardRadius())
+                .border({
+                  width: 1,
+                  color: '#DCE5EF'
                 })
+              }
+              .layoutWeight(1)
+
+              Column({ space: 12 }) {
+                this.sectionTitle('办理准备', '把首日照护真正准备好，比填更多字段更重要。')
+                Column() {
+                  Repeat(this.readyItems())
+                    .each((repeatItem: RepeatItem<ReadyItem>) => {
+                      this.readyRow(repeatItem.item, repeatItem.index === this.readyItems().length - 1)
+                    })
+                }
+                .padding($r('sys.float.padding_level6'))
+                .backgroundColor('#FFFFFF')
+                .borderRadius(this.cardRadius())
+                .border({
+                  width: 1,
+                  color: '#DCE5EF'
+                })
+              }
+              .width(360)
             }
-            .padding($r('sys.float.padding_level6'))
-            .backgroundColor($r('sys.color.comp_background_primary'))
-            .borderRadius(20)
+          } else {
+            Column({ space: 12 }) {
+              this.sectionTitle('入住对象', '先看到最关键的信息，而不是一长串表单。')
+              Column() {
+                Repeat(this.baseInfo())
+                  .each((repeatItem: RepeatItem<KeyValueData>) => {
+                    this.infoRow(repeatItem.item, repeatItem.index === this.baseInfo().length - 1)
+                  })
+              }
+              .padding($r('sys.float.padding_level6'))
+              .backgroundColor('#FFFFFF')
+              .borderRadius(this.cardRadius())
+              .border({
+                width: 1,
+                color: '#DCE5EF'
+              })
+
+              this.sectionTitle('办理准备', '把首日照护真正准备好，比填更多字段更重要。')
+              Column() {
+                Repeat(this.readyItems())
+                  .each((repeatItem: RepeatItem<ReadyItem>) => {
+                    this.readyRow(repeatItem.item, repeatItem.index === this.readyItems().length - 1)
+                  })
+              }
+              .padding($r('sys.float.padding_level6'))
+              .backgroundColor('#FFFFFF')
+              .borderRadius(this.cardRadius())
+              .border({
+                width: 1,
+                color: '#DCE5EF'
+              })
+            }
           }
         }
         .padding({
-          left: $r('sys.float.padding_level8'),
-          right: $r('sys.float.padding_level8'),
-          bottom: 48
+          left: this.pagePadding(),
+          right: this.pagePadding(),
+          bottom: this.isWideLayout() ? 36 : 56
         })
       }
       .width('100%')
       .height('100%')
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
-      .backgroundColor('#F5F7FA')
+      .backgroundColor('#EEF2F6')
     }
-    .backgroundColor('#F5F7FA')
+    .backgroundColor('#EEF2F6')
     .titleBar({
       content: {
         title: {

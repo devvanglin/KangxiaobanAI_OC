@@ -18,83 +18,92 @@ import { StorageKey } from '../common/CommonConstants';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { PageKeyEnum, PAGE_SCROLLER_MAP } from '../model/TabsBarModel';
 import { TabPageConfig } from '../model/TabPageModel';
+import { BreakpointType } from '../util/BreakpointSystem';
 
-interface DashboardMetric {
-  title: string;
+interface MetricTileData {
+  label: string;
   value: string;
-  detail: string;
-  accentColor: ResourceColor;
+  note: string;
+  toneBackground: ResourceColor;
+  toneColor: ResourceColor;
 }
 
-interface AttentionCard {
+interface InsightData {
   title: string;
   tag: string;
   detail: string;
-  summary: string;
+  extra: string;
 }
 
-interface GaugeRow {
+interface ProgressData {
   label: string;
   valueText: string;
   percent: number;
-  accentColor: ResourceColor;
+  color: ResourceColor;
 }
 
-interface ElderFocusCard {
+interface RoomData {
   name: string;
-  room: string;
+  occupied: string;
   status: string;
   detail: string;
-  action: string;
-  backgroundColor: ResourceColor;
 }
 
-interface InsightCard {
-  title: string;
-  tag: string;
+interface ResidentData {
+  name: string;
+  room: string;
+  level: string;
+  status: string;
   detail: string;
-  suggestion: string;
+  nextStep: string;
 }
 
-interface SuggestionCard {
-  title: string;
-  detail: string;
-}
-
-interface TaskGroup {
-  title: string;
-  count: string;
-  detail: string;
-  items: TaskItem[];
-}
-
-interface TaskItem {
+interface TaskData {
   time: string;
   title: string;
   detail: string;
-  tag: string;
+  owner: string;
 }
 
-interface SimulationCard {
+interface TaskLaneData {
   title: string;
+  badge: string;
   detail: string;
-  result: string;
+  items: TaskData[];
 }
 
-interface MineCard {
-  title: string;
-  value: string;
-  detail: string;
-}
-
-interface MemoryCue {
-  elderName: string;
-  detail: string;
-}
-
-interface PreferenceRow {
+interface SimpleInfoRow {
   label: string;
   value: string;
+  note: string;
+}
+
+interface PreferenceData {
+  title: string;
+  value: string;
+  detail: string;
+}
+
+interface ScheduleData {
+  title: string;
+  detail: string;
+  time: string;
+}
+
+interface QuickActionData {
+  label: string;
+  badge?: string;
+}
+
+interface SettingItemData {
+  label: string;
+  value?: string;
+  showArrow: boolean;
+}
+
+interface SettingGroupData {
+  title: string;
+  items: SettingItemData[];
 }
 
 @ComponentV2
@@ -106,322 +115,425 @@ export struct TabPageView {
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
 
   private topPadding(): number {
-    return this.globalInfoModel.statusBarHeight + 84;
+    return this.globalInfoModel.statusBarHeight + 68;
   }
 
   private currentScroller(): Scroller | undefined {
     return PAGE_SCROLLER_MAP.get(this.pageKey)?.[this.currentTabIndex];
   }
 
-  private pageBackgroundColor(): ResourceColor {
-    switch (this.currentTabIndex) {
-      case 0:
-        return '#F3F6F8';
-      case 1:
-        return '#F7F7F4';
-      case 2:
-        return '#F6F4F1';
-      default:
-        return '#F5F6F7';
-    }
+  private isWideLayout(): boolean {
+    const widthBreakpoint: WidthBreakpoint = this.globalInfoModel.widthBreakpoint;
+    return widthBreakpoint === WidthBreakpoint.WIDTH_MD ||
+      widthBreakpoint === WidthBreakpoint.WIDTH_LG ||
+      widthBreakpoint === WidthBreakpoint.WIDTH_XL;
   }
 
-  private homeMetrics(): DashboardMetric[] {
+  private isExtraWideLayout(): boolean {
+    const widthBreakpoint: WidthBreakpoint = this.globalInfoModel.widthBreakpoint;
+    return widthBreakpoint === WidthBreakpoint.WIDTH_LG || widthBreakpoint === WidthBreakpoint.WIDTH_XL;
+  }
+
+  private pagePadding(): number {
+    return new BreakpointType<number>({
+      sm: 16,
+      md: 24,
+      lg: 28,
+      xl: 32
+    }).getValue(this.globalInfoModel.widthBreakpoint);
+  }
+
+  private bottomPadding(): number {
+    return this.isWideLayout() ? 36 : 124;
+  }
+
+  private cardRadius(): number {
+    return this.isWideLayout() ? 16 : 14;
+  }
+
+  private pageBackgroundColor(): ResourceColor {
+    return '#EEF2F6';
+  }
+
+  private taskLaneSurfaceColor(title: string): ResourceColor {
+    if (title === '立即执行') {
+      return '#F6F9FF';
+    }
+    if (title === '今日排程') {
+      return '#F8FBFF';
+    }
+    return '#F4F7FC';
+  }
+
+  private taskLaneBorderColor(title: string): ResourceColor {
+    if (title === '立即执行') {
+      return '#CCD9F5';
+    }
+    if (title === '今日排程') {
+      return '#D7E2F7';
+    }
+    return '#D4DDEB';
+  }
+
+  private taskLaneBadgeBackground(title: string): ResourceColor {
+    if (title === '立即执行') {
+      return '#E6EEFF';
+    }
+    if (title === '今日排程') {
+      return '#EAF1FD';
+    }
+    return '#E8EEF8';
+  }
+
+  private taskLaneBadgeColor(title: string): ResourceColor {
+    if (title === '立即执行') {
+      return '#1D63ED';
+    }
+    if (title === '今日排程') {
+      return '#335C88';
+    }
+    return '#4C6284';
+  }
+
+  private dashboardMetrics(): MetricTileData[] {
     return [
       {
-        title: '待处理任务',
+        label: '待闭环任务',
         value: '18',
-        detail: '6 项需要 30 分钟内响应',
-        accentColor: '#1F8EFA'
+        note: '其中 6 项需 30 分钟内响应',
+        toneBackground: '#EAF1FD',
+        toneColor: '#1D63ED'
       },
       {
-        title: '主动关怀触达',
-        value: '14',
-        detail: 'AI 已完成首轮柔性问询',
-        accentColor: '#17B26A'
+        label: '重点观察长者',
+        value: '06',
+        note: '涉及情绪、睡眠和离床异常',
+        toneBackground: '#FDEFD8',
+        toneColor: '#B7791F'
       },
       {
-        title: '夜间高危线索',
-        value: '02',
-        detail: '离床异常与呼吸波动待复核',
-        accentColor: '#F79009'
-      },
-      {
-        title: '家属未接通',
+        label: '入住办理',
         value: '03',
-        detail: '建议转人工安抚与二次回访',
-        accentColor: '#EF5B72'
+        note: '2 位待资料核验，1 位待床位确认',
+        toneBackground: '#E9F7F1',
+        toneColor: '#0F766E'
+      },
+      {
+        label: '家属回访',
+        value: '05',
+        note: '今日 17:30 前需完成 3 条反馈',
+        toneBackground: '#F9E8EC',
+        toneColor: '#B33A5B'
       }
     ];
   }
 
-  private homeAttentionCards(): AttentionCard[] {
+  private homeInsights(): InsightData[] {
     return [
       {
         title: '情绪主动关怀',
-        tag: '优先处理',
-        detail: '肖爷爷上午持续低头发呆，活动量比近 7 日均值下降 42%。系统已完成语音关怀，仍建议人工进入房间。',
-        summary: '结合心率、呼吸和家属联系记录，倾向情绪低落而非急性身体不适。'
+        tag: '高优先',
+        detail: '3F-302 肖爷爷今日活动量下降 41%，语音柔性关怀后仍建议人工跟进。',
+        extra: '建议由熟悉护工在 15 分钟内二次陪聊，并同步给护理站。'
       },
       {
-        title: '宿舍关系风险',
-        tag: '建议关注',
-        detail: '3F 西区 306 房近 48 小时出现回避互动和高频短促争执，关系风险等级上升。',
-        summary: '建议护理员陪同沟通，并在晚间活动中重新安排同伴互动。'
+        title: '夜间安全预警',
+        tag: '待复核',
+        detail: '2F 东区两位长者近三晚起夜次数增加，床垫与毫米波均提示睡眠片段化。',
+        extra: '今晚值班需重点查看离床轨迹与药物服用时间。'
       },
       {
-        title: '夜间主动安全',
-        tag: '值班同步',
-        detail: '2 位长者夜间离床次数增加，毫米波检测显示睡眠断续与呼吸节律波动。',
-        summary: '系统已降噪处理误报，建议值班组重点巡房并确认夜间用药。'
+        title: '家属沟通缺口',
+        tag: '需联系',
+        detail: '今日有 3 位长者家属电话未接通，系统已整理陪伴摘要待回访。',
+        extra: '建议晚饭后优先安排视频沟通，降低情绪持续下沉风险。'
       }
     ];
   }
 
-  private homeGaugeRows(): GaugeRow[] {
+  private homeProgress(): ProgressData[] {
     return [
       {
-        label: '风险提前拦截率',
-        valueText: '82%',
-        percent: 82,
-        accentColor: '#17B26A'
+        label: '班次闭环效率',
+        valueText: '92%',
+        percent: 92,
+        color: '#1D63ED'
       },
       {
-        label: '护理班次负载',
-        valueText: '74%',
-        percent: 74,
-        accentColor: '#1F8EFA'
+        label: '风险提前拦截',
+        valueText: '81%',
+        percent: 81,
+        color: '#0F766E'
       },
       {
-        label: '情绪关怀覆盖',
+        label: '家属反馈完成率',
         valueText: '68%',
         percent: 68,
-        accentColor: '#F79009'
+        color: '#B7791F'
       }
     ];
   }
 
-  private elderFocusCards(): ElderFocusCard[] {
+  private roomCoverage(): RoomData[] {
+    return [
+      {
+        name: '2F 东区',
+        occupied: '32 / 36',
+        status: '稳定',
+        detail: '午间用药已完成，1 位长者待血糖复核。'
+      },
+      {
+        name: '3F 西区',
+        occupied: '28 / 32',
+        status: '关注',
+        detail: '2 位长者需情绪干预，1 位待家属回访。'
+      },
+      {
+        name: '康复单元',
+        occupied: '16 / 18',
+        status: '排程中',
+        detail: '下午两组康复训练与晚餐前复查已排入班次。'
+      }
+    ];
+  }
+
+  private elderResidents(): ResidentData[] {
     return [
       {
         name: '肖爷爷',
         room: '3F-302',
+        level: 'A 级关注',
         status: '情绪低落',
-        detail: '今天两次呼叫家属均无人接听，午后长时间静坐，系统建议先由熟悉的护工陪聊。',
-        action: '安排人工关怀',
-        backgroundColor: '#FFFFFF'
+        detail: '今日两次联系家属未接通，午后持续静坐，AI 建议人工陪伴接手。',
+        nextStep: '15:10 进行二次沟通并记录情绪摘要'
       },
       {
         name: '周奶奶',
         room: '2F-215',
-        status: '睡眠波动',
-        detail: '近三晚起夜次数增加，床垫与毫米波均提示深睡时长下降，需关注是否存在焦虑与疼痛。',
-        action: '补做晚间评估',
-        backgroundColor: '#F9FBFD'
+        level: '睡眠观察',
+        status: '夜间离床增加',
+        detail: '连续三晚起夜增多，深睡时长下降，需确认疼痛与焦虑因素。',
+        nextStep: '晚班重点巡房并同步睡眠计划'
       },
       {
         name: '林爷爷',
         room: '3F-306',
-        status: '关系风险',
-        detail: '同宿舍互动明显减少，语气波动上升。建议通过活动场景重建社交连接，避免持续压抑。',
-        action: '调整活动搭配',
-        backgroundColor: '#FCFAF6'
+        level: '关系风险',
+        status: '社交回避',
+        detail: '近两日与室友互动减少，语气波动明显，需柔性介入。',
+        nextStep: '调整活动搭配并观察晚间情绪波动'
       }
     ];
   }
 
-  private elderInsightCards(): InsightCard[] {
+  private elderGroups(): SimpleInfoRow[] {
     return [
       {
-        title: '社交孤立线索',
-        tag: '08 人',
-        detail: '系统识别到 8 位长者本周与他人主动交流次数明显低于个人基线。',
-        suggestion: '优先安排棋牌、书法和花园散步等低门槛结伴活动。'
+        label: '稳定观察',
+        value: '116',
+        note: '已完成早巡，可按区域批量复核'
       },
       {
-        title: '关系匹配建议',
-        tag: '03 条',
-        detail: '根据语气、作息、冲突频率与兴趣偏好，当前有 3 组宿舍组合需要重新关注。',
-        suggestion: '建议院方先做柔性干预，再决定是否调整宿舍匹配。'
+        label: '情绪关怀',
+        value: '05',
+        note: '包含低落、孤独和家属联络缺口'
+      },
+      {
+        label: '健康风险',
+        value: '07',
+        note: '主要集中在睡眠、步态和离床异常'
+      },
+      {
+        label: '社交关系',
+        value: '03',
+        note: '建议关注宿舍匹配和活动参与'
       }
     ];
   }
 
-  private elderSuggestions(): SuggestionCard[] {
+  private elderActions(): InsightData[] {
     return [
       {
-        title: '饮食提醒',
-        detail: '肖爷爷近期多次提到想吃清淡少油，点餐终端应优先推荐低盐高蛋白套餐。'
+        title: '饮食建议更新',
+        tag: '自动生成',
+        detail: '根据近期对话和护理记录，4 位长者今日点餐优先推荐低盐高蛋白。',
+        extra: '晚餐端提醒已下发到点餐终端。'
       },
       {
-        title: '家属联络',
-        detail: '周奶奶今天适合安排一次视频联系，系统建议在晚饭后 19:30 发起预约。'
-      },
-      {
-        title: '活动规划',
-        detail: '林爷爷连续三天活动量偏低，天气良好，建议下午 16:00 安排庭院散步。'
+        title: '活动陪伴编组',
+        tag: '可执行',
+        detail: '系统建议将棋牌、书法和花园散步重新编组，提升低社交长者参与度。',
+        extra: '建议 16:00 前完成活动确认并安排护工陪同。'
       }
     ];
   }
 
-  private taskGroups(): TaskGroup[] {
+  private taskLanes(): TaskLaneData[] {
     return [
       {
         title: '立即执行',
-        count: '04 项',
-        detail: '需要本轮班次立刻接手的事项',
+        badge: '04',
+        detail: '本班次必须立刻接手的任务',
         items: [
           {
             time: '现在',
             title: '进入 3F-302 情绪安抚',
-            detail: '读取 AI 关怀摘要后由熟悉护工接管，避免机械重复问询。',
-            tag: '高优'
+            detail: '阅读 AI 摘要后由熟悉护工接手，避免重复询问。',
+            owner: '责任护工 刘婷'
           },
           {
             time: '10 分钟内',
-            title: '确认 2F 东区午间用药',
-            detail: '6 位长者待二次确认，药物与血糖记录需同步回护理站。',
-            tag: '复核'
+            title: '复核 2F 东区午间用药',
+            detail: '6 位长者需统一确认并同步护理站记录。',
+            owner: '责任护工 王倩'
           }
         ]
       },
       {
-        title: '14:00 - 16:00',
-        count: '06 项',
-        detail: '围绕评估、活动与回访的中段工作',
+        title: '今日排程',
+        badge: '06',
+        detail: '围绕入住、活动和回访的时段计划',
         items: [
           {
             time: '14:20',
             title: '完成新入住初评',
-            detail: '补录生命体征、陪护需求与房间偏好，交接给值班护士。',
-            tag: '入住'
-          },
-          {
-            time: '15:00',
-            title: '家属回访与视频预约',
-            detail: '重点联系今天未接通家属的 3 个家庭，避免长者情绪继续下沉。',
-            tag: '回访'
+            detail: '录入生命体征、陪护需求与房间偏好。',
+            owner: '接待护工 陈薇'
           },
           {
             time: '15:40',
             title: '组织小组活动签到',
-            detail: '棋牌室与书法角各预留 1 位陪同护工，观察社交回避情况。',
-            tag: '活动'
+            detail: '棋牌室和书法角各保留 1 名陪同护工。',
+            owner: '活动护工 赵晨'
           }
         ]
       },
       {
-        title: '交接前',
-        count: '03 项',
-        detail: '班次结束前必须闭环的工作',
+        title: '交接闭环',
+        badge: '03',
+        detail: '班次结束前需要收口的项目',
         items: [
           {
             time: '17:00',
             title: '更新风险预测摘要',
-            detail: '对步态放缓、睡眠断续、情绪低落的长者生成明日重点观察名单。',
-            tag: '预测'
+            detail: '沉淀步态、睡眠和情绪异常人群的明日观察名单。',
+            owner: '值班组长'
           },
           {
             time: '17:30',
             title: '整理交接班材料',
-            detail: '补齐用药、来访、冲突和夜间注意事项，形成值班摘要。',
-            tag: '交接'
+            detail: '补齐来访、用药与异常情况，形成值班摘要。',
+            owner: '全班次协同'
           }
         ]
       }
     ];
   }
 
-  private taskSimulationCards(): SimulationCard[] {
+  private taskPredictions(): InsightData[] {
     return [
       {
-        title: '如果肖爷爷今天继续拒绝交流',
-        detail: '系统预测未来 24 小时内情绪继续下沉的概率升高，建议增加人工陪伴频次。',
-        result: '优先安排熟悉护工晚间再次回访。'
+        title: '若肖爷爷今日继续拒绝交流',
+        tag: '24h 预测',
+        detail: '情绪继续下沉概率升高，建议增加人工陪伴和家属联系频次。',
+        extra: '优先安排熟悉护工于晚饭后再次回访。'
       },
       {
-        title: '如果林爷爷今晚未按时服药',
-        detail: '结合近期步态与心率波动，跌倒风险会在未来 10 天显著上升。',
-        result: '需要在今晚交接中单独提醒值班组。'
+        title: '若林爷爷今晚未按时服药',
+        tag: '10 天趋势',
+        detail: '结合近期步态和心率波动，跌倒风险将明显升高。',
+        extra: '需要在今晚交接中单独提醒夜班。'
       }
     ];
   }
 
-  private mineCards(): MineCard[] {
+  private mineOverview(): PreferenceData[] {
     return [
       {
-        title: '今日交接摘要',
-        value: '7 条',
-        detail: '其中 3 条与情绪关怀相关，2 条与夜间安全相关。'
+        title: '当前班次',
+        value: '白班中',
+        detail: '07:46 已签到，剩余 4 小时 18 分钟，交接状态正常。'
       },
       {
-        title: '我的关怀触达',
-        value: '12 次',
-        detail: '本班你接手了 5 位重点长者的人工安抚与家属回访。'
+        title: '责任区域',
+        value: 'A栋 2F-3F',
+        detail: '当前覆盖 28 位长者，其中 6 位为重点关注对象。'
       },
       {
-        title: '本周培训',
-        value: '周五 15:00',
-        detail: '主题为认知退化早期识别与关系冲突柔性处理。'
+        title: '服务评分',
+        value: '4.9 / 5',
+        detail: '近 30 天累计收到 18 条正向反馈，回访完成率 96%。'
       }
     ];
   }
 
-  private memoryCues(): MemoryCue[] {
+  private mineSchedules(): ScheduleData[] {
     return [
       {
-        elderName: '肖爷爷',
-        detail: '可以从“孙子最近考试怎么样了”这个话题切入，老人更容易打开交流。'
+        title: '今日交班复核',
+        detail: '补齐 3F-302 情绪关怀摘要，并同步夜班重点观察名单。',
+        time: '今天 17:20'
       },
       {
-        elderName: '周奶奶',
-        detail: '最近主动提出少油少盐，点餐时优先提醒清淡饮食与高蛋白补充。'
+        title: '护理培训签到',
+        detail: '主题为认知退化早期识别与柔性沟通，需本人签到。',
+        time: '周五 15:00'
       },
       {
-        elderName: '林爷爷',
-        detail: '今天和室友出现口角，建议先分开活动，再在晚间安排缓和沟通。'
+        title: '家属回访预约',
+        detail: '为肖爷爷与家属补充一次视频回访，并更新陪伴记录。',
+        time: '周三 19:30'
       }
     ];
   }
 
-  private preferenceRows(): PreferenceRow[] {
+  private mineProfiles(): SimpleInfoRow[] {
+    return [
+      {
+        label: '用户身份',
+        value: '白班护工',
+        note: '责任区 A栋 2F-3F，员工编号 CG-021'
+      },
+      {
+        label: '账号权限',
+        value: 'L3 权限',
+        note: '可办理入住、维护关怀记录与交接闭环'
+      },
+      {
+        label: '联系与排班',
+        value: '内线 8021',
+        note: '已绑定护理站、值班组长和紧急联络链路'
+      }
+    ];
+  }
+
+  private minePreferences(): SimpleInfoRow[] {
     return [
       {
         label: '通知策略',
-        value: '仅接收一级与二级提醒'
+        value: '关键提醒',
+        note: '保留一级风险、临近截止与家属回访提醒'
       },
       {
         label: '数字记忆助手',
-        value: '已开启重要话题优先提示'
+        value: '已开启',
+        note: '优先提示喜好、家属关系和常聊话题'
       },
       {
-        label: '值班交接方式',
-        value: '班末自动生成摘要并人工补充'
+        label: '登录设备',
+        value: '2 台',
+        note: '护理站平板与随身终端均已认证登录'
+      },
+      {
+        label: '数据同步',
+        value: '正常',
+        note: '最近一次同步于 09:42，离线记录会自动补传'
       }
     ];
   }
 
   @Builder
-  private sectionTitle(eyebrow: string, title: string, description: string) {
-    Column({ space: 4 }) {
-      Text(eyebrow)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_secondary'))
-      Text(title)
-        .fontSize($r('sys.float.Subtitle_S'))
-        .fontWeight(FontWeight.Bold)
-        .fontColor($r('sys.color.font_primary'))
-      Text(description)
-        .fontSize($r('sys.float.Body_S'))
-        .fontColor($r('sys.color.font_secondary'))
-        .maxLines(2)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-    }
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  private pill(text: string, backgroundColor: ResourceColor, fontColor: ResourceColor = '#F5F7FA') {
+  private tag(text: string, backgroundColor: ResourceColor, fontColor: ResourceColor = '#305C88') {
     Text(text)
       .fontSize($r('sys.float.Caption_M'))
       .fontColor(fontColor)
@@ -432,88 +544,109 @@ export struct TabPageView {
         bottom: 4
       })
       .backgroundColor(backgroundColor)
-      .borderRadius($r('sys.float.corner_radius_level8'))
+      .borderRadius(10)
   }
 
   @Builder
-  private metricCard(item: DashboardMetric) {
-    Column({ space: 10 }) {
-      Row() {
-        Text(item.title)
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_secondary'))
-        Blank()
-        Circle()
-          .width(8)
-          .height(8)
-          .fill(item.accentColor)
-      }
-      Text(item.value)
-        .fontSize($r('sys.float.Title_M'))
-        .fontWeight(FontWeight.Bold)
-        .fontColor($r('sys.color.font_primary'))
-      Text(item.detail)
+  private sectionTitle(eyebrow: string, title: string, detail: string) {
+    Column({ space: 4 }) {
+      Text(eyebrow)
         .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_secondary'))
+        .fontColor('#6B7C93')
+      Text(title)
+        .fontSize($r('sys.float.Subtitle_S'))
+        .fontWeight(FontWeight.Bold)
+        .fontColor('#0F172A')
+      Text(detail)
+        .fontSize($r('sys.float.Body_S'))
+        .fontColor('#526277')
         .maxLines(2)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
     }
     .alignItems(HorizontalAlign.Start)
-    .padding($r('sys.float.padding_level5'))
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius($r('sys.float.corner_radius_level16'))
-    .layoutWeight(1)
   }
 
   @Builder
-  private attentionCard(card: AttentionCard) {
-    Column({ space: 14 }) {
+  private metricTile(item: MetricTileData) {
+    Column({ space: 10 }) {
       Row() {
-        Text(card.title)
-          .fontSize($r('sys.float.Body_L'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-          .layoutWeight(1)
-        this.pill(card.tag, '#EEF4FF', '#245BDB')
+        Text(item.label)
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor('#526277')
+        Blank()
+        this.tag(item.value, item.toneBackground, item.toneColor)
       }
-      Text(card.detail)
+      Text(item.note)
         .fontSize($r('sys.float.Body_S'))
-        .fontColor($r('sys.color.font_primary'))
-      Text(card.summary)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_secondary'))
+        .fontColor('#0F172A')
         .maxLines(2)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .alignItems(HorizontalAlign.Start)
+    .layoutWeight(1)
+    .padding($r('sys.float.padding_level5'))
+    .backgroundColor('#FFFFFF')
+    .borderRadius(this.cardRadius())
+    .border({
+      width: 1,
+      color: '#DCE5EF'
+    })
+  }
+
+  @Builder
+  private insightCard(item: InsightData) {
+    Column({ space: 12 }) {
+      Row() {
+        Text(item.title)
+          .fontSize($r('sys.float.Body_L'))
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#0F172A')
+          .layoutWeight(1)
+        this.tag(item.tag, '#EFF4FA', '#45617E')
+      }
+      Text(item.detail)
+        .fontSize($r('sys.float.Body_S'))
+        .fontColor('#1F2937')
+      Divider()
+        .strokeWidth(1)
+        .color('#E4EAF1')
+      Text(item.extra)
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor('#526277')
     }
     .alignItems(HorizontalAlign.Start)
     .padding($r('sys.float.padding_level6'))
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius($r('sys.float.corner_radius_level16'))
+    .backgroundColor('#FFFFFF')
+    .borderRadius(this.cardRadius())
+    .border({
+      width: 1,
+      color: '#DCE5EF'
+    })
   }
 
   @Builder
-  private gaugeRow(item: GaugeRow) {
+  private progressRow(item: ProgressData) {
     Column({ space: 8 }) {
       Row() {
         Text(item.label)
           .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_primary'))
+          .fontColor('#0F172A')
         Blank()
         Text(item.valueText)
           .fontSize($r('sys.float.Body_S'))
           .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
+          .fontColor('#0F172A')
       }
       Stack({ alignContent: Alignment.Start }) {
         Row()
           .width('100%')
           .height(8)
-          .backgroundColor('#E5E8EC')
+          .backgroundColor('#E6ECF3')
           .borderRadius(4)
         Row()
           .width(`${item.percent}%`)
           .height(8)
-          .backgroundColor(item.accentColor)
+          .backgroundColor(item.color)
           .borderRadius(4)
       }
       .width('100%')
@@ -521,222 +654,384 @@ export struct TabPageView {
   }
 
   @Builder
-  private elderFocusCard(card: ElderFocusCard) {
-    Column({ space: 14 }) {
-      Row() {
-        Column({ space: 4 }) {
-          Text(card.name)
-            .fontSize($r('sys.float.Body_L'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-          Text(card.room)
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_secondary'))
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-        this.pill(card.status, '#FFFFFF', '#111827')
+  private roomRow(item: RoomData, isLast: boolean) {
+    Row({ space: 12 }) {
+      Column({ space: 2 }) {
+        Text(item.name)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#0F172A')
+        Text(item.detail)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor('#526277')
       }
-      Text(card.detail)
-        .fontSize($r('sys.float.Body_S'))
-        .fontColor($r('sys.color.font_primary'))
-      Divider()
-        .strokeWidth(1)
-        .color('#E6E8EB')
-      Text(card.action)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_secondary'))
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      Column({ space: 2 }) {
+        Text(item.occupied)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor('#0F172A')
+        Text(item.status)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor('#6B7C93')
+      }
+      .alignItems(HorizontalAlign.End)
     }
-    .alignItems(HorizontalAlign.Start)
-    .padding($r('sys.float.padding_level6'))
-    .backgroundColor(card.backgroundColor)
-    .borderRadius($r('sys.float.corner_radius_level16'))
+    .padding({
+      top: 12,
+      bottom: 12
+    })
+    .border({
+      width: {
+        bottom: isLast ? 0 : 1
+      },
+      color: '#E4EAF1'
+    })
   }
 
   @Builder
-  private insightCard(card: InsightCard) {
+  private residentCard(item: ResidentData) {
     Column({ space: 12 }) {
       Row() {
-        Text(card.title)
-          .fontSize($r('sys.float.Body_L'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-          .layoutWeight(1)
-        this.pill(card.tag, '#F3F4F6', '#344054')
-      }
-      Text(card.detail)
-        .fontSize($r('sys.float.Body_S'))
-        .fontColor($r('sys.color.font_primary'))
-      Text(card.suggestion)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_secondary'))
-    }
-    .alignItems(HorizontalAlign.Start)
-    .padding($r('sys.float.padding_level6'))
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius($r('sys.float.corner_radius_level16'))
-  }
-
-  @Builder
-  private suggestionCard(card: SuggestionCard) {
-    Column({ space: 8 }) {
-      Text(card.title)
-        .fontSize($r('sys.float.Body_M'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-      Text(card.detail)
-        .fontSize($r('sys.float.Body_S'))
-        .fontColor($r('sys.color.font_secondary'))
-    }
-    .alignItems(HorizontalAlign.Start)
-    .padding($r('sys.float.padding_level5'))
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius($r('sys.float.corner_radius_level12'))
-  }
-
-  @Builder
-  private taskGroupCard(group: TaskGroup) {
-    Column({ space: 14 }) {
-      Row() {
+        Blank()
+          .width(4)
+          .height(34)
+          .backgroundColor('#1D63ED')
+          .borderRadius(2)
+          .margin({ right: 10 })
         Column({ space: 4 }) {
-          Text(group.title)
+          Text(item.name)
             .fontSize($r('sys.float.Body_L'))
             .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-          Text(group.detail)
+            .fontColor('#0F172A')
+          Text(`${item.room} · ${item.level}`)
             .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_secondary'))
+            .fontColor('#6B7C93')
         }
         .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)
-        this.pill(group.count, '#F3EFE8', '#7A4A17')
+        this.tag(item.status, '#EFF4FA', '#45617E')
       }
 
-      Column({ space: 12 }) {
-        Repeat(group.items)
-          .each((repeatItem: RepeatItem<TaskItem>) => {
-            Row({ space: $r('sys.float.padding_level4') }) {
-              Text(repeatItem.item.time)
-                .width(72)
-                .fontSize($r('sys.float.Caption_M'))
-                .fontColor($r('sys.color.font_secondary'))
-              Column({ space: 6 }) {
-                Row() {
-                  Text(repeatItem.item.title)
-                    .fontSize($r('sys.float.Body_M'))
-                    .fontWeight(FontWeight.Medium)
-                    .fontColor($r('sys.color.font_primary'))
-                    .layoutWeight(1)
-                  this.pill(repeatItem.item.tag, '#F7F7F8', '#475467')
-                }
-                Text(repeatItem.item.detail)
-                  .fontSize($r('sys.float.Caption_M'))
-                  .fontColor($r('sys.color.font_secondary'))
-              }
-              .alignItems(HorizontalAlign.Start)
-              .padding($r('sys.float.padding_level4'))
-              .backgroundColor('#FFFFFF')
-              .borderRadius($r('sys.float.corner_radius_level10'))
-              .layoutWeight(1)
-            }
+      Text(item.detail)
+        .fontSize($r('sys.float.Body_S'))
+        .fontColor('#1F2937')
+      Divider()
+        .strokeWidth(1)
+        .color('#E4EAF1')
+      Text(item.nextStep)
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor('#526277')
+    }
+    .alignItems(HorizontalAlign.Start)
+    .padding($r('sys.float.padding_level6'))
+    .backgroundColor('#F8FBFF')
+    .borderRadius(this.cardRadius())
+    .border({
+      width: 1,
+      color: '#DCE7F7'
+    })
+  }
+
+  @Builder
+  private infoRow(item: SimpleInfoRow, isLast: boolean) {
+    Row() {
+      Column({ space: 2 }) {
+        Text(item.label)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor('#0F172A')
+        Text(item.note)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor('#6B7C93')
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
+      Text(item.value)
+        .fontSize($r('sys.float.Body_L'))
+        .fontWeight(FontWeight.Bold)
+        .fontColor('#0F172A')
+    }
+    .padding({
+      top: 12,
+      bottom: 12
+    })
+    .border({
+      width: {
+        bottom: isLast ? 0 : 1
+      },
+      color: '#E4EAF1'
+    })
+  }
+
+  @Builder
+  private taskRow(item: TaskData, isLast: boolean) {
+    Row({ space: 12 }) {
+      Text(item.time)
+        .width(72)
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor('#6B7C93')
+
+      Column({ space: 6 }) {
+        Text(item.title)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor('#0F172A')
+        Text(item.detail)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor('#526277')
+        Text(item.owner)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor('#6B7C93')
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+    }
+    .padding({
+      top: 12,
+      bottom: 12
+    })
+    .border({
+      width: {
+        bottom: isLast ? 0 : 1
+      },
+      color: '#E4EAF1'
+    })
+  }
+
+  @Builder
+  private taskLaneCard(item: TaskLaneData) {
+    Column({ space: 12 }) {
+      Row() {
+        Column({ space: 4 }) {
+          Text(item.title)
+            .fontSize($r('sys.float.Body_L'))
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#0F172A')
+          Text(item.detail)
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor('#6B7C93')
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+        this.tag(item.badge, this.taskLaneBadgeBackground(item.title), this.taskLaneBadgeColor(item.title))
+      }
+
+      Column() {
+        Repeat(item.items)
+          .each((repeatItem: RepeatItem<TaskData>) => {
+            this.taskRow(repeatItem.item, repeatItem.index === item.items.length - 1)
           })
       }
     }
     .alignItems(HorizontalAlign.Start)
     .padding($r('sys.float.padding_level6'))
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius($r('sys.float.corner_radius_level16'))
+    .backgroundColor(this.taskLaneSurfaceColor(item.title))
+    .borderRadius(this.cardRadius())
+    .border({
+      width: 1,
+      color: this.taskLaneBorderColor(item.title)
+    })
   }
 
   @Builder
-  private simulationCard(card: SimulationCard) {
-    Column({ space: 12 }) {
-      Text(card.title)
-        .fontSize($r('sys.float.Body_M'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-      Text(card.detail)
+  private preferenceCard(item: PreferenceData) {
+    Column({ space: 10 }) {
+      Row() {
+        Text(item.title)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#0F172A')
+        Blank()
+        Text(item.value)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#1D63ED')
+      }
+      Text(item.detail)
+        .fontSize($r('sys.float.Body_S'))
+        .fontColor('#526277')
+    }
+    .alignItems(HorizontalAlign.Start)
+    .padding($r('sys.float.padding_level5'))
+    .backgroundColor('#FFFFFF')
+    .borderRadius(this.cardRadius())
+    .border({
+      width: 1,
+      color: '#DCE5EF'
+    })
+  }
+
+  @Builder
+  private scheduleRow(item: ScheduleData, isLast: boolean) {
+    Row({ space: 12 }) {
+      Text(item.time)
+        .width(92)
         .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_secondary'))
+        .fontColor('#6B7C93')
+      Column({ space: 4 }) {
+        Text(item.title)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor('#0F172A')
+        Text(item.detail)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor('#526277')
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+    }
+    .padding({
+      top: 12,
+      bottom: 12
+    })
+    .border({
+      width: {
+        bottom: isLast ? 0 : 1
+      },
+      color: '#E4EAF1'
+    })
+  }
+
+  @Builder
+  private homeHero() {
+    Column({ space: 20 }) {
+      Row() {
+        Column({ space: 6 }) {
+          Text('首页')
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor('#C3D2E2')
+          Text('养老院主动服务总览')
+            .fontSize($r('sys.float.Title_M'))
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#F8FBFF')
+          Text('把任务闭环、风险预警、家属沟通和入住办理收拢到同一套值班视图里。')
+            .fontSize($r('sys.float.Body_S'))
+            .fontColor('#D8E4F0')
+            .maxLines(2)
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+
+        Column({ space: 4 }) {
+          Text('96%')
+            .fontSize($r('sys.float.Title_L'))
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#FFFFFF')
+          Text('服务稳定')
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor('#D8E4F0')
+        }
+        .alignItems(HorizontalAlign.End)
+      }
+
+      Row({ space: 14 }) {
+        Column({ space: 4 }) {
+          Text('128')
+            .fontSize(34)
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#FFFFFF')
+          Text('在院长者')
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor('#D8E4F0')
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        Column({ space: 4 }) {
+          Text('18')
+            .fontSize($r('sys.float.Title_M'))
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#FFFFFF')
+          Text('待闭环任务')
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor('#D8E4F0')
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        Column({ space: 4 }) {
+          Text('12')
+            .fontSize($r('sys.float.Title_M'))
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#FFFFFF')
+          Text('可用床位')
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor('#D8E4F0')
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+      }
+
+      Flex({ wrap: FlexWrap.Wrap, direction: FlexDirection.Row }) {
+        this.tag('情绪关注 3', '#20496B', '#E6F1FF')
+        this.tag('离床异常 2', '#20496B', '#E6F1FF')
+        this.tag('未接来电 5', '#20496B', '#E6F1FF')
+        this.tag('今日入住 3', '#20496B', '#E6F1FF')
+      }
+      .width('100%')
+    }
+    .alignItems(HorizontalAlign.Start)
+    .padding($r('sys.float.padding_level6'))
+    .backgroundColor('#16324A')
+    .borderRadius(this.cardRadius())
+    .border({
+      width: 1,
+      color: '#244B70'
+    })
+  }
+
+  @Builder
+  private homeConsole() {
+    Column({ space: 14 }) {
+      this.sectionTitle('值班指挥台', '任务 SLA', '更偏运营面板的当班视角，适合主管和总值班快速扫读。')
+
+      Column({ space: 12 }) {
+        Repeat(this.homeProgress())
+          .each((repeatItem: RepeatItem<ProgressData>) => {
+            this.progressRow(repeatItem.item)
+          })
+      }
+
       Divider()
         .strokeWidth(1)
-        .color('#E7E5E4')
-      Text(card.result)
-        .fontSize($r('sys.float.Body_S'))
-        .fontColor($r('sys.color.font_primary'))
-    }
-    .alignItems(HorizontalAlign.Start)
-    .padding($r('sys.float.padding_level5'))
-    .backgroundColor('#FFFDFC')
-    .borderRadius($r('sys.float.corner_radius_level12'))
-  }
+        .color('#E4EAF1')
 
-  @Builder
-  private mineCard(item: MineCard) {
-    Column({ space: 10 }) {
-      Text(item.title)
-        .fontSize($r('sys.float.Body_S'))
-        .fontColor($r('sys.color.font_secondary'))
-      Text(item.value)
-        .fontSize($r('sys.float.Title_M'))
-        .fontWeight(FontWeight.Bold)
-        .fontColor($r('sys.color.font_primary'))
-      Text(item.detail)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_secondary'))
-    }
-    .alignItems(HorizontalAlign.Start)
-    .padding($r('sys.float.padding_level5'))
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius($r('sys.float.corner_radius_level16'))
-  }
-
-  @Builder
-  private memoryCueRow(cue: MemoryCue, isLast: boolean) {
-    Row({ space: $r('sys.float.padding_level4') }) {
-      Text(cue.elderName)
-        .width(64)
-        .fontSize($r('sys.float.Body_S'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-      Text(cue.detail)
+      Row({ space: 12 }) {
+        Column({ space: 4 }) {
+          Text('17:30')
+            .fontSize($r('sys.float.Title_M'))
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#0F172A')
+          Text('交接截止')
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor('#6B7C93')
+        }
         .layoutWeight(1)
-        .fontSize($r('sys.float.Body_S'))
-        .fontColor($r('sys.color.font_secondary'))
-    }
-    .alignItems(VerticalAlign.Top)
-    .padding({
-      top: $r('sys.float.padding_level4'),
-      bottom: $r('sys.float.padding_level4')
-    })
-    .border({
-      width: {
-        bottom: isLast ? 0 : 1
-      },
-      color: '#E8EAED'
-    })
-  }
+        .alignItems(HorizontalAlign.Start)
 
-  @Builder
-  private preferenceRow(row: PreferenceRow, isLast: boolean) {
-    Row() {
-      Text(row.label)
-        .fontSize($r('sys.float.Body_M'))
-        .fontColor($r('sys.color.font_primary'))
-      Blank()
-      Text(row.value)
-        .fontSize($r('sys.float.Body_S'))
-        .fontColor($r('sys.color.font_secondary'))
+        Column({ space: 4 }) {
+          Text('03')
+            .fontSize($r('sys.float.Title_M'))
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#0F172A')
+          Text('主管待批')
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor('#6B7C93')
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+      }
     }
-    .padding({
-      top: $r('sys.float.padding_level4'),
-      bottom: $r('sys.float.padding_level4')
-    })
+    .alignItems(HorizontalAlign.Start)
+    .padding($r('sys.float.padding_level6'))
+    .backgroundColor('#FFFFFF')
+    .borderRadius(this.cardRadius())
     .border({
-      width: {
-        bottom: isLast ? 0 : 1
-      },
-      color: '#E8EAED'
+      width: 1,
+      color: '#DCE5EF'
     })
   }
 
@@ -747,205 +1042,115 @@ export struct TabPageView {
       space: 16
     }) {
       ListItem() {
-        Column({ space: 16 }) {
-          this.homeHero()
-
-          Row({ space: $r('sys.float.padding_level4') }) {
-            this.metricCard(this.homeMetrics()[0])
-            this.metricCard(this.homeMetrics()[1])
+        if (this.isWideLayout()) {
+          Row({ space: 16 }) {
+            this.homeHero()
+            Column() {
+              this.homeConsole()
+            }
+            .width(this.isExtraWideLayout() ? 360 : 320)
           }
-
-          Row({ space: $r('sys.float.padding_level4') }) {
-            this.metricCard(this.homeMetrics()[2])
-            this.metricCard(this.homeMetrics()[3])
-          }
-        }
-      }
-      .padding({
-        left: $r('sys.float.padding_level8'),
-        right: $r('sys.float.padding_level8'),
-        top: this.topPadding()
-      })
-
-      ListItem() {
-        Column({ space: 12 }) {
-          this.sectionTitle('全院实时态势', '机器负责发现问题', '把情绪、关系、生命体征和夜间安全集中呈现给当班护工。')
-          Column({ space: 12 }) {
-            Repeat(this.homeAttentionCards())
-              .each((repeatItem: RepeatItem<AttentionCard>) => {
-                this.attentionCard(repeatItem.item)
-              })
-          }
-        }
-      }
-      .padding({
-        left: $r('sys.float.padding_level8'),
-        right: $r('sys.float.padding_level8')
-      })
-
-      ListItem() {
-        Column({ space: 12 }) {
-          this.sectionTitle('运营看板', '从被动处理到主动预防', '把护理班次的压力、覆盖度和风险拦截效果放在同一张屏里。')
+        } else {
           Column({ space: 16 }) {
-            Repeat(this.homeGaugeRows())
-              .each((repeatItem: RepeatItem<GaugeRow>) => {
-                this.gaugeRow(repeatItem.item)
-              })
-          }
-          .padding($r('sys.float.padding_level6'))
-          .backgroundColor($r('sys.color.comp_background_primary'))
-          .borderRadius($r('sys.float.corner_radius_level16'))
-        }
-      }
-      .padding({
-        left: $r('sys.float.padding_level8'),
-        right: $r('sys.float.padding_level8'),
-        bottom: 120
-      })
-    }
-    .width('100%')
-    .height('100%')
-    .backgroundColor(this.pageBackgroundColor())
-    .scrollBar(BarState.Off)
-    .edgeEffect(EdgeEffect.Spring)
-  }
-
-  @Builder
-  private homeHero() {
-    Column({ space: 18 }) {
-      Row() {
-        Column({ space: 6 }) {
-          Text('首页')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor('#C9D5DC')
-          Text('养老院主动服务大屏')
-            .fontSize($r('sys.float.Title_M'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#F8FBFD')
-          Text('面向当班护工，把情绪、健康、社交和夜间风险集中到一个行动视图。')
-            .fontSize($r('sys.float.Body_S'))
-            .fontColor('#D7E2E8')
-            .maxLines(2)
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-
-        Column({ space: 4 }) {
-          Text('96%')
-            .fontSize($r('sys.float.Title_L'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#F8FBFD')
-          Text('状态稳定')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor('#D7E2E8')
-        }
-        .alignItems(HorizontalAlign.End)
-      }
-
-      Row({ space: $r('sys.float.padding_level5') }) {
-        Column({ space: 2 }) {
-          Text('128')
-            .fontSize(34)
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#F8FBFD')
-          Text('在院长者')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor('#D7E2E8')
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-
-        Column({ space: 2 }) {
-          Text('06')
-            .fontSize($r('sys.float.Title_L'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#F8FBFD')
-          Text('重点预警')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor('#D7E2E8')
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-
-        Column({ space: 2 }) {
-          Text('03')
-            .fontSize($r('sys.float.Title_L'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#F8FBFD')
-          Text('家属未接通')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor('#D7E2E8')
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-      }
-
-      Flex({ wrap: FlexWrap.Wrap, direction: FlexDirection.Row }) {
-        this.pill('情绪低落 3', '#244A5B')
-        this.pill('关系风险 1', '#244A5B')
-        this.pill('夜间异常 2', '#244A5B')
-        this.pill('今日入住 3', '#244A5B')
-      }
-      .width('100%')
-    }
-    .alignItems(HorizontalAlign.Start)
-    .padding($r('sys.float.padding_level6'))
-    .backgroundColor('#173847')
-    .borderRadius(24)
-  }
-
-  @Builder
-  private elderPage() {
-    List({
-      scroller: this.currentScroller(),
-      space: 16
-    }) {
-      ListItem() {
-        Column({ space: 16 }) {
-          this.elderHero()
-          Column({ space: 12 }) {
-            Repeat(this.elderFocusCards())
-              .each((repeatItem: RepeatItem<ElderFocusCard>) => {
-                this.elderFocusCard(repeatItem.item)
-              })
+            this.homeHero()
+            this.homeConsole()
           }
         }
       }
       .padding({
-        left: $r('sys.float.padding_level8'),
-        right: $r('sys.float.padding_level8'),
+        left: this.pagePadding(),
+        right: this.pagePadding(),
         top: this.topPadding()
       })
 
       ListItem() {
         Column({ space: 12 }) {
-          this.sectionTitle('社交与关系', '院内关系风险分析', '不是监控，而是通过长期语气、互动和回避行为识别可能被忽视的压力。')
-          Row({ space: $r('sys.float.padding_level4') }) {
-            this.insightCard(this.elderInsightCards()[0])
-            this.insightCard(this.elderInsightCards()[1])
+          this.sectionTitle('工作总览', '机器负责发现问题', '把情绪、健康、社交与夜间风险整理成护工真正能执行的动作。')
+
+          if (this.isWideLayout()) {
+            Row({ space: 12 }) {
+              this.metricTile(this.dashboardMetrics()[0])
+              this.metricTile(this.dashboardMetrics()[1])
+            }
+            Row({ space: 12 }) {
+              this.metricTile(this.dashboardMetrics()[2])
+              this.metricTile(this.dashboardMetrics()[3])
+            }
+          } else {
+            Column({ space: 12 }) {
+              Repeat(this.dashboardMetrics())
+                .each((repeatItem: RepeatItem<MetricTileData>) => {
+                  this.metricTile(repeatItem.item)
+                })
+            }
           }
         }
       }
       .padding({
-        left: $r('sys.float.padding_level8'),
-        right: $r('sys.float.padding_level8')
+        left: this.pagePadding(),
+        right: this.pagePadding()
       })
 
       ListItem() {
-        Column({ space: 12 }) {
-          this.sectionTitle('个性化建议', '理解老人，而不是只看告警', '结合生活习惯、家属联系和近期数据，为护理员提供更有人情味的下一步。')
-          Column({ space: 12 }) {
-            Repeat(this.elderSuggestions())
-              .each((repeatItem: RepeatItem<SuggestionCard>) => {
-                this.suggestionCard(repeatItem.item)
+        if (this.isWideLayout()) {
+          Row({ space: 16 }) {
+            Column({ space: 12 }) {
+              this.sectionTitle('重点事项', '优先接管', '先处理那些需要人工温度和快速闭环的事项。')
+              Column({ space: 12 }) {
+                Repeat(this.homeInsights())
+                  .each((repeatItem: RepeatItem<InsightData>) => {
+                    this.insightCard(repeatItem.item)
+                  })
+              }
+            }
+            .layoutWeight(1)
+
+            Column({ space: 12 }) {
+              this.sectionTitle('区域覆盖', '床位与楼层', '看每个区域当前的占用、风险和执行状态。')
+              Column() {
+                Repeat(this.roomCoverage())
+                  .each((repeatItem: RepeatItem<RoomData>) => {
+                    this.roomRow(repeatItem.item, repeatItem.index === this.roomCoverage().length - 1)
+                  })
+              }
+              .padding($r('sys.float.padding_level6'))
+              .backgroundColor('#FFFFFF')
+              .borderRadius(this.cardRadius())
+              .border({
+                width: 1,
+                color: '#DCE5EF'
               })
+            }
+            .width(this.isExtraWideLayout() ? 360 : 320)
+          }
+        } else {
+          Column({ space: 12 }) {
+            this.sectionTitle('重点事项', '优先接管', '先处理那些需要人工温度和快速闭环的事项。')
+            Repeat(this.homeInsights())
+              .each((repeatItem: RepeatItem<InsightData>) => {
+                this.insightCard(repeatItem.item)
+              })
+            this.sectionTitle('区域覆盖', '床位与楼层', '看每个区域当前的占用、风险和执行状态。')
+            Column() {
+              Repeat(this.roomCoverage())
+                .each((repeatItem: RepeatItem<RoomData>) => {
+                  this.roomRow(repeatItem.item, repeatItem.index === this.roomCoverage().length - 1)
+                })
+            }
+            .padding($r('sys.float.padding_level6'))
+            .backgroundColor('#FFFFFF')
+            .borderRadius(this.cardRadius())
+            .border({
+              width: 1,
+              color: '#DCE5EF'
+            })
           }
         }
       }
       .padding({
-        left: $r('sys.float.padding_level8'),
-        right: $r('sys.float.padding_level8'),
-        bottom: 120
+        left: this.pagePadding(),
+        right: this.pagePadding(),
+        bottom: this.bottomPadding()
       })
     }
     .width('100%')
@@ -957,60 +1162,159 @@ export struct TabPageView {
 
   @Builder
   private elderHero() {
-    Column({ space: 16 }) {
-      this.sectionTitle('长者', '动态生活画像', '多模态融合行为、睡眠、呼吸、社交和饮食信息，让护工看到一位“人”的连续状态。')
-      Flex({ wrap: FlexWrap.Wrap, direction: FlexDirection.Row }) {
-        this.pill('情绪波动 2', '#ECE9F8', '#5B3FB4')
-        this.pill('睡眠断续 5', '#E9F6EF', '#18794E')
-        this.pill('家属联系稀疏 8', '#FFF1E7', '#B54708')
-        this.pill('关系冲突 1', '#FDEBEC', '#B42318')
+    Column({ space: 18 }) {
+      Row() {
+        Column({ space: 4 }) {
+          Text('长者')
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor('#1D63ED')
+          Text('长者画像与风险分层')
+            .fontSize($r('sys.float.Title_M'))
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#0F172A')
+          Text('更偏“照护判断”的页面，把个体状态、人群分层和下一步建议放在同一块。')
+            .fontSize($r('sys.float.Body_S'))
+            .fontColor('#526277')
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+        this.tag('重点关注 06', '#EAF1FD', '#1D63ED')
       }
-      .width('100%')
+
+      Column({ space: 10 }) {
+        Row() {
+          Text('稳定观察')
+            .fontSize($r('sys.float.Body_S'))
+            .fontColor('#526277')
+          Blank()
+          Text('116')
+            .fontSize($r('sys.float.Title_S'))
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#0F172A')
+        }
+        Row() {
+          Text('风险观察')
+            .fontSize($r('sys.float.Body_S'))
+            .fontColor('#526277')
+          Blank()
+          Text('12')
+            .fontSize($r('sys.float.Title_S'))
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#0F172A')
+        }
+        Row() {
+          Text('社交低活跃')
+            .fontSize($r('sys.float.Body_S'))
+            .fontColor('#526277')
+          Blank()
+          Text('08')
+            .fontSize($r('sys.float.Title_S'))
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#0F172A')
+        }
+      }
+      .padding($r('sys.float.padding_level5'))
+      .backgroundColor('#EAF1FD')
+      .borderRadius(14)
     }
     .alignItems(HorizontalAlign.Start)
     .padding($r('sys.float.padding_level6'))
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(20)
+    .backgroundColor('#FFFFFF')
+    .borderRadius(this.cardRadius())
+    .border({
+      width: 1,
+      color: '#DCE5EF'
+    })
   }
 
   @Builder
-  private taskPage() {
+  private elderPage() {
     List({
       scroller: this.currentScroller(),
       space: 16
     }) {
       ListItem() {
-        Column({ space: 16 }) {
-          this.taskHero()
-          Column({ space: 12 }) {
-            Repeat(this.taskGroups())
-              .each((repeatItem: RepeatItem<TaskGroup>) => {
-                this.taskGroupCard(repeatItem.item)
-              })
-          }
-        }
+        this.elderHero()
       }
       .padding({
-        left: $r('sys.float.padding_level8'),
-        right: $r('sys.float.padding_level8'),
+        left: this.pagePadding(),
+        right: this.pagePadding(),
         top: this.topPadding()
       })
 
       ListItem() {
-        Column({ space: 12 }) {
-          this.sectionTitle('AI 预演', '把未来十天提前放到眼前', '系统围绕步态、心率、用药、冲突与睡眠做短期演化预测，辅助交接决策。')
+        if (this.isWideLayout()) {
+          Row({ space: 16 }) {
+            Column({ space: 12 }) {
+              this.sectionTitle('重点关怀名单', '个体视角', '左侧专门看重点长者，像护理站的重点对象面板。')
+              Column({ space: 12 }) {
+                Repeat(this.elderResidents())
+                  .each((repeatItem: RepeatItem<ResidentData>) => {
+                    this.residentCard(repeatItem.item)
+                  })
+              }
+            }
+            .layoutWeight(1)
+
+            Column({ space: 12 }) {
+              this.sectionTitle('风险分层矩阵', '人群视图', '右侧更偏院内运营视角，用于看覆盖面和分组变化。')
+              Column() {
+                Repeat(this.elderGroups())
+                  .each((repeatItem: RepeatItem<SimpleInfoRow>) => {
+                    this.infoRow(repeatItem.item, repeatItem.index === this.elderGroups().length - 1)
+                  })
+              }
+              .padding($r('sys.float.padding_level6'))
+              .backgroundColor('#FFFFFF')
+              .borderRadius(this.cardRadius())
+              .border({
+                width: 1,
+                color: '#DCE5EF'
+              })
+
+              Column({ space: 12 }) {
+                Repeat(this.elderActions())
+                  .each((repeatItem: RepeatItem<InsightData>) => {
+                    this.insightCard(repeatItem.item)
+                  })
+              }
+            }
+            .width(this.isExtraWideLayout() ? 360 : 320)
+          }
+        } else {
           Column({ space: 12 }) {
-            Repeat(this.taskSimulationCards())
-              .each((repeatItem: RepeatItem<SimulationCard>) => {
-                this.simulationCard(repeatItem.item)
+            this.sectionTitle('重点关怀名单', '个体视角', '先看具体长者，再看人群分层。')
+            Repeat(this.elderResidents())
+              .each((repeatItem: RepeatItem<ResidentData>) => {
+                this.residentCard(repeatItem.item)
+              })
+            this.sectionTitle('风险分层矩阵', '人群视图', '更适合主管快速看分组与覆盖情况。')
+            Column() {
+              Repeat(this.elderGroups())
+                .each((repeatItem: RepeatItem<SimpleInfoRow>) => {
+                  this.infoRow(repeatItem.item, repeatItem.index === this.elderGroups().length - 1)
+                })
+            }
+            .padding($r('sys.float.padding_level6'))
+            .backgroundColor('#FFFFFF')
+            .borderRadius(this.cardRadius())
+            .border({
+              width: 1,
+              color: '#DCE5EF'
+            })
+
+            this.sectionTitle('个性化建议', '行动建议', '这里不再像首页的警报卡，而更像护理建议单。')
+            Repeat(this.elderActions())
+              .each((repeatItem: RepeatItem<InsightData>) => {
+                this.insightCard(repeatItem.item)
               })
           }
         }
       }
       .padding({
-        left: $r('sys.float.padding_level8'),
-        right: $r('sys.float.padding_level8'),
-        bottom: 120
+        left: this.pagePadding(),
+        right: this.pagePadding(),
+        bottom: this.bottomPadding()
       })
     }
     .width('100%')
@@ -1022,58 +1326,58 @@ export struct TabPageView {
 
   @Builder
   private taskHero() {
-    Column({ space: 16 }) {
+    Column({ space: 18 }) {
       Row() {
         Column({ space: 4 }) {
           Text('任务')
             .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_secondary'))
-          Text('当班执行面板')
+            .fontColor('#C7D5F8')
+          Text('班次执行看板')
             .fontSize($r('sys.float.Title_M'))
             .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-          Text('把情绪关怀、风险复核、入住登记和交接闭环统一编排。')
+            .fontColor('#FFFFFF')
+          Text('这页不再是信息总览，而是面向执行的工作流看板。')
             .fontSize($r('sys.float.Body_S'))
-            .fontColor($r('sys.color.font_secondary'))
+            .fontColor('#D5E1FF')
         }
-        .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)
-        this.pill('AI 已编排 6 条建议', '#EEE8DD', '#7A4A17')
+        .alignItems(HorizontalAlign.Start)
+        this.tag('SLA 正常', '#213A74', '#D8E5FF')
       }
 
-      Row({ space: $r('sys.float.padding_level5') }) {
+      Row({ space: 12 }) {
         Column({ space: 2 }) {
           Text('4h')
-            .fontSize(32)
+            .fontSize($r('sys.float.Title_L'))
             .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
+            .fontColor('#FFFFFF')
           Text('本班剩余时长')
             .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_secondary'))
+            .fontColor('#D5E1FF')
         }
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
 
         Column({ space: 2 }) {
           Text('18')
-            .fontSize($r('sys.float.Title_M'))
+            .fontSize($r('sys.float.Title_L'))
             .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
+            .fontColor('#FFFFFF')
           Text('待办事项')
             .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_secondary'))
+            .fontColor('#D5E1FF')
         }
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
 
         Column({ space: 2 }) {
           Text('03')
-            .fontSize($r('sys.float.Title_M'))
+            .fontSize($r('sys.float.Title_L'))
             .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-          Text('需班长确认')
+            .fontColor('#FFFFFF')
+          Text('主管确认')
             .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_secondary'))
+            .fontColor('#D5E1FF')
         }
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
@@ -1081,70 +1385,86 @@ export struct TabPageView {
     }
     .alignItems(HorizontalAlign.Start)
     .padding($r('sys.float.padding_level6'))
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(20)
+    .backgroundColor('#17305E')
+    .borderRadius(this.cardRadius())
+    .border({
+      width: 1,
+      color: '#29457A'
+    })
   }
 
   @Builder
-  private minePage() {
+  private taskPage() {
     List({
       scroller: this.currentScroller(),
       space: 16
     }) {
       ListItem() {
-        Column({ space: 16 }) {
-          this.mineHero()
-          Column({ space: 12 }) {
-            Repeat(this.mineCards())
-              .each((repeatItem: RepeatItem<MineCard>) => {
-                this.mineCard(repeatItem.item)
-              })
-          }
-        }
+        this.taskHero()
       }
       .padding({
-        left: $r('sys.float.padding_level8'),
-        right: $r('sys.float.padding_level8'),
+        left: this.pagePadding(),
+        right: this.pagePadding(),
         top: this.topPadding()
       })
 
       ListItem() {
         Column({ space: 12 }) {
-          this.sectionTitle('数字记忆助手', '帮助你更有温度地接近老人', '不是替代护理员，而是在关键时刻提醒你该说什么、该联系谁、该先照顾谁。')
-          Column() {
-            Repeat(this.memoryCues())
-              .each((repeatItem: RepeatItem<MemoryCue>) => {
-                this.memoryCueRow(repeatItem.item, repeatItem.index === this.memoryCues().length - 1)
-              })
+          this.sectionTitle('班次任务', '按执行链路展开', '这页更像业务看板，而不是单纯的清单。')
+
+          if (this.isExtraWideLayout()) {
+            Row({ space: 12 }) {
+              Column() {
+                this.taskLaneCard(this.taskLanes()[0])
+              }
+              .layoutWeight(1)
+              Column() {
+                this.taskLaneCard(this.taskLanes()[1])
+              }
+              .layoutWeight(1)
+              Column() {
+                this.taskLaneCard(this.taskLanes()[2])
+              }
+              .layoutWeight(1)
+            }
+          } else {
+            Column({ space: 12 }) {
+              Repeat(this.taskLanes())
+                .each((repeatItem: RepeatItem<TaskLaneData>) => {
+                  this.taskLaneCard(repeatItem.item)
+                })
+            }
           }
-          .padding($r('sys.float.padding_level6'))
-          .backgroundColor($r('sys.color.comp_background_primary'))
-          .borderRadius($r('sys.float.corner_radius_level16'))
         }
       }
       .padding({
-        left: $r('sys.float.padding_level8'),
-        right: $r('sys.float.padding_level8')
+        left: this.pagePadding(),
+        right: this.pagePadding()
       })
 
       ListItem() {
         Column({ space: 12 }) {
-          this.sectionTitle('我的工作方式', '把重要提醒留给真正重要的事', '保持轻量、清楚、可交接，是护工端最重要的秩序感。')
-          Column() {
-            Repeat(this.preferenceRows())
-              .each((repeatItem: RepeatItem<PreferenceRow>) => {
-                this.preferenceRow(repeatItem.item, repeatItem.index === this.preferenceRows().length - 1)
-              })
+          this.sectionTitle('AI 预演', '先看后果再安排动作', '适合值班组长提前判断哪些事情要在今天就处理。')
+
+          if (this.isWideLayout()) {
+            Row({ space: 12 }) {
+              this.insightCard(this.taskPredictions()[0])
+              this.insightCard(this.taskPredictions()[1])
+            }
+          } else {
+            Column({ space: 12 }) {
+              Repeat(this.taskPredictions())
+                .each((repeatItem: RepeatItem<InsightData>) => {
+                  this.insightCard(repeatItem.item)
+                })
+            }
           }
-          .padding($r('sys.float.padding_level6'))
-          .backgroundColor($r('sys.color.comp_background_primary'))
-          .borderRadius($r('sys.float.corner_radius_level16'))
         }
       }
       .padding({
-        left: $r('sys.float.padding_level8'),
-        right: $r('sys.float.padding_level8'),
-        bottom: 120
+        left: this.pagePadding(),
+        right: this.pagePadding(),
+        bottom: this.bottomPadding()
       })
     }
     .width('100%')
@@ -1154,69 +1474,306 @@ export struct TabPageView {
     .edgeEffect(EdgeEffect.Spring)
   }
 
+  private quickActions(): QuickActionData[] {
+    return [
+      { label: '入住登记', badge: '3' },
+      { label: '交接班' },
+      { label: '消息通知', badge: '5' },
+      { label: '培训学习' },
+      { label: '绩效统计' },
+      { label: '排班表' },
+      { label: '紧急联系' },
+      { label: '帮助中心' }
+    ];
+  }
+
+  private settingGroups(): SettingGroupData[] {
+    return [
+      {
+        title: '账号',
+        items: [
+          { label: '个人资料', value: '刘婷', showArrow: true },
+          { label: '账号安全', value: 'L3 权限', showArrow: true }
+        ]
+      },
+      {
+        title: '服务',
+        items: [
+          { label: '通知提醒', value: '关键提醒', showArrow: true },
+          { label: 'AI 数字助手', value: '已开启', showArrow: true },
+          { label: '登录设备', value: '2 台', showArrow: true },
+          { label: '数据同步', value: '正常', showArrow: true }
+        ]
+      },
+      {
+        title: '其他',
+        items: [
+          { label: '关于我们', showArrow: true },
+          { label: '通用设置', showArrow: true }
+        ]
+      }
+    ];
+  }
+
   @Builder
   private mineHero() {
     Column({ space: 16 }) {
-      Row() {
-        Column({ space: 4 }) {
-          Text('我的')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_secondary'))
-          Text('护工工作台')
-            .fontSize($r('sys.float.Title_M'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-          Text('今天你的重点是稳定情绪、做好交接，并让每一次人工接手都更有温度。')
-            .fontSize($r('sys.float.Body_S'))
-            .fontColor($r('sys.color.font_secondary'))
+      Row({ space: 14 }) {
+        Stack({ alignContent: Alignment.Center }) {
+          Row()
+            .width(56)
+            .height(56)
+            .backgroundColor('#F2F2F7')
+            .borderRadius(16)
+          Text('LT')
+            .fontSize(20)
+            .fontWeight(FontWeight.Medium)
+            .fontColor('#000000')
+        }
+
+        Column({ space: 3 }) {
+          Text('刘婷')
+            .fontSize(20)
+            .fontWeight(FontWeight.Medium)
+            .fontColor('#000000')
+          Text('白班护工 · CG-021')
+            .fontSize(14)
+            .fontColor('#8E8E93')
+          Text('A栋 2F-3F')
+            .fontSize(13)
+            .fontColor('#8E8E93')
         }
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
-        this.pill('白班 08:00-18:00', '#EEF2F6', '#344054')
       }
+      .width('100%')
 
-      Row({ space: $r('sys.float.padding_level5') }) {
+      Row({ space: 0 }) {
         Column({ space: 2 }) {
-          Text('07:46')
-            .fontSize($r('sys.float.Title_M'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-          Text('签到时间')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_secondary'))
+          Text('28')
+            .fontSize(18)
+            .fontWeight(FontWeight.Medium)
+            .fontColor('#000000')
+          Text('负责长者')
+            .fontSize(12)
+            .fontColor('#8E8E93')
         }
         .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
+        .alignItems(HorizontalAlign.Center)
 
         Column({ space: 2 }) {
-          Text('92')
-            .fontSize($r('sys.float.Title_M'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-          Text('班次完成度')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_secondary'))
+          Text('92%')
+            .fontSize(18)
+            .fontWeight(FontWeight.Medium)
+            .fontColor('#000000')
+          Text('班次完成')
+            .fontSize(12)
+            .fontColor('#8E8E93')
         }
         .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
+        .alignItems(HorizontalAlign.Center)
 
         Column({ space: 2 }) {
-          Text('高')
-            .fontSize($r('sys.float.Title_M'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-          Text('情绪陪伴贡献')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_secondary'))
+          Text('4.9')
+            .fontSize(18)
+            .fontWeight(FontWeight.Medium)
+            .fontColor('#000000')
+          Text('服务评分')
+            .fontSize(12)
+            .fontColor('#8E8E93')
         }
         .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
+        .alignItems(HorizontalAlign.Center)
+
+        Column({ space: 2 }) {
+          Text('12h')
+            .fontSize(18)
+            .fontWeight(FontWeight.Medium)
+            .fontColor('#000000')
+          Text('培训时长')
+            .fontSize(12)
+            .fontColor('#8E8E93')
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Center)
+      }
+      .width('100%')
+      .padding({ top: 12, bottom: 12 })
+      .backgroundColor('#F2F2F7')
+      .borderRadius(12)
+    }
+    .width('100%')
+    .padding(16)
+    .backgroundColor('#FFFFFF')
+    .borderRadius(14)
+    .border({
+      width: 0.5,
+      color: '#E5E5EA'
+    })
+  }
+
+  @Builder
+  private quickActionItem(item: QuickActionData, isLastInRow: boolean) {
+    Row({ space: 4 }) {
+      Text(item.label)
+        .fontSize(15)
+        .fontColor('#000000')
+      if (item.badge) {
+        Text(item.badge)
+          .fontSize(11)
+          .fontColor('#FF3B30')
+          .fontWeight(FontWeight.Medium)
       }
     }
+    .layoutWeight(1)
+    .justifyContent(FlexAlign.Center)
+    .padding({ top: 10, bottom: 10 })
+    .border({
+      width: {
+        right: isLastInRow ? 0 : 0.5
+      },
+      color: '#E5E5EA'
+    })
+  }
+
+  @Builder
+  private settingItem(item: SettingItemData, isLast: boolean) {
+    Row({ space: 10 }) {
+      Text(item.label)
+        .fontSize(16)
+        .fontColor('#000000')
+        .layoutWeight(1)
+
+      if (item.value) {
+        Text(item.value)
+          .fontSize(15)
+          .fontColor('#8E8E93')
+      }
+
+      if (item.showArrow) {
+        Text('›')
+          .fontSize(20)
+          .fontColor('#C7C7CC')
+          .margin({ left: 2 })
+      }
+    }
+    .padding({
+      left: 16,
+      right: 16,
+      top: 12,
+      bottom: 12
+    })
+    .border({
+      width: {
+        bottom: isLast ? 0 : 0.5
+      },
+      color: '#E5E5EA'
+    })
+  }
+
+  @Builder
+  private settingGroup(group: SettingGroupData) {
+    Column({ space: 0 }) {
+      Text(group.title)
+        .fontSize(13)
+        .fontColor('#8E8E93')
+        .padding({ left: 16, right: 16, top: 8, bottom: 6 })
+
+      Column({ space: 0 }) {
+        Repeat(group.items)
+          .each((repeatItem: RepeatItem<SettingItemData>) => {
+            this.settingItem(repeatItem.item, repeatItem.index === group.items.length - 1)
+          })
+      }
+      .backgroundColor('#FFFFFF')
+      .borderRadius(10)
+    }
     .alignItems(HorizontalAlign.Start)
-    .padding($r('sys.float.padding_level6'))
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(20)
+  }
+
+  @Builder
+  private minePage() {
+    List({
+      scroller: this.currentScroller(),
+      space: 16
+    }) {
+      ListItem() {
+        this.mineHero()
+      }
+      .padding({
+        left: this.pagePadding(),
+        right: this.pagePadding(),
+        top: this.topPadding()
+      })
+
+      ListItem() {
+        Column({ space: 0 }) {
+          Row({ space: 0 }) {
+            this.quickActionItem(this.quickActions()[0], false)
+            this.quickActionItem(this.quickActions()[1], false)
+            this.quickActionItem(this.quickActions()[2], false)
+            this.quickActionItem(this.quickActions()[3], true)
+          }
+          .width('100%')
+
+          Divider()
+            .strokeWidth(0.5)
+            .color('#E5E5EA')
+
+          Row({ space: 0 }) {
+            this.quickActionItem(this.quickActions()[4], false)
+            this.quickActionItem(this.quickActions()[5], false)
+            this.quickActionItem(this.quickActions()[6], false)
+            this.quickActionItem(this.quickActions()[7], true)
+          }
+          .width('100%')
+        }
+        .backgroundColor('#FFFFFF')
+        .borderRadius(10)
+        .border({
+          width: 0.5,
+          color: '#E5E5EA'
+        })
+      }
+      .padding({
+        left: this.pagePadding(),
+        right: this.pagePadding()
+      })
+
+      ListItem() {
+        if (this.isWideLayout()) {
+          Row({ space: 16 }) {
+            Column({ space: 12 }) {
+              this.settingGroup(this.settingGroups()[0])
+              this.settingGroup(this.settingGroups()[2])
+            }
+            .layoutWeight(1)
+
+            Column({ space: 12 }) {
+              this.settingGroup(this.settingGroups()[1])
+            }
+            .layoutWeight(1)
+          }
+        } else {
+          Column({ space: 12 }) {
+            Repeat(this.settingGroups())
+              .each((repeatItem: RepeatItem<SettingGroupData>) => {
+                this.settingGroup(repeatItem.item)
+              })
+          }
+        }
+      }
+      .padding({
+        left: this.pagePadding(),
+        right: this.pagePadding(),
+        bottom: this.bottomPadding()
+      })
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor('#F2F2F7')
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.Spring)
   }
 
   build() {
