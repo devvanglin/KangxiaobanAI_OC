@@ -13,32 +13,56 @@
  * limitations under the License.
  */
 
-import { AppStorageV2 } from '@kit.ArkUI';
+import { AppStorageV2, SymbolGlyphModifier } from '@kit.ArkUI';
 import {
   DividerShowType,
   hdsMaterial,
+  HdsListItemCard,
   HdsNavDestination,
-  ScrollEffectType
+  IconSize,
+  PrefixIcon,
+  ScrollEffectType,
+  SuffixArrow,
+  SuffixText
 } from '@kit.UIDesignKit';
 import { StorageKey } from '../common/CommonConstants';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { BreakpointType } from '../util/BreakpointSystem';
 
-interface CheckInStep {
+type StepKey = 'info' | 'assess' | 'room' | 'care' | 'face';
+
+interface StepMeta {
+  key: StepKey;
   title: string;
-  status: string;
-  detail: string;
 }
 
-interface KeyValueData {
+interface FormRowData {
   label: string;
   value: string;
-  detail: string;
+  placeholder?: string;
 }
 
-interface ReadyItem {
-  title: string;
+interface RoomData {
+  id: string;
+  room: string;
+  type: string;
+  floor: string;
+  status: 'available' | 'occupied';
+}
+
+interface CarePackage {
+  id: string;
+  name: string;
+  level: string;
   detail: string;
+  price: string;
+}
+
+interface AssessItem {
+  id: string;
+  label: string;
+  options: string[];
+  selected: number;
 }
 
 @ComponentV2
@@ -46,473 +70,501 @@ export struct CheckInFlowPage {
   @Consumer('mainPageStack') pathStack: NavPathStack = new NavPathStack();
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
+  @Local currentStep: number = 0;
+  @Local selectedRoomId: string = '';
+  @Local selectedCareId: string = 'care_2';
+  @Local faceScanned: boolean = false;
+
+  private steps(): StepMeta[] {
+    return [
+      { key: 'info', title: '信息填写' },
+      { key: 'assess', title: '健康评估' },
+      { key: 'room', title: '选择房间' },
+      { key: 'care', title: '护理套餐' },
+      { key: 'face', title: '扫脸登记' }
+    ];
+  }
 
   private contentTopPadding(): number {
     return this.globalInfoModel.statusBarHeight + 68;
   }
 
-  private isWideLayout(): boolean {
-    const widthBreakpoint: WidthBreakpoint = this.globalInfoModel.widthBreakpoint;
-    return widthBreakpoint === WidthBreakpoint.WIDTH_MD ||
-      widthBreakpoint === WidthBreakpoint.WIDTH_LG ||
-      widthBreakpoint === WidthBreakpoint.WIDTH_XL;
-  }
-
   private pagePadding(): number {
     return new BreakpointType<number>({
-      sm: 16,
-      md: 24,
-      lg: 28,
-      xl: 32
+      sm: 16, md: 24, lg: 28, xl: 32
     }).getValue(this.globalInfoModel.widthBreakpoint);
   }
 
-  private cardRadius(): number {
-    return this.isWideLayout() ? 16 : 14;
+  private bottomBarHeight(): number {
+    return 76;
   }
 
-  private steps(): CheckInStep[] {
+  private bottomPadding(): number {
+    return this.bottomBarHeight() + 36;
+  }
+
+  // ---------------- data ----------------
+
+  private formData(): FormRowData[] {
     return [
-      {
-        title: '资料核验',
-        status: '当前',
-        detail: '身份、病史、过敏与家属授权'
-      },
-      {
-        title: '床位安排',
-        status: '待办',
-        detail: '房间、陪护、呼叫器与安全标识'
-      },
-      {
-        title: '照护初评',
-        status: '待办',
-        detail: '生命体征、风险等级与作息习惯'
-      },
-      {
-        title: '交接同步',
-        status: '末步',
-        detail: '护理站、值班组与家属摘要'
-      }
+      { label: '姓名', value: '', placeholder: '请输入长者姓名' },
+      { label: '性别', value: '', placeholder: '请选择' },
+      { label: '出生日期', value: '', placeholder: '请选择日期' },
+      { label: '身份证号', value: '', placeholder: '请输入身份证号' },
+      { label: '联系电话', value: '', placeholder: '请输入手机号' },
+      { label: '紧急联系人', value: '', placeholder: '请输入联系人姓名' },
+      { label: '联系人关系', value: '', placeholder: '请选择关系' },
+      { label: '联系人电话', value: '', placeholder: '请输入联系人手机号' }
     ];
   }
 
-  private baseInfo(): KeyValueData[] {
+  private assessItems(): AssessItem[] {
     return [
-      {
-        label: '入住长者',
-        value: '肖爷爷',
-        detail: '家属送住，首次接入情绪主动关怀方案'
-      },
-      {
-        label: '预计到院',
-        value: '14:30',
-        detail: '资料袋与病历摘要已到护理站'
-      },
-      {
-        label: '预留床位',
-        value: '3F-302',
-        detail: '靠窗，靠近护理呼叫点，便于夜间观察'
-      },
-      {
-        label: '主要联系人',
-        value: '女儿',
-        detail: '电话暂未接通，建议晚饭后再次回访'
-      }
+      { id: 'a1', label: '自理能力', options: ['完全自理', '半自理', '不能自理'], selected: 0 },
+      { id: 'a2', label: '行动能力', options: ['正常', '需搀扶', '轮椅', '卧床'], selected: 0 },
+      { id: 'a3', label: '认知状态', options: ['清晰', '偶有遗忘', '认知障碍'], selected: 0 },
+      { id: 'a4', label: '慢性病史', options: ['无', '高血压', '糖尿病', '心脏病', '其他'], selected: 0 },
+      { id: 'a5', label: '过敏史', options: ['无', '药物过敏', '食物过敏'], selected: 0 },
+      { id: 'a6', label: '饮食要求', options: ['正常', '低盐', '低糖', '流食'], selected: 0 }
     ];
   }
 
-  private readyItems(): ReadyItem[] {
+  private rooms(): RoomData[] {
     return [
-      {
-        title: '基础资料齐备',
-        detail: '入住表、身份证明、过敏史、家属授权书和既往病史需全部存档。'
-      },
-      {
-        title: '房间环境就绪',
-        detail: '床品、扶手、防滑设施、呼叫器、夜灯和安全标识全部完成检查。'
-      },
-      {
-        title: '首日照护计划',
-        detail: '饮食、用药、康复、作息和夜间巡视频次要在入住后立即同步。'
-      }
+      { id: 'rm1', room: '3F-302', type: '单人间', floor: '3楼东区', status: 'available' },
+      { id: 'rm2', room: '3F-306', type: '单人间', floor: '3楼东区', status: 'available' },
+      { id: 'rm3', room: '2F-201', type: '双人间A床', floor: '2楼西区', status: 'available' },
+      { id: 'rm4', room: '2F-208', type: '双人间A床', floor: '2楼西区', status: 'available' },
+      { id: 'rm5', room: '2F-215', type: '双人间B床', floor: '2楼西区', status: 'occupied' },
+      { id: 'rm6', room: '3F-310', type: '套间', floor: '3楼东区', status: 'available' }
     ];
+  }
+
+  private carePackages(): CarePackage[] {
+    return [
+      { id: 'care_1', name: '基础护理', level: '三级', detail: '日常巡视 · 用药提醒 · 每日体征记录', price: '¥3,800/月' },
+      { id: 'care_2', name: '标准护理', level: '二级', detail: '基础护理 · 每周医生查房 · 康复指导 · 情绪关怀', price: '¥5,600/月' },
+      { id: 'care_3', name: '专属护理', level: '一级', detail: '标准护理 · 专属护工 · 每日医生查房 · 营养定制', price: '¥8,800/月' }
+    ];
+  }
+
+  // ---------------- shared builders ----------------
+
+  @Builder
+  private sectionHeader(title: string) {
+    Text(title)
+      .fontSize($r('sys.float.Body_M'))
+      .fontWeight(FontWeight.Medium)
+      .fontColor($r('sys.color.font_primary'))
+      .width('100%')
+      .height(40)
   }
 
   @Builder
-  private tag(text: string, backgroundColor: ResourceColor, fontColor: ResourceColor = '#305C88') {
-    Text(text)
-      .fontSize($r('sys.float.Caption_M'))
-      .fontColor(fontColor)
-      .padding({
-        left: $r('sys.float.padding_level3'),
-        right: $r('sys.float.padding_level3'),
-        top: 4,
-        bottom: 4
-      })
-      .backgroundColor(backgroundColor)
-      .borderRadius(10)
-  }
-
-  @Builder
-  private sectionTitle(title: string, detail: string) {
-    Column({ space: 4 }) {
-      Text(title)
-        .fontSize($r('sys.float.Body_L'))
-        .fontWeight(FontWeight.Bold)
-        .fontColor('#0F172A')
-      Text(detail)
-        .fontSize($r('sys.float.Body_S'))
-        .fontColor('#526277')
-        .maxLines(2)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
+  private divider(isLast: boolean) {
+    if (!isLast) {
+      Divider()
+        .strokeWidth(0.5)
+        .color($r('sys.color.comp_divider'))
     }
-    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
-  private stepCard(step: CheckInStep, index: number) {
-    Column({ space: 10 }) {
-      Row() {
-        Stack({ alignContent: Alignment.Center }) {
-          Row()
-            .width(32)
-            .height(32)
-            .backgroundColor(index === 0 ? '#1D63ED' : '#EFF4FA')
-            .borderRadius(12)
-          Text(`${index + 1}`)
-            .fontSize($r('sys.float.Caption_M'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor(index === 0 ? '#FFFFFF' : '#45617E')
+  private stepIndicator() {
+    Row({ space: 0 }) {
+      ForEach(this.steps(), (step: StepMeta, index: number) => {
+        Row({ space: 6 }) {
+          Stack({ alignContent: Alignment.Center }) {
+            Row()
+              .width(24)
+              .height(24)
+              .backgroundColor(index <= this.currentStep ?
+                $r('sys.color.font_emphasize') : $r('sys.color.comp_background_secondary'))
+              .borderRadius(12)
+            Text(`${index + 1}`)
+              .fontSize($r('sys.float.Caption_M'))
+              .fontWeight(FontWeight.Medium)
+              .fontColor(index <= this.currentStep ?
+                $r('sys.color.font_on_primary') : $r('sys.color.font_tertiary'))
+          }
+          .width(24)
+          .height(24)
+
+          if (index < this.steps().length - 1) {
+            Row()
+              .width(24)
+              .height(2)
+              .backgroundColor(index < this.currentStep ?
+                $r('sys.color.font_emphasize') : $r('sys.color.comp_background_secondary'))
+          }
         }
-        .width(32)
-        .height(32)
-        Blank()
-        this.tag(step.status, index === 0 ? '#EAF1FD' : '#F3F6FA', index === 0 ? '#1D63ED' : '#526277')
-      }
-      Text(step.title)
-        .fontSize($r('sys.float.Body_M'))
-        .fontWeight(FontWeight.Bold)
-        .fontColor('#0F172A')
-      Text(step.detail)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor('#526277')
-        .maxLines(2)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }, (item: StepMeta, index: number) => `step-${index}`)
     }
-    .alignItems(HorizontalAlign.Start)
-    .padding($r('sys.float.padding_level5'))
-    .layoutWeight(1)
-    .backgroundColor('#FFFFFF')
-    .borderRadius(this.cardRadius())
-    .border({
-      width: 1,
-      color: '#DCE5EF'
-    })
+    .width('100%')
+    .justifyContent(FlexAlign.Center)
+    .padding({ top: 12, bottom: 12 })
   }
 
   @Builder
-  private infoRow(item: KeyValueData, isLast: boolean) {
-    Row() {
-      Column({ space: 2 }) {
-        Text(item.label)
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor('#6B7C93')
-        Text(item.detail)
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor('#526277')
-          .maxLines(2)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-      }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
-
-      Text(item.value)
-        .fontSize($r('sys.float.Body_M'))
-        .fontWeight(FontWeight.Bold)
-        .fontColor('#0F172A')
-    }
-    .padding({
-      top: 12,
-      bottom: 12
-    })
-    .border({
-      width: {
-        bottom: isLast ? 0 : 1
-      },
-      color: '#E4EAF1'
-    })
-  }
-
-  @Builder
-  private readyRow(item: ReadyItem, isLast: boolean) {
+  private bottomBar() {
     Row({ space: 12 }) {
-      Blank()
-        .width(8)
-        .height(8)
-        .backgroundColor('#1D63ED')
-        .borderRadius(4)
-        .margin({ top: 7 })
+      if (this.currentStep > 0) {
+        Button('上一步')
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor($r('sys.color.font_primary'))
+          .backgroundColor($r('sys.color.comp_background_primary'))
+          .layoutWeight(1)
+          .height(44)
+          .borderRadius(12)
+          .onClick(() => {
+            this.currentStep--;
+          })
+      }
 
-      Column({ space: 4 }) {
-        Text(item.title)
+      Button(this.currentStep === this.steps().length - 1 ? '完成登记' : '下一步')
+        .fontSize($r('sys.float.Body_M'))
+        .fontColor($r('sys.color.font_on_primary'))
+        .backgroundColor($r('sys.color.font_emphasize'))
+        .layoutWeight(1)
+        .height(44)
+        .borderRadius(12)
+        .onClick(() => {
+          if (this.currentStep < this.steps().length - 1) {
+            this.currentStep++;
+          } else {
+            this.pathStack.pop();
+          }
+        })
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 16, bottom: 16 })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+  }
+
+  // ---------------- step 1: info ----------------
+
+  @Builder
+  private infoRow(item: FormRowData, isLast: boolean) {
+    Row() {
+      Text(item.label)
+        .fontSize($r('sys.float.Body_M'))
+        .fontColor($r('sys.color.font_primary'))
+        .width(88)
+
+      TextInput({ placeholder: item.placeholder, text: item.value })
+        .placeholderColor($r('sys.color.font_tertiary'))
+        .fontSize($r('sys.float.Body_M'))
+        .fontColor($r('sys.color.font_primary'))
+        .backgroundColor('rgba(0,0,0,0)')
+        .layoutWeight(1)
+        .height(48)
+    }
+    .width('100%')
+    .height(52)
+    .padding({ left: 16, right: 16 })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+
+    this.divider(isLast)
+  }
+
+  @Builder
+  private stepInfo() {
+    Column({ space: 0 }) {
+      this.sectionHeader('基本信息')
+      Column({ space: 0 }) {
+        Repeat(this.formData())
+          .each((repeatItem: RepeatItem<FormRowData>) => {
+            this.infoRow(repeatItem.item, repeatItem.index === this.formData().length - 1)
+          })
+      }
+      .backgroundColor($r('sys.color.comp_background_primary'))
+    }
+  }
+
+  // ---------------- step 2: assess ----------------
+
+  @Builder
+  private assessRow(item: AssessItem, isLast: boolean) {
+    Column({ space: 8 }) {
+      Text(item.label)
+        .fontSize($r('sys.float.Body_M'))
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+
+      Scroll() {
+        Row({ space: 8 }) {
+          ForEach(item.options, (option: string, index: number) => {
+            Text(option)
+              .fontSize($r('sys.float.Body_S'))
+              .fontColor(item.selected === index ?
+                $r('sys.color.font_on_primary') : $r('sys.color.font_secondary'))
+              .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+              .backgroundColor(item.selected === index ?
+                $r('sys.color.font_emphasize') : $r('sys.color.comp_background_secondary'))
+              .borderRadius(16)
+          }, (option: string, index: number) => `${item.id}-${index}`)
+        }
+      }
+      .scrollable(ScrollDirection.Horizontal)
+      .scrollBar(BarState.Off)
+      .width('100%')
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+    .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+
+    this.divider(isLast)
+  }
+
+  @Builder
+  private stepAssess() {
+    Column({ space: 0 }) {
+      this.sectionHeader('健康评估')
+      Column({ space: 0 }) {
+        Repeat(this.assessItems())
+          .each((repeatItem: RepeatItem<AssessItem>) => {
+            this.assessRow(repeatItem.item, repeatItem.index === this.assessItems().length - 1)
+          })
+      }
+      .backgroundColor($r('sys.color.comp_background_primary'))
+    }
+  }
+
+  // ---------------- step 3: room ----------------
+
+  @Builder
+  private roomRow(item: RoomData, isLast: boolean) {
+    HdsListItemCard({
+      prefixItem: new PrefixIcon({
+        iconSize: IconSize.SYSTEM_ICON,
+        iconValue: {
+          symbol: new SymbolGlyphModifier(
+            item.status === 'available' ? $r('sys.symbol.house_fill') : $r('sys.symbol.house')
+          )
+            .fontColor([item.status === 'available' ?
+              $r('sys.color.font_emphasize') : $r('sys.color.font_tertiary')])
+        }
+      }),
+      textItem: {
+        primaryText: {
+          text: item.room
+        },
+        secondaryText: {
+          text: `${item.type} · ${item.floor}`
+        }
+      },
+      suffixItem: item.status === 'available' ?
+        (this.selectedRoomId === item.id ?
+          new SuffixText({ text: '已选' }) :
+          new SuffixArrow({ color: $r('sys.color.font_tertiary') })) :
+        new SuffixText({ text: '已占用' }),
+      cardBorderRadius: 0,
+      cardBackgroundColor: this.selectedRoomId === item.id ?
+        $r('sys.color.comp_background_secondary') : 'rgba(0,0,0,0)',
+      cardHeight: 64,
+      cardPrefixMargin: 0,
+      cardSuffixMargin: 0,
+      onClick: () => {
+        if (item.status === 'available') {
+          this.selectedRoomId = item.id;
+        }
+      }
+    })
+      .border({
+        width: {
+          bottom: isLast ? 0 : 0.5
+        },
+        color: $r('sys.color.comp_divider')
+      })
+  }
+
+  @Builder
+  private stepRoom() {
+    Column({ space: 0 }) {
+      this.sectionHeader('选择房间')
+      Column({ space: 0 }) {
+        Repeat(this.rooms())
+          .each((repeatItem: RepeatItem<RoomData>) => {
+            this.roomRow(repeatItem.item, repeatItem.index === this.rooms().length - 1)
+          })
+      }
+      .padding({ left: 16, right: 16 })
+      .backgroundColor($r('sys.color.comp_background_primary'))
+    }
+  }
+
+  // ---------------- step 4: care ----------------
+
+  @Builder
+  private careRow(item: CarePackage, isLast: boolean) {
+    Column({ space: 8 }) {
+      Row() {
+        Column({ space: 2 }) {
+          Text(item.name)
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+          Text(`护理等级 · ${item.level}`)
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('sys.color.font_secondary'))
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+
+        Text(item.price)
           .fontSize($r('sys.float.Body_M'))
           .fontWeight(FontWeight.Medium)
-          .fontColor('#0F172A')
-        Text(item.detail)
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor('#526277')
-      }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
-    }
-    .alignItems(VerticalAlign.Top)
-    .padding({
-      top: 12,
-      bottom: 12
-    })
-    .border({
-      width: {
-        bottom: isLast ? 0 : 1
-      },
-      color: '#E4EAF1'
-    })
-  }
+          .fontColor($r('sys.color.font_emphasize'))
 
-  @Builder
-  private summaryHero() {
-    Column({ space: 16 }) {
-      Row() {
-        Column({ space: 4 }) {
-          Text('入住登记')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor('#C3D2E2')
-          Text('首日办理工作台')
-            .fontSize($r('sys.float.Title_M'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#F8FBFF')
-          Text('围绕资料、床位、照护计划与交接同步，做一套真正适合护工端的入住流程。')
-            .fontSize($r('sys.float.Body_S'))
-            .fontColor('#D8E4F0')
+        Stack({ alignContent: Alignment.Center }) {
+          Row()
+            .width(20)
+            .height(20)
+            .backgroundColor(this.selectedCareId === item.id ?
+              $r('sys.color.font_emphasize') : 'rgba(0,0,0,0)')
+            .borderRadius(10)
+            .border({
+              width: this.selectedCareId === item.id ? 0 : 1,
+              color: $r('sys.color.comp_divider')
+            })
+          if (this.selectedCareId === item.id) {
+            SymbolGlyph($r('sys.symbol.checkmark'))
+              .fontSize(12)
+              .fontColor([$r('sys.color.font_on_primary')])
+          }
         }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-
-        this.tag('可用床位 12', '#20496B', '#E6F1FF')
+        .width(20)
+        .height(20)
       }
+      .width('100%')
 
-      Row({ space: 12 }) {
-        Column({ space: 2 }) {
-          Text('03')
-            .fontSize($r('sys.float.Title_L'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#FFFFFF')
-          Text('今日待办理')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor('#D8E4F0')
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
-
-        Column({ space: 2 }) {
-          Text('01')
-            .fontSize($r('sys.float.Title_L'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#FFFFFF')
-          Text('家属待回访')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor('#D8E4F0')
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
-
-        Column({ space: 2 }) {
-          Text('14:30')
-            .fontSize($r('sys.float.Title_L'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#FFFFFF')
-          Text('预计到院')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor('#D8E4F0')
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
-      }
-    }
-    .alignItems(HorizontalAlign.Start)
-    .padding($r('sys.float.padding_level6'))
-    .backgroundColor('#16324A')
-    .borderRadius(this.cardRadius())
-    .border({
-      width: 1,
-      color: '#244B70'
-    })
-  }
-
-  @Builder
-  private rightSummaryCard() {
-    Column({ space: 14 }) {
-      this.sectionTitle('办理侧重点', '先确保护理真实可执行，再补齐系统信息。')
-
-      Column({ space: 8 }) {
-        this.tag('当前步骤：资料核验', '#EAF1FD', '#1D63ED')
-        this.tag('责任人：前台接待护工', '#F3F6FA', '#526277')
-        this.tag('需护理站复核', '#FDEFD8', '#B7791F')
-      }
-
-      Divider()
-        .strokeWidth(1)
-        .color('#E4EAF1')
-
-      Text('若家属再次未接通，系统将在晚饭后自动补发陪伴摘要，并提示值班护工人工跟进。')
+      Text(item.detail)
         .fontSize($r('sys.float.Body_S'))
-        .fontColor('#526277')
+        .fontColor($r('sys.color.font_secondary'))
     }
+    .width('100%')
     .alignItems(HorizontalAlign.Start)
-    .padding($r('sys.float.padding_level6'))
-    .backgroundColor('#FFFFFF')
-    .borderRadius(this.cardRadius())
-    .border({
-      width: 1,
-      color: '#DCE5EF'
+    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+    .backgroundColor(this.selectedCareId === item.id ?
+      $r('sys.color.comp_background_secondary') : $r('sys.color.comp_background_primary'))
+    .onClick(() => {
+      this.selectedCareId = item.id;
     })
+
+    this.divider(isLast)
+  }
+
+  @Builder
+  private stepCare() {
+    Column({ space: 0 }) {
+      this.sectionHeader('护理套餐')
+      Column({ space: 0 }) {
+        Repeat(this.carePackages())
+          .each((repeatItem: RepeatItem<CarePackage>) => {
+            this.careRow(repeatItem.item, repeatItem.index === this.carePackages().length - 1)
+          })
+      }
+      .backgroundColor($r('sys.color.comp_background_primary'))
+    }
+  }
+
+  // ---------------- step 5: face ----------------
+
+  @Builder
+  private stepFace() {
+    Column({ space: 24 }) {
+      this.sectionHeader('扫脸登记')
+
+      Column({ space: 16 }) {
+        Stack({ alignContent: Alignment.Center }) {
+          Row()
+            .width(160)
+            .height(160)
+            .backgroundColor($r('sys.color.comp_background_primary'))
+            .borderRadius(80)
+          if (this.faceScanned) {
+            SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
+              .fontSize(64)
+              .fontColor([$r('sys.color.font_emphasize')])
+          } else {
+            SymbolGlyph($r('sys.symbol.person_fill'))
+              .fontSize(56)
+              .fontColor([$r('sys.color.font_tertiary')])
+          }
+        }
+        .width(160)
+        .height(160)
+
+        Text(this.faceScanned ? '登记成功' : '请将长者面部对准摄像头')
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor(this.faceScanned ?
+            $r('sys.color.font_emphasize') : $r('sys.color.font_secondary'))
+
+        if (!this.faceScanned) {
+          Button('开始扫脸')
+            .fontSize($r('sys.float.Body_M'))
+            .fontColor($r('sys.color.font_on_primary'))
+            .backgroundColor($r('sys.color.font_emphasize'))
+            .height(44)
+            .borderRadius(12)
+            .padding({ left: 32, right: 32 })
+            .onClick(() => {
+              this.faceScanned = true;
+            })
+        }
+      }
+      .width('100%')
+      .padding({ top: 32, bottom: 32 })
+      .alignItems(HorizontalAlign.Center)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+    }
+  }
+
+  // ---------------- page ----------------
+
+  @Builder
+  private stepContent() {
+    if (this.currentStep === 0) {
+      this.stepInfo();
+    } else if (this.currentStep === 1) {
+      this.stepAssess();
+    } else if (this.currentStep === 2) {
+      this.stepRoom();
+    } else if (this.currentStep === 3) {
+      this.stepCare();
+    } else {
+      this.stepFace();
+    }
   }
 
   build() {
     HdsNavDestination() {
-      List({ space: 16 }) {
-        ListItem() {
-          if (this.isWideLayout()) {
-            Row({ space: 16 }) {
-              this.summaryHero()
-              Column() {
-                this.rightSummaryCard()
-              }
-              .width(340)
-            }
-          } else {
-            Column({ space: 16 }) {
-              this.summaryHero()
-              this.rightSummaryCard()
-            }
+      Column({ space: 0 }) {
+        this.stepIndicator()
+
+        Scroll() {
+          Column({ space: 16 }) {
+            this.stepContent()
           }
+          .width('100%')
+          .padding({
+            left: this.pagePadding(),
+            right: this.pagePadding(),
+            bottom: this.bottomPadding()
+          })
         }
-        .padding({
-          left: this.pagePadding(),
-          right: this.pagePadding(),
-          top: this.contentTopPadding()
-        })
+        .layoutWeight(1)
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
+        .backgroundColor($r('sys.color.background_secondary'))
 
-        ListItem() {
-          Column({ space: 12 }) {
-            this.sectionTitle('办理流程', '减少冗长表单，把关键信息前置给护工。')
-            if (this.isWideLayout()) {
-              Row({ space: 12 }) {
-                Repeat(this.steps())
-                  .each((repeatItem: RepeatItem<CheckInStep>) => {
-                    this.stepCard(repeatItem.item, repeatItem.index)
-                  })
-              }
-            } else {
-              Column({ space: 12 }) {
-                Repeat(this.steps())
-                  .each((repeatItem: RepeatItem<CheckInStep>) => {
-                    this.stepCard(repeatItem.item, repeatItem.index)
-                  })
-              }
-            }
-          }
-        }
-        .padding({
-          left: this.pagePadding(),
-          right: this.pagePadding()
-        })
-
-        ListItem() {
-          if (this.isWideLayout()) {
-            Row({ space: 16 }) {
-              Column({ space: 12 }) {
-                this.sectionTitle('入住对象', '先看到最关键的信息，而不是一长串表单。')
-                Column() {
-                  Repeat(this.baseInfo())
-                    .each((repeatItem: RepeatItem<KeyValueData>) => {
-                      this.infoRow(repeatItem.item, repeatItem.index === this.baseInfo().length - 1)
-                    })
-                }
-                .padding($r('sys.float.padding_level6'))
-                .backgroundColor('#FFFFFF')
-                .borderRadius(this.cardRadius())
-                .border({
-                  width: 1,
-                  color: '#DCE5EF'
-                })
-              }
-              .layoutWeight(1)
-
-              Column({ space: 12 }) {
-                this.sectionTitle('办理准备', '把首日照护真正准备好，比填更多字段更重要。')
-                Column() {
-                  Repeat(this.readyItems())
-                    .each((repeatItem: RepeatItem<ReadyItem>) => {
-                      this.readyRow(repeatItem.item, repeatItem.index === this.readyItems().length - 1)
-                    })
-                }
-                .padding($r('sys.float.padding_level6'))
-                .backgroundColor('#FFFFFF')
-                .borderRadius(this.cardRadius())
-                .border({
-                  width: 1,
-                  color: '#DCE5EF'
-                })
-              }
-              .width(360)
-            }
-          } else {
-            Column({ space: 12 }) {
-              this.sectionTitle('入住对象', '先看到最关键的信息，而不是一长串表单。')
-              Column() {
-                Repeat(this.baseInfo())
-                  .each((repeatItem: RepeatItem<KeyValueData>) => {
-                    this.infoRow(repeatItem.item, repeatItem.index === this.baseInfo().length - 1)
-                  })
-              }
-              .padding($r('sys.float.padding_level6'))
-              .backgroundColor('#FFFFFF')
-              .borderRadius(this.cardRadius())
-              .border({
-                width: 1,
-                color: '#DCE5EF'
-              })
-
-              this.sectionTitle('办理准备', '把首日照护真正准备好，比填更多字段更重要。')
-              Column() {
-                Repeat(this.readyItems())
-                  .each((repeatItem: RepeatItem<ReadyItem>) => {
-                    this.readyRow(repeatItem.item, repeatItem.index === this.readyItems().length - 1)
-                  })
-              }
-              .padding($r('sys.float.padding_level6'))
-              .backgroundColor('#FFFFFF')
-              .borderRadius(this.cardRadius())
-              .border({
-                width: 1,
-                color: '#DCE5EF'
-              })
-            }
-          }
-        }
-        .padding({
-          left: this.pagePadding(),
-          right: this.pagePadding(),
-          bottom: this.isWideLayout() ? 36 : 56
-        })
+        this.bottomBar()
       }
       .width('100%')
       .height('100%')
-      .scrollBar(BarState.Off)
-      .edgeEffect(EdgeEffect.Spring)
-      .backgroundColor('#EEF2F6')
     }
-    .backgroundColor('#EEF2F6')
+    .backgroundColor($r('sys.color.background_secondary'))
     .titleBar({
       content: {
         title: {
@@ -536,6 +588,10 @@ export struct CheckInFlowPage {
     .systemTransition(NavigationSystemTransitionType.SLIDE_RIGHT)
     .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
     .onBackPressed(() => {
+      if (this.currentStep > 0) {
+        this.currentStep--;
+        return true;
+      }
       this.pathStack.pop();
       return true;
     })

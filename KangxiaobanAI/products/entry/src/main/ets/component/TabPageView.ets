@@ -174,7 +174,7 @@ export struct TabPageView {
   @Local selectedTaskId: string = '';
   @Local residentSearch: string = '';
   @Local residentFilter: 'all' | 'warning' | 'danger' = 'all';
-  @Local taskFilter: 'all' | 'ai' | 'elder' | 'staff' = 'all';
+  @Local taskFilter: 'all' | 'ai' | 'elder' = 'all';
   @Local homeSearchText: string = '';
   @Local isSearchPageShow: boolean = false;
   @Local geometryId: string = '';
@@ -282,16 +282,6 @@ export struct TabPageView {
       return '进行中';
     }
     return '已完成';
-  }
-
-  private taskStatusLevel(status: TaskStatus): StatusLevel {
-    if (status === 'done') {
-      return 'normal';
-    }
-    if (status === 'doing') {
-      return 'warning';
-    }
-    return 'danger';
   }
 
   private eventTypeIcon(type: EventType): Resource {
@@ -709,13 +699,6 @@ export struct TabPageView {
   @Builder
   private residentListRow(item: ResidentData, isLast: boolean) {
     HdsListItemCard({
-      prefixItem: new PrefixIcon({
-        iconSize: IconSize.SYSTEM_ICON,
-        iconValue: {
-          symbol: new SymbolGlyphModifier($r('sys.symbol.person_fill'))
-            .fontColor([this.statusColor(item.level)])
-        }
-      }),
       textItem: {
         primaryText: {
           text: item.name
@@ -746,24 +729,48 @@ export struct TabPageView {
   }
 
   @Builder
-  private residentSearchBar() {
-    Row({ space: 12 }) {
-      SymbolGlyph($r('sys.symbol.magnifyingglass'))
-        .fontSize(16)
-        .fontColor([$r('sys.color.font_tertiary')])
-      TextInput({ placeholder: '搜索姓名或房间号', text: $$this.residentSearch })
-        .placeholderColor($r('sys.color.font_tertiary'))
-        .fontSize($r('sys.float.Body_M'))
-        .fontColor($r('sys.color.font_primary'))
-        .height(40)
-        .backgroundColor('rgba(0,0,0,0)')
-        .layoutWeight(1)
+  private residentSearchWithDropdown() {
+    Row({ space: 8 }) {
+      Row({ space: 8 }) {
+        SymbolGlyph($r('sys.symbol.magnifyingglass'))
+          .fontSize(16)
+          .fontColor([$r('sys.color.font_tertiary')])
+        TextInput({ placeholder: '搜索姓名或房间号', text: $$this.residentSearch })
+          .placeholderColor($r('sys.color.font_tertiary'))
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor($r('sys.color.font_primary'))
+          .height(40)
+          .backgroundColor('rgba(0,0,0,0)')
+          .layoutWeight(1)
+      }
+      .layoutWeight(1)
+      .height(44)
+      .padding({ left: 12, right: 12 })
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(10)
+
+      Select([
+        { value: '全部' },
+        { value: '预警' },
+        { value: '危险' }
+      ])
+        .selected(this.residentFilter === 'all' ? 0 : (this.residentFilter === 'warning' ? 1 : 2))
+        .value(this.residentFilter === 'all' ? '全部' : (this.residentFilter === 'warning' ? '预警' : '危险'))
+        .onSelect((index: number) => {
+          if (index === 0) {
+            this.residentFilter = 'all';
+          } else if (index === 1) {
+            this.residentFilter = 'warning';
+          } else {
+            this.residentFilter = 'danger';
+          }
+        })
+        .height(44)
+        .backgroundColor($r('sys.color.comp_background_primary'))
+        .borderRadius(10)
+        .padding({ left: 12, right: 8 })
     }
     .width('100%')
-    .height(44)
-    .padding({ left: 12, right: 12 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(8)
   }
 
   @Builder
@@ -782,6 +789,57 @@ export struct TabPageView {
       }, (item: string, index: number) => index.toString())
     }
     .width('100%')
+  }
+
+  @Builder
+  private taskChipBar() {
+    Scroll() {
+      Row({ space: 10 }) {
+        ForEach(['全部', '系统', '长者'], (label: string, index: number) => {
+          Row({ space: 6 }) {
+            Text(label)
+              .fontSize($r('sys.float.Body_S'))
+              .fontWeight(this.taskFilterIndex() === index ? FontWeight.Medium : FontWeight.Regular)
+              .fontColor(this.taskFilterIndex() === index ?
+                $r('sys.color.font_on_primary') : $r('sys.color.font_secondary'))
+          }
+          .height(36)
+          .padding({ left: 16, right: 16 })
+          .backgroundColor(this.taskFilterIndex() === index ?
+            $r('sys.color.font_primary') : $r('sys.color.comp_background_primary'))
+          .borderRadius(20)
+          .justifyContent(FlexAlign.Center)
+          .onClick(() => {
+            this.taskFilter = this.taskFilterValue(index);
+          })
+        }, (item: string, index: number) => `task-chip-${index}`)
+      }
+      .padding({ left: 0, right: 0 })
+    }
+    .scrollBar(BarState.Off)
+    .scrollable(ScrollDirection.Horizontal)
+    .width('100%')
+    .align(Alignment.Start)
+  }
+
+  private taskFilterIndex(): number {
+    if (this.taskFilter === 'all') {
+      return 0;
+    }
+    if (this.taskFilter === 'ai') {
+      return 1;
+    }
+    return 2;
+  }
+
+  private taskFilterValue(index: number): 'all' | 'ai' | 'elder' {
+    if (index === 0) {
+      return 'all';
+    }
+    if (index === 1) {
+      return 'ai';
+    }
+    return 'elder';
   }
 
   @Builder
@@ -1045,22 +1103,12 @@ export struct TabPageView {
   @Builder
   private taskListRow(item: CareTask, isLast: boolean) {
     HdsListItemCard({
-      prefixItem: new PrefixIcon({
-        iconSize: IconSize.SYSTEM_ICON,
-        iconValue: {
-          symbol: new SymbolGlyphModifier(this.taskSourceIcon(item.source))
-            .fontColor([this.statusColor(this.taskStatusLevel(item.status))])
-        }
-      }),
       textItem: {
         primaryText: {
           text: item.title
         },
         secondaryText: {
           text: `${item.elder} · ${item.room} · ${item.time}`
-        },
-        description: {
-          text: item.assignee
         }
       },
       suffixItem: new SuffixText({
@@ -1069,7 +1117,7 @@ export struct TabPageView {
       cardBorderRadius: 0,
       cardBackgroundColor: this.selectedTaskId === item.id ?
         $r('sys.color.comp_background_secondary') : 'rgba(0,0,0,0)',
-      cardHeight: 76,
+      cardHeight: 52,
       cardPrefixMargin: 0,
       cardSuffixMargin: 0,
       onClick: () => {
@@ -1092,16 +1140,6 @@ export struct TabPageView {
       return '中';
     }
     return '低';
-  }
-
-  private taskSourceIcon(source: TaskSource): Resource {
-    if (source === 'ai') {
-      return $r('sys.symbol.ellipsis_message_fill');
-    }
-    if (source === 'elder') {
-      return $r('sys.symbol.bell');
-    }
-    return $r('sys.symbol.person_fill');
   }
 
   @Builder
@@ -1481,20 +1519,8 @@ export struct TabPageView {
     if (this.isWideLayout()) {
       Row({ space: 0 }) {
         Column({ space: 0 }) {
-          Text('长者管理')
-            .fontSize($r('sys.float.Title_M'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-            .width('100%')
-            .height(56)
-            .padding({ left: 16, right: 16 })
-            .backgroundColor($r('sys.color.comp_background_primary'))
-
           Column({ space: 12 }) {
-            this.residentSearchBar()
-            this.filterBar(['全部', '预警', '危险'], ['all', 'warning', 'danger'], this.residentFilter, (value: string) => {
-              this.residentFilter = value as 'all' | 'warning' | 'danger';
-            })
+            this.residentSearchWithDropdown()
           }
           .width('100%')
           .padding(12)
@@ -1574,20 +1600,7 @@ export struct TabPageView {
           space: 12
         }) {
           ListItem() {
-            Column({ space: 12 }) {
-              Text('长者管理')
-                .fontSize($r('sys.float.Title_M'))
-                .fontWeight(FontWeight.Medium)
-                .fontColor($r('sys.color.font_primary'))
-                .width('100%')
-              this.residentSearchBar()
-              this.filterBar(['全部', '预警', '危险'], ['all', 'warning', 'danger'], this.residentFilter, (value: string) => {
-                this.residentFilter = value as 'all' | 'warning' | 'danger';
-              })
-            }
-            .width('100%')
-            .padding(16)
-            .backgroundColor($r('sys.color.comp_background_primary'))
+            this.residentSearchWithDropdown()
           }
           .padding({
             left: this.pagePadding(),
@@ -1627,19 +1640,8 @@ export struct TabPageView {
     if (this.isWideLayout()) {
       Row({ space: 0 }) {
         Column({ space: 0 }) {
-          Text('任务系统')
-            .fontSize($r('sys.float.Title_M'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-            .width('100%')
-            .height(56)
-            .padding({ left: 16, right: 16 })
-            .backgroundColor($r('sys.color.comp_background_primary'))
-
           Column({ space: 12 }) {
-            this.filterBar(['全部', 'AI', '长者', '护工'], ['all', 'ai', 'elder', 'staff'], this.taskFilter, (value: string) => {
-              this.taskFilter = value as 'all' | 'ai' | 'elder' | 'staff';
-            })
+            this.taskChipBar()
           }
           .width('100%')
           .padding(12)
@@ -1721,19 +1723,7 @@ export struct TabPageView {
           space: 12
         }) {
           ListItem() {
-            Column({ space: 12 }) {
-              Text('任务系统')
-                .fontSize($r('sys.float.Title_M'))
-                .fontWeight(FontWeight.Medium)
-                .fontColor($r('sys.color.font_primary'))
-                .width('100%')
-              this.filterBar(['全部', 'AI', '长者', '护工'], ['all', 'ai', 'elder', 'staff'], this.taskFilter, (value: string) => {
-                this.taskFilter = value as 'all' | 'ai' | 'elder' | 'staff';
-              })
-            }
-            .width('100%')
-            .padding(16)
-            .backgroundColor($r('sys.color.comp_background_primary'))
+            this.taskChipBar()
           }
           .padding({
             left: this.pagePadding(),
