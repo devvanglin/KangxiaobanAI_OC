@@ -58,7 +58,8 @@ struct MainPage {
   @Local isMiniBar: boolean = true;
   @Local currentTabIndex: number = 0;
   @Local homeSearchState: HomeSearchState =
-    AppStorageV2.connect(HomeSearchState, StorageKey.HOME_SEARCH_STATE) ?? new HomeSearchState();
+    AppStorageV2.connect(HomeSearchState, StorageKey.HOME_SEARCH_STATE, () => new HomeSearchState()) ??
+    new HomeSearchState();
 
   private getCurrentPageTitle(): ResourceStr {
     return this.pageConfigs[this.currentTabIndex]?.title ?? $r('app.string.tab_home');

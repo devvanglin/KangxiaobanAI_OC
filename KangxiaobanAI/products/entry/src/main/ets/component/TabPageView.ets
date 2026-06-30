@@ -166,7 +166,8 @@ export struct TabPageView {
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
   @Local homeSearchState: HomeSearchState =
-    AppStorageV2.connect(HomeSearchState, StorageKey.HOME_SEARCH_STATE) ?? new HomeSearchState();
+    AppStorageV2.connect(HomeSearchState, StorageKey.HOME_SEARCH_STATE, () => new HomeSearchState()) ??
+    new HomeSearchState();
   @Local isProfileSheetOpen: boolean = false;
   @Local selectedResidentId: string = '';
   @Local selectedTaskId: string = '';

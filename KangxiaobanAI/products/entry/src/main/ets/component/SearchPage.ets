@@ -23,7 +23,8 @@ export struct SearchPage {
   @Consumer('mainPageStack') pathStack: NavPathStack = new NavPathStack();
   @Local searchText: string = '';
   @Local homeSearchState: HomeSearchState =
-    AppStorageV2.connect(HomeSearchState, StorageKey.HOME_SEARCH_STATE) ?? new HomeSearchState();
+    AppStorageV2.connect(HomeSearchState, StorageKey.HOME_SEARCH_STATE, () => new HomeSearchState()) ??
+    new HomeSearchState();
 
   build() {
     HdsNavDestination() {
