@@ -589,13 +589,6 @@ export struct TabPageView {
   @Builder
   private healthListRow(item: HealthRowData, isLast: boolean) {
     HdsListItemCard({
-      prefixItem: new PrefixIcon({
-        iconSize: IconSize.SYSTEM_ICON,
-        iconValue: {
-          symbol: new SymbolGlyphModifier($r('sys.symbol.person_fill'))
-            .fontColor([this.statusColor(item.level)])
-        }
-      }),
       textItem: {
         primaryText: {
           text: item.name
