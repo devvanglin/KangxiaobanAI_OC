@@ -13,9 +13,11 @@
  * limitations under the License.
  */
 
+import { SymbolGlyphModifier } from '@kit.ArkUI';
 import {
   HdsListItemCard,
-  SuffixText
+  PrefixCustomBuilder,
+  SuffixButton
 } from '@kit.UIDesignKit';
 import { BreakpointType } from '../util/BreakpointSystem';
 
@@ -31,8 +33,8 @@ export interface HealthListCardRow {
   age: number;
   room: string;
   bed: string;
-  mood: string;
-  status: string;
+  iconSymbol: Resource;
+  iconBg: ResourceColor;
 }
 
 @ComponentV2
@@ -47,6 +49,20 @@ export struct HealthListCard {
       md: 8,
       lg: 8
     }).getValue(this.widthBreakpoint);
+  }
+
+  @Builder
+  private IconBuilder(symbol: Resource, bgColor: ResourceColor) {
+    Stack({ alignContent: Alignment.Center }) {
+      SymbolGlyph(symbol)
+        .fontSize($r('sys.float.Title_M'))
+        .fontColor([$r('sys.color.font_on_primary')])
+        .symbolEffect(new SymbolGlyphModifier(symbol))
+    }
+    .width(40)
+    .height(40)
+    .backgroundColor(bgColor)
+    .borderRadius($r('sys.float.corner_radius_level5'))
   }
 
   build() {
@@ -69,7 +85,7 @@ export struct HealthListCard {
         Text(this.cardData.title)
           .fontSize($r('sys.float.Title_M'))
           .fontColor($r('sys.color.font_primary'))
-          .fontWeight(FontWeight.Medium)
+          .fontWeight(FontWeight.Bold)
           .margin({
             left: $r('sys.float.padding_level8'),
             bottom: $r('sys.float.padding_level4')
@@ -87,42 +103,43 @@ export struct HealthListCard {
           .each((repeatItem: RepeatItem<HealthListCardRow>) => {
             ListItem() {
               HdsListItemCard({
+                prefixItem: new PrefixCustomBuilder(() => {
+                  this.IconBuilder(repeatItem.item.iconSymbol, repeatItem.item.iconBg);
+                }),
                 textItem: {
                   primaryText: { text: repeatItem.item.name },
                   secondaryText: {
                     text: `${repeatItem.item.age}岁 · ${repeatItem.item.room} · ${repeatItem.item.bed}`
-                  },
-                  description: { text: repeatItem.item.mood }
+                  }
                 },
-                suffixItem: new SuffixText({ text: repeatItem.item.status }),
+                suffixItem: new SuffixButton({
+                  text: '查看',
+                  textColor: $r('sys.color.interactive_active')
+                }),
                 cardBorderRadius: 0,
                 cardBackgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
-                cardHeight: 76,
-                cardPrefixMargin: 0,
-                cardSuffixMargin: 0,
+                cardHeight: 68,
+                cardPrefixMargin: $r('sys.float.padding_level0'),
+                cardSuffixMargin: $r('sys.float.padding_level2'),
                 onClick: () => {
                   this.onItemClick(repeatItem.item.id);
                 }
               })
-                .border({
-                  width: {
-                    bottom: repeatItem.index === this.cardData.rows.length - 1 ? 0 : 0.5
-                  },
-                  color: $r('sys.color.comp_divider')
-                })
             }
           })
           .key((row: HealthListCardRow) => row.id)
       }
       .divider({
-        strokeWidth: 0,
-        color: $r('sys.color.comp_background_tertiary')
+        strokeWidth: '1px',
+        color: $r('sys.color.comp_background_tertiary'),
+        startMargin: 56,
+        endMargin: 16
       })
       .nestedScroll({ scrollForward: NestedScrollMode.PARENT_FIRST, scrollBackward: NestedScrollMode.PARENT_FIRST })
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.None)
       .width('100%')
-      .height(this.cardData.rows.length * 76)
+      .height(this.cardData.rows.length * 68)
     }
     .backgroundColor($r('sys.color.comp_background_primary'))
     .border({
