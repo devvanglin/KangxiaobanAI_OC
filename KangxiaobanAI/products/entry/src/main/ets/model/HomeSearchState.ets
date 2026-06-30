@@ -16,4 +16,6 @@
 @ObservedV2
 export class HomeSearchState {
   @Trace public scrollY: number = 0;
+  @Trace public isSearchOpen: boolean = false;
+  @Trace public searchTrigger: number = 0;
 }

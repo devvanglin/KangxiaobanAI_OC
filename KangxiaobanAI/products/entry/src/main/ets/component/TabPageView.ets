@@ -14,6 +14,7 @@
  */
 
 import { AppStorageV2, SymbolGlyphModifier } from '@kit.ArkUI';
+import { curves } from '@kit.ArkUI';
 import {
   HdsListItemCard,
   IconSize,
@@ -174,6 +175,14 @@ export struct TabPageView {
   @Local residentSearch: string = '';
   @Local residentFilter: 'all' | 'warning' | 'danger' = 'all';
   @Local taskFilter: 'all' | 'ai' | 'elder' | 'staff' = 'all';
+  @Local homeSearchText: string = '';
+  @Local isSearchPageShow: boolean = false;
+  @Local geometryId: string = '';
+
+  @Monitor('homeSearchState.searchTrigger')
+  onSearchTriggerChange(): void {
+    this.onSearchClicked();
+  }
 
   private topPadding(): number {
     return this.globalInfoModel.statusBarHeight + 16;
@@ -641,37 +650,33 @@ export struct TabPageView {
 
   @Builder
   private homeSearchBar() {
-    Row({ space: 10 }) {
-      SymbolGlyph($r('sys.symbol.magnifyingglass'))
-        .fontSize(18)
-        .fontColor([$r('sys.color.font_tertiary')])
-
-      Text('搜索姓名、房间或设备')
-        .fontSize($r('sys.float.Body_M'))
-        .fontColor($r('sys.color.font_tertiary'))
-        .layoutWeight(1)
-
-      SymbolGlyph($r('sys.symbol.mic'))
-        .fontSize(18)
-        .fontColor([$r('sys.color.font_tertiary')])
-    }
-    .width('100%')
-    .height(44)
-    .padding({ left: 14, right: 14 })
-    .backgroundColor('rgba(255,255,255,0.72)')
-    .backgroundBlurStyle(BlurStyle.Thin)
-    .borderRadius(12)
-    .border({
-      width: 0.5,
-      color: 'rgba(255,255,255,0.4)'
-    })
-    .sharedTransition('homeSearchBar', {
-      duration: 350,
-      curve: Curve.EaseInOut
-    })
-    .onClick(() => {
-      this.onOpenSearch?.();
-    })
+    Search({ placeholder: '搜索姓名、房间或设备' })
+      .width('100%')
+      .height(40)
+      .placeholderColor($r('sys.color.font_tertiary'))
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .textFont({ size: $r('sys.float.Body_M'), weight: FontWeight.Regular })
+      .searchIcon({ src: $r('sys.media.ohos_ic_public_search_filled') })
+      .focusOnTouch(false)
+      .focusable(false)
+      .enableKeyboardOnFocus(false)
+      .borderRadius(12)
+      .geometryTransition(this.geometryId, { follow: true })
+      .transition(TransitionEffect.OPACITY.animation({
+        duration: 200,
+        curve: curves.cubicBezierCurve(0.33, 0, 0.67, 1)
+      }))
+      .onClick(() => {
+        this.onSearchClicked();
+      })
+      .bindContentCover(
+        this.isSearchPageShow,
+        this.searchCoverBuilder,
+        {
+          modalTransition: ModalTransition.NONE,
+          backgroundColor: 'rgba(0,0,0,0)'
+        }
+      )
   }
 
 
@@ -1223,7 +1228,137 @@ export struct TabPageView {
       .onClick(onClick)
   }
 
+  // ---------------- search transition ----------------
+
+  private onSearchClicked(): void {
+    this.geometryId = 'search';
+    this.getUIContext().animateTo({
+      duration: 100,
+      curve: curves.interpolatingSpring(0, 1, 324, 38)
+    }, () => {
+      this.isSearchPageShow = true;
+      this.homeSearchState.isSearchOpen = true;
+    })
+  }
+
+  private onArrowClicked(): void {
+    this.geometryId = 'search';
+    this.getUIContext().animateTo({
+      curve: curves.interpolatingSpring(0, 1, 342, 38)
+    }, () => {
+      this.isSearchPageShow = false;
+      this.homeSearchState.isSearchOpen = false;
+      this.homeSearchText = '';
+    })
+  }
+
   // ---------------- pages ----------------
+
+  @Builder
+  private searchCoverBuilder() {
+    Column() {
+      Row() {
+        Row() {
+          SymbolGlyph($r('sys.symbol.chevron_left'))
+            .fontSize(24)
+            .fontColor([$r('sys.color.font_primary')])
+            .transition(TransitionEffect.asymmetric(
+              TransitionEffect.opacity(0)
+                .animation({ curve: curves.cubicBezierCurve(0.33, 0, 0.67, 1), duration: 200, delay: 150 }),
+              TransitionEffect.opacity(0)
+                .animation({ curve: curves.cubicBezierCurve(0.33, 0, 0.67, 1), duration: 200 }),
+            ))
+        }
+        .justifyContent(FlexAlign.Center)
+        .width(40)
+        .height(40)
+        .borderRadius(20)
+        .backgroundColor($r('sys.color.comp_background_primary'))
+        .onClick(() => {
+          this.onArrowClicked();
+        })
+
+        Search({ value: this.homeSearchText, placeholder: '搜索姓名、房间或设备' })
+          .width('100%')
+          .height(40)
+          .placeholderColor($r('sys.color.font_tertiary'))
+          .backgroundColor($r('sys.color.comp_background_primary'))
+          .textFont({ size: $r('sys.float.Body_M'), weight: FontWeight.Regular })
+          .searchIcon({ src: $r('sys.media.ohos_ic_public_search_filled') })
+          .defaultFocus(true)
+          .borderRadius(12)
+          .geometryTransition(this.geometryId, { follow: true })
+          .transition(TransitionEffect.OPACITY.animation({
+            duration: 200,
+            curve: curves.cubicBezierCurve(0.33, 0, 0.67, 1)
+          }))
+          .layoutWeight(1)
+          .margin({ left: 8 })
+          .onChange((value: string) => {
+            this.homeSearchText = value;
+          })
+      }
+      .width('100%')
+      .padding({ left: this.pagePadding(), right: this.pagePadding() })
+      .margin({ top: this.topPadding() })
+
+      List() {
+        ListItem() {
+          Column() {
+            Text('搜索历史')
+              .fontSize($r('sys.float.Body_M'))
+              .fontColor($r('sys.color.font_primary'))
+              .width('100%')
+              .padding({ top: 16, bottom: 8 })
+
+            Row({ space: 8 }) {
+              Text('肖爷爷')
+                .fontSize($r('sys.float.Body_S'))
+                .fontColor($r('sys.color.font_secondary'))
+                .padding({ left: 10, right: 10, top: 5, bottom: 5 })
+                .backgroundColor($r('sys.color.comp_background_tertiary'))
+                .borderRadius(8)
+                .onClick(() => {
+                  this.homeSearchText = '肖爷爷';
+                })
+
+              Text('3F-302')
+                .fontSize($r('sys.float.Body_S'))
+                .fontColor($r('sys.color.font_secondary'))
+                .padding({ left: 10, right: 10, top: 5, bottom: 5 })
+                .backgroundColor($r('sys.color.comp_background_tertiary'))
+                .borderRadius(8)
+                .onClick(() => {
+                  this.homeSearchText = '3F-302';
+                })
+
+              Text('智能床垫')
+                .fontSize($r('sys.float.Body_S'))
+                .fontColor($r('sys.color.font_secondary'))
+                .padding({ left: 10, right: 10, top: 5, bottom: 5 })
+                .backgroundColor($r('sys.color.comp_background_tertiary'))
+                .borderRadius(8)
+                .onClick(() => {
+                  this.homeSearchText = '智能床垫';
+                })
+            }
+            .width('100%')
+          }
+          .width('100%')
+          .padding({ left: 16, right: 16 })
+        }
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
+    }
+    .transition(TransitionEffect.opacity(0))
+    .backgroundColor($r('sys.color.background_secondary'))
+    .width('100%')
+    .height('100%')
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+  }
 
   @Builder
   private homePage() {
@@ -1239,7 +1374,7 @@ export struct TabPageView {
         .padding({
           left: this.pagePadding(),
           right: this.pagePadding(),
-          top: this.topPadding()
+          top: this.topPadding() + 56
         })
       }
 
@@ -1291,8 +1426,9 @@ export struct TabPageView {
     .backgroundColor(this.pageBackgroundColor())
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
-    .onWillScroll((scrollOffset: number, scrollState: ScrollState) => {
-      this.homeSearchState.scrollY = scrollOffset;
+    .onWillScroll(() => {
+      const scroller: Scroller | undefined = this.currentScroller();
+      this.homeSearchState.scrollY = scroller ? scroller.currentOffset().yOffset : 0;
     })
   }
 

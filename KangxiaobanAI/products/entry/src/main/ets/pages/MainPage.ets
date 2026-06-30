@@ -83,7 +83,7 @@ struct MainPage {
             icon: $r('sys.symbol.magnifyingglass'),
             type: TextStyleMode.NORMAL,
             action: () => {
-              this.openSearchPage();
+              this.homeSearchState.searchTrigger++;
             }
           }
         }
@@ -583,6 +583,7 @@ struct MainPage {
     })
     .bindToScrollable(PAGE_SCROLLER_MAP.get(PageKeyEnum.ADAPTIVE_TAB) ?? [])
     .hideBackButton(true)
+    .hideTitleBar(this.homeSearchState.isSearchOpen)
     .titleMode(HdsNavigationTitleMode.MINI)
     .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
     .width('100%')
