@@ -1598,6 +1598,7 @@ export struct TabPageView {
     })
     .bindSheet(this.isProfileSheetOpen, this.profileSheetBuilder, {
       height: SheetSize.MEDIUM,
+      backgroundColor: $r('sys.color.background_secondary'),
       title: { title: '个人信息' },
       showClose: true,
       dragBar: true,
