@@ -603,8 +603,8 @@ export struct TabPageView {
       suffixItem: new SuffixText({
         text: item.status
       }),
-      cardBorderRadius: 12,
-      cardBackgroundColor: $r('sys.color.comp_background_primary'),
+      cardBorderRadius: 0,
+      cardBackgroundColor: 'rgba(0,0,0,0)',
       cardHeight: 76,
       cardPrefixMargin: 0,
       cardSuffixMargin: 0,
@@ -612,6 +612,12 @@ export struct TabPageView {
         this.selectedResidentId = item.id;
       }
     })
+      .border({
+        width: {
+          bottom: isLast ? 0 : 0.5
+        },
+        color: $r('sys.color.comp_divider')
+      })
   }
 
   @Builder
@@ -1251,14 +1257,20 @@ export struct TabPageView {
       }
 
       ListItem() {
-        Column({ space: 12 }) {
-          this.sectionHeader('老人健康状态', this.healthRows().length)
-          Column({ space: 8 }) {
-            Repeat(this.healthRows())
-              .each((repeatItem: RepeatItem<HealthRowData>) => {
-                this.healthListRow(repeatItem.item, repeatItem.index === this.healthRows().length - 1)
-              })
+        Column({ space: 0 }) {
+          Column({ space: 0 }) {
+            this.sectionHeader('老人健康状态', this.healthRows().length)
+            Column({ space: 0 }) {
+              Repeat(this.healthRows())
+                .each((repeatItem: RepeatItem<HealthRowData>) => {
+                  this.healthListRow(repeatItem.item, repeatItem.index === this.healthRows().length - 1)
+                })
+            }
           }
+          .padding({ left: 16, right: 16 })
+          .backgroundColor($r('sys.color.comp_background_primary'))
+          .borderRadius(16)
+          .clip(true)
         }
         .padding({
           left: this.pagePadding(),
