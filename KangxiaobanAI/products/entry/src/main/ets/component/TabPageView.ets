@@ -571,20 +571,20 @@ export struct TabPageView {
   private overviewGrid() {
     Grid() {
       GridItem() {
-        this.overviewCard('入住人数', `${this.bedSummary().occupied}`, '人', '#2FA84F',
-          '剩余', `${this.bedSummary().empty}`, '床')
+        this.overviewCard('入住人数',
+          `${this.bedSummary().occupied}`, `${this.bedSummary().total}`, '床', '#2FA84F')
       }
       GridItem() {
-        this.overviewCard('总床位', `${this.bedSummary().total}`, '床', $r('sys.color.font_primary'),
-          '已入住', `${this.bedSummary().occupied}`, '人')
+        this.overviewCard('总床位',
+          `${this.bedSummary().total}`, `${this.bedSummary().total}`, '床', $r('sys.color.font_primary'))
       }
       GridItem() {
-        this.overviewCard('空床位', `${this.bedSummary().empty}`, '床', '#1D63ED',
-          '共', `${this.bedSummary().total}`, '床')
+        this.overviewCard('空床位',
+          `${this.bedSummary().empty}`, `${this.bedSummary().total}`, '床', '#1D63ED')
       }
       GridItem() {
-        this.overviewCard('设备在线', `${this.onlineDeviceCount()}`, '台', '#F5A623',
-          '离线', `${this.deviceRows().length - this.onlineDeviceCount()}`, '台')
+        this.overviewCard('设备在线',
+          `${this.onlineDeviceCount()}`, `${this.deviceRows().length}`, '台', '#F5A623')
       }
     }
     .width('100%')
@@ -592,65 +592,44 @@ export struct TabPageView {
     .rowsTemplate('1fr 1fr')
     .columnsGap(12)
     .rowsGap(12)
-    .height(200)
+    .height(176)
   }
 
   @Builder
-  private overviewCard(
-    label: string, value: string, unit: string, valueColor: ResourceColor,
-    subLabel: string, subValue: string, subUnit: string
-  ) {
-    Row({ space: 0 }) {
-      Column({ space: 6 }) {
-        Text(label)
+  private overviewCard(label: string, numerator: string, denominator: string, unit: string, valueColor: ResourceColor) {
+    Column({ space: 8 }) {
+      Text(label)
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor($r('sys.color.font_secondary'))
+
+      Row({ space: 4 }) {
+        Text(numerator)
+          .fontSize($r('sys.float.Title_L'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor(valueColor)
+
+        Text('/')
+          .fontSize($r('sys.float.Title_L'))
+          .fontColor($r('sys.color.font_secondary'))
+          .margin({ bottom: 2 })
+
+        Text(denominator)
+          .fontSize($r('sys.float.Title_L'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_secondary'))
+
+        Text(unit)
           .fontSize($r('sys.float.Caption_M'))
           .fontColor($r('sys.color.font_secondary'))
-        Row({ space: 2 }) {
-          Text(value)
-            .fontSize($r('sys.float.Title_L'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor(valueColor)
-          Text(unit)
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_secondary'))
-            .margin({ bottom: 3 })
-        }
-        .alignItems(VerticalAlign.Bottom)
+          .margin({ bottom: 4 })
       }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
-
-      Column({ space: 6 }) {
-        Row({ space: 4 }) {
-          Row()
-            .width(6)
-            .height(6)
-            .backgroundColor(valueColor)
-            .borderRadius(3)
-
-          Text(subLabel)
-            .fontSize($r('sys.float.Caption_S'))
-            .fontColor($r('sys.color.font_secondary'))
-        }
-
-        Row({ space: 2 }) {
-          Text(subValue)
-            .fontSize($r('sys.float.Body_L'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_secondary'))
-          Text(subUnit)
-            .fontSize($r('sys.float.Caption_S'))
-            .fontColor($r('sys.color.font_secondary'))
-            .margin({ bottom: 2 })
-        }
-        .alignItems(VerticalAlign.Bottom)
-      }
-      .alignItems(HorizontalAlign.End)
-      .justifyContent(FlexAlign.Center)
+      .alignItems(VerticalAlign.Bottom)
     }
     .width('100%')
     .height('100%')
     .padding({ left: 14, right: 14, top: 14, bottom: 14 })
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Start)
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(16)
   }
