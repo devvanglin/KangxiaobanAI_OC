@@ -115,10 +115,10 @@ export struct EventListCard {
           .key((row: EventListCardRow, index: number) => `${index}-${row.time}-${row.title}`)
       }
       .divider({
-        strokeWidth: '1px',
-        color: $r('sys.color.comp_background_tertiary'),
-        startMargin: 0,
-        endMargin: 0
+        strokeWidth: 0.5,
+        color: $r('sys.color.comp_divider'),
+        startMargin: 16,
+        endMargin: 16
       })
       .nestedScroll({ scrollForward: NestedScrollMode.PARENT_FIRST, scrollBackward: NestedScrollMode.PARENT_FIRST })
       .scrollBar(BarState.Off)

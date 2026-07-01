@@ -86,7 +86,7 @@ export struct CheckInFlowPage {
   }
 
   private contentTopPadding(): number {
-    return this.globalInfoModel.statusBarHeight + 68;
+    return this.globalInfoModel.statusBarHeight + 80;
   }
 
   private pagePadding(): number {
@@ -196,13 +196,14 @@ export struct CheckInFlowPage {
               .height(2)
               .backgroundColor(index < this.currentStep ?
                 $r('sys.color.font_emphasize') : $r('sys.color.comp_background_secondary'))
+              .borderRadius(1)
           }
         }
       }, (item: StepMeta, index: number) => `step-${index}`)
     }
     .width('100%')
     .justifyContent(FlexAlign.Center)
-    .padding({ top: 12, bottom: 12 })
+    .padding({ top: this.contentTopPadding(), bottom: 12 })
   }
 
   @Builder
@@ -278,6 +279,8 @@ export struct CheckInFlowPage {
           })
       }
       .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(16)
+      .clip(true)
     }
   }
 
@@ -328,6 +331,8 @@ export struct CheckInFlowPage {
           })
       }
       .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(16)
+      .clip(true)
     }
   }
 
@@ -359,7 +364,7 @@ export struct CheckInFlowPage {
           new SuffixText({ text: '已选' }) :
           new SuffixArrow({ color: $r('sys.color.font_tertiary') })) :
         new SuffixText({ text: '已占用' }),
-      cardBorderRadius: 0,
+      cardBorderRadius: 16,
       cardBackgroundColor: this.selectedRoomId === item.id ?
         $r('sys.color.comp_background_secondary') : 'rgba(0,0,0,0)',
       cardHeight: 64,
@@ -391,6 +396,8 @@ export struct CheckInFlowPage {
       }
       .padding({ left: 16, right: 16 })
       .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(16)
+      .clip(true)
     }
   }
 
@@ -448,6 +455,7 @@ export struct CheckInFlowPage {
     .padding({ left: 16, right: 16, top: 14, bottom: 14 })
     .backgroundColor(this.selectedCareId === item.id ?
       $r('sys.color.comp_background_secondary') : $r('sys.color.comp_background_primary'))
+    .borderRadius(this.selectedCareId === item.id ? 16 : 0)
     .onClick(() => {
       this.selectedCareId = item.id;
     })
@@ -466,6 +474,8 @@ export struct CheckInFlowPage {
           })
       }
       .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(16)
+      .clip(true)
     }
   }
 
@@ -518,6 +528,7 @@ export struct CheckInFlowPage {
       .padding({ top: 32, bottom: 32 })
       .alignItems(HorizontalAlign.Center)
       .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(16)
     }
   }
 

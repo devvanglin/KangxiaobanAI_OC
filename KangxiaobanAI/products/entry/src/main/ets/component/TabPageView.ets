@@ -13,8 +13,7 @@
  * limitations under the License.
  */
 
-import { AppStorageV2, SymbolGlyphModifier } from '@kit.ArkUI';
-import { curves } from '@kit.ArkUI';
+import { AppStorageV2, SymbolGlyphModifier, curves } from '@kit.ArkUI';
 import {
   HdsListItemCard,
   IconSize,
@@ -31,8 +30,14 @@ import { BreakpointType } from '../util/BreakpointSystem';
 import { HealthListCard, HealthListCardData, HealthListCardRow } from './HealthListCard';
 import { DeviceListCard, DeviceListCardData, DeviceListCardRow } from './DeviceListCard';
 import { EventListCard, EventListCardData, EventListCardRow } from './EventListCard';
+import {
+  HealthRowData,
+  ResidentData,
+  StatusLevel
+} from '../model/DetailTypes';
+import { ResidentDetailPage } from '../pages/ResidentDetailPage';
+import { HealthExpandPage } from '../pages/HealthExpandPage';
 
-type StatusLevel = 'normal' | 'warning' | 'danger';
 type TaskSource = 'ai' | 'elder' | 'staff';
 type TaskStatus = 'todo' | 'doing' | 'done';
 type EventType = 'ai' | 'alert' | 'care' | 'family';
@@ -42,19 +47,6 @@ interface BedSummary {
   occupied: number;
   empty: number;
   maintenance: number;
-}
-
-interface HealthRowData {
-  id: string;
-  name: string;
-  age: number;
-  room: string;
-  bed: string;
-  level: StatusLevel;
-  status: string;
-  mood: string;
-  moodLevel: StatusLevel;
-  lastUpdate: string;
 }
 
 interface DeviceRowData {
@@ -72,45 +64,6 @@ interface EventRowData {
   type: EventType;
   title: string;
   detail: string;
-}
-
-interface ResidentData {
-  id: string;
-  name: string;
-  age: number;
-  room: string;
-  bed: string;
-  level: StatusLevel;
-  status: string;
-  emergencyContact: string;
-  emergencyPhone: string;
-  admissionDate: string;
-  deviceIds: string[];
-}
-
-interface HealthRecord {
-  time: string;
-  type: string;
-  operator: string;
-  content: string;
-}
-
-interface MoodRecord {
-  time: string;
-  mood: string;
-  level: StatusLevel;
-  note: string;
-}
-
-interface RoomDeviceData {
-  id: string;
-  name: string;
-  type: string;
-  room: string;
-  status: string;
-  level: StatusLevel;
-  battery?: number;
-  lastUpdate: string;
 }
 
 interface CareTask {
@@ -170,14 +123,20 @@ export struct TabPageView {
     AppStorageV2.connect(HomeSearchState, StorageKey.HOME_SEARCH_STATE, () => new HomeSearchState()) ??
     new HomeSearchState();
   @Local isProfileSheetOpen: boolean = false;
-  @Local selectedResidentId: string = '';
   @Local selectedTaskId: string = '';
+  @Local isTaskSheetOpen: boolean = false;
   @Local residentSearch: string = '';
   @Local residentFilter: 'all' | 'warning' | 'danger' = 'all';
   @Local taskFilter: 'all' | 'ai' | 'elder' = 'all';
   @Local homeSearchText: string = '';
   @Local isSearchPageShow: boolean = false;
   @Local geometryId: string = '';
+  @Local isResidentDetailShow: boolean = false;
+  @Local selectedResident: ResidentData = {
+    id: '', name: '', age: 0, room: '', bed: '', level: 'normal',
+    status: '', emergencyContact: '', emergencyPhone: '', admissionDate: '', deviceIds: []
+  };
+  @Local isHealthExpandShow: boolean = false;
 
   @Monitor('homeSearchState.searchTrigger')
   onSearchTriggerChange(): void {
@@ -188,6 +147,39 @@ export struct TabPageView {
     }, () => {
       this.isSearchPageShow = true;
       this.homeSearchState.isSearchOpen = true;
+    })
+  }
+
+  private openResidentDetail(resident: ResidentData): void {
+    this.selectedResident = resident;
+    this.getUIContext().animateTo({
+      curve: curves.interpolatingSpring(0, 1, 328, 36)
+    }, () => {
+      this.isResidentDetailShow = true;
+    })
+  }
+
+  private closeResidentDetail(): void {
+    this.getUIContext().animateTo({
+      curve: curves.interpolatingSpring(0, 1, 342, 38)
+    }, () => {
+      this.isResidentDetailShow = false;
+    })
+  }
+
+  private openHealthExpand(): void {
+    this.getUIContext().animateTo({
+      curve: curves.interpolatingSpring(0, 1, 328, 36)
+    }, () => {
+      this.isHealthExpandShow = true;
+    })
+  }
+
+  private closeHealthExpand(): void {
+    this.getUIContext().animateTo({
+      curve: curves.interpolatingSpring(0, 1, 342, 38)
+    }, () => {
+      this.isHealthExpandShow = false;
     })
   }
 
@@ -365,7 +357,11 @@ export struct TabPageView {
           name: item.name,
           age: item.age,
           room: item.room,
-          bed: item.bed
+          bed: item.bed,
+          status: item.status,
+          level: item.level,
+          mood: item.mood,
+          lastUpdate: item.lastUpdate
         };
       })
     };
@@ -479,37 +475,6 @@ export struct TabPageView {
       const matchFilter: boolean = this.residentFilter === 'all' || item.level === this.residentFilter;
       return matchSearch && matchFilter;
     });
-  }
-
-  private selectedResident(): ResidentData | undefined {
-    return this.allResidents().find((item: ResidentData) => item.id === this.selectedResidentId);
-  }
-
-  private residentHealthRecords(): HealthRecord[] {
-    return [
-      { time: '2025-06-30 08:30', type: '早巡', operator: '刘婷', content: '血压 138/85，心率 72，精神状态平稳' },
-      { time: '2025-06-29 20:15', type: '夜间巡房', operator: '王倩', content: '起夜 2 次，入睡潜伏期 35 分钟' },
-      { time: '2025-06-29 14:00', type: '用药', operator: '系统', content: '降压药已按时服用，无异常反应' },
-      { time: '2025-06-28 09:10', type: '医生查房', operator: '张医生', content: '调整降糖方案，建议增加午后血糖监测' }
-    ];
-  }
-
-  private residentMoodRecords(): MoodRecord[] {
-    return [
-      { time: '10:24', mood: '低落', level: 'danger', note: 'AI 对话语调低沉，活动量下降 41%' },
-      { time: '09:30', mood: '平静', level: 'normal', note: '早巡时能够简单应答' },
-      { time: '昨天 20:10', mood: '焦虑', level: 'warning', note: '睡前反复询问家属何时来访' },
-      { time: '昨天 15:00', mood: '愉快', level: 'normal', note: '参加书法角，主动展示作品' }
-    ];
-  }
-
-  private residentDevices(resident: ResidentData): RoomDeviceData[] {
-    const devices: RoomDeviceData[] = [
-      { id: 'd1', name: '智能床垫', type: '睡眠体征', room: resident.room, status: '数据异常', level: 'warning', battery: 78, lastUpdate: '10:24' },
-      { id: 'd5', name: '毫米波雷达', type: '离床跌倒', room: resident.room, status: '在线', level: 'normal', battery: 92, lastUpdate: '10:20' },
-      { id: 'd6', name: '紧急呼叫器', type: '主动求助', room: resident.room, status: '在线', level: 'normal', battery: 45, lastUpdate: '09:50' }
-    ];
-    return devices.filter((d: RoomDeviceData) => resident.deviceIds.includes(d.id));
   }
 
   // ---------------- tasks data ----------------
@@ -665,7 +630,7 @@ export struct TabPageView {
   private homeSearchBar() {
     Search({ placeholder: '搜索姓名、房间或设备' })
       .width('100%')
-      .height(40)
+      .height(44)
       .placeholderColor($r('sys.color.font_tertiary'))
       .backgroundColor($r('sys.color.comp_background_primary'))
       .textFont({ size: $r('sys.float.Body_M'), weight: FontWeight.Regular })
@@ -673,7 +638,8 @@ export struct TabPageView {
       .focusOnTouch(false)
       .focusable(false)
       .enableKeyboardOnFocus(false)
-      .borderRadius(12)
+      .borderRadius(10)
+      .padding({ left: 12, right: 12 })
       .geometryTransition(this.geometryId, { follow: true })
       .transition(TransitionEffect.OPACITY.animation({
         duration: 200,
@@ -698,34 +664,50 @@ export struct TabPageView {
 
   @Builder
   private residentListRow(item: ResidentData, isLast: boolean) {
-    HdsListItemCard({
-      textItem: {
-        primaryText: {
-          text: item.name
-        },
-        secondaryText: {
-          text: `${item.age}岁 · ${item.room} · ${item.bed}`
+    ListItem() {
+      Column({ space: 0 }) {
+        if (this.isResidentDetailShow && this.selectedResident.id === item.id) {
+          Column()
+            .width('100%')
+            .height(52)
+        } else {
+          Column({ space: 0 }) {
+            HdsListItemCard({
+              textItem: {
+                primaryText: {
+                  text: item.name
+                },
+                secondaryText: {
+                  text: `${item.age}岁 · ${item.room} · ${item.bed}`
+                }
+              },
+              suffixItem: new SuffixText({
+                text: item.status
+              }),
+              cardBorderRadius: 0,
+              cardBackgroundColor: 'rgba(0,0,0,0)',
+              cardHeight: 52,
+              cardPrefixMargin: 0,
+              cardSuffixMargin: 0,
+              onClick: () => {
+                this.openResidentDetail(item);
+              }
+            })
+          }
+          .width('100%')
+          .geometryTransition(item.id, { follow: true })
         }
-      },
-      suffixItem: new SuffixText({
-        text: item.status
-      }),
-      cardBorderRadius: 0,
-      cardBackgroundColor: this.selectedResidentId === item.id ?
-        $r('sys.color.comp_background_secondary') : 'rgba(0,0,0,0)',
-      cardHeight: 52,
-      cardPrefixMargin: 0,
-      cardSuffixMargin: 0,
-      onClick: () => {
-        this.selectedResidentId = item.id;
+
+        if (!isLast) {
+          Divider()
+            .width('100%')
+            .height(0.5)
+            .color($r('sys.color.comp_divider'))
+        }
       }
-    })
-      .border({
-        width: {
-          bottom: isLast ? 0 : 0.5
-        },
-        color: $r('sys.color.comp_divider')
-      })
+      .width('100%')
+    }
+    .padding({ left: 16, right: 16 })
   }
 
   @Builder
@@ -843,293 +825,68 @@ export struct TabPageView {
   }
 
   @Builder
-  private residentDetailView(resident: ResidentData) {
-    Scroll() {
-      Column({ space: 16 }) {
-        this.residentDetailHeader(resident)
-        this.residentBasicInfo(resident)
-        this.residentHealthTimeline()
-        this.residentMoodList()
-        this.residentDeviceTable(this.residentDevices(resident))
-      }
-      .width('100%')
-      .padding(16)
-    }
-    .width('100%')
-    .height('100%')
-    .backgroundColor($r('sys.color.background_secondary'))
-  }
-
-  @Builder
-  private residentDetailHeader(resident: ResidentData) {
-    Row() {
-      Column({ space: 4 }) {
-        Text(resident.name)
-          .fontSize($r('sys.float.Title_M'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-        Text(`${resident.age}岁 · ${resident.room} · ${resident.bed}`)
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_secondary'))
-      }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
-      this.statusTag(resident.status, resident.level)
-    }
-    .width('100%')
-  }
-
-  @Builder
-  private residentBasicInfo(resident: ResidentData) {
-    Column({ space: 0 }) {
-      Text('基础信息')
-        .fontSize($r('sys.float.Body_M'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .width('100%')
-        .height(40)
-      this.descriptionRow('紧急联系人', resident.emergencyContact, false)
-      this.descriptionRow('联系电话', resident.emergencyPhone, false)
-      this.descriptionRow('入院日期', resident.admissionDate, true)
-    }
-    .width('100%')
-    .padding({ left: 16, right: 16 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .clip(true)
-  }
-
-  @Builder
   private descriptionRow(label: string, value: string, isLast: boolean) {
-    HdsListItemCard({
-      textItem: {
-        primaryText: {
-          text: label
-        }
-      },
-      suffixItem: new SuffixText({
-        text: value
-      }),
-      cardBorderRadius: 0,
-      cardBackgroundColor: 'rgba(0,0,0,0)',
-      cardHeight: 44,
-      cardPrefixMargin: 0,
-      cardSuffixMargin: 0
-    })
-      .border({
-        width: {
-          bottom: isLast ? 0 : 0.5
-        },
-        color: $r('sys.color.comp_divider')
-      })
-  }
-
-  @Builder
-  private residentHealthTimeline() {
     Column({ space: 0 }) {
-      Text('健康记录')
-        .fontSize($r('sys.float.Body_M'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .width('100%')
-        .height(40)
-      Column({ space: 0 }) {
-        Repeat(this.residentHealthRecords())
-          .each((repeatItem: RepeatItem<HealthRecord>) => {
-            this.healthRecordRow(repeatItem.item, repeatItem.index === this.residentHealthRecords().length - 1)
-          })
-      }
+      HdsListItemCard({
+        textItem: {
+          primaryText: {
+            text: label
+          }
+        },
+        suffixItem: new SuffixText({
+          text: value
+        }),
+        cardBorderRadius: 0,
+        cardBackgroundColor: 'rgba(0,0,0,0)',
+        cardHeight: 44,
+        cardPrefixMargin: 0,
+        cardSuffixMargin: 0
+      })
+      this.divider(isLast)
     }
     .width('100%')
-    .padding({ left: 16, right: 16 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .clip(true)
-  }
-
-  @Builder
-  private healthRecordRow(item: HealthRecord, isLast: boolean) {
-    HdsListItemCard({
-      prefixItem: new PrefixIcon({
-        iconSize: IconSize.SYSTEM_ICON,
-        iconValue: {
-          symbol: new SymbolGlyphModifier($r('sys.symbol.checkmark_circle_fill'))
-            .fontColor([$r('sys.color.font_secondary')])
-        }
-      }),
-      textItem: {
-        primaryText: {
-          text: `${item.type} · ${item.operator}`
-        },
-        secondaryText: {
-          text: item.content
-        }
-      },
-      suffixItem: new SuffixText({
-        text: item.time.split(' ')[0].slice(5) + ' ' + item.time.split(' ')[1]
-      }),
-      cardBorderRadius: 0,
-      cardBackgroundColor: 'rgba(0,0,0,0)',
-      cardHeight: 64,
-      cardPrefixMargin: 0,
-      cardSuffixMargin: 0
-    })
-      .border({
-        width: {
-          bottom: isLast ? 0 : 0.5
-        },
-        color: $r('sys.color.comp_divider')
-      })
-  }
-
-  @Builder
-  private residentMoodList() {
-    Column({ space: 0 }) {
-      Text('情绪记录')
-        .fontSize($r('sys.float.Body_M'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .width('100%')
-        .height(40)
-      Column({ space: 0 }) {
-        Repeat(this.residentMoodRecords())
-          .each((repeatItem: RepeatItem<MoodRecord>) => {
-            this.moodRecordRow(repeatItem.item, repeatItem.index === this.residentMoodRecords().length - 1)
-          })
-      }
-    }
-    .width('100%')
-    .padding({ left: 16, right: 16 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .clip(true)
-  }
-
-  @Builder
-  private moodRecordRow(item: MoodRecord, isLast: boolean) {
-    HdsListItemCard({
-      prefixItem: new PrefixIcon({
-        iconSize: IconSize.SYSTEM_ICON,
-        iconValue: {
-          symbol: new SymbolGlyphModifier($r('sys.symbol.heart_fill'))
-            .fontColor([this.statusColor(item.level)])
-        }
-      }),
-      textItem: {
-        primaryText: {
-          text: item.mood
-        },
-        secondaryText: {
-          text: item.note
-        }
-      },
-      suffixItem: new SuffixText({
-        text: item.time
-      }),
-      cardBorderRadius: 0,
-      cardBackgroundColor: 'rgba(0,0,0,0)',
-      cardHeight: 52,
-      cardPrefixMargin: 0,
-      cardSuffixMargin: 0
-    })
-      .border({
-        width: {
-          bottom: isLast ? 0 : 0.5
-        },
-        color: $r('sys.color.comp_divider')
-      })
-  }
-
-  @Builder
-  private residentDeviceTable(devices: RoomDeviceData[]) {
-    Column({ space: 0 }) {
-      Text('房间与设备')
-        .fontSize($r('sys.float.Body_M'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .width('100%')
-        .height(40)
-      Column({ space: 0 }) {
-        Repeat(devices)
-          .each((repeatItem: RepeatItem<RoomDeviceData>) => {
-            this.deviceTableRowSmall(repeatItem.item, repeatItem.index === devices.length - 1)
-          })
-      }
-    }
-    .width('100%')
-    .padding({ left: 16, right: 16 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .clip(true)
-  }
-
-  @Builder
-  private deviceTableRowSmall(item: RoomDeviceData, isLast: boolean) {
-    HdsListItemCard({
-      prefixItem: new PrefixIcon({
-        iconSize: IconSize.SYSTEM_ICON,
-        iconValue: {
-          symbol: new SymbolGlyphModifier($r('sys.symbol.dot_grid_2x2'))
-            .fontColor([this.statusColor(item.level)])
-        }
-      }),
-      textItem: {
-        primaryText: {
-          text: item.name
-        },
-        secondaryText: {
-          text: item.type
-        }
-      },
-      suffixItem: new SuffixText({
-        text: `${item.status}${item.battery !== undefined ? ' · ' + item.battery + '%' : ''}`
-      }),
-      cardBorderRadius: 0,
-      cardBackgroundColor: 'rgba(0,0,0,0)',
-      cardHeight: 44,
-      cardPrefixMargin: 0,
-      cardSuffixMargin: 0
-    })
-      .border({
-        width: {
-          bottom: isLast ? 0 : 0.5
-        },
-        color: $r('sys.color.comp_divider')
-      })
   }
 
   // ---------------- task builders ----------------
 
   @Builder
-  private taskListRow(item: CareTask, isLast: boolean) {
-    HdsListItemCard({
-      textItem: {
-        primaryText: {
-          text: item.title
+  private taskListRow(item: CareTask) {
+    ListItem() {
+      HdsListItemCard({
+        textItem: {
+          primaryText: {
+            text: item.title
+          },
+          secondaryText: {
+            text: `${item.elder} · ${item.room} · ${item.time}`
+          }
         },
-        secondaryText: {
-          text: `${item.elder} · ${item.room} · ${item.time}`
+        suffixItem: new SuffixText({
+          text: `${this.statusText(item.status)} · ${this.priorityText(item.priority)}`
+        }),
+        cardBorderRadius: 0,
+        cardBackgroundColor: 'rgba(0,0,0,0)',
+        cardHeight: 52,
+        cardPrefixMargin: 0,
+        cardSuffixMargin: 0,
+        onClick: () => {
+          this.selectedTaskId = item.id;
+          this.isTaskSheetOpen = true;
         }
-      },
-      suffixItem: new SuffixText({
-        text: `${this.statusText(item.status)} · ${this.priorityText(item.priority)}`
-      }),
-      cardBorderRadius: 0,
-      cardBackgroundColor: this.selectedTaskId === item.id ?
-        $r('sys.color.comp_background_secondary') : 'rgba(0,0,0,0)',
-      cardHeight: 52,
-      cardPrefixMargin: 0,
-      cardSuffixMargin: 0,
-      onClick: () => {
-        this.selectedTaskId = item.id;
+      })
+    }
+    .padding({ left: 16, right: 16 })
+    .bindSheet(this.isTaskSheetOpen && this.selectedTaskId === item.id, this.taskSheetBuilder, {
+      detents: [SheetSize.LARGE, SheetSize.MEDIUM],
+      blurStyle: BlurStyle.Thick,
+      showClose: true,
+      dragBar: true,
+      title: { title: '任务详情' },
+      backgroundColor: $r('sys.color.background_secondary'),
+      onDisappear: () => {
+        this.isTaskSheetOpen = false;
       }
     })
-      .border({
-        width: {
-          bottom: isLast ? 0 : 0.5
-        },
-        color: $r('sys.color.comp_divider')
-      })
   }
 
   private priorityText(priority: StatusLevel): string {
@@ -1140,6 +897,39 @@ export struct TabPageView {
       return '中';
     }
     return '低';
+  }
+
+  @Builder
+  private taskSheetBuilder() {
+    Column({ space: 0 }) {
+      if (this.selectedTask()) {
+        List({ space: 16 }) {
+          ListItem() {
+            this.taskDetailHeader(this.selectedTask()!)
+          }
+
+          ListItem() {
+            this.taskDetailForm(this.selectedTask()!)
+          }
+
+          ListItem() {
+            this.taskDetailTimeline()
+          }
+
+          ListItem() {
+            this.taskActionButtons(this.selectedTask()!)
+          }
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .padding({ left: 16, right: 16, top: 8, bottom: 36 })
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('sys.color.background_secondary'))
   }
 
   @Builder
@@ -1230,37 +1020,28 @@ export struct TabPageView {
 
   @Builder
   private taskTimelineRow(item: TaskTimelineItem, isLast: boolean) {
-    HdsListItemCard({
-      prefixItem: new PrefixIcon({
-        iconSize: IconSize.SYSTEM_ICON,
-        iconValue: {
-          symbol: new SymbolGlyphModifier($r('sys.symbol.clock_fill'))
-            .fontColor([$r('sys.color.font_secondary')])
-        }
-      }),
-      textItem: {
-        primaryText: {
-          text: item.actor
+    Column({ space: 0 }) {
+      HdsListItemCard({
+        textItem: {
+          primaryText: {
+            text: item.actor
+          },
+          secondaryText: {
+            text: item.action
+          }
         },
-        secondaryText: {
-          text: item.action
-        }
-      },
-      suffixItem: new SuffixText({
-        text: item.time
-      }),
-      cardBorderRadius: 0,
-      cardBackgroundColor: 'rgba(0,0,0,0)',
-      cardHeight: 60,
-      cardPrefixMargin: 0,
-      cardSuffixMargin: 0
-    })
-      .border({
-        width: {
-          bottom: isLast ? 0 : 0.5
-        },
-        color: $r('sys.color.comp_divider')
+        suffixItem: new SuffixText({
+          text: item.time
+        }),
+        cardBorderRadius: 0,
+        cardBackgroundColor: 'rgba(0,0,0,0)',
+        cardHeight: 56,
+        cardPrefixMargin: 0,
+        cardSuffixMargin: 0
       })
+      this.divider(isLast)
+    }
+    .width('100%')
   }
 
   @Builder
@@ -1435,10 +1216,11 @@ export struct TabPageView {
 
   @Builder
   private homePage() {
-    List({
-      scroller: this.currentScroller(),
-      space: 12
-    }) {
+    Stack({ alignContent: Alignment.TopStart }) {
+      List({
+        scroller: this.currentScroller(),
+        space: 12
+      }) {
       ListItem() {
         Column() {
           this.homeSearchBar()
@@ -1465,8 +1247,9 @@ export struct TabPageView {
           HealthListCard({
             cardData: this.healthCardData(),
             widthBreakpoint: this.globalInfoModel.widthBreakpoint,
-            onItemClick: (id: string) => {
-              this.selectedResidentId = id;
+            isExpanded: this.isHealthExpandShow,
+            onCardExpand: () => {
+              this.openHealthExpand();
             }
           })
         }
@@ -1512,6 +1295,9 @@ export struct TabPageView {
       const scroller: Scroller | undefined = this.currentScroller();
       this.homeSearchState.scrollY = scroller ? scroller.currentOffset().yOffset : 0;
     })
+    }
+    .width('100%')
+    .height('100%')
   }
 
   @Builder
@@ -1526,112 +1312,71 @@ export struct TabPageView {
           .padding(12)
           .backgroundColor($r('sys.color.background_secondary'))
 
-          List({ scroller: this.currentScroller() }) {
-            ListItem() {
-              Column({ space: 0 }) {
-                Repeat(this.filteredResidents())
-                  .each((repeatItem: RepeatItem<ResidentData>) => {
-                    this.residentListRow(repeatItem.item, repeatItem.index === this.filteredResidents().length - 1)
-                  })
-              }
-              .width('100%')
-              .backgroundColor($r('sys.color.comp_background_primary'))
-              .borderRadius(16)
-              .clip(true)
-            }
+          List({ scroller: this.currentScroller(), space: 0 }) {
+            Repeat(this.filteredResidents())
+              .each((repeatItem: RepeatItem<ResidentData>) => {
+                this.residentListRow(
+                  repeatItem.item,
+                  repeatItem.index === this.filteredResidents().length - 1
+                )
+              })
           }
           .width('100%')
           .layoutWeight(1)
+          .backgroundColor($r('sys.color.comp_background_primary'))
+          .borderRadius(16)
+          .clip(true)
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring)
         }
         .width(this.isExtraWideLayout() ? 380 : 320)
         .height('100%')
         .backgroundColor($r('sys.color.background_secondary'))
-
-        if (this.selectedResident()) {
-          this.residentDetailView(this.selectedResident()!)
-        } else {
-          Column() {
-            Text('选择左侧长者查看详情')
-              .fontSize($r('sys.float.Body_M'))
-              .fontColor($r('sys.color.font_secondary'))
-          }
-          .width('100%')
-          .height('100%')
-          .backgroundColor($r('sys.color.background_secondary'))
-          .justifyContent(FlexAlign.Center)
-        }
       }
       .width('100%')
       .height('100%')
       .padding({ top: this.contentTopPadding() })
       .backgroundColor(this.pageBackgroundColor())
     } else {
-      if (this.selectedResident()) {
-        Column({ space: 0 }) {
-          Row() {
-            SymbolGlyph($r('sys.symbol.chevron_left'))
-              .fontSize(20)
-              .fontColor([$r('sys.color.font_primary')])
-              .onClick(() => {
-                this.selectedResidentId = '';
+      List({
+        scroller: this.currentScroller(),
+        space: 12
+      }) {
+        ListItem() {
+          this.residentSearchWithDropdown()
+        }
+        .padding({
+          left: this.pagePadding(),
+          right: this.pagePadding(),
+          top: this.contentTopPadding()
+        })
+
+        ListItem() {
+          List({ space: 0 }) {
+            Repeat(this.filteredResidents())
+              .each((repeatItem: RepeatItem<ResidentData>) => {
+                this.residentListRow(
+                  repeatItem.item,
+                  repeatItem.index === this.filteredResidents().length - 1
+                )
               })
-            Text(this.selectedResident()!.name)
-              .fontSize($r('sys.float.Title_M'))
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_primary'))
-              .layoutWeight(1)
           }
           .width('100%')
-          .height(56)
-          .padding({ left: 16, right: 16 })
           .backgroundColor($r('sys.color.comp_background_primary'))
-
-          this.residentDetailView(this.selectedResident()!)
+          .borderRadius(16)
+          .clip(true)
         }
-        .width('100%')
-        .height('100%')
-        .padding({ top: this.contentTopPadding() })
-        .backgroundColor(this.pageBackgroundColor())
-      } else {
-        List({
-          scroller: this.currentScroller(),
-          space: 12
-        }) {
-          ListItem() {
-            this.residentSearchWithDropdown()
-          }
-          .padding({
-            left: this.pagePadding(),
-            right: this.pagePadding(),
-            top: this.contentTopPadding()
-          })
-
-          ListItem() {
-            Column({ space: 0 }) {
-              Repeat(this.filteredResidents())
-                .each((repeatItem: RepeatItem<ResidentData>) => {
-                  this.residentListRow(repeatItem.item, repeatItem.index === this.filteredResidents().length - 1)
-                })
-            }
-            .padding({ left: 16, right: 16 })
-            .backgroundColor($r('sys.color.comp_background_primary'))
-            .borderRadius(16)
-            .clip(true)
-          }
-          .padding({
-            left: this.pagePadding(),
-            right: this.pagePadding(),
-            bottom: this.bottomPadding()
-          })
-        }
-        .width('100%')
-        .height('100%')
-        .backgroundColor(this.pageBackgroundColor())
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.Spring)
+        .padding({
+          left: this.pagePadding(),
+          right: this.pagePadding(),
+          bottom: this.bottomPadding()
+        })
       }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(this.pageBackgroundColor())
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
     }
   }
 
@@ -1647,22 +1392,23 @@ export struct TabPageView {
           .padding(12)
           .backgroundColor($r('sys.color.background_secondary'))
 
-          List({ scroller: this.currentScroller() }) {
-            ListItem() {
-              Column({ space: 0 }) {
-                Repeat(this.filteredTasks())
-                  .each((repeatItem: RepeatItem<CareTask>) => {
-                    this.taskListRow(repeatItem.item, repeatItem.index === this.filteredTasks().length - 1)
-                  })
-              }
-              .width('100%')
-              .backgroundColor($r('sys.color.comp_background_primary'))
-              .borderRadius(16)
-              .clip(true)
-            }
+          List({ scroller: this.currentScroller(), space: 0 }) {
+            Repeat(this.filteredTasks())
+              .each((repeatItem: RepeatItem<CareTask>) => {
+                this.taskListRow(repeatItem.item)
+              })
           }
           .width('100%')
           .layoutWeight(1)
+          .backgroundColor($r('sys.color.comp_background_primary'))
+          .borderRadius(16)
+          .clip(true)
+          .divider({
+            strokeWidth: 0.5,
+            color: $r('sys.color.comp_divider'),
+            startMargin: 16,
+            endMargin: 16
+          })
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring)
         }
@@ -1732,16 +1478,22 @@ export struct TabPageView {
           })
 
           ListItem() {
-            Column({ space: 0 }) {
+            List({ space: 0 }) {
               Repeat(this.filteredTasks())
                 .each((repeatItem: RepeatItem<CareTask>) => {
-                  this.taskListRow(repeatItem.item, repeatItem.index === this.filteredTasks().length - 1)
+                  this.taskListRow(repeatItem.item)
                 })
             }
             .width('100%')
             .backgroundColor($r('sys.color.comp_background_primary'))
             .borderRadius(16)
             .clip(true)
+            .divider({
+              strokeWidth: 0.5,
+              color: $r('sys.color.comp_divider'),
+              startMargin: 16,
+              endMargin: 16
+            })
           }
           .padding({
             left: this.pagePadding(),
@@ -1899,56 +1651,61 @@ export struct TabPageView {
 
   @Builder
   private profileSheetRow(item: ProfileSheetItem, showDivider: boolean) {
-    Row({ space: 12 }) {
-      Text(item.label)
-        .fontSize(16)
-        .fontColor($r('sys.color.font_primary'))
-        .layoutWeight(1)
+    Column({ space: 0 }) {
+      Row({ space: 12 }) {
+        Text(item.label)
+          .fontSize(16)
+          .fontColor($r('sys.color.font_primary'))
+          .layoutWeight(1)
 
-      if (item.isAvatar) {
-        Stack({ alignContent: Alignment.Center }) {
-          Row()
-            .width(56)
-            .height(56)
-            .backgroundColor($r('sys.color.comp_background_secondary'))
-            .borderRadius(28)
-          Text('LT')
-            .fontSize(20)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-        }
-      } else {
-        Row({ space: 8 }) {
-          Text(item.value)
-            .fontSize(16)
-            .fontColor($r('sys.color.font_secondary'))
-
-          if (item.tag) {
-            Text(item.tag)
-              .fontSize(12)
-              .fontColor($r('sys.color.font_emphasize'))
-              .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-              .backgroundColor($r('sys.color.comp_background_tertiary'))
-              .borderRadius(6)
+        if (item.isAvatar) {
+          Stack({ alignContent: Alignment.Center }) {
+            Row()
+              .width(56)
+              .height(56)
+              .backgroundColor($r('sys.color.comp_background_secondary'))
+              .borderRadius(28)
+            Text('LT')
+              .fontSize(20)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
           }
-        }
-        .alignItems(VerticalAlign.Center)
-      }
+        } else {
+          Row({ space: 8 }) {
+            Text(item.value)
+              .fontSize(16)
+              .fontColor($r('sys.color.font_secondary'))
 
-      SymbolGlyph($r('sys.symbol.chevron_right'))
-        .fontSize(16)
-        .fontColor([$r('sys.color.font_tertiary')])
+            if (item.tag) {
+              Text(item.tag)
+                .fontSize(12)
+                .fontColor($r('sys.color.font_emphasize'))
+                .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+                .backgroundColor($r('sys.color.comp_background_tertiary'))
+                .borderRadius(6)
+            }
+          }
+          .alignItems(VerticalAlign.Center)
+        }
+
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(16)
+          .fontColor([$r('sys.color.font_tertiary')])
+      }
+      .width('100%')
+      .height(item.isAvatar ? 76 : 56)
+      .padding({ left: 16, right: 16 })
+      .backgroundColor($r('sys.color.comp_background_primary'))
+
+      if (showDivider) {
+        Divider()
+          .width('100%')
+          .height(0.5)
+          .color($r('sys.color.comp_divider'))
+          .margin({ left: 16, right: 16 })
+      }
     }
     .width('100%')
-    .height(item.isAvatar ? 76 : 56)
-    .padding({ left: 16, right: 16 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .border({
-      width: {
-        bottom: showDivider ? 0.5 : 0
-      },
-      color: $r('sys.color.comp_divider')
-    })
   }
 
   @Builder
@@ -2049,36 +1806,40 @@ export struct TabPageView {
 
   @Builder
   private settingItem(item: SettingItemData, isLast: boolean) {
-    HdsListItemCard({
-      prefixItem: new PrefixIcon({
-        iconSize: IconSize.SYSTEM_ICON,
-        iconValue: {
-          symbol: new SymbolGlyphModifier(item.icon)
-            .fontColor([$r('sys.color.font_primary')])
+    Column({ space: 0 }) {
+      HdsListItemCard({
+        prefixItem: new PrefixIcon({
+          iconSize: IconSize.SYSTEM_ICON,
+          iconValue: {
+            symbol: new SymbolGlyphModifier(item.icon)
+              .fontColor([$r('sys.color.font_primary')])
+          }
+        }),
+        textItem: {
+          primaryText: {
+            text: item.label
+          }
+        },
+        suffixItem: item.value ?
+          new SuffixText({ text: item.value }) :
+          new SuffixArrow({ color: $r('sys.color.font_tertiary') }),
+        cardBorderRadius: 0,
+        cardBackgroundColor: 'rgba(0,0,0,0)',
+        cardHeight: 52,
+        cardPrefixMargin: 10,
+        cardSuffixMargin: 10,
+        onClick: () => {
         }
-      }),
-      textItem: {
-        primaryText: {
-          text: item.label
-        }
-      },
-      suffixItem: item.value ?
-        new SuffixText({ text: item.value }) :
-        new SuffixArrow({ color: $r('sys.color.font_tertiary') }),
-      cardBorderRadius: 0,
-      cardBackgroundColor: 'rgba(0,0,0,0)',
-      cardHeight: 52,
-      cardPrefixMargin: 0,
-      cardSuffixMargin: 0,
-      onClick: () => {
+      })
+      if (!isLast) {
+        Divider()
+          .width('100%')
+          .height(0.5)
+          .color($r('sys.color.comp_divider'))
+          .margin({ left: 52, right: 16 })
       }
-    })
-    .border({
-      width: {
-        bottom: isLast ? 0 : 0.5
-      },
-      color: $r('sys.color.comp_divider')
-    })
+    }
+    .width('100%')
   }
 
   @Builder
@@ -2185,15 +1946,42 @@ export struct TabPageView {
     .edgeEffect(EdgeEffect.Spring)
   }
 
+  @Builder
+  private residentDetailCover() {
+    ResidentDetailPage({
+      resident: this.selectedResident,
+      onClose: () => {
+        this.closeResidentDetail();
+      }
+    })
+  }
+
+  @Builder
+  private healthExpandCover() {
+    HealthExpandPage({
+      onClose: () => {
+        this.closeHealthExpand();
+      }
+    })
+  }
+
   build() {
-    if (this.currentTabIndex === 0) {
-      this.homePage();
-    } else if (this.currentTabIndex === 1) {
-      this.elderPage();
-    } else if (this.currentTabIndex === 2) {
-      this.taskPage();
-    } else {
-      this.minePage();
+    Column() {
+      if (this.currentTabIndex === 0) {
+        this.homePage();
+      } else if (this.currentTabIndex === 1) {
+        this.elderPage();
+      } else if (this.currentTabIndex === 2) {
+        this.taskPage();
+      } else {
+        this.minePage();
+      }
     }
+    .width('100%')
+    .height('100%')
+    .bindContentCover(this.isResidentDetailShow, this.residentDetailCover,
+      { modalTransition: ModalTransition.NONE, backgroundColor: 'rgba(0,0,0,0)' })
+    .bindContentCover(this.isHealthExpandShow, this.healthExpandCover,
+      { modalTransition: ModalTransition.NONE, backgroundColor: 'rgba(0,0,0,0)' })
   }
 }
