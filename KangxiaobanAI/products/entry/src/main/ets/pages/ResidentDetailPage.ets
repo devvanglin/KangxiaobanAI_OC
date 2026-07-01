@@ -15,22 +15,19 @@
 
 import { AppStorageV2 } from '@kit.ArkUI';
 import {
-  ChipGroup,
-  ChipGroupItemOptions,
-  ChipGroupSpaceOptions,
-  ChipItemStyle,
-  ChipSize
-} from '@kit.ArkUI';
-import {
   HdsListItemCard,
-  SuffixText
+  HdsNavDestination,
+  SuffixText,
+  hdsMaterial,
+  ScrollEffectType,
+  TitleBarContentOptions,
+  TitleBarStyleOptions
 } from '@kit.UIDesignKit';
 import {
   HealthRecord,
   MoodRecord,
   ResidentData,
-  RoomDeviceData,
-  StatusLevel
+  RoomDeviceData
 } from '../model/DetailTypes';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { StorageKey } from '../common/CommonConstants';
@@ -42,139 +39,116 @@ export struct ResidentDetailPage {
   @Local residentTabIndex: number = 0;
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
+  private tabsController: TabsController = new TabsController();
 
-  private static readonly SEGMENT_STYLE: ChipItemStyle = {
-    size: ChipSize.NORMAL,
-    backgroundColor: 'rgba(0,0,0,0)',
-    fontColor: $r('sys.color.font_secondary'),
-    selectedBackgroundColor: $r('sys.color.comp_background_primary'),
-    selectedFontColor: $r('sys.color.font_primary')
-  };
-
-  private static readonly SEGMENT_SPACE: ChipGroupSpaceOptions = {
-    itemSpace: 0,
-    startSpace: 0
-  };
-
-  private topPadding(): number {
-    return this.globalInfoModel.statusBarHeight + 12;
+  private titleBarStyle(): TitleBarStyleOptions {
+    return {
+      systemMaterialEffect: {
+        materialType: hdsMaterial.MaterialType.ADAPTIVE,
+        materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+      },
+      scrollEffectOpts: {
+        enableScrollEffect: false,
+        scrollEffectType: ScrollEffectType.GRADIENT_BLUR
+      }
+    };
   }
 
-  private residentTabs(): ChipGroupItemOptions[] {
-    return [
-      { label: { text: '概要' }, allowClose: false },
-      { label: { text: '健康' }, allowClose: false },
-      { label: { text: '情绪' }, allowClose: false },
-      { label: { text: '设备' }, allowClose: false }
-    ];
-  }
-
-  private statusColor(level: StatusLevel): ResourceColor {
-    if (level === 'danger') {
-      return '#D92B2B';
-    }
-    if (level === 'warning') {
-      return '#F5A623';
-    }
-    return '#2FA84F';
-  }
-
-  private statusBg(level: StatusLevel): ResourceColor {
-    if (level === 'danger') {
-      return '#FCE8E8';
-    }
-    if (level === 'warning') {
-      return '#FDF3E0';
-    }
-    return '#E5F5EA';
-  }
-
-  @Builder
-  private iconCircleButton(icon: Resource, onClick: () => void) {
-    Button({ type: ButtonType.Circle }) {
-      SymbolGlyph(icon)
-        .fontSize(18)
-        .fontColor([$r('sys.color.font_primary')])
-    }
-    .width(36)
-    .height(36)
-    .backgroundColor($r('sys.color.comp_background_secondary'))
-    .onClick(onClick)
+  private titleBarContent(): TitleBarContentOptions {
+    return {
+      title: { mainTitle: this.resident.name },
+      menu: {
+        value: [{
+          content: {
+            icon: $r('sys.symbol.xmark'),
+            isEnabled: true,
+            action: () => {
+              this.onClose();
+            }
+          }
+        }]
+      }
+    };
   }
 
   build() {
-    Column({ space: 0 }) {
-      Row() {
-        ChipGroup({
-          items: this.residentTabs(),
-          itemStyle: ResidentDetailPage.SEGMENT_STYLE,
-          multiple: false,
-          selectedIndexes: [this.residentTabIndex],
-          chipGroupSpace: ResidentDetailPage.SEGMENT_SPACE,
-          chipGroupPadding: { top: 4, bottom: 4 },
-          onChange: (indexes: number[]) => {
-            if (indexes.length > 0) {
-              this.residentTabIndex = indexes[0];
+    Column() {
+      HdsNavDestination() {
+        Tabs({ barPosition: BarPosition.Start, index: this.residentTabIndex, controller: this.tabsController }) {
+          TabContent() {
+            Scroll() {
+              Column({ space: 16 }) {
+                this.residentBasicInfo()
+              }
+              .width('100%')
+              .padding({ left: 16, right: 16, top: 16, bottom: 36 })
             }
+            .scrollBar(BarState.Off)
+            .edgeEffect(EdgeEffect.Spring)
+            .clipContent(ContentClipMode.SAFE_AREA)
           }
+          .tabBar(SubTabBarStyle.of('概要'))
+
+          TabContent() {
+            Scroll() {
+              Column({ space: 16 }) {
+                this.residentHealthTimeline()
+              }
+              .width('100%')
+              .padding({ left: 16, right: 16, top: 16, bottom: 36 })
+            }
+            .scrollBar(BarState.Off)
+            .edgeEffect(EdgeEffect.Spring)
+            .clipContent(ContentClipMode.SAFE_AREA)
+          }
+          .tabBar(SubTabBarStyle.of('健康'))
+
+          TabContent() {
+            Scroll() {
+              Column({ space: 16 }) {
+                this.residentMoodList()
+              }
+              .width('100%')
+              .padding({ left: 16, right: 16, top: 16, bottom: 36 })
+            }
+            .scrollBar(BarState.Off)
+            .edgeEffect(EdgeEffect.Spring)
+            .clipContent(ContentClipMode.SAFE_AREA)
+          }
+          .tabBar(SubTabBarStyle.of('情绪'))
+
+          TabContent() {
+            Scroll() {
+              Column({ space: 16 }) {
+                this.residentDeviceTable(this.residentDevices())
+              }
+              .width('100%')
+              .padding({ left: 16, right: 16, top: 16, bottom: 36 })
+            }
+            .scrollBar(BarState.Off)
+            .edgeEffect(EdgeEffect.Spring)
+            .clipContent(ContentClipMode.SAFE_AREA)
+          }
+          .tabBar(SubTabBarStyle.of('设备'))
+        }
+        .barMode(BarMode.Fixed)
+        .onChange((index: number) => {
+          this.residentTabIndex = index;
         })
-
-        this.iconCircleButton($r('sys.symbol.xmark'), () => {
-          this.onClose();
-        })
+        .layoutWeight(1)
       }
-      .width('100%')
-      .height(56)
-      .padding({ left: 12, right: 12 })
-      .justifyContent(FlexAlign.SpaceBetween)
-      .backgroundColor($r('sys.color.comp_background_primary'))
-
-      Column({ space: 4 }) {
-        Text('长者档案')
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_secondary'))
-        Text(this.resident.name)
-          .fontSize($r('sys.float.Title_L'))
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
-      }
-      .width('100%')
-      .alignItems(HorizontalAlign.Start)
-      .padding({ left: 16, right: 16, top: 20, bottom: 12 })
-
-      this.residentDetailContent()
+      .backgroundColor($r('sys.color.background_secondary'))
+      .hideBackButton(true)
+      .titleBar({
+        style: this.titleBarStyle(),
+        content: this.titleBarContent()
+      })
     }
-    .width('100%')
-    .height('100%')
-    .padding({ top: this.topPadding() })
     .backgroundColor($r('sys.color.background_secondary'))
-    .clip(true)
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .padding({ top: this.globalInfoModel.statusBarHeight })
     .geometryTransition(this.resident.id)
     .transition(TransitionEffect.OPACITY)
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-  }
-
-  @Builder
-  private residentDetailContent() {
-    Scroll() {
-      Column({ space: 0 }) {
-        if (this.residentTabIndex === 0) {
-          this.residentBasicInfo()
-        } else if (this.residentTabIndex === 1) {
-          this.residentHealthTimeline()
-        } else if (this.residentTabIndex === 2) {
-          this.residentMoodList()
-        } else {
-          this.residentDeviceTable(this.residentDevices())
-        }
-      }
-      .width('100%')
-      .padding({ left: 16, right: 16, bottom: 36 })
-    }
-    .width('100%')
-    .height('100%')
-    .scrollBar(BarState.Off)
-    .edgeEffect(EdgeEffect.Spring)
   }
 
   @Builder

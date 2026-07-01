@@ -107,7 +107,7 @@ export struct HealthListCard {
           SymbolGlyph($r('sys.symbol.chevron_right'))
             .fontSize(16)
             .fontColor([$r('sys.color.font_tertiary')])
-            .margin({ top: 2 })
+            .margin({ top: -2 })
         }
         .width('100%')
         .onClick(() => {
