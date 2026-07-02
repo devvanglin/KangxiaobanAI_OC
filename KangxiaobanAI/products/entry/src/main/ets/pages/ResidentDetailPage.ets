@@ -81,11 +81,12 @@ export struct ResidentDetailPage {
                 this.residentBasicInfo()
               }
               .width('100%')
-              .padding({ left: 16, right: 16, top: 16, bottom: 36 })
+              .padding({ left: 16, right: 16, top: 16, bottom: 16 })
             }
             .scrollBar(BarState.Off)
             .edgeEffect(EdgeEffect.Spring)
             .clipContent(ContentClipMode.SAFE_AREA)
+            .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
           }
           .tabBar(SubTabBarStyle.of('概要'))
 
@@ -95,11 +96,12 @@ export struct ResidentDetailPage {
                 this.residentHealthTimeline()
               }
               .width('100%')
-              .padding({ left: 16, right: 16, top: 16, bottom: 36 })
+              .padding({ left: 16, right: 16, top: 16, bottom: 16 })
             }
             .scrollBar(BarState.Off)
             .edgeEffect(EdgeEffect.Spring)
             .clipContent(ContentClipMode.SAFE_AREA)
+            .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
           }
           .tabBar(SubTabBarStyle.of('健康'))
 
@@ -109,11 +111,12 @@ export struct ResidentDetailPage {
                 this.residentMoodList()
               }
               .width('100%')
-              .padding({ left: 16, right: 16, top: 16, bottom: 36 })
+              .padding({ left: 16, right: 16, top: 16, bottom: 16 })
             }
             .scrollBar(BarState.Off)
             .edgeEffect(EdgeEffect.Spring)
             .clipContent(ContentClipMode.SAFE_AREA)
+            .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
           }
           .tabBar(SubTabBarStyle.of('情绪'))
 
@@ -123,11 +126,12 @@ export struct ResidentDetailPage {
                 this.residentDeviceTable(this.residentDevices())
               }
               .width('100%')
-              .padding({ left: 16, right: 16, top: 16, bottom: 36 })
+              .padding({ left: 16, right: 16, top: 16, bottom: 16 })
             }
             .scrollBar(BarState.Off)
             .edgeEffect(EdgeEffect.Spring)
             .clipContent(ContentClipMode.SAFE_AREA)
+            .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
           }
           .tabBar(SubTabBarStyle.of('设备'))
         }
@@ -135,11 +139,14 @@ export struct ResidentDetailPage {
         .onChange((index: number) => {
           this.residentTabIndex = index;
         })
-        .layoutWeight(1)
+        .height('100%')
+        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       }
       .backgroundColor($r('sys.color.background_secondary'))
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       .hideBackButton(true)
       .titleBar({
+        enableComponentSafeArea: true,
         style: this.titleBarStyle(),
         content: this.titleBarContent()
       })
