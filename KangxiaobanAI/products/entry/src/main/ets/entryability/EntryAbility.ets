@@ -17,7 +17,6 @@ import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.Ab
 import { window } from '@kit.ArkUI';
 import Logger from '../util/Logger';
 import { WindowUtil } from '../util/WindowUtil';
-import { LiveViewUtil } from '../util/LiveViewUtil';
 
 const TAG: string = '[KanxiaobanAbility]';
 
@@ -55,14 +54,12 @@ export default class KanxiaobanAbility extends UIAbility {
   }
 
   onForeground(): void {
-    // Ability has brought to foreground —— 停止实况窗
+    // Ability has brought to foreground
     Logger.info(TAG, 'Ability onForeground');
-    LiveViewUtil.stopWorkStatus();
   }
 
   onBackground(): void {
-    // Ability has back to background —— 启动"上班中"胶囊实况窗
+    // Ability has back to background
     Logger.info(TAG, 'Ability onBackground');
-    LiveViewUtil.startWorkStatus(this.context);
   }
 }
