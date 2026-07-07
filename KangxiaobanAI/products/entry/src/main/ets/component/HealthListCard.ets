@@ -64,8 +64,19 @@ export struct HealthListCard {
   }
 
   build() {
-    Column({ space: 0 }) {
-      Row() {
+    if (this.isExpanded) {
+      // 展开时起点占位：从组件树移除真实卡片，使 geometryTransition 能正确配对触发转场
+      Column()
+        .width('100%')
+        .backgroundColor($r('sys.color.comp_background_primary'))
+        .border({
+          width: 0,
+          color: $r('sys.color.comp_background_list_card'),
+          radius: $r('sys.float.corner_radius_level8')
+        })
+    } else {
+      Column({ space: 0 }) {
+        Row() {
           Column() {
             if (this.cardData.subTitle) {
               Text(this.cardData.subTitle)
@@ -166,5 +177,6 @@ export struct HealthListCard {
       })
       .width('100%')
       .geometryTransition('healthCard', { follow: true })
+    }
   }
 }
