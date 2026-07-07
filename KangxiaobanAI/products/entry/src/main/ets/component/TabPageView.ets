@@ -824,12 +824,8 @@ export struct TabPageView {
         .width('100%')
         .alignItems(VerticalAlign.Center)
 
-        // 行3：核心体征（心率/血压/步数/用药），顶部细分隔线 + 居中列 + 列间竖分隔
+        // 行3：核心体征（心率/血压/步数/用药），4列居中布局
         Column({ space: 8 }) {
-          Divider()
-            .strokeWidth(0.5)
-            .color($r('sys.color.comp_divider'))
-
           Row() {
             this.vitalMiniItem('心率', `${this.residentVitalSign(item).heartRate}`, 'bpm', this.heartRateMiniLevel(item), false)
             this.vitalMiniItem('血压', `${this.residentVitalSign(item).systolic}/${this.residentVitalSign(item).diastolic}`, '', this.bpMiniLevel(item), false)
@@ -902,14 +898,6 @@ export struct TabPageView {
       .layoutWeight(1)
       .justifyContent(FlexAlign.Center)
       .alignItems(HorizontalAlign.Center)
-
-      if (!isLast) {
-        Divider()
-          .vertical(true)
-          .strokeWidth(0.5)
-          .color($r('sys.color.comp_divider'))
-          .height(28)
-      }
     }
     .layoutWeight(1)
     .height('100%')
