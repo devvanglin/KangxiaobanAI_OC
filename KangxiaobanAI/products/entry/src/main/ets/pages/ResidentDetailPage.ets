@@ -191,6 +191,10 @@ export struct ResidentDetailPage {
         style: this.titleBarStyle(),
         content: this.titleBarContent()
       })
+      .onBackPressed(() => {
+        this.onClose();
+        return true;
+      })
     }
     .width('100%')
     .height('100%')

@@ -64,18 +64,8 @@ export struct HealthListCard {
   }
 
   build() {
-    if (this.isExpanded) {
-      Column()
-        .width('100%')
-        .backgroundColor($r('sys.color.comp_background_primary'))
-        .border({
-          width: 0,
-          color: $r('sys.color.comp_background_list_card'),
-          radius: $r('sys.float.corner_radius_level8')
-        })
-    } else {
-      Column({ space: 0 }) {
-        Row() {
+    Column({ space: 0 }) {
+      Row() {
           Column() {
             if (this.cardData.subTitle) {
               Text(this.cardData.subTitle)
@@ -176,6 +166,5 @@ export struct HealthListCard {
       })
       .width('100%')
       .geometryTransition('healthCard', { follow: true })
-    }
   }
 }
