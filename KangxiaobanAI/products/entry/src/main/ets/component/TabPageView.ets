@@ -33,7 +33,8 @@ import { EventListCard, EventListCardData, EventListCardRow } from './EventListC
 import {
   HealthRowData,
   ResidentData,
-  StatusLevel
+  StatusLevel,
+  VitalSign
 } from '../model/DetailTypes';
 import { HealthExpandPage } from '../pages/HealthExpandPage';
 import { ResidentDetailPage } from '../pages/ResidentDetailPage';
@@ -138,6 +139,7 @@ export struct TabPageView {
     id: '',
     name: '',
     age: 0,
+    gender: 'male',
     room: '',
     bed: '',
     level: 'normal',
@@ -145,7 +147,11 @@ export struct TabPageView {
     emergencyContact: '',
     emergencyPhone: '',
     admissionDate: '',
-    deviceIds: []
+    careLevel: '',
+    diagnosis: [],
+    allergies: [],
+    deviceIds: [],
+    avatarText: ''
   } as ResidentData;
   @Local activeResidentGeometryId: string = '';
 
@@ -448,34 +454,49 @@ export struct TabPageView {
   private allResidents(): ResidentData[] {
     return [
       {
-        id: 'r1', name: '肖爷爷', age: 82, room: '3F-302', bed: 'A床',
+        id: 'r1', name: '肖爷爷', age: 82, gender: 'male', room: '3F-302', bed: 'A床',
         level: 'danger', status: '情绪低落 · 拒交流',
         emergencyContact: '肖先生（子）', emergencyPhone: '138****1201',
-        admissionDate: '2022-03-15', deviceIds: ['d1', 'd5']
+        admissionDate: '2022-03-15', careLevel: '一级护理',
+        diagnosis: ['高血压', '2型糖尿病', '轻度抑郁'],
+        allergies: ['青霉素'],
+        deviceIds: ['d1', 'd5', 'd6'], avatarText: '肖'
       },
       {
-        id: 'r2', name: '周奶奶', age: 78, room: '2F-215', bed: 'B床',
+        id: 'r2', name: '周奶奶', age: 78, gender: 'female', room: '2F-215', bed: 'B床',
         level: 'warning', status: '夜间离床增加',
         emergencyContact: '周女士（女）', emergencyPhone: '139****2202',
-        admissionDate: '2021-08-20', deviceIds: ['d3', 'd4']
+        admissionDate: '2021-08-20', careLevel: '二级护理',
+        diagnosis: ['冠心病', '骨质疏松'],
+        allergies: ['海鲜'],
+        deviceIds: ['d3', 'd4'], avatarText: '周'
       },
       {
-        id: 'r3', name: '林爷爷', age: 85, room: '3F-306', bed: 'C床',
+        id: 'r3', name: '林爷爷', age: 85, gender: 'male', room: '3F-306', bed: 'C床',
         level: 'warning', status: '社交回避',
         emergencyContact: '林先生（子）', emergencyPhone: '137****3303',
-        admissionDate: '2020-11-02', deviceIds: ['d2', 'd6']
+        admissionDate: '2020-11-02', careLevel: '一级护理',
+        diagnosis: ['脑梗后遗症', '高血压'],
+        allergies: [],
+        deviceIds: ['d2', 'd6'], avatarText: '林'
       },
       {
-        id: 'r4', name: '王爷爷', age: 80, room: '2F-201', bed: 'A床',
+        id: 'r4', name: '王爷爷', age: 80, gender: 'male', room: '2F-201', bed: 'A床',
         level: 'normal', status: '稳定观察',
         emergencyContact: '王女士（女）', emergencyPhone: '136****4404',
-        admissionDate: '2023-01-10', deviceIds: ['d7']
+        admissionDate: '2023-01-10', careLevel: '三级护理',
+        diagnosis: ['高血压'],
+        allergies: [],
+        deviceIds: ['d7'], avatarText: '王'
       },
       {
-        id: 'r5', name: '赵奶奶', age: 76, room: '2F-208', bed: 'A床',
+        id: 'r5', name: '赵奶奶', age: 76, gender: 'female', room: '2F-208', bed: 'A床',
         level: 'normal', status: '稳定观察',
         emergencyContact: '赵先生（子）', emergencyPhone: '135****5505',
-        admissionDate: '2022-09-28', deviceIds: ['d8']
+        admissionDate: '2022-09-28', careLevel: '三级护理',
+        diagnosis: ['2型糖尿病'],
+        allergies: ['坚果'],
+        deviceIds: ['d8'], avatarText: '赵'
       }
     ];
   }
@@ -573,7 +594,7 @@ export struct TabPageView {
   }
 
   private residentCardHeight(): number {
-    return 108;
+    return 132;
   }
 
   private residentPriorityText(level: StatusLevel): string {
@@ -584,6 +605,54 @@ export struct TabPageView {
       return '关注';
     }
     return '稳定';
+  }
+
+  /** 模拟长者最新体征快照（后续接真实数据源） */
+  private residentVitalSign(resident: ResidentData): VitalSign {
+    const map: Record<string, VitalSign> = {
+      'r1': {
+        heartRate: 72, systolic: 138, diastolic: 85, oxygen: 96,
+        temperature: 36.5, respiratory: 18, steps: 1240, sleepHours: 5.2,
+        measuredAt: '10:24'
+      },
+      'r2': {
+        heartRate: 78, systolic: 125, diastolic: 80, oxygen: 97,
+        temperature: 36.4, respiratory: 17, steps: 2100, sleepHours: 6.8,
+        measuredAt: '09:46'
+      },
+      'r3': {
+        heartRate: 70, systolic: 142, diastolic: 88, oxygen: 95,
+        temperature: 36.6, respiratory: 19, steps: 380, sleepHours: 4.5,
+        measuredAt: '09:12'
+      },
+      'r4': {
+        heartRate: 68, systolic: 118, diastolic: 76, oxygen: 98,
+        temperature: 36.3, respiratory: 16, steps: 3200, sleepHours: 7.2,
+        measuredAt: '08:30'
+      },
+      'r5': {
+        heartRate: 75, systolic: 122, diastolic: 78, oxygen: 98,
+        temperature: 36.4, respiratory: 17, steps: 2800, sleepHours: 7.0,
+        measuredAt: '08:15'
+      }
+    };
+    return map[resident.id] ?? {
+      heartRate: 0, systolic: 0, diastolic: 0, oxygen: 0,
+      temperature: 0, respiratory: 0, steps: 0, sleepHours: 0,
+      measuredAt: '--'
+    };
+  }
+
+  /** 模拟今日用药进度（已完成/总数） */
+  private residentMedicationProgress(resident: ResidentData): { done: number; total: number } {
+    const map: Record<string, { done: number; total: number }> = {
+      'r1': { done: 3, total: 5 },
+      'r2': { done: 4, total: 4 },
+      'r3': { done: 2, total: 6 },
+      'r4': { done: 2, total: 3 },
+      'r5': { done: 3, total: 3 }
+    };
+    return map[resident.id] ?? { done: 0, total: 0 };
   }
 
   @Builder
@@ -696,38 +765,76 @@ export struct TabPageView {
   @Builder
   private residentListRow(item: ResidentData, isLast: boolean) {
     ListItem() {
-      Column({ space: 12 }) {
-        Row({ space: 12 }) {
-          Column({ space: 6 }) {
-            Text(item.name)
-              .fontSize($r('sys.float.Subtitle_M'))
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_primary'))
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
+      Column({ space: 10 }) {
+        // 行1：姓名 + 年龄·性别 + 房间床号 + 状态色块 + 更新时间
+        Row() {
+          Text(item.name)
+            .fontSize($r('sys.float.Subtitle_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
 
-            Text(`${item.age}岁 · ${item.room} · ${item.bed}`)
-              .fontSize($r('sys.float.Body_S'))
-              .fontColor($r('sys.color.font_secondary'))
+          Text(`${item.age}岁·${item.gender === 'male' ? '男' : '女'}`)
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('sys.color.font_secondary'))
+            .margin({ left: 6 })
+
+          Text(`${item.room} ${item.bed}`)
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('sys.color.font_secondary'))
+            .margin({ left: 6 })
+            .layoutWeight(1)
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+          Text(this.residentPriorityText(item.level))
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor(this.statusColor(item.level))
+            .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+            .backgroundColor(this.statusBg(item.level))
+            .borderRadius(4)
+            .margin({ right: 6 })
+
+          Text(this.residentVitalSign(item).measuredAt)
+            .fontSize($r('sys.float.Caption_S'))
+            .fontColor($r('sys.color.font_tertiary'))
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+
+        // 行2：状态描述 + 诊断标签
+        Row({ space: 6 }) {
+          Text(item.status)
+            .fontSize($r('sys.float.Body_S'))
+            .fontColor($r('sys.color.font_secondary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .layoutWeight(1)
+
+          if (item.diagnosis.length > 0) {
+            Text(item.diagnosis.slice(0, 2).join('·'))
+              .fontSize($r('sys.float.Caption_S'))
+              .fontColor($r('sys.color.font_tertiary'))
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
           }
-          .layoutWeight(1)
-          .alignItems(HorizontalAlign.Start)
-
-          this.statusTag(this.residentPriorityText(item.level), item.level)
         }
         .width('100%')
+        .alignItems(VerticalAlign.Center)
 
-        Text(item.status)
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_secondary'))
-          .maxLines(2)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        // 行3：核心体征数字（心率/血压/步数/用药）
+        Row() {
+          this.vitalMiniItem('心率', `${this.residentVitalSign(item).heartRate}`, 'bpm')
+          this.vitalMiniItem('血压', `${this.residentVitalSign(item).systolic}/${this.residentVitalSign(item).diastolic}`, 'mmHg')
+          this.vitalMiniItem('步数', `${this.residentVitalSign(item).steps}`, '步')
+          this.residentMedicationMini(item)
+        }
+        .width('100%')
       }
       .width('100%')
       .height(this.residentCardHeight())
-      .padding({ left: 16, right: 16, top: 16, bottom: 16 })
+      .padding({ left: 14, right: 14, top: 12, bottom: 12 })
       .backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius(16)
       .border({
@@ -740,6 +847,48 @@ export struct TabPageView {
       })
     }
     .padding({ left: 16, right: 16 })
+  }
+
+  @Builder
+  private vitalMiniItem(label: string, value: string, unit: string) {
+    Column({ space: 1 }) {
+      Row({ space: 2 }) {
+        Text(value)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+        Text(unit)
+          .fontSize($r('sys.float.Caption_S'))
+          .fontColor($r('sys.color.font_tertiary'))
+      }
+      .alignItems(VerticalAlign.Bottom)
+      Text(label)
+        .fontSize($r('sys.float.Caption_S'))
+        .fontColor($r('sys.color.font_tertiary'))
+    }
+    .layoutWeight(1)
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private residentMedicationMini(item: ResidentData) {
+    Column({ space: 1 }) {
+      Row({ space: 2 }) {
+        Text(`${this.residentMedicationProgress(item).done}/${this.residentMedicationProgress(item).total}`)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+        Text('次')
+          .fontSize($r('sys.float.Caption_S'))
+          .fontColor($r('sys.color.font_tertiary'))
+      }
+      .alignItems(VerticalAlign.Bottom)
+      Text('用药')
+        .fontSize($r('sys.float.Caption_S'))
+        .fontColor($r('sys.color.font_tertiary'))
+    }
+    .layoutWeight(1)
+    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
