@@ -175,10 +175,8 @@ export struct ResidentDetailPage {
         .width('100%')
         .height('100%')
         .backgroundColor($r('sys.color.background_secondary'))
-        .geometryTransition(this.geometryId)
       }
-      .backgroundColor('rgba(0,0,0,0)')
-      .transition(TransitionEffect.OPACITY)
+      .backgroundColor($r('sys.color.background_secondary'))
       .hideBackButton(true)
       .titleBar({
         enableComponentSafeArea: true,
@@ -191,6 +189,8 @@ export struct ResidentDetailPage {
     .padding({ top: this.globalInfoModel.statusBarHeight })
     .backgroundColor($r('sys.color.background_secondary'))
     .clip(true)
+    .geometryTransition(this.geometryId)
+    .transition(TransitionEffect.OPACITY)
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 

@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import { AppStorageV2, curves } from '@kit.ArkUI';
+import { AppStorageV2 } from '@kit.ArkUI';
 import {
   HdsBarStyle,
   hdsMaterial,
@@ -29,29 +29,21 @@ import { CheckInFlowPage } from '../component/CheckInFlowPage';
 import { SearchPage } from '../component/SearchPage';
 import { TabPageView } from '../component/TabPageView';
 import { StorageKey } from '../common/CommonConstants';
-import { ResidentData } from '../model/DetailTypes';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { HomeSearchState } from '../model/HomeSearchState';
 import { PAGE_SCROLLER_MAP, PageKeyEnum, TabsBarModel } from '../model/TabsBarModel';
 import { TAB_PAGE_CONFIGS, TabPageConfig } from '../model/TabPageModel';
-import { ResidentDetailPage } from './ResidentDetailPage';
 import Logger from '../util/Logger';
 import { BreakpointType } from '../util/BreakpointSystem';
 
 const TAG: string = '[MainPage]';
 const CHECK_IN_ROUTE_NAME: string = 'CheckInRegister';
 const SEARCH_ROUTE_NAME: string = 'SearchPage';
-const RESIDENT_DETAIL_ROUTE_NAME: string = 'ResidentDetailPage';
 
 interface WideNavItem {
   label: ResourceStr;
   note: string;
   symbol: Resource;
-}
-
-interface ResidentDetailRouteParam {
-  resident: ResidentData;
-  geometryId: string;
 }
 
 @Entry
@@ -79,17 +71,6 @@ struct MainPage {
 
   private openSearchPage(): void {
     this.pathStack.pushPath({ name: SEARCH_ROUTE_NAME });
-  }
-
-  private openResidentDetail(resident: ResidentData, geometryId: string): void {
-    this.getUIContext().animateTo({
-      curve: curves.interpolatingSpring(0, 1, 328, 36)
-    }, () => {
-      this.pathStack.pushPath({
-        name: RESIDENT_DETAIL_ROUTE_NAME,
-        param: { resident, geometryId } as ResidentDetailRouteParam
-      }, false);
-    });
   }
 
   private homeSearchMenu(): HdsNavigationMenuContentOptions {
@@ -477,9 +458,6 @@ struct MainPage {
           config: this.pageConfigs[1],
           onOpenSearch: () => {
             this.openSearchPage();
-          },
-          onOpenResidentDetail: (resident: ResidentData, geometryId: string) => {
-            this.openResidentDetail(resident, geometryId);
           }
         })
       }
@@ -550,9 +528,6 @@ struct MainPage {
           config: this.pageConfigs[this.currentTabIndex],
           onOpenSearch: () => {
             this.openSearchPage();
-          },
-          onOpenResidentDetail: (resident: ResidentData, geometryId: string) => {
-            this.openResidentDetail(resident, geometryId);
           }
         })
       }
@@ -574,18 +549,6 @@ struct MainPage {
       CheckInFlowPage()
     } else if (name === SEARCH_ROUTE_NAME) {
       SearchPage()
-    } else if (name === RESIDENT_DETAIL_ROUTE_NAME) {
-      ResidentDetailPage({
-        resident: (param as ResidentDetailRouteParam).resident,
-        geometryId: (param as ResidentDetailRouteParam).geometryId,
-        onClose: () => {
-          this.getUIContext().animateTo({
-            curve: curves.interpolatingSpring(0, 1, 342, 38)
-          }, () => {
-            this.pathStack.pop(false);
-          });
-        }
-      })
     }
   }
 
