@@ -15,6 +15,7 @@
 
 import { liveViewManager } from '@kit.LiveViewKit';
 import { common, wantAgent, WantAgent } from '@kit.AbilityKit';
+import { image } from '@kit.ImageKit';
 import Logger from './Logger';
 
 const TAG: string = '[LiveViewUtil]';
@@ -34,6 +35,12 @@ export class LiveViewUtil {
   private static readonly BUNDLE_NAME: string = 'com.gxoc.kxbai';
   private static readonly ABILITY_NAME: string = 'KanxiaobanAbility';
 
+  /** 加载 foreground 图标为 PixelMap（实况窗 icon 字段只接受 string | PixelMap） */
+  private static async loadIconPixelMap(context: common.UIAbilityContext): Promise<image.PixelMap> {
+    const data: Uint8Array = await context.resourceManager.getMediaContent($r('app.media.foreground'));
+    return image.createPixelMap(data.buffer);
+  }
+
   /**
    * 启动"上班中"实况窗
    * @param context UIAbilityContext，用于获取资源与构建 WantAgent
@@ -51,28 +58,35 @@ export class LiveViewUtil {
       }
 
       // 构建点击胶囊拉起 app 的 WantAgent
-      const wantAgentObj: WantAgent = await wantAgent.getWantAgent({
-        action: 'ohos.want.action.home',
-        entities: ['entity.system.home'],
-        bundleName: LiveViewUtil.BUNDLE_NAME,
-        abilityName: LiveViewUtil.ABILITY_NAME
-      });
+      const wantAgentInfo: wantAgent.WantAgentInfo = {
+        wants: [{
+          bundleName: LiveViewUtil.BUNDLE_NAME,
+          abilityName: LiveViewUtil.ABILITY_NAME
+        }],
+        actionType: wantAgent.OperationType.START_ABILITY,
+        requestCode: 0
+      };
+      const wantAgentObj: WantAgent = await wantAgent.getWantAgent(wantAgentInfo);
+
+      // 加载图标 PixelMap
+      const iconPixelMap: image.PixelMap = await LiveViewUtil.loadIconPixelMap(context);
 
       LiveViewUtil.sequence += 1;
 
       // 构建实况窗对象：胶囊态（图标 + 文字）+ 卡片态主体
       const liveView: liveViewManager.LiveView = {
         id: LiveViewUtil.LIVE_VIEW_ID,
-        event: liveViewManager.LiveViewEvent.COUNTDOWN,
+        event: 'COUNTDOWN',
         sequence: LiveViewUtil.sequence,
         isMute: true,
         liveViewData: {
           capsule: {
-            type: liveViewManager.CapsuleType.CAPSULE_TEXT,
-            icon: $r('app.media.foreground'),
-            text: '上班中',
-            backgroundColor: '#E8F0FE',
-            textColor: '#1A73E8'
+            type: liveViewManager.CapsuleType.CAPSULE_TYPE_TEXT,
+            status: 0,
+            icon: iconPixelMap,
+            title: '上班中',
+            content: '护理值守',
+            backgroundColor: '#E8F0FE'
           },
           primary: {
             title: '上班中',
@@ -85,7 +99,7 @@ export class LiveViewUtil {
 
       const result: liveViewManager.LiveViewResult = await liveViewManager.startLiveView(liveView);
       LiveViewUtil.isActive = true;
-      Logger.info(TAG, `startLiveView success, code=${result.code}`);
+      Logger.info(TAG, `startLiveView success, resultCode=${result.resultCode}`);
     } catch (err) {
       const e = err as Error;
       Logger.error(TAG, `startLiveView failed: ${e.message}`);
@@ -104,16 +118,16 @@ export class LiveViewUtil {
 
       const liveView: liveViewManager.LiveView = {
         id: LiveViewUtil.LIVE_VIEW_ID,
-        event: liveViewManager.LiveViewEvent.COUNTDOWN,
+        event: 'COUNTDOWN',
         sequence: LiveViewUtil.sequence,
         isMute: true,
         liveViewData: {
           capsule: {
-            type: liveViewManager.CapsuleType.CAPSULE_TEXT,
-            icon: $r('app.media.foreground'),
-            text: '上班中',
-            backgroundColor: '#E8F0FE',
-            textColor: '#1A73E8'
+            type: liveViewManager.CapsuleType.CAPSULE_TYPE_TEXT,
+            status: 0,
+            title: '上班中',
+            content: '护理值守',
+            backgroundColor: '#E8F0FE'
           },
           primary: {
             title: '上班中',
