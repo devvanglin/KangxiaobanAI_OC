@@ -176,11 +176,14 @@ export struct HealthExpandPage {
         content: this.titleBarContent()
       })
     }
-    .backgroundColor($r('sys.color.background_secondary'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .width('100%')
+    .height('100%')
     .padding({ top: this.globalInfoModel.statusBarHeight })
+    .backgroundColor($r('sys.color.background_secondary'))
+    .clip(true)
     .geometryTransition('healthCard')
     .transition(TransitionEffect.OPACITY)
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 
   private statusText(level: StatusLevel): string {

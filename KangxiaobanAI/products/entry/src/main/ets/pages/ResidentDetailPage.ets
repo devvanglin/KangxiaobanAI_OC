@@ -27,7 +27,8 @@ import {
   HealthRecord,
   MoodRecord,
   ResidentData,
-  RoomDeviceData
+  RoomDeviceData,
+  StatusLevel
 } from '../model/DetailTypes';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { StorageKey } from '../common/CommonConstants';
@@ -35,6 +36,7 @@ import { StorageKey } from '../common/CommonConstants';
 @ComponentV2
 export struct ResidentDetailPage {
   @Param @Require resident: ResidentData;
+  @Param @Require geometryId: string;
   @Event onClose: () => void = () => {};
   @Local residentTabIndex: number = 0;
   @Local globalInfoModel: GlobalInfoModel =
@@ -71,79 +73,112 @@ export struct ResidentDetailPage {
     };
   }
 
+  private statusColor(level: StatusLevel): ResourceColor {
+    if (level === 'danger') {
+      return '#D92B2B';
+    }
+    if (level === 'warning') {
+      return '#F5A623';
+    }
+    return '#2FA84F';
+  }
+
+  private statusBg(level: StatusLevel): ResourceColor {
+    if (level === 'danger') {
+      return '#FCE8E8';
+    }
+    if (level === 'warning') {
+      return '#FDF3E0';
+    }
+    return '#E5F5EA';
+  }
+
+  private statusText(level: StatusLevel): string {
+    if (level === 'danger') {
+      return '危险';
+    }
+    if (level === 'warning') {
+      return '关注';
+    }
+    return '稳定';
+  }
+
   build() {
     Column() {
       HdsNavDestination() {
-        Tabs({ barPosition: BarPosition.Start, index: this.residentTabIndex, controller: this.tabsController }) {
-          TabContent() {
-            Scroll() {
-              Column({ space: 16 }) {
-                this.residentBasicInfo()
-              }
-              .width('100%')
-              .padding({ left: 16, right: 16, top: 16, bottom: 16 })
-            }
-            .scrollBar(BarState.Off)
-            .edgeEffect(EdgeEffect.Spring)
-            .clipContent(ContentClipMode.SAFE_AREA)
-            .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-          }
-          .tabBar(SubTabBarStyle.of('概要'))
+        Column({ space: 16 }) {
+          this.residentHeroCard()
 
-          TabContent() {
-            Scroll() {
-              Column({ space: 16 }) {
-                this.residentHealthTimeline()
+          Tabs({ barPosition: BarPosition.Start, index: this.residentTabIndex, controller: this.tabsController }) {
+            TabContent() {
+              Scroll() {
+                Column({ space: 16 }) {
+                  this.residentBasicInfo()
+                }
+                .width('100%')
+                .padding({ left: 16, right: 16, top: 0, bottom: 36 })
               }
-              .width('100%')
-              .padding({ left: 16, right: 16, top: 16, bottom: 16 })
+              .scrollBar(BarState.Off)
+              .edgeEffect(EdgeEffect.Spring)
+              .clipContent(ContentClipMode.SAFE_AREA)
             }
-            .scrollBar(BarState.Off)
-            .edgeEffect(EdgeEffect.Spring)
-            .clipContent(ContentClipMode.SAFE_AREA)
-            .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-          }
-          .tabBar(SubTabBarStyle.of('健康'))
+            .tabBar(SubTabBarStyle.of('概要'))
 
-          TabContent() {
-            Scroll() {
-              Column({ space: 16 }) {
-                this.residentMoodList()
+            TabContent() {
+              Scroll() {
+                Column({ space: 16 }) {
+                  this.residentHealthTimeline()
+                }
+                .width('100%')
+                .padding({ left: 16, right: 16, top: 0, bottom: 36 })
               }
-              .width('100%')
-              .padding({ left: 16, right: 16, top: 16, bottom: 16 })
+              .scrollBar(BarState.Off)
+              .edgeEffect(EdgeEffect.Spring)
+              .clipContent(ContentClipMode.SAFE_AREA)
             }
-            .scrollBar(BarState.Off)
-            .edgeEffect(EdgeEffect.Spring)
-            .clipContent(ContentClipMode.SAFE_AREA)
-            .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-          }
-          .tabBar(SubTabBarStyle.of('情绪'))
+            .tabBar(SubTabBarStyle.of('健康'))
 
-          TabContent() {
-            Scroll() {
-              Column({ space: 16 }) {
-                this.residentDeviceTable(this.residentDevices())
+            TabContent() {
+              Scroll() {
+                Column({ space: 16 }) {
+                  this.residentMoodList()
+                }
+                .width('100%')
+                .padding({ left: 16, right: 16, top: 0, bottom: 36 })
               }
-              .width('100%')
-              .padding({ left: 16, right: 16, top: 16, bottom: 16 })
+              .scrollBar(BarState.Off)
+              .edgeEffect(EdgeEffect.Spring)
+              .clipContent(ContentClipMode.SAFE_AREA)
             }
-            .scrollBar(BarState.Off)
-            .edgeEffect(EdgeEffect.Spring)
-            .clipContent(ContentClipMode.SAFE_AREA)
-            .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+            .tabBar(SubTabBarStyle.of('情绪'))
+
+            TabContent() {
+              Scroll() {
+                Column({ space: 16 }) {
+                  this.residentDeviceTable(this.residentDevices())
+                }
+                .width('100%')
+                .padding({ left: 16, right: 16, top: 0, bottom: 36 })
+              }
+              .scrollBar(BarState.Off)
+              .edgeEffect(EdgeEffect.Spring)
+              .clipContent(ContentClipMode.SAFE_AREA)
+            }
+            .tabBar(SubTabBarStyle.of('设备'))
           }
-          .tabBar(SubTabBarStyle.of('设备'))
+          .barMode(BarMode.Fixed)
+          .onChange((index: number) => {
+            this.residentTabIndex = index;
+          })
+          .layoutWeight(1)
         }
-        .barMode(BarMode.Fixed)
-        .onChange((index: number) => {
-          this.residentTabIndex = index;
-        })
+        .width('100%')
         .height('100%')
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+        .backgroundColor($r('sys.color.background_secondary'))
+        .geometryTransition(this.geometryId)
       }
-      .backgroundColor($r('sys.color.background_secondary'))
-      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+      .backgroundColor('rgba(0,0,0,0)')
+      .transition(TransitionEffect.OPACITY)
       .hideBackButton(true)
       .titleBar({
         enableComponentSafeArea: true,
@@ -151,11 +186,59 @@ export struct ResidentDetailPage {
         content: this.titleBarContent()
       })
     }
-    .backgroundColor($r('sys.color.background_secondary'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .width('100%')
+    .height('100%')
     .padding({ top: this.globalInfoModel.statusBarHeight })
-    .geometryTransition(this.resident.id)
-    .transition(TransitionEffect.OPACITY)
+    .backgroundColor($r('sys.color.background_secondary'))
+    .clip(true)
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+  }
+
+  @Builder
+  private residentHeroCard() {
+    Column({ space: 12 }) {
+      Row({ space: 12 }) {
+        Column({ space: 6 }) {
+          Text(this.resident.name)
+            .fontSize($r('sys.float.Title_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+          Text(`${this.resident.age}岁 · ${this.resident.room} · ${this.resident.bed}`)
+            .fontSize($r('sys.float.Body_S'))
+            .fontColor($r('sys.color.font_secondary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        Text(this.statusText(this.resident.level))
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor(this.statusColor(this.resident.level))
+          .padding({ left: 8, right: 8, top: 2, bottom: 2 })
+          .backgroundColor(this.statusBg(this.resident.level))
+          .borderRadius(4)
+      }
+      .width('100%')
+
+      Text(this.resident.status)
+        .fontSize($r('sys.float.Body_S'))
+        .fontColor($r('sys.color.font_secondary'))
+        .maxLines(2)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 16, bottom: 16 })
+    .margin({ left: 16, right: 16, top: 16 })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(16)
+    .border({
+      width: 0.5,
+      color: $r('sys.color.comp_divider')
+    })
   }
 
   @Builder

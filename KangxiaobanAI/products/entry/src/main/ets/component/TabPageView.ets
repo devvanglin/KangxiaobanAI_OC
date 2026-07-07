@@ -35,7 +35,6 @@ import {
   ResidentData,
   StatusLevel
 } from '../model/DetailTypes';
-import { ResidentDetailPage } from '../pages/ResidentDetailPage';
 import { HealthExpandPage } from '../pages/HealthExpandPage';
 
 type TaskSource = 'ai' | 'elder' | 'staff';
@@ -117,6 +116,7 @@ export struct TabPageView {
   @Param @Require pageKey: PageKeyEnum;
   @Param @Require config: TabPageConfig;
   @Param onOpenSearch: () => void = () => {};
+  @Event onOpenResidentDetail: (resident: ResidentData, geometryId: string) => void = () => {};
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
   @Local homeSearchState: HomeSearchState =
@@ -131,11 +131,6 @@ export struct TabPageView {
   @Local homeSearchText: string = '';
   @Local isSearchPageShow: boolean = false;
   @Local geometryId: string = '';
-  @Local isResidentDetailShow: boolean = false;
-  @Local selectedResident: ResidentData = {
-    id: '', name: '', age: 0, room: '', bed: '', level: 'normal',
-    status: '', emergencyContact: '', emergencyPhone: '', admissionDate: '', deviceIds: []
-  };
   @Local isHealthExpandShow: boolean = false;
 
   @Monitor('homeSearchState.searchTrigger')
@@ -147,23 +142,6 @@ export struct TabPageView {
     }, () => {
       this.isSearchPageShow = true;
       this.homeSearchState.isSearchOpen = true;
-    })
-  }
-
-  private openResidentDetail(resident: ResidentData): void {
-    this.selectedResident = resident;
-    this.getUIContext().animateTo({
-      curve: curves.interpolatingSpring(0, 1, 328, 36)
-    }, () => {
-      this.isResidentDetailShow = true;
-    })
-  }
-
-  private closeResidentDetail(): void {
-    this.getUIContext().animateTo({
-      curve: curves.interpolatingSpring(0, 1, 342, 38)
-    }, () => {
-      this.isResidentDetailShow = false;
     })
   }
 
@@ -559,6 +537,20 @@ export struct TabPageView {
     return this.deviceRows().filter((item: DeviceRowData) => item.level === 'normal').length;
   }
 
+  private residentCardHeight(): number {
+    return 108;
+  }
+
+  private residentPriorityText(level: StatusLevel): string {
+    if (level === 'danger') {
+      return '危险';
+    }
+    if (level === 'warning') {
+      return '关注';
+    }
+    return '稳定';
+  }
+
   @Builder
   private overviewGrid() {
     Grid() {
@@ -662,50 +654,55 @@ export struct TabPageView {
 
   // ---------------- resident builders ----------------
 
+  private residentGeometryId(id: string): string {
+    return `resident_geo_${id}`;
+  }
+
   @Builder
   private residentListRow(item: ResidentData, isLast: boolean) {
     ListItem() {
-      Column({ space: 0 }) {
-        if (this.isResidentDetailShow && this.selectedResident.id === item.id) {
-          Column()
-            .width('100%')
-            .height(52)
-        } else {
-          Column({ space: 0 }) {
-            HdsListItemCard({
-              textItem: {
-                primaryText: {
-                  text: item.name
-                },
-                secondaryText: {
-                  text: `${item.age}岁 · ${item.room} · ${item.bed}`
-                }
-              },
-              suffixItem: new SuffixText({
-                text: item.status
-              }),
-              cardBorderRadius: 0,
-              cardBackgroundColor: 'rgba(0,0,0,0)',
-              cardHeight: 52,
-              cardPrefixMargin: 0,
-              cardSuffixMargin: 0,
-              onClick: () => {
-                this.openResidentDetail(item);
-              }
-            })
-          }
-          .width('100%')
-          .geometryTransition(item.id, { follow: true })
-        }
+      Column({ space: 12 }) {
+        Row({ space: 12 }) {
+          Column({ space: 6 }) {
+            Text(item.name)
+              .fontSize($r('sys.float.Subtitle_M'))
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
 
-        if (!isLast) {
-          Divider()
-            .width('100%')
-            .height(0.5)
-            .color($r('sys.color.comp_divider'))
+            Text(`${item.age}岁 · ${item.room} · ${item.bed}`)
+              .fontSize($r('sys.float.Body_S'))
+              .fontColor($r('sys.color.font_secondary'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+          }
+          .layoutWeight(1)
+          .alignItems(HorizontalAlign.Start)
+
+          this.statusTag(this.residentPriorityText(item.level), item.level)
         }
+        .width('100%')
+
+        Text(item.status)
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
       .width('100%')
+      .height(this.residentCardHeight())
+      .padding({ left: 16, right: 16, top: 16, bottom: 16 })
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(16)
+      .border({
+        width: 0.5,
+        color: $r('sys.color.comp_divider')
+      })
+      .geometryTransition(this.residentGeometryId(item.id), { follow: true })
+      .onClick(() => {
+        this.onOpenResidentDetail(item, this.residentGeometryId(item.id));
+      })
     }
     .padding({ left: 16, right: 16 })
   }
@@ -1312,7 +1309,7 @@ export struct TabPageView {
           .padding(12)
           .backgroundColor($r('sys.color.background_secondary'))
 
-          List({ scroller: this.currentScroller(), space: 0 }) {
+          List({ scroller: this.currentScroller(), space: 12 }) {
             Repeat(this.filteredResidents())
               .each((repeatItem: RepeatItem<ResidentData>) => {
                 this.residentListRow(
@@ -1320,12 +1317,12 @@ export struct TabPageView {
                   repeatItem.index === this.filteredResidents().length - 1
                 )
               })
+              .key((item: ResidentData) => item.id)
           }
           .width('100%')
           .layoutWeight(1)
-          .backgroundColor($r('sys.color.comp_background_primary'))
-          .borderRadius(16)
-          .clip(true)
+          .padding({ bottom: 8 })
+          .backgroundColor($r('sys.color.background_secondary'))
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring)
         }
@@ -1351,26 +1348,22 @@ export struct TabPageView {
           top: this.contentTopPadding()
         })
 
+        Repeat(this.filteredResidents())
+          .each((repeatItem: RepeatItem<ResidentData>) => {
+            this.residentListRow(
+              repeatItem.item,
+              repeatItem.index === this.filteredResidents().length - 1
+            )
+          })
+          .key((item: ResidentData) => item.id)
+
         ListItem() {
-          List({ space: 0 }) {
-            Repeat(this.filteredResidents())
-              .each((repeatItem: RepeatItem<ResidentData>) => {
-                this.residentListRow(
-                  repeatItem.item,
-                  repeatItem.index === this.filteredResidents().length - 1
-                )
-              })
+          Column() {
+            Blank()
           }
+          .height(this.bottomPadding())
           .width('100%')
-          .backgroundColor($r('sys.color.comp_background_primary'))
-          .borderRadius(16)
-          .clip(true)
         }
-        .padding({
-          left: this.pagePadding(),
-          right: this.pagePadding(),
-          bottom: this.bottomPadding()
-        })
       }
       .width('100%')
       .height('100%')
@@ -1947,16 +1940,6 @@ export struct TabPageView {
   }
 
   @Builder
-  private residentDetailCover() {
-    ResidentDetailPage({
-      resident: this.selectedResident,
-      onClose: () => {
-        this.closeResidentDetail();
-      }
-    })
-  }
-
-  @Builder
   private healthExpandCover() {
     HealthExpandPage({
       onClose: () => {
@@ -1979,8 +1962,6 @@ export struct TabPageView {
     }
     .width('100%')
     .height('100%')
-    .bindContentCover(this.isResidentDetailShow, this.residentDetailCover,
-      { modalTransition: ModalTransition.NONE, backgroundColor: 'rgba(0,0,0,0)' })
     .bindContentCover(this.isHealthExpandShow, this.healthExpandCover,
       { modalTransition: ModalTransition.NONE, backgroundColor: 'rgba(0,0,0,0)' })
   }
