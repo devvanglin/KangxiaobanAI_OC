@@ -52,10 +52,8 @@ export struct ResidentDetailPage {
   @Param @Require resident: ResidentData;
   @Param @Require geometryId: string;
   @Event onClose: () => void = () => {};
-  @Local residentTabIndex: number = 0;
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
-  private tabsController: TabsController = new TabsController();
 
   private titleBarStyle(): TitleBarStyleOptions {
     return {
@@ -144,115 +142,47 @@ export struct ResidentDetailPage {
   build() {
     Column() {
       HdsNavDestination() {
-        Column({ space: 12 }) {
-          this.residentHeroCard()
-
-          Tabs({ barPosition: BarPosition.Start, index: this.residentTabIndex, controller: this.tabsController }) {
-            TabContent() {
-              Scroll() {
-                Column({ space: 12 }) {
-                  this.summaryTab()
-                }
-                .width('100%')
-                .padding({ left: 16, right: 16, top: 4, bottom: 36 })
-              }
-              .scrollBar(BarState.Off)
-              .edgeEffect(EdgeEffect.Spring)
-              .clipContent(ContentClipMode.SAFE_AREA)
-              .width('100%')
-              .height('100%')
+        Scroll() {
+          Column({ space: 12 }) {
+            // 状态概览（无姓名，姓名在标题栏）
+            this.statusOverviewCard()
+            // 过敏警示（如有）
+            if (this.resident.allergies.length > 0) {
+              this.allergyAlertCard()
             }
-            .tabBar(SubTabBarStyle.of('概要'))
-
-            TabContent() {
-              Scroll() {
-                Column({ space: 12 }) {
-                  this.monitorTab()
-                }
-                .width('100%')
-                .padding({ left: 16, right: 16, top: 4, bottom: 36 })
-              }
-              .scrollBar(BarState.Off)
-              .edgeEffect(EdgeEffect.Spring)
-              .clipContent(ContentClipMode.SAFE_AREA)
-              .width('100%')
-              .height('100%')
-            }
-            .tabBar(SubTabBarStyle.of('监测'))
-
-            TabContent() {
-              Scroll() {
-                Column({ space: 12 }) {
-                  this.deviceTab()
-                }
-                .width('100%')
-                .padding({ left: 16, right: 16, top: 4, bottom: 36 })
-              }
-              .scrollBar(BarState.Off)
-              .edgeEffect(EdgeEffect.Spring)
-              .clipContent(ContentClipMode.SAFE_AREA)
-              .width('100%')
-              .height('100%')
-            }
-            .tabBar(SubTabBarStyle.of('设备'))
-
-            TabContent() {
-              Scroll() {
-                Column({ space: 12 }) {
-                  this.moodTab()
-                }
-                .width('100%')
-                .padding({ left: 16, right: 16, top: 4, bottom: 36 })
-              }
-              .scrollBar(BarState.Off)
-              .edgeEffect(EdgeEffect.Spring)
-              .clipContent(ContentClipMode.SAFE_AREA)
-              .width('100%')
-              .height('100%')
-            }
-            .tabBar(SubTabBarStyle.of('心情'))
-
-            TabContent() {
-              Scroll() {
-                Column({ space: 12 }) {
-                  this.footprintTab()
-                }
-                .width('100%')
-                .padding({ left: 16, right: 16, top: 4, bottom: 36 })
-              }
-              .scrollBar(BarState.Off)
-              .edgeEffect(EdgeEffect.Spring)
-              .clipContent(ContentClipMode.SAFE_AREA)
-              .width('100%')
-              .height('100%')
-            }
-            .tabBar(SubTabBarStyle.of('足迹'))
-
-            TabContent() {
-              Scroll() {
-                Column({ space: 12 }) {
-                  this.careTab()
-                }
-                .width('100%')
-                .padding({ left: 16, right: 16, top: 4, bottom: 36 })
-              }
-              .scrollBar(BarState.Off)
-              .edgeEffect(EdgeEffect.Spring)
-              .clipContent(ContentClipMode.SAFE_AREA)
-              .width('100%')
-              .height('100%')
-            }
-            .tabBar(SubTabBarStyle.of('照护'))
+            // 生命体征网格
+            this.vitalSignGrid()
+            // 体征趋势
+            this.vitalTrendCard()
+            // 房间监控
+            this.monitorEntryCard()
+            // 用药管理
+            this.medicationCard()
+            // 今日护理任务
+            this.careTaskCard()
+            // 今日膳食
+            this.mealCard()
+            // 今日足迹
+            this.footprintCard()
+            // 情绪记录
+            this.moodCard()
+            // IoT 设备
+            this.deviceCard()
+            // 风险评估
+            this.riskAssessmentCard()
+            // 基础信息
+            this.basicInfoCard()
+            // 近期报警
+            this.alertHistoryCard()
           }
-          .barMode(BarMode.Scrollable)
-          .onChange((index: number) => {
-            this.residentTabIndex = index;
-          })
-          .layoutWeight(1)
+          .width('100%')
+          .padding({ left: 16, right: 16, top: 12, bottom: 36 })
         }
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
+        .clipContent(ContentClipMode.SAFE_AREA)
         .width('100%')
         .height('100%')
-        .backgroundColor($r('sys.color.background_secondary'))
       }
       .backgroundColor($r('sys.color.background_secondary'))
       .hideBackButton(true)
@@ -272,80 +202,70 @@ export struct ResidentDetailPage {
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 
-  // ---------------- 顶部信息卡 ----------------
+  // ---------------- 状态概览（无姓名，标题栏已有） ----------------
 
   @Builder
-  private residentHeroCard() {
-    Column({ space: 10 }) {
-      Row({ space: 12 }) {
-        Column({ space: 4 }) {
-          Text(this.resident.name)
-            .fontSize($r('sys.float.Title_M'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
+  private statusOverviewCard() {
+    Column({ space: 12 }) {
+      Row() {
+        Text(`${this.resident.age}岁 · ${this.genderText(this.resident.gender)} · ${this.resident.room} ${this.resident.bed}`)
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_secondary'))
+          .layoutWeight(1)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
 
-          Text(`${this.resident.age}岁 · ${this.genderText(this.resident.gender)} · ${this.resident.room} · ${this.resident.bed}`)
-            .fontSize($r('sys.float.Body_S'))
-            .fontColor($r('sys.color.font_secondary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
+        Text(this.resident.careLevel)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_tertiary'))
+          .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+          .backgroundColor($r('sys.color.comp_background_tertiary'))
+          .borderRadius(6)
+          .margin({ right: 6 })
 
-        Column({ space: 4 }) {
-          Text(this.statusText(this.resident.level))
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor(this.statusColor(this.resident.level))
-            .padding({ left: 8, right: 8, top: 2, bottom: 2 })
-            .backgroundColor(this.statusBg(this.resident.level))
-            .borderRadius(4)
-          Text(this.resident.careLevel)
-            .fontSize($r('sys.float.Caption_S'))
-            .fontColor($r('sys.color.font_tertiary'))
-        }
-        .alignItems(HorizontalAlign.End)
+        Text(this.statusText(this.resident.level))
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor(this.statusColor(this.resident.level))
+          .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+          .backgroundColor(this.statusBg(this.resident.level))
+          .borderRadius(6)
       }
       .width('100%')
+      .alignItems(VerticalAlign.Center)
 
       Text(this.resident.status)
         .fontSize($r('sys.float.Body_S'))
         .fontColor($r('sys.color.font_secondary'))
         .maxLines(2)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+      if (this.resident.diagnosis.length > 0) {
+        Row({ space: 6 }) {
+          ForEach(this.resident.diagnosis, (item: string, index: number) => {
+            Text(item)
+              .fontSize($r('sys.float.Caption_M'))
+              .fontColor($r('sys.color.font_secondary'))
+              .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+              .backgroundColor($r('sys.color.comp_background_tertiary'))
+              .borderRadius(6)
+          }, (item: string, index: number) => index.toString())
+        }
+        .width('100%')
+      }
     }
     .width('100%')
     .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-    .margin({ left: 16, right: 16, top: 12 })
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(16)
-    .border({
-      width: 0.5,
-      color: $r('sys.color.comp_divider')
-    })
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
-  // ---------------- 概要 Tab ----------------
-
-  @Builder
-  private summaryTab() {
-    this.basicInfoCard()
-    this.emergencyContactCard()
-    if (this.resident.allergies.length > 0) {
-      this.allergyAlertCard()
-    }
-    this.diagnosisCard()
-    this.riskAssessmentCard()
-    this.alertHistoryCard()
-  }
+  // ---------------- 基础信息 ----------------
 
   @Builder
   private basicInfoCard() {
     Column({ space: 0 }) {
       this.sectionTitle('基础信息')
-      this.descriptionRow('姓名', this.resident.name, false)
       this.descriptionRow('性别', this.genderText(this.resident.gender), false)
       this.descriptionRow('年龄', `${this.resident.age}岁`, false)
       this.descriptionRow('房间床号', `${this.resident.room} ${this.resident.bed}`, false)
@@ -416,29 +336,6 @@ export struct ResidentDetailPage {
     .backgroundColor('#FFF5F5')
     .borderRadius(16)
     .border({ width: 0.5, color: '#F5C2C2' })
-  }
-
-  @Builder
-  private diagnosisCard() {
-    Column({ space: 8 }) {
-      this.sectionTitle('诊断')
-      Row({ space: 6 }) {
-        ForEach(this.resident.diagnosis, (item: string, index: number) => {
-          Text(item)
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_secondary'))
-            .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-            .backgroundColor($r('sys.color.comp_background_tertiary'))
-            .borderRadius(6)
-        }, (item: string, index: number) => index.toString())
-      }
-      .width('100%')
-    }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 4, bottom: 12 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   @Builder
@@ -519,13 +416,6 @@ export struct ResidentDetailPage {
   }
 
   // ---------------- 监测 Tab ----------------
-
-  @Builder
-  private monitorTab() {
-    this.vitalSignGrid()
-    this.vitalTrendCard()
-    this.monitorEntryCard()
-  }
 
   @Builder
   private vitalSignGrid() {
@@ -704,10 +594,10 @@ export struct ResidentDetailPage {
     .width('100%')
   }
 
-  // ---------------- 设备 Tab ----------------
+  // ---------------- IoT 设备 ----------------
 
   @Builder
-  private deviceTab() {
+  private deviceCard() {
     Column({ space: 0 }) {
       this.sectionTitle('IoT 设备')
       Column({ space: 0 }) {
@@ -746,10 +636,10 @@ export struct ResidentDetailPage {
     .width('100%')
   }
 
-  // ---------------- 心情 Tab ----------------
+  // ---------------- 情绪记录 ----------------
 
   @Builder
-  private moodTab() {
+  private moodCard() {
     Column({ space: 0 }) {
       this.sectionTitle('情绪记录')
       Column({ space: 0 }) {
@@ -786,10 +676,10 @@ export struct ResidentDetailPage {
     .width('100%')
   }
 
-  // ---------------- 足迹 Tab ----------------
+  // ---------------- 今日足迹 ----------------
 
   @Builder
-  private footprintTab() {
+  private footprintCard() {
     Column({ space: 0 }) {
       this.sectionTitle('今日足迹')
       Column({ space: 0 }) {
@@ -826,14 +716,7 @@ export struct ResidentDetailPage {
     .width('100%')
   }
 
-  // ---------------- 照护 Tab ----------------
-
-  @Builder
-  private careTab() {
-    this.medicationCard()
-    this.careTaskCard()
-    this.mealCard()
-  }
+  // ---------------- 用药管理 ----------------
 
   @Builder
   private medicationCard() {
