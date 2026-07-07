@@ -696,61 +696,48 @@ export struct TabPageView {
   @Builder
   private residentListRow(item: ResidentData, isLast: boolean) {
     ListItem() {
-      if (this.isResidentDetailShow && this.selectedResidentId === item.id) {
-        Column()
-          .width('100%')
-          .height(this.residentCardHeight())
-          .backgroundColor($r('sys.color.comp_background_primary'))
-          .borderRadius(16)
-          .border({
-            width: 0,
-            color: $r('sys.color.comp_background_list_card'),
-            radius: 16
-          })
-      } else {
-        Column({ space: 12 }) {
-          Row({ space: 12 }) {
-            Column({ space: 6 }) {
-              Text(item.name)
-                .fontSize($r('sys.float.Subtitle_M'))
-                .fontWeight(FontWeight.Medium)
-                .fontColor($r('sys.color.font_primary'))
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
+      Column({ space: 12 }) {
+        Row({ space: 12 }) {
+          Column({ space: 6 }) {
+            Text(item.name)
+              .fontSize($r('sys.float.Subtitle_M'))
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
 
-              Text(`${item.age}岁 · ${item.room} · ${item.bed}`)
-                .fontSize($r('sys.float.Body_S'))
-                .fontColor($r('sys.color.font_secondary'))
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-            }
-            .layoutWeight(1)
-            .alignItems(HorizontalAlign.Start)
-
-            this.statusTag(this.residentPriorityText(item.level), item.level)
+            Text(`${item.age}岁 · ${item.room} · ${item.bed}`)
+              .fontSize($r('sys.float.Body_S'))
+              .fontColor($r('sys.color.font_secondary'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
           }
-          .width('100%')
+          .layoutWeight(1)
+          .alignItems(HorizontalAlign.Start)
 
-          Text(item.status)
-            .fontSize($r('sys.float.Body_S'))
-            .fontColor($r('sys.color.font_secondary'))
-            .maxLines(2)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          this.statusTag(this.residentPriorityText(item.level), item.level)
         }
         .width('100%')
-        .height(this.residentCardHeight())
-        .padding({ left: 16, right: 16, top: 16, bottom: 16 })
-        .backgroundColor($r('sys.color.comp_background_primary'))
-        .borderRadius(16)
-        .border({
-          width: 0.5,
-          color: $r('sys.color.comp_divider')
-        })
-        .geometryTransition(this.residentGeometryId(item.id), { follow: true })
-        .onClick(() => {
-          this.openResidentDetail(item);
-        })
+
+        Text(item.status)
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
+      .width('100%')
+      .height(this.residentCardHeight())
+      .padding({ left: 16, right: 16, top: 16, bottom: 16 })
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(16)
+      .border({
+        width: 0.5,
+        color: $r('sys.color.comp_divider')
+      })
+      .geometryTransition(this.residentGeometryId(item.id), { follow: true })
+      .onClick(() => {
+        this.openResidentDetail(item);
+      })
     }
     .padding({ left: 16, right: 16 })
   }
