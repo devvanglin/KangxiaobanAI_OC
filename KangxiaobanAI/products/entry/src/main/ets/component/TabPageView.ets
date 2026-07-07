@@ -32,6 +32,7 @@ import { DeviceListCard, DeviceListCardData, DeviceListCardRow } from './DeviceL
 import { EventListCard, EventListCardData, EventListCardRow } from './EventListCard';
 import {
   HealthRowData,
+  MedicationProgress,
   ResidentData,
   StatusLevel,
   VitalSign
@@ -594,7 +595,7 @@ export struct TabPageView {
   }
 
   private residentCardHeight(): number {
-    return 132;
+    return 148;
   }
 
   private residentPriorityText(level: StatusLevel): string {
@@ -644,8 +645,8 @@ export struct TabPageView {
   }
 
   /** 模拟今日用药进度（已完成/总数） */
-  private residentMedicationProgress(resident: ResidentData): { done: number; total: number } {
-    const map: Record<string, { done: number; total: number }> = {
+  private residentMedicationProgress(resident: ResidentData): MedicationProgress {
+    const map: Record<string, MedicationProgress> = {
       'r1': { done: 3, total: 5 },
       'r2': { done: 4, total: 4 },
       'r3': { done: 2, total: 6 },
@@ -765,25 +766,25 @@ export struct TabPageView {
   @Builder
   private residentListRow(item: ResidentData, isLast: boolean) {
     ListItem() {
-      Column({ space: 10 }) {
+      Column({ space: 12 }) {
         // 行1：姓名 + 年龄·性别 + 房间床号 + 状态色块 + 更新时间
         Row() {
           Text(item.name)
-            .fontSize($r('sys.float.Subtitle_M'))
+            .fontSize($r('sys.float.Subtitle_L'))
             .fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary'))
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
 
           Text(`${item.age}岁·${item.gender === 'male' ? '男' : '女'}`)
-            .fontSize($r('sys.float.Caption_M'))
+            .fontSize($r('sys.float.Body_S'))
             .fontColor($r('sys.color.font_secondary'))
-            .margin({ left: 6 })
+            .margin({ left: 8 })
 
           Text(`${item.room} ${item.bed}`)
-            .fontSize($r('sys.float.Caption_M'))
+            .fontSize($r('sys.float.Body_S'))
             .fontColor($r('sys.color.font_secondary'))
-            .margin({ left: 6 })
+            .margin({ left: 8 })
             .layoutWeight(1)
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -791,20 +792,20 @@ export struct TabPageView {
           Text(this.residentPriorityText(item.level))
             .fontSize($r('sys.float.Caption_M'))
             .fontColor(this.statusColor(item.level))
-            .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+            .padding({ left: 8, right: 8, top: 3, bottom: 3 })
             .backgroundColor(this.statusBg(item.level))
-            .borderRadius(4)
+            .borderRadius(6)
             .margin({ right: 6 })
 
           Text(this.residentVitalSign(item).measuredAt)
-            .fontSize($r('sys.float.Caption_S'))
+            .fontSize($r('sys.float.Caption_M'))
             .fontColor($r('sys.color.font_tertiary'))
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)
 
         // 行2：状态描述 + 诊断标签
-        Row({ space: 6 }) {
+        Row({ space: 8 }) {
           Text(item.status)
             .fontSize($r('sys.float.Body_S'))
             .fontColor($r('sys.color.font_secondary'))
@@ -814,7 +815,7 @@ export struct TabPageView {
 
           if (item.diagnosis.length > 0) {
             Text(item.diagnosis.slice(0, 2).join('·'))
-              .fontSize($r('sys.float.Caption_S'))
+              .fontSize($r('sys.float.Caption_M'))
               .fontColor($r('sys.color.font_tertiary'))
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -823,18 +824,27 @@ export struct TabPageView {
         .width('100%')
         .alignItems(VerticalAlign.Center)
 
-        // 行3：核心体征数字（心率/血压/步数/用药）
-        Row() {
-          this.vitalMiniItem('心率', `${this.residentVitalSign(item).heartRate}`, 'bpm')
-          this.vitalMiniItem('血压', `${this.residentVitalSign(item).systolic}/${this.residentVitalSign(item).diastolic}`, 'mmHg')
-          this.vitalMiniItem('步数', `${this.residentVitalSign(item).steps}`, '步')
-          this.residentMedicationMini(item)
+        // 行3：核心体征（心率/血压/步数/用药），顶部细分隔线 + 居中列 + 列间竖分隔
+        Column({ space: 8 }) {
+          Divider()
+            .strokeWidth(0.5)
+            .color($r('sys.color.comp_divider'))
+
+          Row() {
+            this.vitalMiniItem('心率', `${this.residentVitalSign(item).heartRate}`, 'bpm', this.heartRateMiniLevel(item), false)
+            this.vitalMiniItem('血压', `${this.residentVitalSign(item).systolic}/${this.residentVitalSign(item).diastolic}`, '', this.bpMiniLevel(item), false)
+            this.vitalMiniItem('步数', `${this.residentVitalSign(item).steps}`, '步', 'normal', false)
+            this.vitalMiniItem('用药', `${this.residentMedicationProgress(item).done}/${this.residentMedicationProgress(item).total}`, '次', 'normal', true)
+          }
+          .width('100%')
+          .layoutWeight(1)
         }
         .width('100%')
+        .layoutWeight(1)
       }
       .width('100%')
       .height(this.residentCardHeight())
-      .padding({ left: 14, right: 14, top: 12, bottom: 12 })
+      .padding({ left: 14, right: 14, top: 14, bottom: 14 })
       .backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius(16)
       .border({
@@ -849,46 +859,61 @@ export struct TabPageView {
     .padding({ left: 16, right: 16 })
   }
 
-  @Builder
-  private vitalMiniItem(label: string, value: string, unit: string) {
-    Column({ space: 1 }) {
-      Row({ space: 2 }) {
-        Text(value)
-          .fontSize($r('sys.float.Body_M'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-        Text(unit)
-          .fontSize($r('sys.float.Caption_S'))
-          .fontColor($r('sys.color.font_tertiary'))
-      }
-      .alignItems(VerticalAlign.Bottom)
-      Text(label)
-        .fontSize($r('sys.float.Caption_S'))
-        .fontColor($r('sys.color.font_tertiary'))
+  private heartRateMiniLevel(item: ResidentData): StatusLevel {
+    const hr: number = this.residentVitalSign(item).heartRate;
+    if (hr > 100 || hr < 60) {
+      return 'warning';
     }
-    .layoutWeight(1)
-    .alignItems(HorizontalAlign.Start)
+    return 'normal';
+  }
+
+  private bpMiniLevel(item: ResidentData): StatusLevel {
+    const s: number = this.residentVitalSign(item).systolic;
+    if (s >= 140) {
+      return 'danger';
+    }
+    if (s >= 130) {
+      return 'warning';
+    }
+    return 'normal';
   }
 
   @Builder
-  private residentMedicationMini(item: ResidentData) {
-    Column({ space: 1 }) {
-      Row({ space: 2 }) {
-        Text(`${this.residentMedicationProgress(item).done}/${this.residentMedicationProgress(item).total}`)
-          .fontSize($r('sys.float.Body_M'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-        Text('次')
+  private vitalMiniItem(label: string, value: string, unit: string, level: StatusLevel, isLast: boolean) {
+    Row() {
+      Column({ space: 3 }) {
+        Row({ space: 2 }) {
+          Text(value)
+            .fontSize($r('sys.float.Subtitle_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor(level === 'normal' ? $r('sys.color.font_primary') : this.statusColor(level))
+          if (unit !== '') {
+            Text(unit)
+              .fontSize($r('sys.float.Caption_S'))
+              .fontColor($r('sys.color.font_tertiary'))
+          }
+        }
+        .alignItems(VerticalAlign.Bottom)
+
+        Text(label)
           .fontSize($r('sys.float.Caption_S'))
           .fontColor($r('sys.color.font_tertiary'))
       }
-      .alignItems(VerticalAlign.Bottom)
-      Text('用药')
-        .fontSize($r('sys.float.Caption_S'))
-        .fontColor($r('sys.color.font_tertiary'))
+      .layoutWeight(1)
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
+
+      if (!isLast) {
+        Divider()
+          .vertical(true)
+          .strokeWidth(0.5)
+          .color($r('sys.color.comp_divider'))
+          .height(28)
+      }
     }
     .layoutWeight(1)
-    .alignItems(HorizontalAlign.Start)
+    .height('100%')
+    .alignItems(VerticalAlign.Center)
   }
 
   @Builder

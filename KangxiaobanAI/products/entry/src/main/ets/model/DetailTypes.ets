@@ -174,3 +174,9 @@ export interface HealthRowData {
   moodLevel: StatusLevel;
   lastUpdate: string;
 }
+
+/** 用药进度（已完成/总数） */
+export interface MedicationProgress {
+  done: number;
+  total: number;
+}
