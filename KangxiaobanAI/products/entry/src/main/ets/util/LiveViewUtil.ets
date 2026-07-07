@@ -37,8 +37,10 @@ export class LiveViewUtil {
 
   /** 加载 foreground 图标为 PixelMap（实况窗 icon 字段只接受 string | PixelMap） */
   private static async loadIconPixelMap(context: common.UIAbilityContext): Promise<image.PixelMap> {
-    const data: Uint8Array = await context.resourceManager.getMediaContent($r('app.media.foreground'));
-    return image.createPixelMap(data.buffer);
+    const data: Uint8Array = await context.resourceManager.getMediaContent($r('app.media.foreground').id);
+    const imageSource: image.ImageSource = image.createImageSource(data.buffer as ArrayBuffer);
+    const pixelMap: image.PixelMap = await imageSource.createPixelMap();
+    return pixelMap;
   }
 
   /**
