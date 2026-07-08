@@ -258,22 +258,22 @@ export struct TabPageView {
 
   private statusColor(level: StatusLevel): ResourceColor {
     if (level === 'danger') {
-      return '#D92B2B';
+      return $r('app.color.status_danger');
     }
     if (level === 'warning') {
-      return '#F5A623';
+      return $r('app.color.status_warning');
     }
-    return '#2FA84F';
+    return $r('app.color.status_normal');
   }
 
   private statusBg(level: StatusLevel): ResourceColor {
     if (level === 'danger') {
-      return '#FCE8E8';
+      return $r('app.color.status_danger_bg');
     }
     if (level === 'warning') {
-      return '#FDF3E0';
+      return $r('app.color.status_warning_bg');
     }
-    return '#E5F5EA';
+    return $r('app.color.status_normal_bg');
   }
 
   private sourceText(source: TaskSource): string {
@@ -311,15 +311,15 @@ export struct TabPageView {
 
   private eventTypeColor(type: EventType): ResourceColor {
     if (type === 'ai') {
-      return '#1D63ED';
+      return $r('app.color.brand_blue');
     }
     if (type === 'alert') {
-      return '#D92B2B';
+      return $r('app.color.status_danger');
     }
     if (type === 'care') {
-      return '#0F766E';
+      return $r('app.color.event_care');
     }
-    return '#B7791F';
+    return $r('app.color.event_family');
   }
 
   // ---------------- home data ----------------
@@ -661,7 +661,7 @@ export struct TabPageView {
     Grid() {
       GridItem() {
         this.overviewCard('入住人数',
-          `${this.bedSummary().occupied}`, `${this.bedSummary().total}`, '床', '#2FA84F')
+          `${this.bedSummary().occupied}`, `${this.bedSummary().total}`, '床', $r('app.color.status_normal'))
       }
       GridItem() {
         this.overviewCard('总床位',
@@ -669,11 +669,11 @@ export struct TabPageView {
       }
       GridItem() {
         this.overviewCard('空床位',
-          `${this.bedSummary().empty}`, `${this.bedSummary().total}`, '床', '#1D63ED')
+          `${this.bedSummary().empty}`, `${this.bedSummary().total}`, '床', $r('app.color.brand_blue'))
       }
       GridItem() {
         this.overviewCard('设备在线',
-          `${this.onlineDeviceCount()}`, `${this.deviceRows().length}`, '台', '#F5A623')
+          `${this.onlineDeviceCount()}`, `${this.deviceRows().length}`, '台', $r('app.color.status_warning'))
       }
     }
     .width('100%')
@@ -968,9 +968,9 @@ export struct TabPageView {
       ForEach(options, (label: string, index: number) => {
         Text(label)
           .fontSize($r('sys.float.Body_S'))
-          .fontColor(selected === values[index] ? $r('sys.color.font_on_primary') : $r('sys.color.font_secondary'))
+          .fontColor(selected === values[index] ? $r('app.color.text_on_brand') : $r('sys.color.font_secondary'))
           .padding({ left: 12, right: 12, top: 6, bottom: 6 })
-          .backgroundColor(selected === values[index] ? $r('sys.color.font_primary') : $r('sys.color.comp_background_primary'))
+          .backgroundColor(selected === values[index] ? $r('app.color.brand_blue') : $r('sys.color.comp_background_primary'))
           .borderRadius(6)
           .onClick(() => {
             onChange(values[index]);
@@ -990,12 +990,12 @@ export struct TabPageView {
               .fontSize($r('sys.float.Body_S'))
               .fontWeight(this.taskFilterIndex() === index ? FontWeight.Medium : FontWeight.Regular)
               .fontColor(this.taskFilterIndex() === index ?
-                $r('sys.color.font_on_primary') : $r('sys.color.font_secondary'))
+                $r('app.color.text_on_brand') : $r('sys.color.font_secondary'))
           }
           .height(36)
           .padding({ left: 16, right: 16 })
           .backgroundColor(this.taskFilterIndex() === index ?
-            $r('sys.color.font_primary') : $r('sys.color.comp_background_primary'))
+            $r('app.color.brand_blue') : $r('sys.color.comp_background_primary'))
           .borderRadius(20)
           .justifyContent(FlexAlign.Center)
           .onClick(() => {
@@ -1269,8 +1269,8 @@ export struct TabPageView {
   private actionButton(label: string, primary: boolean, onClick: () => void) {
     Button(label)
       .fontSize($r('sys.float.Body_M'))
-      .fontColor(primary ? $r('sys.color.font_on_primary') : $r('sys.color.font_primary'))
-      .backgroundColor(primary ? $r('sys.color.font_primary') : $r('sys.color.comp_background_primary'))
+      .fontColor(primary ? $r('app.color.text_on_brand') : $r('sys.color.font_primary'))
+      .backgroundColor(primary ? $r('app.color.brand_blue') : $r('sys.color.comp_background_primary'))
       .layoutWeight(1)
       .height(44)
       .onClick(onClick)
@@ -1952,10 +1952,10 @@ export struct TabPageView {
         if (item.badge) {
           Text(item.badge)
             .fontSize(10)
-            .fontColor('#FFFFFF')
+            .fontColor($r('app.color.text_on_brand'))
             .fontWeight(FontWeight.Medium)
             .padding({ left: 4, right: 4, top: 1, bottom: 1 })
-            .backgroundColor('#FF3B30')
+            .backgroundColor($r('app.color.status_danger'))
             .borderRadius(8)
             .offset({ x: 8, y: -4 })
         }

@@ -86,12 +86,12 @@ export struct HealthExpandPage {
 
   private statusColor(level: StatusLevel): ResourceColor {
     if (level === 'danger') {
-      return '#D92B2B';
+      return $r('app.color.status_danger');
     }
     if (level === 'warning') {
-      return '#F5A623';
+      return $r('app.color.status_warning');
     }
-    return '#2FA84F';
+    return $r('app.color.status_normal');
   }
 
   build() {

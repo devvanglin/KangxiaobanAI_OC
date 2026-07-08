@@ -57,22 +57,22 @@ export struct ResidentDetailPage {
 
   private statusColor(level: StatusLevel): ResourceColor {
     if (level === 'danger') {
-      return '#D92B2B';
+      return $r('app.color.status_danger');
     }
     if (level === 'warning') {
-      return '#F5A623';
+      return $r('app.color.status_warning');
     }
-    return '#2FA84F';
+    return $r('app.color.status_normal');
   }
 
   private statusBg(level: StatusLevel): ResourceColor {
     if (level === 'danger') {
-      return '#FCE8E8';
+      return $r('app.color.status_danger_bg');
     }
     if (level === 'warning') {
-      return '#FDF3E0';
+      return $r('app.color.status_warning_bg');
     }
-    return '#E5F5EA';
+    return $r('app.color.status_normal_bg');
   }
 
   private statusText(level: StatusLevel): string {
@@ -316,11 +316,11 @@ export struct ResidentDetailPage {
       Row({ space: 6 }) {
         SymbolGlyph($r('sys.symbol.exclamationmark_triangle_fill'))
           .fontSize(16)
-          .fontColor(['#D92B2B'])
+          .fontColor([$r('app.color.status_danger')])
         Text('过敏警示')
           .fontSize($r('sys.float.Body_M'))
           .fontWeight(FontWeight.Medium)
-          .fontColor('#D92B2B')
+          .fontColor($r('app.color.status_danger'))
       }
       .width('100%')
 
@@ -328,9 +328,9 @@ export struct ResidentDetailPage {
         ForEach(this.resident.allergies, (item: string, index: number) => {
           Text(item)
             .fontSize($r('sys.float.Caption_M'))
-            .fontColor('#D92B2B')
+            .fontColor($r('app.color.status_danger'))
             .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-            .backgroundColor('#FCE8E8')
+            .backgroundColor($r('app.color.status_danger_bg'))
             .borderRadius(6)
         }, (item: string, index: number) => index.toString())
       }
@@ -338,9 +338,9 @@ export struct ResidentDetailPage {
     }
     .width('100%')
     .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-    .backgroundColor('#FFF5F5')
+    .backgroundColor($r('app.color.alert_danger_bg'))
     .borderRadius(16)
-    .border({ width: 0.5, color: '#F5C2C2' })
+    .border({ width: 0.5, color: $r('app.color.alert_danger_border') })
   }
 
   @Builder

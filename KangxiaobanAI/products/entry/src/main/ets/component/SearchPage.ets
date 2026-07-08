@@ -54,12 +54,12 @@ export struct SearchPage {
         .width('100%')
         .height(48)
         .padding({ left: 14, right: 14 })
-        .backgroundColor('rgba(255,255,255,0.72)')
+        .backgroundColor($r('sys.color.comp_background_primary'))
         .backgroundBlurStyle(BlurStyle.Thin)
         .borderRadius(12)
         .border({
           width: 0.5,
-          color: 'rgba(255,255,255,0.4)'
+          color: $r('sys.color.comp_divider')
         })
         .sharedTransition('homeSearchBar', {
           duration: 350,

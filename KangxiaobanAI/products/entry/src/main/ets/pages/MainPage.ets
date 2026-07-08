@@ -149,7 +149,7 @@ struct MainPage {
   }
 
   @Builder
-  private sidebarTag(text: string, backgroundColor: ResourceColor, fontColor: ResourceColor = '#335C88') {
+  private sidebarTag(text: string, backgroundColor: ResourceColor, fontColor: ResourceColor = $r('sys.color.font_secondary')) {
     Text(text)
       .fontSize($r('sys.float.Caption_M'))
       .fontColor(fontColor)
@@ -170,11 +170,11 @@ struct MainPage {
         Row()
           .width(40)
           .height(40)
-          .backgroundColor(this.isCurrentTab(index) ? '#1D63ED' : '#F3F6FA')
+          .backgroundColor(this.isCurrentTab(index) ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
           .borderRadius(12)
         SymbolGlyph(item.symbol)
           .fontSize($r('sys.float.Body_L'))
-          .fontColor([this.isCurrentTab(index) ? '#FFFFFF' : $r('sys.color.icon_primary')])
+          .fontColor([this.isCurrentTab(index) ? $r('app.color.text_on_brand') : $r('sys.color.icon_primary')])
       }
       .width(40)
       .height(40)
@@ -183,10 +183,10 @@ struct MainPage {
         Text(item.label)
           .fontSize($r('sys.float.Body_M'))
           .fontWeight(this.isCurrentTab(index) ? FontWeight.Bold : FontWeight.Medium)
-          .fontColor(this.isCurrentTab(index) ? '#10233E' : $r('sys.color.font_primary'))
+          .fontColor(this.isCurrentTab(index) ? $r('sys.color.font_primary') : $r('sys.color.font_primary'))
         Text(item.note)
           .fontSize($r('sys.float.Caption_M'))
-          .fontColor(this.isCurrentTab(index) ? '#47617D' : $r('sys.color.font_secondary'))
+          .fontColor(this.isCurrentTab(index) ? $r('sys.color.font_secondary') : $r('sys.color.font_secondary'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
@@ -200,11 +200,11 @@ struct MainPage {
       top: 12,
       bottom: 12
     })
-    .backgroundColor(this.isCurrentTab(index) ? '#EAF1FD' : '#FFFFFF')
+    .backgroundColor(this.isCurrentTab(index) ? $r('sys.color.comp_background_emphasize') : $r('sys.color.comp_background_primary'))
     .borderRadius(14)
     .border({
       width: 1,
-      color: this.isCurrentTab(index) ? '#C9D9FB' : '#E2E8F0'
+      color: $r('sys.color.comp_divider')
     })
     .onClick(() => {
       this.currentTabIndex = index;
@@ -219,23 +219,23 @@ struct MainPage {
           Text('康小伴 AI 护工端')
             .fontSize($r('sys.float.Subtitle_S'))
             .fontWeight(FontWeight.Bold)
-            .fontColor('#0F172A')
+            .fontColor($r('sys.color.font_primary'))
           Blank()
-          this.sidebarTag('值班中', '#E8F3EA', '#216E39')
+          this.sidebarTag('值班中', $r('app.color.status_normal_bg'), $r('app.color.status_normal'))
         }
 
         Text('面向养老院护工、护理站和值班主管的多端工作台。')
           .fontSize($r('sys.float.Body_S'))
-          .fontColor('#526277')
+          .fontColor($r('sys.color.font_secondary'))
           .maxLines(2)
       }
       .alignItems(HorizontalAlign.Start)
       .padding($r('sys.float.padding_level6'))
-      .backgroundColor('#FFFFFF')
+      .backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius(16)
       .border({
         width: 1,
-        color: '#DFE7F1'
+        color: $r('sys.color.comp_divider')
       })
 
       Column({ space: 12 }) {
@@ -244,16 +244,16 @@ struct MainPage {
             Text('白班总控')
               .fontSize($r('sys.float.Body_M'))
               .fontWeight(FontWeight.Bold)
-              .fontColor('#0F172A')
+              .fontColor($r('sys.color.font_primary'))
             Text('08:00 - 18:00')
               .fontSize($r('sys.float.Body_S'))
-              .fontColor('#526277')
+              .fontColor($r('sys.color.font_secondary'))
           }
           .alignItems(HorizontalAlign.Start)
           Blank()
           Text('A 栋服务区')
             .fontSize($r('sys.float.Caption_M'))
-            .fontColor('#6B7C93')
+            .fontColor($r('sys.color.font_tertiary'))
         }
 
         Row({ space: 12 }) {
@@ -261,10 +261,10 @@ struct MainPage {
             Text('18')
               .fontSize($r('sys.float.Title_M'))
               .fontWeight(FontWeight.Bold)
-              .fontColor('#0F172A')
+              .fontColor($r('sys.color.font_primary'))
             Text('待办')
               .fontSize($r('sys.float.Caption_M'))
-              .fontColor('#6B7C93')
+              .fontColor($r('sys.color.font_tertiary'))
           }
           .layoutWeight(1)
           .alignItems(HorizontalAlign.Start)
@@ -273,10 +273,10 @@ struct MainPage {
             Text('6')
               .fontSize($r('sys.float.Title_M'))
               .fontWeight(FontWeight.Bold)
-              .fontColor('#0F172A')
+              .fontColor($r('sys.color.font_primary'))
             Text('风险观察')
               .fontSize($r('sys.float.Caption_M'))
-              .fontColor('#6B7C93')
+              .fontColor($r('sys.color.font_tertiary'))
           }
           .layoutWeight(1)
           .alignItems(HorizontalAlign.Start)
@@ -285,10 +285,10 @@ struct MainPage {
             Text('92%')
               .fontSize($r('sys.float.Title_M'))
               .fontWeight(FontWeight.Bold)
-              .fontColor('#0F172A')
+              .fontColor($r('sys.color.font_primary'))
             Text('闭环率')
               .fontSize($r('sys.float.Caption_M'))
-              .fontColor('#6B7C93')
+              .fontColor($r('sys.color.font_tertiary'))
           }
           .layoutWeight(1)
           .alignItems(HorizontalAlign.Start)
@@ -296,17 +296,17 @@ struct MainPage {
       }
       .alignItems(HorizontalAlign.Start)
       .padding($r('sys.float.padding_level6'))
-      .backgroundColor('#F8FBFF')
+      .backgroundColor($r('sys.color.comp_background_secondary'))
       .borderRadius(16)
       .border({
         width: 1,
-        color: '#DDE7F4'
+        color: $r('sys.color.comp_divider')
       })
 
       Column({ space: 10 }) {
         Text('业务导航')
           .fontSize($r('sys.float.Caption_M'))
-          .fontColor('#6B7C93')
+          .fontColor($r('sys.color.font_tertiary'))
         Repeat(this.wideNavItems())
           .each((repeatItem: RepeatItem<WideNavItem>) => {
             this.wideNavButton(repeatItem.item, repeatItem.index)
@@ -319,26 +319,26 @@ struct MainPage {
             Text('入住登记')
               .fontSize($r('sys.float.Body_M'))
               .fontWeight(FontWeight.Bold)
-              .fontColor('#0F172A')
+              .fontColor($r('sys.color.font_primary'))
             Text('资料核验、床位安排、照护计划与交接同步。')
               .fontSize($r('sys.float.Body_S'))
-              .fontColor('#526277')
+              .fontColor($r('sys.color.font_secondary'))
           }
           .alignItems(HorizontalAlign.Start)
           .layoutWeight(1)
         }
 
         Row({ space: 10 }) {
-          this.sidebarTag('今日预排 03', '#EAF1FD', '#1D63ED')
-          this.sidebarTag('空床 12', '#F3F6FA', '#526277')
+          this.sidebarTag('今日预排 03', $r('sys.color.comp_background_emphasize'), $r('app.color.brand_blue'))
+          this.sidebarTag('空床 12', $r('sys.color.comp_background_secondary'), $r('sys.color.font_secondary'))
         }
 
         Button('开始办理')
           .width('100%')
           .height(44)
-          .backgroundColor('#1D63ED')
+          .backgroundColor($r('app.color.brand_blue'))
           .borderRadius(12)
-          .fontColor('#FFFFFF')
+          .fontColor($r('app.color.text_on_brand'))
           .fontSize($r('sys.float.Body_M'))
           .onClick(() => {
             this.openCheckInFlow();
@@ -346,11 +346,11 @@ struct MainPage {
       }
       .alignItems(HorizontalAlign.Start)
       .padding($r('sys.float.padding_level6'))
-      .backgroundColor('#FFFFFF')
+      .backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius(16)
       .border({
         width: 1,
-        color: '#DFE7F1'
+        color: $r('sys.color.comp_divider')
       })
 
       Column({ space: 8 }) {
@@ -358,23 +358,23 @@ struct MainPage {
           Text('系统状态')
             .fontSize($r('sys.float.Body_M'))
             .fontWeight(FontWeight.Bold)
-            .fontColor('#0F172A')
+            .fontColor($r('sys.color.font_primary'))
           Blank()
           Text('已同步')
             .fontSize($r('sys.float.Caption_M'))
-            .fontColor('#216E39')
+            .fontColor($r('app.color.status_normal'))
         }
         Text('设备在线 186 台，毫米波与床垫数据回传稳定，家属端摘要推送正常。')
           .fontSize($r('sys.float.Body_S'))
-          .fontColor('#526277')
+          .fontColor($r('sys.color.font_secondary'))
       }
       .alignItems(HorizontalAlign.Start)
       .padding($r('sys.float.padding_level6'))
-      .backgroundColor('#FFFFFF')
+      .backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius(16)
       .border({
         width: 1,
-        color: '#DFE7F1'
+        color: $r('sys.color.comp_divider')
       })
 
       Blank()
@@ -387,7 +387,7 @@ struct MainPage {
       top: this.sidebarTopPadding(),
       bottom: this.wideShellPadding()
     })
-    .backgroundColor('#EAF0F6')
+    .backgroundColor($r('sys.color.background_secondary'))
   }
 
   @Builder
@@ -540,7 +540,7 @@ struct MainPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#EAF0F6')
+    .backgroundColor($r('sys.color.background_secondary'))
   }
 
   @Builder
