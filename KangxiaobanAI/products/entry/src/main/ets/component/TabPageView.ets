@@ -2185,11 +2185,27 @@ export struct TabPageView {
       .width('100%')
       .height('100%')
       .bindContentCover(this.isResidentDetailShow, this.residentDetailCover,
-        { modalTransition: ModalTransition.NONE, backgroundColor: 'rgba(0,0,0,0)' })
+        {
+          modalTransition: ModalTransition.NONE,
+          backgroundColor: 'rgba(0,0,0,0)',
+          onWillDismiss: (action: DismissContentCoverAction) => {
+            if (action.reason === DismissReason.PRESS_BACK) {
+              this.closeResidentDetail();
+            }
+          }
+        })
     }
     .width('100%')
     .height('100%')
     .bindContentCover(this.isHealthExpandShow, this.healthExpandCover,
-      { modalTransition: ModalTransition.NONE, backgroundColor: 'rgba(0,0,0,0)' })
+      {
+        modalTransition: ModalTransition.NONE,
+        backgroundColor: 'rgba(0,0,0,0)',
+        onWillDismiss: (action: DismissContentCoverAction) => {
+          if (action.reason === DismissReason.PRESS_BACK) {
+            this.closeHealthExpand();
+          }
+        }
+      })
   }
 }
