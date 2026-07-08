@@ -142,47 +142,52 @@ export struct ResidentDetailPage {
   build() {
     Column() {
       HdsNavDestination() {
-        Scroll() {
-          Column({ space: 12 }) {
-            // 状态概览
-            this.statusOverviewCard()
-            // 过敏警示（如有）
-            if (this.resident.allergies.length > 0) {
-              this.allergyAlertCard()
+        Stack({ alignContent: Alignment.End }) {
+          Scroll() {
+            Column({ space: 12 }) {
+              // 状态概览
+              this.statusOverviewCard()
+              // 过敏警示（如有）
+              if (this.resident.allergies.length > 0) {
+                this.allergyAlertCard()
+              }
+              // 生命体征网格
+              this.vitalSignGrid()
+              // 体征趋势
+              this.vitalTrendCard()
+              // 房间监控
+              this.monitorEntryCard()
+              // 用药管理
+              this.medicationCard()
+              // 今日护理任务
+              this.careTaskCard()
+              // 今日膳食
+              this.mealCard()
+              // 今日足迹
+              this.footprintCard()
+              // 情绪记录
+              this.moodCard()
+              // IoT 设备
+              this.deviceCard()
+              // 风险评估
+              this.riskAssessmentCard()
+              // 基础信息
+              this.basicInfoCard()
+              // 近期报警
+              this.alertHistoryCard()
             }
-            // 生命体征网格
-            this.vitalSignGrid()
-            // 体征趋势
-            this.vitalTrendCard()
-            // 房间监控
-            this.monitorEntryCard()
-            // 用药管理
-            this.medicationCard()
-            // 今日护理任务
-            this.careTaskCard()
-            // 今日膳食
-            this.mealCard()
-            // 今日足迹
-            this.footprintCard()
-            // 情绪记录
-            this.moodCard()
-            // IoT 设备
-            this.deviceCard()
-            // 风险评估
-            this.riskAssessmentCard()
-            // 基础信息
-            this.basicInfoCard()
-            // 近期报警
-            this.alertHistoryCard()
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 8, bottom: 16 })
           }
+          .scrollBar(BarState.Off)
+          .edgeEffect(EdgeEffect.Spring)
           .width('100%')
-          .padding({ left: 16, right: 16, top: 4, bottom: 36 })
+          .height('100%')
+          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
         }
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.Spring)
-        .clipContent(ContentClipMode.SAFE_AREA)
         .width('100%')
         .height('100%')
+        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       }
       .backgroundColor($r('sys.color.background_secondary'))
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
