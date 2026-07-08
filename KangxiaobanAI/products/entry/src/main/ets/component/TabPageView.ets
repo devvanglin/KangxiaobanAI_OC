@@ -283,7 +283,7 @@ export struct TabPageView {
 
   @Styles
   itemPressedStyle() {
-    .backgroundColor($r('sys.color.ohos_id_color_background_transparent'))
+    .backgroundColor($r('sys.color.interactive_pressed'))
   }
 
   private sourceText(source: TaskSource): string {
@@ -1085,20 +1085,20 @@ export struct TabPageView {
         cardBorderRadius: 0,
         cardBackgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
         cardHeight: 52,
-        cardPrefixMargin: -5,
-        cardSuffixMargin: -14,
-        hoverBorderRadius: 0,
-        onClick: () => {
-          this.selectedTaskId = item.id;
-          this.isTaskSheetOpen = true;
-        }
+        cardPrefixMargin: 0,
+        cardSuffixMargin: 0,
+        hoverBorderRadius: 0
       })
     }
+    .padding({ left: 16, right: 16 })
     .stateStyles({
       pressed: this.itemPressedStyle,
       normal: this.itemNormalStyle
     })
-    .clip(false)
+    .onClick(() => {
+      this.selectedTaskId = item.id;
+      this.isTaskSheetOpen = true;
+    })
     .bindSheet(this.isTaskSheetOpen && this.selectedTaskId === item.id, this.taskSheetBuilder, {
       detents: [SheetSize.LARGE, SheetSize.MEDIUM],
       showClose: true,
@@ -1620,7 +1620,7 @@ export struct TabPageView {
           .layoutWeight(1)
           .backgroundColor($r('sys.color.comp_background_primary'))
           .borderRadius(16)
-          .clip(false)
+          .clip(true)
           .divider({
             strokeWidth: 0.5,
             color: $r('sys.color.comp_divider'),
@@ -1676,7 +1676,7 @@ export struct TabPageView {
           .width('100%')
           .backgroundColor($r('sys.color.comp_background_primary'))
           .borderRadius(16)
-          .clip(false)
+          .clip(true)
           .divider({
             strokeWidth: 0.5,
             color: $r('sys.color.comp_divider'),
@@ -2016,19 +2016,22 @@ export struct TabPageView {
         cardHeight: 52,
         cardPrefixMargin: 0,
         cardSuffixMargin: 0,
-        hoverBorderRadius: 0,
-        onClick: () => {
-        }
+        hoverBorderRadius: 0
       })
       if (!isLast) {
         Divider()
           .width('100%')
           .height(0.5)
           .color($r('sys.color.comp_divider'))
-          .margin({ left: 52, right: 16 })
+          .margin({ left: 36, right: 0 })
       }
     }
     .width('100%')
+    .padding({ left: 16, right: 16 })
+    .stateStyles({
+      pressed: this.itemPressedStyle,
+      normal: this.itemNormalStyle
+    })
   }
 
   @Builder
