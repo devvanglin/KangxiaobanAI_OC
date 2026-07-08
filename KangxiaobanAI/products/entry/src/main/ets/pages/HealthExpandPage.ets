@@ -143,13 +143,13 @@ export struct HealthExpandPage {
           .height('100%')
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring)
-          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
           .padding({
             left: 16,
             right: 24,
-            top: 8,
-            bottom: 16
+            top: 56,
+            bottom: this.globalInfoModel.naviIndicatorHeight
           })
+          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
           .onScrollIndex((firstIndex: number) => {
             this.onListScrolled(firstIndex);
           })
@@ -158,20 +158,18 @@ export struct HealthExpandPage {
             .width(24)
             .autoCollapse(true)
             .usingPopup(true)
-            .margin({ bottom: 16 })
+            .margin({ top: 56 })
             .onSelect((index: number) => {
               this.onIndexerSelected(index);
             })
         }
         .width('100%')
         .height('100%')
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       }
       .backgroundColor($r('sys.color.background_secondary'))
-      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
       .hideBackButton(true)
       .titleBar({
-        enableComponentSafeArea: true,
         style: this.titleBarStyle(),
         content: this.titleBarContent()
       })

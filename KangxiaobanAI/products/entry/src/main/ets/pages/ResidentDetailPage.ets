@@ -176,7 +176,7 @@ export struct ResidentDetailPage {
             this.alertHistoryCard()
           }
           .width('100%')
-          .padding({ left: 16, right: 16, top: 12, bottom: 36 })
+          .padding({ left: 16, right: 16, top: 56, bottom: 36 })
         }
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring)
@@ -185,9 +185,9 @@ export struct ResidentDetailPage {
         .height('100%')
       }
       .backgroundColor($r('sys.color.background_secondary'))
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
       .hideBackButton(true)
       .titleBar({
-        enableComponentSafeArea: true,
         style: this.titleBarStyle(),
         content: this.titleBarContent()
       })
