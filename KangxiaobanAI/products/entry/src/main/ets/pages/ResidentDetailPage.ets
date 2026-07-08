@@ -16,12 +16,7 @@
 import { AppStorageV2 } from '@kit.ArkUI';
 import {
   HdsListItemCard,
-  HdsNavDestination,
-  SuffixText,
-  hdsMaterial,
-  ScrollEffectType,
-  TitleBarContentOptions,
-  TitleBarStyleOptions
+  SuffixText
 } from '@kit.UIDesignKit';
 import {
   AlertEvent,
@@ -54,36 +49,6 @@ export struct ResidentDetailPage {
   @Event onClose: () => void = () => {};
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
-
-  private titleBarStyle(): TitleBarStyleOptions {
-    return {
-      systemMaterialEffect: {
-        materialType: hdsMaterial.MaterialType.ADAPTIVE,
-        materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
-      },
-      scrollEffectOpts: {
-        enableScrollEffect: false,
-        scrollEffectType: ScrollEffectType.GRADIENT_BLUR
-      }
-    };
-  }
-
-  private titleBarContent(): TitleBarContentOptions {
-    return {
-      title: { mainTitle: this.resident.name },
-      menu: {
-        value: [{
-          content: {
-            icon: $r('sys.symbol.xmark'),
-            isEnabled: true,
-            action: () => {
-              this.onClose();
-            }
-          }
-        }]
-      }
-    };
-  }
 
   private statusColor(level: StatusLevel): ResourceColor {
     if (level === 'danger') {
@@ -140,67 +105,95 @@ export struct ResidentDetailPage {
   }
 
   build() {
-    Column() {
-      HdsNavDestination() {
-        Scroll() {
-          Column({ space: 12 }) {
-            // 状态概览（无姓名，姓名在标题栏）
-            this.statusOverviewCard()
-            // 过敏警示（如有）
-            if (this.resident.allergies.length > 0) {
-              this.allergyAlertCard()
-            }
-            // 生命体征网格
-            this.vitalSignGrid()
-            // 体征趋势
-            this.vitalTrendCard()
-            // 房间监控
-            this.monitorEntryCard()
-            // 用药管理
-            this.medicationCard()
-            // 今日护理任务
-            this.careTaskCard()
-            // 今日膳食
-            this.mealCard()
-            // 今日足迹
-            this.footprintCard()
-            // 情绪记录
-            this.moodCard()
-            // IoT 设备
-            this.deviceCard()
-            // 风险评估
-            this.riskAssessmentCard()
-            // 基础信息
-            this.basicInfoCard()
-            // 近期报警
-            this.alertHistoryCard()
-          }
-          .width('100%')
-          .padding({ left: 16, right: 16, top: 56, bottom: 36 })
-        }
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.Spring)
-        .clipContent(ContentClipMode.SAFE_AREA)
-        .width('100%')
-        .height('100%')
+    Column({ space: 0 }) {
+      // 顶部标题栏：姓名 + 关闭按钮
+      Row() {
+        Text(this.resident.name)
+          .fontSize($r('sys.float.Title_M'))
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('sys.color.font_primary'))
+          .layoutWeight(1)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+        this.iconCircleButton($r('sys.symbol.xmark'), () => {
+          this.onClose();
+        })
       }
-      .backgroundColor($r('sys.color.background_secondary'))
-      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
-      .hideBackButton(true)
-      .titleBar({
-        style: this.titleBarStyle(),
-        content: this.titleBarContent()
-      })
-      .onBackPressed(() => {
-        this.onClose();
-        return true;
-      })
+      .width('100%')
+      .height(56)
+      .padding({ left: 16, right: 12 })
+      .alignItems(VerticalAlign.Center)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+
+      // 一页式滚动内容
+      Scroll() {
+        Column({ space: 12 }) {
+          // 状态概览（无姓名，姓名在标题栏）
+          this.statusOverviewCard()
+          // 过敏警示（如有）
+          if (this.resident.allergies.length > 0) {
+            this.allergyAlertCard()
+          }
+          // 生命体征网格
+          this.vitalSignGrid()
+          // 体征趋势
+          this.vitalTrendCard()
+          // 房间监控
+          this.monitorEntryCard()
+          // 用药管理
+          this.medicationCard()
+          // 今日护理任务
+          this.careTaskCard()
+          // 今日膳食
+          this.mealCard()
+          // 今日足迹
+          this.footprintCard()
+          // 情绪记录
+          this.moodCard()
+          // IoT 设备
+          this.deviceCard()
+          // 风险评估
+          this.riskAssessmentCard()
+          // 基础信息
+          this.basicInfoCard()
+          // 近期报警
+          this.alertHistoryCard()
+        }
+        .width('100%')
+        .padding({ left: 16, right: 16, top: 4, bottom: 36 })
+      }
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
+      .clipContent(ContentClipMode.SAFE_AREA)
+      .width('100%')
+      .layoutWeight(1)
     }
-    .backgroundColor($r('sys.color.background_secondary'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .width('100%')
+    .height('100%')
     .padding({ top: this.globalInfoModel.statusBarHeight })
+    .backgroundColor($r('sys.color.background_secondary'))
+    .clip(true)
     .geometryTransition(this.geometryId)
     .transition(TransitionEffect.OPACITY)
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+  }
+
+  @Builder
+  private iconCircleButton(icon: Resource, action: () => void) {
+    Row() {
+      SymbolGlyph(icon)
+        .fontSize(20)
+        .fontColor([$r('sys.color.font_primary')])
+    }
+    .width(40)
+    .height(40)
+    .justifyContent(FlexAlign.Center)
+    .alignItems(VerticalAlign.Center)
+    .borderRadius(20)
+    .onClick(() => {
+      action();
+    })
   }
 
   // ---------------- 状态概览（无姓名，标题栏已有） ----------------
