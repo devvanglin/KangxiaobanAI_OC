@@ -30,11 +30,11 @@
         "material": {
           "certpath": "C:\\Users\\Shenyi\\.ohos\\config\\default_KangxiaobanAI_F7_WrjNQMfl5K_y0DsMzh8M9MKaNGpZzjB4JAqWA0tY=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001B2F6671CF83D1A31C2DB1318B46EE6889F79A4277026FAB413BF59DEB105A25EB82E9C32BD5590A",
+          "keyPassword": "0000001B4B9F4C66D16E65C437FDE28CF2812B1EFF1ED4F9FC2E16549FF9DD2274B285A176909F22E5FE58",
           "profile": "C:\\Users\\Shenyi\\.ohos\\config\\default_KangxiaobanAI_F7_WrjNQMfl5K_y0DsMzh8M9MKaNGpZzjB4JAqWA0tY=.p7b",
           "signAlg": "SHA256withECDSA",
           "storeFile": "C:\\Users\\Shenyi\\.ohos\\config\\default_KangxiaobanAI_F7_WrjNQMfl5K_y0DsMzh8M9MKaNGpZzjB4JAqWA0tY=.p12",
-          "storePassword": "0000001B151581CB727A414297686C6F4CBF3B8CA6455C45D258EA5DC651D6AD81BBE742B603DFF64415F8"
+          "storePassword": "0000001BC82D2D849DFD9ECA990F04CE9B94D79ED31A7F185CEDEF7B34F6B614FA1EB5ACEAACB8614F19D8"
         }
       }
     ]

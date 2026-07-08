@@ -14,6 +14,7 @@
  */
 
 import { AppStorageV2 } from '@kit.ArkUI';
+import { HdsNavDestination, hdsMaterial, ScrollEffectType, TitleBarContentOptions, TitleBarStyleOptions } from '@kit.UIDesignKit';
 import { HealthRowData, StatusLevel } from '../model/DetailTypes';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { StorageKey } from '../common/CommonConstants';
@@ -30,6 +31,36 @@ export struct HealthExpandPage {
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
   @Local selectedIndex: number = 0;
   private listScroller: ListScroller = new ListScroller();
+
+  private titleBarStyle(): TitleBarStyleOptions {
+    return {
+      systemMaterialEffect: {
+        materialType: hdsMaterial.MaterialType.ADAPTIVE,
+        materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+      },
+      scrollEffectOpts: {
+        enableScrollEffect: false,
+        scrollEffectType: ScrollEffectType.GRADIENT_BLUR
+      }
+    };
+  }
+
+  private titleBarContent(): TitleBarContentOptions {
+    return {
+      title: { mainTitle: '老人健康状态' },
+      menu: {
+        value: [{
+          content: {
+            icon: $r('sys.symbol.xmark'),
+            isEnabled: true,
+            action: () => {
+              this.onClose();
+            }
+          }
+        }]
+      }
+    };
+  }
 
   private elderGroups(): ElderGroup[] {
     const all: HealthRowData[] = this.healthRows();
@@ -64,116 +95,92 @@ export struct HealthExpandPage {
   }
 
   build() {
-    Column({ space: 0 }) {
-      // 顶部标题栏：标题 + 关闭按钮
-      Row() {
-        Text('老人健康状态')
-          .fontSize($r('sys.float.Title_M'))
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
-          .layoutWeight(1)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
+    Column() {
+      HdsNavDestination() {
+        Stack({ alignContent: Alignment.End }) {
+          List({ scroller: this.listScroller }) {
+            Repeat<ElderGroup>(this.elderGroups())
+              .each((groupItem: RepeatItem<ElderGroup>) => {
+                ListItemGroup({ header: this.itemGroupHeader(groupItem.item.letter) }) {
+                  Repeat<HealthRowData>(groupItem.item.elders)
+                    .each((elderItem: RepeatItem<HealthRowData>) => {
+                      ListItem() {
+                        Row({ space: 12 }) {
+                          Column({ space: 4 }) {
+                            Text(elderItem.item.name)
+                              .fontSize($r('sys.float.Subtitle_M'))
+                              .fontColor($r('sys.color.font_primary'))
+                              .fontWeight(FontWeight.Medium)
+                            Text(`${elderItem.item.age}岁 · ${elderItem.item.room} · ${elderItem.item.bed} · ${elderItem.item.status}`)
+                              .fontSize($r('sys.float.Body_S'))
+                              .fontColor($r('sys.color.font_secondary'))
+                          }
+                          .alignItems(HorizontalAlign.Start)
+                          .layoutWeight(1)
 
-        this.iconCircleButton($r('sys.symbol.xmark'), () => {
-          this.onClose();
-        })
-      }
-      .width('100%')
-      .height(56)
-      .padding({ left: 16, right: 12 })
-      .alignItems(VerticalAlign.Center)
-      .backgroundColor($r('sys.color.comp_background_primary'))
-
-      // 列表 + 楼层索引
-      Stack({ alignContent: Alignment.End }) {
-        List({ scroller: this.listScroller }) {
-          Repeat<ElderGroup>(this.elderGroups())
-            .each((groupItem: RepeatItem<ElderGroup>) => {
-              ListItemGroup({ header: this.itemGroupHeader(groupItem.item.letter) }) {
-                Repeat<HealthRowData>(groupItem.item.elders)
-                  .each((elderItem: RepeatItem<HealthRowData>) => {
-                    ListItem() {
-                      Row({ space: 12 }) {
-                        Column({ space: 4 }) {
-                          Text(elderItem.item.name)
-                            .fontSize($r('sys.float.Subtitle_M'))
-                            .fontColor($r('sys.color.font_primary'))
-                            .fontWeight(FontWeight.Medium)
-                          Text(`${elderItem.item.age}岁 · ${elderItem.item.room} · ${elderItem.item.bed} · ${elderItem.item.status}`)
-                            .fontSize($r('sys.float.Body_S'))
-                            .fontColor($r('sys.color.font_secondary'))
+                          Text(this.statusText(elderItem.item.level))
+                            .fontSize($r('sys.float.Caption_M'))
+                            .fontColor(this.statusColor(elderItem.item.level))
                         }
-                        .alignItems(HorizontalAlign.Start)
-                        .layoutWeight(1)
-
-                        Text(this.statusText(elderItem.item.level))
-                          .fontSize($r('sys.float.Caption_M'))
-                          .fontColor(this.statusColor(elderItem.item.level))
+                        .justifyContent(FlexAlign.Start)
+                        .alignItems(VerticalAlign.Center)
+                        .width('100%')
+                        .height(64)
                       }
-                      .justifyContent(FlexAlign.Start)
-                      .alignItems(VerticalAlign.Center)
-                      .width('100%')
-                      .height(64)
-                    }
-                  })
-                  .key((item: HealthRowData) => item.id)
-              }
-              .divider({
-                strokeWidth: 0.5,
-                color: $r('sys.color.comp_divider'),
-                startMargin: 0,
-                endMargin: 12
+                    })
+                    .key((item: HealthRowData) => item.id)
+                }
+                .divider({
+                  strokeWidth: 0.5,
+                  color: $r('sys.color.comp_divider'),
+                  startMargin: 0,
+                  endMargin: 12
+                })
               })
+              .key((item: ElderGroup) => item.letter)
+          }
+          .width('100%')
+          .height('100%')
+          .scrollBar(BarState.Off)
+          .edgeEffect(EdgeEffect.Spring)
+          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+          .padding({
+            left: 16,
+            right: 24,
+            top: 8,
+            bottom: 16
+          })
+          .onScrollIndex((firstIndex: number) => {
+            this.onListScrolled(firstIndex);
+          })
+
+          AlphabetIndexer({ arrayValue: this.alphabets(), selected: this.selectedIndex })
+            .width(24)
+            .autoCollapse(true)
+            .usingPopup(true)
+            .margin({ bottom: 16 })
+            .onSelect((index: number) => {
+              this.onIndexerSelected(index);
             })
-            .key((item: ElderGroup) => item.letter)
         }
         .width('100%')
         .height('100%')
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.Spring)
-        .padding({ left: 16, right: 24, top: 4, bottom: 36 })
-        .onScrollIndex((firstIndex: number) => {
-          this.onListScrolled(firstIndex);
-        })
-
-        AlphabetIndexer({ arrayValue: this.alphabets(), selected: this.selectedIndex })
-          .width(24)
-          .autoCollapse(true)
-          .usingPopup(true)
-          .margin({ top: 12 })
-          .onSelect((index: number) => {
-            this.onIndexerSelected(index);
-          })
+        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       }
-      .width('100%')
-      .layoutWeight(1)
+      .backgroundColor($r('sys.color.background_secondary'))
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+      .hideBackButton(true)
+      .titleBar({
+        enableComponentSafeArea: true,
+        style: this.titleBarStyle(),
+        content: this.titleBarContent()
+      })
     }
-    .width('100%')
-    .height('100%')
-    .padding({ top: this.globalInfoModel.statusBarHeight })
     .backgroundColor($r('sys.color.background_secondary'))
-    .clip(true)
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .padding({ top: this.globalInfoModel.statusBarHeight })
     .geometryTransition('healthCard')
     .transition(TransitionEffect.OPACITY)
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-  }
-
-  @Builder
-  private iconCircleButton(icon: Resource, action: () => void) {
-    Row() {
-      SymbolGlyph(icon)
-        .fontSize(20)
-        .fontColor([$r('sys.color.font_primary')])
-    }
-    .width(40)
-    .height(40)
-    .justifyContent(FlexAlign.Center)
-    .alignItems(VerticalAlign.Center)
-    .borderRadius(20)
-    .onClick(() => {
-      action();
-    })
   }
 
   private statusText(level: StatusLevel): string {

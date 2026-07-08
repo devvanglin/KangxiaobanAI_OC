@@ -169,14 +169,11 @@ export struct ResidentDetailPage {
       .width('100%')
       .layoutWeight(1)
     }
-    .width('100%')
-    .height('100%')
-    .padding({ top: this.globalInfoModel.statusBarHeight })
     .backgroundColor($r('sys.color.background_secondary'))
-    .clip(true)
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .padding({ top: this.globalInfoModel.statusBarHeight })
     .geometryTransition(this.geometryId)
     .transition(TransitionEffect.OPACITY)
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 
   @Builder

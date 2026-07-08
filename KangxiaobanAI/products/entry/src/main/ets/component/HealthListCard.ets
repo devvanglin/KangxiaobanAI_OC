@@ -64,110 +64,118 @@ export struct HealthListCard {
   }
 
   build() {
-    // 起点组件始终渲染，不做 if/else 占位移除。
-    // geometryTransition 需要起点和终点同时存在于组件树中才能配对计算位置/尺寸差异，
-    // 实现一镜到底过渡。参考 transitions-collection ListLongTakeTransition 示例。
-    Column({ space: 0 }) {
-      Row() {
-        Column() {
-          if (this.cardData.subTitle) {
-            Text(this.cardData.subTitle)
-              .fontSize($r('sys.float.Body_S'))
-              .fontColor($r('sys.color.font_secondary'))
-              .fontWeight(FontWeight.Regular)
+    if (this.isExpanded) {
+      Column()
+        .width('100%')
+        .backgroundColor($r('sys.color.comp_background_primary'))
+        .border({
+          width: 0,
+          color: $r('sys.color.comp_background_list_card'),
+          radius: $r('sys.float.corner_radius_level8')
+        })
+    } else {
+      Column({ space: 0 }) {
+        Row() {
+          Column() {
+            if (this.cardData.subTitle) {
+              Text(this.cardData.subTitle)
+                .fontSize($r('sys.float.Body_S'))
+                .fontColor($r('sys.color.font_secondary'))
+                .fontWeight(FontWeight.Regular)
+                .margin({
+                  bottom: $r('sys.float.padding_level2')
+                })
+                .maxLines(1)
+                .ellipsisMode(EllipsisMode.END)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+            }
+
+            Text(this.cardData.title)
+              .fontSize($r('sys.float.Title_M'))
+              .fontColor($r('sys.color.font_primary'))
+              .fontWeight(FontWeight.Bold)
               .margin({
-                bottom: $r('sys.float.padding_level2')
+                bottom: $r('sys.float.padding_level4')
               })
               .maxLines(1)
               .ellipsisMode(EllipsisMode.END)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
           }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1)
 
-          Text(this.cardData.title)
-            .fontSize($r('sys.float.Title_M'))
-            .fontColor($r('sys.color.font_primary'))
-            .fontWeight(FontWeight.Bold)
-            .margin({
-              bottom: $r('sys.float.padding_level4')
-            })
-            .maxLines(1)
-            .ellipsisMode(EllipsisMode.END)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          SymbolGlyph($r('sys.symbol.chevron_right'))
+            .fontSize(16)
+            .fontColor([$r('sys.color.font_tertiary')])
+            .margin({ top: -2 })
         }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
+        .width('100%')
+        .onClick(() => {
+          this.onCardExpand();
+        })
 
-        SymbolGlyph($r('sys.symbol.chevron_right'))
-          .fontSize(16)
-          .fontColor([$r('sys.color.font_tertiary')])
-          .margin({ top: -2 })
-      }
-      .width('100%')
-      .onClick(() => {
-        this.onCardExpand();
-      })
-
-      List({ space: 0 }) {
-        Repeat(this.cardData.rows)
-          .each((repeatItem: RepeatItem<HealthListCardRow>) => {
-            ListItem() {
-              HdsListItemCard({
-                textItem: {
-                  primaryText: { text: repeatItem.item.name },
-                  secondaryText: {
-                    text: `${repeatItem.item.age}岁 · ${repeatItem.item.room} · ${repeatItem.item.bed}`
-                  }
-                },
-                suffixItem: new SuffixButton({
-                  text: '查看',
-                  textColor: $r('sys.color.interactive_active')
-                }),
-                cardBorderRadius: 0,
-                cardBackgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
-                cardHeight: 68,
-                cardPrefixMargin: -5,
-                cardSuffixMargin: -14,
-                hoverBorderRadius: 0
+        List({ space: 0 }) {
+          Repeat(this.cardData.rows)
+            .each((repeatItem: RepeatItem<HealthListCardRow>) => {
+              ListItem() {
+                HdsListItemCard({
+                  textItem: {
+                    primaryText: { text: repeatItem.item.name },
+                    secondaryText: {
+                      text: `${repeatItem.item.age}岁 · ${repeatItem.item.room} · ${repeatItem.item.bed}`
+                    }
+                  },
+                  suffixItem: new SuffixButton({
+                    text: '查看',
+                    textColor: $r('sys.color.interactive_active')
+                  }),
+                  cardBorderRadius: 0,
+                  cardBackgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
+                  cardHeight: 68,
+                  cardPrefixMargin: -5,
+                  cardSuffixMargin: -14,
+                  hoverBorderRadius: 0
+                })
+              }
+              .onClick(() => {
+                this.onItemClick(repeatItem.item.id);
               })
-            }
-            .onClick(() => {
-              this.onItemClick(repeatItem.item.id);
+              .stateStyles({
+                pressed: this.itemPressedStyle,
+                normal: this.itemNormalStyle
+              })
+              .clip(false)
             })
-            .stateStyles({
-              pressed: this.itemPressedStyle,
-              normal: this.itemNormalStyle
-            })
-            .clip(false)
-          })
-          .key((row: HealthListCardRow) => row.id)
+            .key((row: HealthListCardRow) => row.id)
+        }
+        .divider({
+          strokeWidth: 0.5,
+          color: $r('sys.color.comp_divider'),
+          startMargin: 16,
+          endMargin: 16
+        })
+        .nestedScroll({ scrollForward: NestedScrollMode.PARENT_FIRST, scrollBackward: NestedScrollMode.PARENT_FIRST })
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.None)
+        .width('100%')
+        .height(this.cardData.rows.length * 68)
+        .clip(false)
       }
-      .divider({
-        strokeWidth: 0.5,
-        color: $r('sys.color.comp_divider'),
-        startMargin: 16,
-        endMargin: 16
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .border({
+        width: 0,
+        color: $r('sys.color.comp_background_list_card'),
+        radius: $r('sys.float.corner_radius_level8')
       })
-      .nestedScroll({ scrollForward: NestedScrollMode.PARENT_FIRST, scrollBackward: NestedScrollMode.PARENT_FIRST })
-      .scrollBar(BarState.Off)
-      .edgeEffect(EdgeEffect.None)
+      .alignItems(HorizontalAlign.Start)
+      .padding({
+        top: $r('sys.float.padding_level8'),
+        bottom: this.bottomPadding(),
+        left: 13,
+        right: 24
+      })
       .width('100%')
-      .height(this.cardData.rows.length * 68)
-      .clip(false)
+      .geometryTransition('healthCard', { follow: true })
     }
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .border({
-      width: 0,
-      color: $r('sys.color.comp_background_list_card'),
-      radius: $r('sys.float.corner_radius_level8')
-    })
-    .alignItems(HorizontalAlign.Start)
-    .padding({
-      top: $r('sys.float.padding_level8'),
-      bottom: this.bottomPadding(),
-      left: 13,
-      right: 24
-    })
-    .width('100%')
-    .geometryTransition('healthCard', { follow: true })
   }
 }

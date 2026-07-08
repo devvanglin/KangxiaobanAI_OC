@@ -766,91 +766,104 @@ export struct TabPageView {
   @Builder
   private residentListRow(item: ResidentData, isLast: boolean) {
     ListItem() {
-      Column({ space: 12 }) {
-        // 行1：姓名 + 年龄·性别 + 房间床号 + 状态色块 + 更新时间
-        Row() {
-          Text(item.name)
-            .fontSize($r('sys.float.Subtitle_L'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-          Text(`${item.age}岁·${item.gender === 'male' ? '男' : '女'}`)
-            .fontSize($r('sys.float.Body_S'))
-            .fontColor($r('sys.color.font_secondary'))
-            .margin({ left: 8 })
-
-          Text(`${item.room} ${item.bed}`)
-            .fontSize($r('sys.float.Body_S'))
-            .fontColor($r('sys.color.font_secondary'))
-            .margin({ left: 8 })
-            .layoutWeight(1)
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-          Text(this.residentPriorityText(item.level))
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor(this.statusColor(item.level))
-            .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-            .backgroundColor(this.statusBg(item.level))
-            .borderRadius(6)
-            .margin({ right: 6 })
-
-          Text(this.residentVitalSign(item).measuredAt)
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_tertiary'))
-        }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
-
-        // 行2：状态描述 + 诊断标签
-        Row({ space: 8 }) {
-          Text(item.status)
-            .fontSize($r('sys.float.Body_S'))
-            .fontColor($r('sys.color.font_secondary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .layoutWeight(1)
-
-          if (item.diagnosis.length > 0) {
-            Text(item.diagnosis.slice(0, 2).join('·'))
-              .fontSize($r('sys.float.Caption_M'))
-              .fontColor($r('sys.color.font_tertiary'))
+      if (this.isResidentDetailShow && this.selectedResidentId === item.id) {
+        Column()
+          .width('100%')
+          .height(this.residentCardHeight())
+          .backgroundColor($r('sys.color.comp_background_primary'))
+          .borderRadius(16)
+          .border({
+            width: 0.5,
+            color: $r('sys.color.comp_divider')
+          })
+      } else {
+        Column({ space: 12 }) {
+          // 行1：姓名 + 年龄·性别 + 房间床号 + 状态色块 + 更新时间
+          Row() {
+            Text(item.name)
+              .fontSize($r('sys.float.Subtitle_L'))
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
-          }
-        }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
 
-        // 行3：核心体征（心率/血压/步数/用药），4列居中布局
-        Column({ space: 8 }) {
-          Row() {
-            this.vitalMiniItem('心率', `${this.residentVitalSign(item).heartRate}`, 'bpm', this.heartRateMiniLevel(item), false)
-            this.vitalMiniItem('血压', `${this.residentVitalSign(item).systolic}/${this.residentVitalSign(item).diastolic}`, '', this.bpMiniLevel(item), false)
-            this.vitalMiniItem('步数', `${this.residentVitalSign(item).steps}`, '步', 'normal', false)
-            this.vitalMiniItem('用药', `${this.residentMedicationProgress(item).done}/${this.residentMedicationProgress(item).total}`, '次', 'normal', true)
+            Text(`${item.age}岁·${item.gender === 'male' ? '男' : '女'}`)
+              .fontSize($r('sys.float.Body_S'))
+              .fontColor($r('sys.color.font_secondary'))
+              .margin({ left: 8 })
+
+            Text(`${item.room} ${item.bed}`)
+              .fontSize($r('sys.float.Body_S'))
+              .fontColor($r('sys.color.font_secondary'))
+              .margin({ left: 8 })
+              .layoutWeight(1)
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+            Text(this.residentPriorityText(item.level))
+              .fontSize($r('sys.float.Caption_M'))
+              .fontColor(this.statusColor(item.level))
+              .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+              .backgroundColor(this.statusBg(item.level))
+              .borderRadius(6)
+              .margin({ right: 6 })
+
+            Text(this.residentVitalSign(item).measuredAt)
+              .fontSize($r('sys.float.Caption_M'))
+              .fontColor($r('sys.color.font_tertiary'))
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
+
+          // 行2：状态描述 + 诊断标签
+          Row({ space: 8 }) {
+            Text(item.status)
+              .fontSize($r('sys.float.Body_S'))
+              .fontColor($r('sys.color.font_secondary'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .layoutWeight(1)
+
+            if (item.diagnosis.length > 0) {
+              Text(item.diagnosis.slice(0, 2).join('·'))
+                .fontSize($r('sys.float.Caption_M'))
+                .fontColor($r('sys.color.font_tertiary'))
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+            }
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
+
+          // 行3：核心体征（心率/血压/步数/用药），4列居中布局
+          Column({ space: 8 }) {
+            Row() {
+              this.vitalMiniItem('心率', `${this.residentVitalSign(item).heartRate}`, 'bpm', this.heartRateMiniLevel(item), false)
+              this.vitalMiniItem('血压', `${this.residentVitalSign(item).systolic}/${this.residentVitalSign(item).diastolic}`, '', this.bpMiniLevel(item), false)
+              this.vitalMiniItem('步数', `${this.residentVitalSign(item).steps}`, '步', 'normal', false)
+              this.vitalMiniItem('用药', `${this.residentMedicationProgress(item).done}/${this.residentMedicationProgress(item).total}`, '次', 'normal', true)
+            }
+            .width('100%')
+            .layoutWeight(1)
           }
           .width('100%')
           .layoutWeight(1)
         }
         .width('100%')
-        .layoutWeight(1)
+        .height(this.residentCardHeight())
+        .padding({ left: 14, right: 14, top: 14, bottom: 14 })
+        .backgroundColor($r('sys.color.comp_background_primary'))
+        .borderRadius(16)
+        .border({
+          width: 0.5,
+          color: $r('sys.color.comp_divider')
+        })
+        .geometryTransition(this.residentGeometryId(item.id), { follow: true })
+        .transition(TransitionEffect.OPACITY)
+        .onClick(() => {
+          this.openResidentDetail(item);
+        })
       }
-      .width('100%')
-      .height(this.residentCardHeight())
-      .padding({ left: 14, right: 14, top: 14, bottom: 14 })
-      .backgroundColor($r('sys.color.comp_background_primary'))
-      .borderRadius(16)
-      .border({
-        width: 0.5,
-        color: $r('sys.color.comp_divider')
-      })
-      .geometryTransition(this.residentGeometryId(item.id), { follow: true })
-      .onClick(() => {
-        this.openResidentDetail(item);
-      })
     }
     .padding({ left: 16, right: 16 })
   }
@@ -2158,21 +2171,25 @@ export struct TabPageView {
 
   build() {
     Column() {
-      if (this.currentTabIndex === 0) {
-        this.homePage();
-      } else if (this.currentTabIndex === 1) {
-        this.elderPage();
-      } else if (this.currentTabIndex === 2) {
-        this.taskPage();
-      } else {
-        this.minePage();
+      Column() {
+        if (this.currentTabIndex === 0) {
+          this.homePage();
+        } else if (this.currentTabIndex === 1) {
+          this.elderPage();
+        } else if (this.currentTabIndex === 2) {
+          this.taskPage();
+        } else {
+          this.minePage();
+        }
       }
+      .width('100%')
+      .height('100%')
+      .bindContentCover(this.isResidentDetailShow, this.residentDetailCover,
+        { modalTransition: ModalTransition.NONE, backgroundColor: 'rgba(0,0,0,0)' })
     }
     .width('100%')
     .height('100%')
     .bindContentCover(this.isHealthExpandShow, this.healthExpandCover,
-      { modalTransition: ModalTransition.NONE, backgroundColor: 'rgba(0,0,0,0)' })
-    .bindContentCover(this.isResidentDetailShow, this.residentDetailCover,
       { modalTransition: ModalTransition.NONE, backgroundColor: 'rgba(0,0,0,0)' })
   }
 }
