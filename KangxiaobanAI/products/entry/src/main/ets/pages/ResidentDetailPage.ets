@@ -112,11 +112,11 @@ export struct ResidentDetailPage {
   private titleBarStyle(): TitleBarStyleOptions {
     return {
       systemMaterialEffect: {
-        materialType: hdsMaterial.MaterialType.ADAPTIVE,
+        materialType: hdsMaterial.MaterialType.IMMERSIVE,
         materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
       },
       scrollEffectOpts: {
-        enableScrollEffect: false,
+        enableScrollEffect: true,
         scrollEffectType: ScrollEffectType.GRADIENT_BLUR
       }
     };
@@ -177,7 +177,7 @@ export struct ResidentDetailPage {
               this.alertHistoryCard()
             }
             .width('100%')
-            .padding({ left: 16, right: 16, top: 8, bottom: 16 })
+            .padding({ left: 16, right: 16, top: 64, bottom: 16 })
           }
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring)
@@ -193,11 +193,13 @@ export struct ResidentDetailPage {
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       .hideBackButton(true)
       .titleBar({
-        enableComponentSafeArea: true,
+        enableComponentSafeArea: false,
         style: this.titleBarStyle(),
         content: this.titleBarContent()
       })
     }
+    .width('100%')
+    .height('100%')
     .backgroundColor($r('sys.color.background_secondary'))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .padding({ top: this.globalInfoModel.statusBarHeight })

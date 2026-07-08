@@ -35,11 +35,11 @@ export struct HealthExpandPage {
   private titleBarStyle(): TitleBarStyleOptions {
     return {
       systemMaterialEffect: {
-        materialType: hdsMaterial.MaterialType.ADAPTIVE,
+        materialType: hdsMaterial.MaterialType.IMMERSIVE,
         materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
       },
       scrollEffectOpts: {
-        enableScrollEffect: false,
+        enableScrollEffect: true,
         scrollEffectType: ScrollEffectType.GRADIENT_BLUR
       }
     };
@@ -98,13 +98,22 @@ export struct HealthExpandPage {
     Column() {
       HdsNavDestination() {
         Stack({ alignContent: Alignment.End }) {
-          List({ scroller: this.listScroller }) {
-            Repeat<ElderGroup>(this.elderGroups())
-              .each((groupItem: RepeatItem<ElderGroup>) => {
-                ListItemGroup({ header: this.itemGroupHeader(groupItem.item.letter) }) {
-                  Repeat<HealthRowData>(groupItem.item.elders)
-                    .each((elderItem: RepeatItem<HealthRowData>) => {
-                      ListItem() {
+          Scroll() {
+            Column({ space: 12 }) {
+              Repeat<ElderGroup>(this.elderGroups())
+                .each((groupItem: RepeatItem<ElderGroup>) => {
+                  Column({ space: 0 }) {
+                    Row() {
+                      Text(`${groupItem.item.letter}F`)
+                        .fontSize($r('sys.float.Caption_L'))
+                        .fontColor($r('sys.color.font_secondary'))
+                        .fontWeight(FontWeight.Regular)
+                    }
+                    .height(40)
+                    .width('100%')
+
+                    Repeat<HealthRowData>(groupItem.item.elders)
+                      .each((elderItem: RepeatItem<HealthRowData>) => {
                         Row({ space: 12 }) {
                           Column({ space: 4 }) {
                             Text(elderItem.item.name)
@@ -126,33 +135,21 @@ export struct HealthExpandPage {
                         .alignItems(VerticalAlign.Center)
                         .width('100%')
                         .height(64)
-                      }
-                    })
-                    .key((item: HealthRowData) => item.id)
-                }
-                .divider({
-                  strokeWidth: 0.5,
-                  color: $r('sys.color.comp_divider'),
-                  startMargin: 0,
-                  endMargin: 12
+                      })
+                      .key((item: HealthRowData) => item.id)
+                  }
+                  .width('100%')
                 })
-              })
-              .key((item: ElderGroup) => item.letter)
+                .key((item: ElderGroup) => item.letter)
+            }
+            .width('100%')
+            .padding({ left: 16, right: 24, top: 64, bottom: 16 })
           }
-          .width('100%')
-          .height('100%')
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring)
+          .width('100%')
+          .height('100%')
           .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-          .padding({
-            left: 16,
-            right: 24,
-            top: 8,
-            bottom: 16
-          })
-          .onScrollIndex((firstIndex: number) => {
-            this.onListScrolled(firstIndex);
-          })
 
           AlphabetIndexer({ arrayValue: this.alphabets(), selected: this.selectedIndex })
             .width(24)
@@ -171,11 +168,13 @@ export struct HealthExpandPage {
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       .hideBackButton(true)
       .titleBar({
-        enableComponentSafeArea: true,
+        enableComponentSafeArea: false,
         style: this.titleBarStyle(),
         content: this.titleBarContent()
       })
     }
+    .width('100%')
+    .height('100%')
     .backgroundColor($r('sys.color.background_secondary'))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .padding({ top: this.globalInfoModel.statusBarHeight })
