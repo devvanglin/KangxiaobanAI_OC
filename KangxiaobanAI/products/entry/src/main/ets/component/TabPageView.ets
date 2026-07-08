@@ -276,6 +276,16 @@ export struct TabPageView {
     return $r('app.color.status_normal_bg');
   }
 
+  @Styles
+  itemNormalStyle() {
+    .backgroundColor($r('sys.color.ohos_id_color_background_transparent'))
+  }
+
+  @Styles
+  itemPressedStyle() {
+    .backgroundColor($r('sys.color.ohos_id_color_background_transparent'))
+  }
+
   private sourceText(source: TaskSource): string {
     if (source === 'ai') {
       return 'AI';
@@ -1044,10 +1054,11 @@ export struct TabPageView {
           text: value
         }),
         cardBorderRadius: 0,
-        cardBackgroundColor: 'rgba(0,0,0,0)',
+        cardBackgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
         cardHeight: 44,
         cardPrefixMargin: 0,
-        cardSuffixMargin: 0
+        cardSuffixMargin: 0,
+        hoverBorderRadius: 0
       })
       this.divider(isLast)
     }
@@ -1072,17 +1083,22 @@ export struct TabPageView {
           text: `${this.statusText(item.status)} · ${this.priorityText(item.priority)}`
         }),
         cardBorderRadius: 0,
-        cardBackgroundColor: 'rgba(0,0,0,0)',
+        cardBackgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
         cardHeight: 52,
-        cardPrefixMargin: 0,
-        cardSuffixMargin: 0,
+        cardPrefixMargin: -5,
+        cardSuffixMargin: -14,
+        hoverBorderRadius: 0,
         onClick: () => {
           this.selectedTaskId = item.id;
           this.isTaskSheetOpen = true;
         }
       })
     }
-    .padding({ left: 16, right: 16 })
+    .stateStyles({
+      pressed: this.itemPressedStyle,
+      normal: this.itemNormalStyle
+    })
+    .clip(false)
     .bindSheet(this.isTaskSheetOpen && this.selectedTaskId === item.id, this.taskSheetBuilder, {
       detents: [SheetSize.LARGE, SheetSize.MEDIUM],
       showClose: true,
@@ -1604,7 +1620,7 @@ export struct TabPageView {
           .layoutWeight(1)
           .backgroundColor($r('sys.color.comp_background_primary'))
           .borderRadius(16)
-          .clip(true)
+          .clip(false)
           .divider({
             strokeWidth: 0.5,
             color: $r('sys.color.comp_divider'),
@@ -1660,7 +1676,7 @@ export struct TabPageView {
           .width('100%')
           .backgroundColor($r('sys.color.comp_background_primary'))
           .borderRadius(16)
-          .clip(true)
+          .clip(false)
           .divider({
             strokeWidth: 0.5,
             color: $r('sys.color.comp_divider'),
@@ -1996,10 +2012,11 @@ export struct TabPageView {
           new SuffixText({ text: item.value }) :
           new SuffixArrow({ color: $r('sys.color.font_tertiary') }),
         cardBorderRadius: 0,
-        cardBackgroundColor: 'rgba(0,0,0,0)',
+        cardBackgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
         cardHeight: 52,
-        cardPrefixMargin: 10,
-        cardSuffixMargin: 10,
+        cardPrefixMargin: 0,
+        cardSuffixMargin: 0,
+        hoverBorderRadius: 0,
         onClick: () => {
         }
       })

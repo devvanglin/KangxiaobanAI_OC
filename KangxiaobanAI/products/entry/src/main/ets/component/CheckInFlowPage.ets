@@ -13,17 +13,12 @@
  * limitations under the License.
  */
 
-import { AppStorageV2, SymbolGlyphModifier } from '@kit.ArkUI';
+import { AppStorageV2 } from '@kit.ArkUI';
 import {
   DividerShowType,
   hdsMaterial,
-  HdsListItemCard,
   HdsNavDestination,
-  IconSize,
-  PrefixIcon,
-  ScrollEffectType,
-  SuffixArrow,
-  SuffixText
+  ScrollEffectType
 } from '@kit.UIDesignKit';
 import { StorageKey } from '../common/CommonConstants';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
@@ -86,7 +81,7 @@ export struct CheckInFlowPage {
   }
 
   private contentTopPadding(): number {
-    return this.globalInfoModel.statusBarHeight + 80;
+    return this.globalInfoModel.statusBarHeight + 16;
   }
 
   private pagePadding(): number {
@@ -170,43 +165,6 @@ export struct CheckInFlowPage {
   }
 
   @Builder
-  private stepIndicator() {
-    Row({ space: 0 }) {
-      ForEach(this.steps(), (step: StepMeta, index: number) => {
-        Row({ space: 6 }) {
-          Stack({ alignContent: Alignment.Center }) {
-            Row()
-              .width(24)
-              .height(24)
-              .backgroundColor(index <= this.currentStep ?
-                $r('sys.color.font_emphasize') : $r('sys.color.comp_background_secondary'))
-              .borderRadius(12)
-            Text(`${index + 1}`)
-              .fontSize($r('sys.float.Caption_M'))
-              .fontWeight(FontWeight.Medium)
-              .fontColor(index <= this.currentStep ?
-                $r('sys.color.font_on_primary') : $r('sys.color.font_tertiary'))
-          }
-          .width(24)
-          .height(24)
-
-          if (index < this.steps().length - 1) {
-            Row()
-              .width(24)
-              .height(2)
-              .backgroundColor(index < this.currentStep ?
-                $r('sys.color.font_emphasize') : $r('sys.color.comp_background_secondary'))
-              .borderRadius(1)
-          }
-        }
-      }, (item: StepMeta, index: number) => `step-${index}`)
-    }
-    .width('100%')
-    .justifyContent(FlexAlign.Center)
-    .padding({ top: this.contentTopPadding(), bottom: 12 })
-  }
-
-  @Builder
   private bottomBar() {
     Row({ space: 12 }) {
       if (this.currentStep > 0) {
@@ -224,8 +182,8 @@ export struct CheckInFlowPage {
 
       Button(this.currentStep === this.steps().length - 1 ? '完成登记' : '下一步')
         .fontSize($r('sys.float.Body_M'))
-        .fontColor($r('sys.color.font_on_primary'))
-        .backgroundColor($r('sys.color.font_emphasize'))
+        .fontColor($r('app.color.text_on_brand'))
+        .backgroundColor($r('app.color.brand_blue'))
         .layoutWeight(1)
         .height(44)
         .borderRadius(12)
@@ -238,8 +196,7 @@ export struct CheckInFlowPage {
         })
     }
     .width('100%')
-    .padding({ left: 16, right: 16, top: 16, bottom: 16 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
+    .padding({ left: 16, right: 16, top: 12, bottom: 24 })
   }
 
   // ---------------- step 1: info ----------------
@@ -300,10 +257,10 @@ export struct CheckInFlowPage {
             Text(option)
               .fontSize($r('sys.float.Body_S'))
               .fontColor(item.selected === index ?
-                $r('sys.color.font_on_primary') : $r('sys.color.font_secondary'))
+                $r('app.color.text_on_brand') : $r('sys.color.font_secondary'))
               .padding({ left: 12, right: 12, top: 6, bottom: 6 })
               .backgroundColor(item.selected === index ?
-                $r('sys.color.font_emphasize') : $r('sys.color.comp_background_secondary'))
+                $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
               .borderRadius(16)
           }, (option: string, index: number) => `${item.id}-${index}`)
         }
@@ -340,48 +297,36 @@ export struct CheckInFlowPage {
 
   @Builder
   private roomRow(item: RoomData, isLast: boolean) {
-    HdsListItemCard({
-      prefixItem: new PrefixIcon({
-        iconSize: IconSize.SYSTEM_ICON,
-        iconValue: {
-          symbol: new SymbolGlyphModifier(
-            item.status === 'available' ? $r('sys.symbol.house_fill') : $r('sys.symbol.house')
-          )
-            .fontColor([item.status === 'available' ?
-              $r('sys.color.font_emphasize') : $r('sys.color.font_tertiary')])
-        }
-      }),
-      textItem: {
-        primaryText: {
-          text: item.room
-        },
-        secondaryText: {
-          text: `${item.type} · ${item.floor}`
-        }
-      },
-      suffixItem: item.status === 'available' ?
-        (this.selectedRoomId === item.id ?
-          new SuffixText({ text: '已选' }) :
-          new SuffixArrow({ color: $r('sys.color.font_tertiary') })) :
-        new SuffixText({ text: '已占用' }),
-      cardBorderRadius: 16,
-      cardBackgroundColor: this.selectedRoomId === item.id ?
-        $r('sys.color.comp_background_secondary') : 'rgba(0,0,0,0)',
-      cardHeight: 64,
-      cardPrefixMargin: 0,
-      cardSuffixMargin: 0,
-      onClick: () => {
-        if (item.status === 'available') {
-          this.selectedRoomId = item.id;
-        }
+    Row() {
+      Column({ space: 4 }) {
+        Text(item.room)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor(item.status === 'available' ?
+            $r('sys.color.font_primary') : $r('sys.color.font_tertiary'))
+        Text(`${item.type} · ${item.floor}`)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_secondary'))
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
+
+      Text(item.status === 'available' ?
+        (this.selectedRoomId === item.id ? '已选' : '') : '已占用')
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor(item.status === 'available' ?
+          $r('app.color.brand_blue') : $r('sys.color.font_tertiary'))
+    }
+    .width('100%')
+    .height(60)
+    .padding({ left: 16, right: 16 })
+    .onClick(() => {
+      if (item.status === 'available') {
+        this.selectedRoomId = item.id;
       }
     })
-      .border({
-        width: {
-          bottom: isLast ? 0 : 0.5
-        },
-        color: $r('sys.color.comp_divider')
-      })
+
+    this.divider(isLast)
   }
 
   @Builder
@@ -422,14 +367,14 @@ export struct CheckInFlowPage {
         Text(item.price)
           .fontSize($r('sys.float.Body_M'))
           .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_emphasize'))
+          .fontColor($r('app.color.brand_blue'))
 
         Stack({ alignContent: Alignment.Center }) {
           Row()
             .width(20)
             .height(20)
             .backgroundColor(this.selectedCareId === item.id ?
-              $r('sys.color.font_emphasize') : 'rgba(0,0,0,0)')
+              $r('app.color.brand_blue') : 'rgba(0,0,0,0)')
             .borderRadius(10)
             .border({
               width: this.selectedCareId === item.id ? 0 : 1,
@@ -438,7 +383,7 @@ export struct CheckInFlowPage {
           if (this.selectedCareId === item.id) {
             SymbolGlyph($r('sys.symbol.checkmark'))
               .fontSize(12)
-              .fontColor([$r('sys.color.font_on_primary')])
+              .fontColor([$r('app.color.text_on_brand')])
           }
         }
         .width(20)
@@ -453,9 +398,6 @@ export struct CheckInFlowPage {
     .width('100%')
     .alignItems(HorizontalAlign.Start)
     .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-    .backgroundColor(this.selectedCareId === item.id ?
-      $r('sys.color.comp_background_secondary') : $r('sys.color.comp_background_primary'))
-    .borderRadius(this.selectedCareId === item.id ? 16 : 0)
     .onClick(() => {
       this.selectedCareId = item.id;
     })
@@ -514,8 +456,8 @@ export struct CheckInFlowPage {
         if (!this.faceScanned) {
           Button('开始扫脸')
             .fontSize($r('sys.float.Body_M'))
-            .fontColor($r('sys.color.font_on_primary'))
-            .backgroundColor($r('sys.color.font_emphasize'))
+            .fontColor($r('app.color.text_on_brand'))
+            .backgroundColor($r('app.color.brand_blue'))
             .height(44)
             .borderRadius(12)
             .padding({ left: 32, right: 32 })
@@ -552,8 +494,6 @@ export struct CheckInFlowPage {
   build() {
     HdsNavDestination() {
       Column({ space: 0 }) {
-        this.stepIndicator()
-
         Scroll() {
           Column({ space: 16 }) {
             this.stepContent()
@@ -562,6 +502,7 @@ export struct CheckInFlowPage {
           .padding({
             left: this.pagePadding(),
             right: this.pagePadding(),
+            top: 16,
             bottom: this.bottomPadding()
           })
         }
