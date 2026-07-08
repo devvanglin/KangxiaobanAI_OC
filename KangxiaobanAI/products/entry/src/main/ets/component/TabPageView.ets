@@ -1638,78 +1638,48 @@ export struct TabPageView {
       .padding({ top: this.contentTopPadding() })
       .backgroundColor(this.pageBackgroundColor())
     } else {
-      if (this.selectedTask()) {
-        Column({ space: 0 }) {
-          Row() {
-            SymbolGlyph($r('sys.symbol.chevron_left'))
-              .fontSize(20)
-              .fontColor([$r('sys.color.font_primary')])
-              .onClick(() => {
-                this.selectedTaskId = '';
+      List({
+        scroller: this.currentScroller(),
+        space: 12
+      }) {
+        ListItem() {
+          this.taskChipBar()
+        }
+        .padding({
+          left: this.pagePadding(),
+          right: this.pagePadding(),
+          top: this.contentTopPadding()
+        })
+
+        ListItem() {
+          List({ space: 0 }) {
+            Repeat(this.filteredTasks())
+              .each((repeatItem: RepeatItem<CareTask>) => {
+                this.taskListRow(repeatItem.item)
               })
-            Text(this.selectedTask()!.title)
-              .fontSize($r('sys.float.Title_M'))
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_primary'))
-              .layoutWeight(1)
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
           }
           .width('100%')
-          .height(56)
-          .padding({ left: 16, right: 16 })
           .backgroundColor($r('sys.color.comp_background_primary'))
-
-          this.taskDetailView(this.selectedTask()!)
-        }
-        .width('100%')
-        .height('100%')
-        .padding({ top: this.contentTopPadding() })
-        .backgroundColor(this.pageBackgroundColor())
-      } else {
-        List({
-          scroller: this.currentScroller(),
-          space: 12
-        }) {
-          ListItem() {
-            this.taskChipBar()
-          }
-          .padding({
-            left: this.pagePadding(),
-            right: this.pagePadding(),
-            top: this.contentTopPadding()
-          })
-
-          ListItem() {
-            List({ space: 0 }) {
-              Repeat(this.filteredTasks())
-                .each((repeatItem: RepeatItem<CareTask>) => {
-                  this.taskListRow(repeatItem.item)
-                })
-            }
-            .width('100%')
-            .backgroundColor($r('sys.color.comp_background_primary'))
-            .borderRadius(16)
-            .clip(true)
-            .divider({
-              strokeWidth: 0.5,
-              color: $r('sys.color.comp_divider'),
-              startMargin: 16,
-              endMargin: 16
-            })
-          }
-          .padding({
-            left: this.pagePadding(),
-            right: this.pagePadding(),
-            bottom: this.bottomPadding()
+          .borderRadius(16)
+          .clip(true)
+          .divider({
+            strokeWidth: 0.5,
+            color: $r('sys.color.comp_divider'),
+            startMargin: 16,
+            endMargin: 16
           })
         }
-        .width('100%')
-        .height('100%')
-        .backgroundColor(this.pageBackgroundColor())
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.Spring)
+        .padding({
+          left: this.pagePadding(),
+          right: this.pagePadding(),
+          bottom: this.bottomPadding()
+        })
       }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(this.pageBackgroundColor())
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
     }
   }
 
