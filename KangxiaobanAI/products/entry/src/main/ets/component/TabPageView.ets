@@ -1085,7 +1085,6 @@ export struct TabPageView {
     .padding({ left: 16, right: 16 })
     .bindSheet(this.isTaskSheetOpen && this.selectedTaskId === item.id, this.taskSheetBuilder, {
       detents: [SheetSize.LARGE, SheetSize.MEDIUM],
-      blurStyle: BlurStyle.Thick,
       showClose: true,
       dragBar: true,
       title: { title: '任务详情' },
