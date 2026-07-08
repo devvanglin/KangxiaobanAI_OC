@@ -893,19 +893,19 @@ export struct TabPageView {
       Column({ space: 3 }) {
         Row({ space: 2 }) {
           Text(value)
-            .fontSize($r('sys.float.Subtitle_M'))
+            .fontSize($r('sys.float.Subtitle_L'))
             .fontWeight(FontWeight.Medium)
             .fontColor(level === 'normal' ? $r('sys.color.font_primary') : this.statusColor(level))
           if (unit !== '') {
             Text(unit)
-              .fontSize($r('sys.float.Caption_S'))
+              .fontSize($r('sys.float.Caption_M'))
               .fontColor($r('sys.color.font_tertiary'))
           }
         }
         .alignItems(VerticalAlign.Bottom)
 
         Text(label)
-          .fontSize($r('sys.float.Caption_S'))
+          .fontSize($r('sys.float.Caption_M'))
           .fontColor($r('sys.color.font_tertiary'))
       }
       .layoutWeight(1)
