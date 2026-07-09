@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import { AppStorageV2 } from '@kit.ArkUI';
+import { AppStorageV2, curves } from '@kit.ArkUI';
 import {
   HdsBarStyle,
   hdsMaterial,
@@ -77,33 +77,7 @@ struct MainPage {
 
   private homeSearchMenu(): HdsNavigationMenuContentOptions {
     if (this.isWideLayout()) {
-      return {
-        value: [
-          {
-            content: {
-              icon: $r('sys.symbol.list_bullet'),
-              isEnabled: true,
-              action: () => {
-                this.getUIContext().animateTo({
-                  duration: 300,
-                  curve: Curve.EaseInOut
-                }, () => {
-                  this.isShowSidebar = true;
-                })
-              }
-            }
-          },
-          {
-            content: {
-              icon: $r('sys.symbol.magnifyingglass'),
-              isEnabled: true,
-              action: () => {
-                this.homeSearchState.searchTrigger++;
-              }
-            }
-          }
-        ]
-      };
+      return { value: [] };
     }
     const showSearchButton: boolean = this.currentTabIndex === 0 && this.homeSearchState.scrollY > 60;
     return {
@@ -296,13 +270,17 @@ struct MainPage {
   @Builder
   private wideSidebarPanel() {
     Column() {
-      Search({ placeholder: '搜索功能、长者、任务' })
-        .width('100%')
-        .height(40)
-        .margin({ bottom: 12 })
-        .onChange((value: string) => {
-          this.sidebarSearchText = value;
-        })
+      Column() {
+        Search({ placeholder: '搜索功能、长者、任务' })
+          .width('100%')
+          .height(40)
+          .margin({ top: 8, bottom: 12 })
+          .onChange((value: string) => {
+            this.sidebarSearchText = value;
+          })
+      }
+      .width('100%')
+      .padding({ left: 20, right: 20 })
 
       Scroll() {
         Column({ space: 16 }) {
@@ -367,6 +345,7 @@ struct MainPage {
           .borderRadius(16)
         }
         .width('100%')
+        .padding({ left: 20, right: 20, bottom: 24 })
       }
       .layoutWeight(1)
       .width('100%')
@@ -376,12 +355,8 @@ struct MainPage {
     }
     .width('100%')
     .height('100%')
-    .padding({
-      left: this.wideShellPadding(),
-      right: this.wideShellPadding(),
-      top: this.sidebarTopPadding(),
-      bottom: this.wideShellPadding()
-    })
+    .padding({ top: this.globalInfoModel.statusBarHeight })
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .backgroundColor($r('sys.color.background_secondary'))
   }
 
@@ -511,39 +486,46 @@ struct MainPage {
     })
   }
 
+  private openDrawer(): void {
+    this.getUIContext().animateTo({
+      curve: curves.springMotion()
+    }, () => {
+      this.isShowSidebar = true;
+    })
+  }
+
+  private closeDrawer(): void {
+    this.getUIContext().animateTo({
+      curve: curves.springMotion()
+    }, () => {
+      this.isShowSidebar = false;
+    })
+  }
+
   @Builder
   private wideShell() {
-    SideBarContainer(SideBarContainerType.Overlay) {
-      this.wideSidebarPanel()
+    Row({ space: 0 }) {
+      if (this.isShowSidebar) {
+        Column() {
+          this.wideSidebarPanel()
+        }
+        .width(336)
+        .height('100%')
+        .backgroundColor($r('sys.color.background_secondary'))
+        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+        .transition(TransitionEffect.translate({ x: -336 }).animation({ curve: curves.springMotion() }))
+      }
 
       Column() {
         this.wideContentPanel()
       }
-      .width('100%')
+      .layoutWeight(1)
       .height('100%')
-      .backgroundColor(this.isShowSidebar ? $r('sys.color.mask_secondary') : $r('sys.color.background_secondary'))
-      .onClick(() => {
-        if (this.isShowSidebar) {
-          this.getUIContext().animateTo({
-            duration: 300,
-            curve: Curve.EaseInOut
-          }, () => {
-            this.isShowSidebar = false;
-          })
-        }
-      })
+      .backgroundColor($r('sys.color.background_secondary'))
     }
-    .showSideBar(this.isShowSidebar)
-    .showControlButton(false)
-    .sideBarWidth('80%')
-    .minSideBarWidth('80%')
-    .maxSideBarWidth('90%')
-    .autoHide(true)
-    .onChange((value: boolean) => {
-      this.isShowSidebar = value;
-    })
     .width('100%')
     .height('100%')
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 
   @Builder
@@ -556,6 +538,40 @@ struct MainPage {
         onOpenSearch: () => {
           this.openSearchPage();
         }
+      })
+
+      Row({ space: 12 }) {
+        Row() {
+          SymbolGlyph(this.isShowSidebar ? $r('sys.symbol.xmark') : $r('sys.symbol.list_bullet'))
+            .fontSize(22)
+            .fontColor([$r('sys.color.font_primary')])
+        }
+        .width(40)
+        .height(40)
+        .borderRadius(20)
+        .backgroundColor($r('sys.color.comp_background_primary'))
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
+        .onClick(() => {
+          if (this.isShowSidebar) {
+            this.closeDrawer();
+          } else {
+            this.openDrawer();
+          }
+        })
+        .animation({ curve: curves.springMotion(), duration: 300 })
+
+        Text(this.getCurrentPageTitle())
+          .fontSize($r('sys.float.Title_M'))
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('sys.color.font_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .alignItems(VerticalAlign.Center)
+      .margin({
+        left: 16,
+        top: this.globalInfoModel.statusBarHeight + 4
       })
     }
     .width('100%')
@@ -605,7 +621,7 @@ struct MainPage {
     })
     .bindToScrollable(PAGE_SCROLLER_MAP.get(PageKeyEnum.ADAPTIVE_TAB) ?? [])
     .hideBackButton(true)
-    .hideTitleBar(this.homeSearchState.isSearchOpen, true)
+    .hideTitleBar(this.isWideLayout() || this.homeSearchState.isSearchOpen, true)
     .titleMode(HdsNavigationTitleMode.MINI)
     .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
     .width('100%')
