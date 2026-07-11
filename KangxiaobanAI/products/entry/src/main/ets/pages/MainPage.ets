@@ -85,6 +85,36 @@ struct MainPage {
     this.pathStack.pushPath({ name: SEARCH_ROUTE_NAME });
   }
 
+  private isRoleAdapted(): boolean {
+    return this.globalInfoModel.role === '护工';
+  }
+
+  @Builder
+  private roleWipPanel() {
+    Column({ space: 16 }) {
+      SymbolGlyph($r('sys.symbol.hammer_fill'))
+        .fontSize(56)
+        .fontColor([$r('sys.color.icon_tertiary')])
+      Text(`${this.globalInfoModel.role}端`)
+        .fontSize($r('sys.float.Title_M'))
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+      Text('适配中')
+        .fontSize($r('sys.float.Body_L'))
+        .fontColor($r('sys.color.font_secondary'))
+      Text('该角色页面正在开发中，敬请期待')
+        .fontSize($r('sys.float.Body_M'))
+        .fontColor($r('sys.color.font_tertiary'))
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+    .padding({ top: this.globalInfoModel.statusBarHeight })
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .backgroundColor($r('sys.color.background_secondary'))
+  }
+
   private homeSearchMenu(): HdsNavigationMenuContentOptions {
     if (this.isWideLayout()) {
       return { value: [] };
@@ -652,39 +682,43 @@ struct MainPage {
   }
 
   build() {
-    HdsNavigation(this.pathStack) {
-      if (this.isWideLayout()) {
-        this.wideShell()
-      } else {
-        this.phoneTabs()
+    if (this.isRoleAdapted()) {
+      HdsNavigation(this.pathStack) {
+        if (this.isWideLayout()) {
+          this.wideShell()
+        } else {
+          this.phoneTabs()
+        }
       }
+      .mode(NavigationMode.Stack)
+      .navDestination(this.destinationBuilder)
+      .titleBar({
+        content: {
+          title: {
+            mainTitle: this.getCurrentPageTitle(),
+          },
+          menu: this.homeSearchMenu(),
+        },
+        style: {
+          scrollEffectOpts: {
+            enableScrollEffect: true,
+            scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
+          },
+          systemMaterialEffect: {
+            materialType: hdsMaterial.MaterialType.IMMERSIVE,
+            materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+          },
+        },
+      })
+      .bindToScrollable(PAGE_SCROLLER_MAP.get(PageKeyEnum.ADAPTIVE_TAB) ?? [])
+      .hideBackButton(true)
+      .hideTitleBar(this.isWideLayout() || this.homeSearchState.isSearchOpen, true)
+      .titleMode(HdsNavigationTitleMode.MINI)
+      .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
+      .width('100%')
+      .height('100%')
+    } else {
+      this.roleWipPanel()
     }
-    .mode(NavigationMode.Stack)
-    .navDestination(this.destinationBuilder)
-    .titleBar({
-      content: {
-        title: {
-          mainTitle: this.getCurrentPageTitle(),
-        },
-        menu: this.homeSearchMenu(),
-      },
-      style: {
-        scrollEffectOpts: {
-          enableScrollEffect: true,
-          scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
-        },
-        systemMaterialEffect: {
-          materialType: hdsMaterial.MaterialType.IMMERSIVE,
-          materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
-        },
-      },
-    })
-    .bindToScrollable(PAGE_SCROLLER_MAP.get(PageKeyEnum.ADAPTIVE_TAB) ?? [])
-    .hideBackButton(true)
-    .hideTitleBar(this.isWideLayout() || this.homeSearchState.isSearchOpen, true)
-    .titleMode(HdsNavigationTitleMode.MINI)
-    .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
-    .width('100%')
-    .height('100%')
   }
 }

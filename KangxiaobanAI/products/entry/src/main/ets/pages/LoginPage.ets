@@ -91,6 +91,7 @@ struct LoginPage {
       value: role,
       action: () => {
         this.selectedRole = role;
+        this.globalInfoModel.role = role;
       }
     })))
   }

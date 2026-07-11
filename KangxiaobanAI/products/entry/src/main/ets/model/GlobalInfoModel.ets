@@ -23,6 +23,7 @@ export class GlobalInfoModel {
   @Trace public keyboardHeight: number = 0;
   @Trace public deviceHeight: number = 0;
   @Trace public deviceWidth: number = 0;
+  @Trace public role: string = '护工';
   public needDynamicHideBar: boolean = false;
   public aspectRatio: number = 0;
 }
