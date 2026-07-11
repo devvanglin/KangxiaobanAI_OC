@@ -29,7 +29,7 @@ import { PageKeyEnum, PAGE_SCROLLER_MAP } from '../model/TabsBarModel';
 import { TabPageConfig } from '../model/TabPageModel';
 import { BreakpointType } from '../util/BreakpointSystem';
 import { HealthListCard, HealthListCardData, HealthListCardRow } from './HealthListCard';
-import { DeviceListCard, DeviceListCardData, DeviceListCardRow } from './DeviceListCard';
+
 import { EventListCard, EventListCardData, EventListCardRow } from './EventListCard';
 import {
   HealthRowData,
@@ -41,7 +41,7 @@ import {
 import { HealthExpandPage } from '../pages/HealthExpandPage';
 import { ResidentDetailPage } from '../pages/ResidentDetailPage';
 
-type TaskSource = 'ai' | 'elder' | 'staff';
+type TaskSource = 'ai' | 'elder' | 'staff' | 'plan';
 type TaskStatus = 'todo' | 'doing' | 'done';
 type EventType = 'ai' | 'alert' | 'care' | 'family';
 
@@ -95,6 +95,20 @@ interface QuickActionData {
   badge?: string;
 }
 
+interface AiReminder {
+  level: StatusLevel;
+  text: string;
+}
+
+interface QuickListRow {
+  title: string;
+  sub: string;
+  time?: string;
+  tag?: string;
+  tagColor?: ResourceColor;
+  tagBg?: ResourceColor;
+}
+
 interface SettingItemData {
   icon: Resource;
   label: string;
@@ -122,6 +136,7 @@ export struct TabPageView {
   @Param @Require pageKey: PageKeyEnum;
   @Param @Require config: TabPageConfig;
   @Param onOpenSearch: () => void = () => {};
+  @Event onSwitchTab: (index: number) => void = () => {};
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
   @Local homeSearchState: HomeSearchState =
@@ -132,9 +147,10 @@ export struct TabPageView {
   @Local isTaskSheetOpen: boolean = false;
   @Local residentSearch: string = '';
   @Local residentFilter: 'all' | 'warning' | 'danger' = 'all';
-  @Local taskFilter: 'all' | 'ai' | 'elder' = 'all';
+  @Local taskFilter: 'all' | 'ai' | 'elder' | 'plan' = 'all';
   @Local homeSearchText: string = '';
   @Local isSearchPageShow: boolean = false;
+  @Local selectedQuickActionIndex: number = 0;
   @Local geometryId: string = '';
   @Local isHealthExpandShow: boolean = false;
   @Local isResidentDetailShow: boolean = false;
@@ -297,10 +313,13 @@ export struct TabPageView {
 
   private sourceText(source: TaskSource): string {
     if (source === 'ai') {
-      return 'AI';
+      return '系统';
     }
     if (source === 'elder') {
       return '长者';
+    }
+    if (source === 'plan') {
+      return '计划';
     }
     return '护工';
   }
@@ -406,23 +425,6 @@ export struct TabPageView {
     };
   }
 
-  private deviceCardData(): DeviceListCardData {
-    return {
-      title: '设备状态',
-      rows: this.deviceRows().map((item: DeviceRowData): DeviceListCardRow => {
-        return {
-          id: item.id,
-          name: item.name,
-          room: item.room,
-          type: item.type,
-          status: item.status,
-          level: item.level,
-          lastUpdate: item.lastUpdate
-        };
-      })
-    };
-  }
-
   private eventCardData(): EventListCardData {
     return {
       title: '今日事件流',
@@ -466,6 +468,54 @@ export struct TabPageView {
       { time: '09:12', type: 'family', title: '家属回访', detail: '3F-306 林爷爷家属电话未接通' },
       { time: '08:45', type: 'ai', title: 'AI 睡眠摘要', detail: '3F-306 林爷爷深睡时长低于均值 23%' },
       { time: '08:00', type: 'care', title: '用药提醒', detail: '3F 西区早间用药已完成' }
+    ];
+  }
+
+  private medicationItems(): QuickListRow[] {
+    return [
+      { title: '降压药', sub: '李秀英 · 1片', time: '08:00', tag: '待服用', tagColor: $r('app.color.brand_blue'),
+        tagBg: $r('app.color.status_normal_bg') },
+      { title: '钙片', sub: '王德林 · 2片', time: '08:00', tag: '待服用', tagColor: $r('app.color.brand_blue'),
+        tagBg: $r('app.color.status_normal_bg') },
+      { title: '二甲双胍', sub: '张明华 · 0.5g', time: '12:00', tag: '待服用', tagColor: $r('app.color.brand_blue'),
+        tagBg: $r('app.color.status_normal_bg') },
+      { title: '维生素D', sub: '肖爷爷 · 1粒', time: '07:00', tag: '已完成', tagColor: $r('sys.color.font_tertiary'),
+        tagBg: $r('sys.color.comp_background_tertiary') }
+    ];
+  }
+
+  private recordItems(): QuickListRow[] {
+    return [
+      { title: '体征测量', sub: '3F-302 肖爷爷', time: '10:24', tag: '已记录',
+        tagColor: $r('app.color.status_normal'), tagBg: $r('app.color.status_normal_bg') },
+      { title: '翻身护理', sub: '2F-215 周奶奶', time: '09:46', tag: '已记录',
+        tagColor: $r('app.color.status_normal'), tagBg: $r('app.color.status_normal_bg') },
+      { title: '用药执行', sub: '3F-306 林爷爷', time: '09:12', tag: '已记录',
+        tagColor: $r('app.color.status_normal'), tagBg: $r('app.color.status_normal_bg') },
+      { title: '夜间巡查', sub: '2F 东区', time: '06:30', tag: '已记录',
+        tagColor: $r('app.color.status_normal'), tagBg: $r('app.color.status_normal_bg') }
+    ];
+  }
+
+  private familyItems(): QuickListRow[] {
+    return [
+      { title: '张建国', sub: '李秀英儿子 · 13800138000' },
+      { title: '李秀兰', sub: '王德林女儿 · 13900139000' },
+      { title: '林涛', sub: '林爷爷儿子 · 13700137000' },
+      { title: '周敏', sub: '周奶奶女儿 · 13600136000' }
+    ];
+  }
+
+  private reportItems(): QuickListRow[] {
+    return [
+      { title: '智能床垫离线', sub: '3F-306', time: '14:20', tag: '待处理',
+        tagColor: $r('app.color.status_danger'), tagBg: $r('app.color.status_danger_bg') },
+      { title: '血压异常偏高', sub: '3F-302 肖爷爷', time: '10:24', tag: '已跟进',
+        tagColor: $r('app.color.status_normal'), tagBg: $r('app.color.status_normal_bg') },
+      { title: '离床频次增加', sub: '2F-215 周奶奶', time: '09:46', tag: '已跟进',
+        tagColor: $r('app.color.status_normal'), tagBg: $r('app.color.status_normal_bg') },
+      { title: '卫生间滞留超时', sub: '3F-308', time: '08:15', tag: '待处理',
+        tagColor: $r('app.color.status_danger'), tagBg: $r('app.color.status_danger_bg') }
     ];
   }
 
@@ -564,6 +614,18 @@ export struct TabPageView {
         title: '活动报名确认', elder: '林爷爷', room: '3F-306',
         time: '09:12', assignee: '赵晨',
         detail: '林爷爷主动要求参加书法角活动，已确认并安排陪同。'
+      },
+      {
+        id: 't6', source: 'plan', priority: 'normal', status: 'todo',
+        title: '半护理上午巡房', elder: '李奶奶', room: '2F-208',
+        time: '10:00', assignee: '刘婷',
+        detail: '半护理套餐包含每日上午巡房、血压测量与用药提醒。'
+      },
+      {
+        id: 't7', source: 'plan', priority: 'normal', status: 'doing',
+        title: '全护理翻身护理', elder: '王爷爷', room: '3F-309',
+        time: '09:00', assignee: '刘婷',
+        detail: '全护理套餐包含每两小时翻身一次，预防压疮。'
       }
     ];
   }
@@ -774,7 +836,632 @@ export struct TabPageView {
       )
   }
 
+  // ---------------- home: work info header ----------------
 
+  private greetingText(): string {
+    const hour: number = new Date().getHours();
+    if (hour < 6) {
+      return '凌晨好';
+    }
+    if (hour < 12) {
+      return '早上好';
+    }
+    if (hour < 14) {
+      return '中午好';
+    }
+    if (hour < 18) {
+      return '下午好';
+    }
+    return '晚上好';
+  }
+
+  private todayDateString(): string {
+    const now: Date = new Date();
+    const weekDays: string[] = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    return `${now.getMonth() + 1}月${now.getDate()}日 ${weekDays[now.getDay()]}`;
+  }
+
+  private todayTaskCount(): number {
+    return this.allTasks().length;
+  }
+
+  private doneTaskCount(): number {
+    return this.allTasks().filter((t: CareTask): boolean => t.status === 'done').length;
+  }
+
+  private todoTaskCount(): number {
+    return this.allTasks().filter((t: CareTask): boolean => t.status !== 'done').length;
+  }
+
+  private alertTaskCount(): number {
+    return this.allTasks().filter((t: CareTask): boolean => t.priority === 'danger').length;
+  }
+
+  private urgentTaskCount(): number {
+    return this.allTasks().filter((t: CareTask): boolean => t.priority === 'danger' && t.status !== 'done').length;
+  }
+
+  private completionRate(): string {
+    const total: number = this.todayTaskCount();
+    if (total === 0) {
+      return '0%';
+    }
+    return `${Math.round(this.doneTaskCount() / total * 100)}%`;
+  }
+
+  @Builder
+  private workInfoHeader() {
+    Column({ space: 8 }) {
+      Row({ space: 12 }) {
+        Text(`${this.greetingText()}，刘婷`)
+          .fontSize($r('sys.float.Title_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+          .layoutWeight(1)
+
+        Text(this.todayDateString())
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_tertiary'))
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      Row({ space: 12 }) {
+        Text('白班 · 08:00-16:00')
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_secondary'))
+        Text('今日负责 8 位老人')
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_secondary'))
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(16)
+  }
+
+  // ---------------- home: core metrics ----------------
+
+  @Builder
+  private taskOverviewGrid() {
+    Grid() {
+      GridItem() {
+        this.metricCard('总任务', `${this.todayTaskCount()}`, '项', `↑ 3 较昨日`, $r('sys.color.font_primary'))
+      }
+      GridItem() {
+        this.metricCard('已完成', `${this.doneTaskCount()}`, '项', `${this.completionRate()} 完成率`, $r('app.color.status_normal'))
+      }
+      GridItem() {
+        this.metricCard('待执行', `${this.todoTaskCount()}`, '项', `${this.urgentTaskCount()} 项紧急`, $r('app.color.brand_blue'))
+      }
+      GridItem() {
+        this.metricCard('安全', `${this.alertTaskCount()}`, '条', '1 条设备', $r('app.color.status_danger'))
+      }
+    }
+    .width('100%')
+    .columnsTemplate('1fr 1fr')
+    .rowsTemplate('1fr 1fr')
+    .columnsGap(10)
+    .rowsGap(10)
+    .height(200)
+  }
+
+  @Builder
+  private metricCard(label: string, value: string, unit: string, sub: string, valueColor: ResourceColor) {
+    Column({ space: 0 }) {
+      Row({ space: 6 }) {
+        Text(label)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_secondary'))
+      }
+
+      Row({ space: 4 }) {
+        Text(value)
+          .fontSize(28)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(valueColor)
+          .height(36)
+          .textAlign(TextAlign.Start)
+          .align(Alignment.Bottom)
+        Text(unit)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_secondary'))
+          .height(36)
+          .textAlign(TextAlign.Start)
+          .align(Alignment.Bottom)
+          .padding({ bottom: 5 })
+      }
+      .alignItems(VerticalAlign.Bottom)
+
+      Text(sub)
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor($r('sys.color.font_tertiary'))
+    }
+    .width('100%')
+    .height('100%')
+    .padding(14)
+    .justifyContent(FlexAlign.SpaceBetween)
+    .alignItems(HorizontalAlign.Start)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(16)
+  }
+
+  // ---------------- home: AI reminders ----------------
+
+  private aiReminders(): AiReminder[] {
+    return [
+      {
+        level: 'danger',
+        text: '302-1 张明华 血压连续3天偏高，建议今日重点观察'
+      },
+      {
+        level: 'normal',
+        text: '305-2 李秀英 康复训练完成率87%，继续保持'
+      }
+    ];
+  }
+
+  @Builder
+  private aiReminderCard() {
+    Column({ space: 10 }) {
+      Row({ space: 6 }) {
+        Text(`AI 智能提醒（${this.aiReminders().length}条）`)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+        Blank()
+      }
+      .width('100%')
+
+      List({ space: 8 }) {
+        Repeat(this.aiReminders())
+          .each((repeatItem: RepeatItem<AiReminder>) => {
+            ListItem() {
+              Row({ space: 8 }) {
+                Text(repeatItem.item.text)
+                  .fontSize($r('sys.float.Body_S'))
+                  .fontColor($r('sys.color.font_secondary'))
+                  .layoutWeight(1)
+                  .maxLines(2)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+              }
+              .width('100%')
+              .padding(12)
+              .backgroundColor($r('sys.color.comp_background_secondary'))
+              .borderRadius(12)
+            }
+          })
+      }
+      .width('100%')
+      .scrollBar(BarState.Off)
+      .listDirection(Axis.Vertical)
+    }
+    .width('100%')
+    .padding(16)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(16)
+  }
+
+  // ---------------- home: quick actions ----------------
+
+  private quickActionLabels(): string[] {
+    return ['执行任务', '用药', '记录', '家属', '上报', '看板'];
+  }
+
+  @Builder
+  private quickActionSection() {
+    Column({ space: 12 }) {
+      Scroll() {
+        Row({ space: 10 }) {
+          ForEach(this.quickActionLabels(), (label: string, index: number) => {
+            Row() {
+              Text(label)
+                .fontSize($r('sys.float.Body_M'))
+                .fontWeight(this.selectedQuickActionIndex === index ? FontWeight.Medium : FontWeight.Regular)
+                .fontColor(this.selectedQuickActionIndex === index ? $r('app.color.text_on_brand') :
+                  $r('sys.color.font_primary'))
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+            }
+            .padding({ left: 18, right: 18, top: 8, bottom: 8 })
+            .borderRadius(64)
+            .backgroundColor(this.selectedQuickActionIndex === index ? $r('app.color.brand_blue') :
+              $r('sys.color.comp_background_primary'))
+            .height(40)
+            .justifyContent(FlexAlign.Center)
+            .onClick(() => {
+              this.selectedQuickActionIndex = index;
+            })
+          }, (label: string, index: number) => `quick-action-${index}`)
+        }
+      }
+      .scrollBar(BarState.Off)
+      .scrollable(ScrollDirection.Horizontal)
+      .width('100%')
+
+      this.quickActionContent()
+    }
+    .width('100%')
+  }
+
+  @Builder
+  private quickActionContent() {
+    Column({ space: 0 }) {
+      if (this.selectedQuickActionIndex === 0) {
+        this.taskQuickPage()
+      } else if (this.selectedQuickActionIndex === 1) {
+        this.quickListPage('用药提醒', this.medicationItems())
+      } else if (this.selectedQuickActionIndex === 2) {
+        this.quickListPage('服务记录', this.recordItems())
+      } else if (this.selectedQuickActionIndex === 3) {
+        this.quickListPage('家属联系', this.familyItems())
+      } else if (this.selectedQuickActionIndex === 4) {
+        this.quickListPage('上报事项', this.reportItems())
+      } else {
+        this.dashboardQuickPage()
+      }
+    }
+    .width('100%')
+    .height(320)
+    .padding(16)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(16)
+    .clip(true)
+  }
+
+  @Builder
+  private taskQuickPage() {
+    Column({ space: 12 }) {
+      Row({ space: 6 }) {
+        Text('待办任务')
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+        Text(`· ${this.todoTaskCount()}项待执行`)
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_tertiary'))
+        Blank()
+        Text('查看全部')
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('app.color.brand_blue'))
+          .onClick(() => {
+            this.onSwitchTab(2);
+          })
+      }
+      .width('100%')
+
+      List({ space: 0 }) {
+        Repeat(this.homeTodoTasks())
+          .each((repeatItem: RepeatItem<CareTask>) => {
+            this.homeTaskRow(repeatItem.item)
+          })
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .scrollBar(BarState.Off)
+      .divider({
+        strokeWidth: 0.5,
+        color: $r('sys.color.comp_divider'),
+        startMargin: 16,
+        endMargin: 16
+      })
+    }
+    .width('100%')
+    .height('100%')
+  }
+
+  @Builder
+  private quickListPage(title: string, rows: QuickListRow[]) {
+    Column({ space: 12 }) {
+      Row({ space: 6 }) {
+        Text(title)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+        Text(`· ${rows.length}条`)
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_tertiary'))
+        Blank()
+        Text('查看全部')
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('app.color.brand_blue'))
+      }
+      .width('100%')
+
+      List({ space: 0 }) {
+        Repeat(rows)
+          .each((repeatItem: RepeatItem<QuickListRow>) => {
+            this.quickListRow(repeatItem.item)
+          })
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .scrollBar(BarState.Off)
+      .divider({
+        strokeWidth: 0.5,
+        color: $r('sys.color.comp_divider'),
+        startMargin: 0,
+        endMargin: 0
+      })
+    }
+    .width('100%')
+    .height('100%')
+  }
+
+  @Builder
+  private quickListRow(item: QuickListRow) {
+    ListItem() {
+      Row({ space: 10 }) {
+        Column({ space: 4 }) {
+          Text(item.title)
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text(item.sub)
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('sys.color.font_secondary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        if (item.time) {
+          Text(item.time)
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('sys.color.font_tertiary'))
+        }
+
+        if (item.tag) {
+          Text(item.tag)
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor(item.tagColor ?? $r('sys.color.font_secondary'))
+            .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+            .backgroundColor(item.tagBg ?? $r('sys.color.comp_background_secondary'))
+            .borderRadius(6)
+        }
+      }
+      .width('100%')
+      .padding({ top: 12, bottom: 12 })
+      .alignItems(VerticalAlign.Center)
+    }
+  }
+
+  @Builder
+  private dashboardQuickPage() {
+    Column({ space: 12 }) {
+      Row() {
+        Text('今日看板')
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+        Blank()
+        Text('查看全部')
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('app.color.brand_blue'))
+      }
+      .width('100%')
+
+      Grid() {
+        GridItem() {
+          this.dashboardMetric('总任务', `${this.todayTaskCount()}`)
+        }
+        GridItem() {
+          this.dashboardMetric('已完成', `${this.doneTaskCount()}`)
+        }
+        GridItem() {
+          this.dashboardMetric('待执行', `${this.todoTaskCount()}`)
+        }
+        GridItem() {
+          this.dashboardMetric('紧急', `${this.urgentTaskCount()}`)
+        }
+      }
+      .width('100%')
+      .columnsTemplate('1fr 1fr')
+      .rowsTemplate('1fr 1fr')
+      .columnsGap(10)
+      .rowsGap(10)
+      .layoutWeight(1)
+    }
+    .width('100%')
+    .height('100%')
+  }
+
+  @Builder
+  private dashboardMetric(label: string, value: string) {
+    Column({ space: 4 }) {
+      Text(value)
+        .fontSize($r('sys.float.Title_L'))
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+      Text(label)
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor($r('sys.color.font_secondary'))
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+    .backgroundColor($r('sys.color.comp_background_secondary'))
+    .borderRadius(16)
+  }
+
+  // ---------------- home: task todo list ----------------
+
+  private homeTodoTasks(): CareTask[] {
+    return this.allTasks().slice(0, 4);
+  }
+
+  private taskTag(status: TaskStatus, priority: StatusLevel): string {
+    if (priority === 'danger' && status !== 'done') {
+      return '紧急';
+    }
+    if (priority === 'warning' && status !== 'done') {
+      return '重要';
+    }
+    if (status === 'done') {
+      return '已完成';
+    }
+    return '';
+  }
+
+  @Builder
+  private homeTaskList() {
+    Column({ space: 0 }) {
+      Row() {
+        Row({ space: 6 }) {
+          Text('待办任务')
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+          Text(`· 今日 · ${this.todoTaskCount()}项待执行`)
+            .fontSize($r('sys.float.Body_S'))
+            .fontColor($r('sys.color.font_tertiary'))
+        }
+        Blank()
+        Text(`查看全部`)
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('app.color.brand_blue'))
+        .onClick(() => {
+          this.onSwitchTab(2);
+        })
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 14, bottom: 8 })
+
+      List({ space: 0 }) {
+        Repeat(this.homeTodoTasks())
+          .each((repeatItem: RepeatItem<CareTask>) => {
+            this.homeTaskRow(repeatItem.item)
+          })
+      }
+      .width('100%')
+      .backgroundColor($r('sys.color.ohos_id_color_background_transparent'))
+      .scrollBar(BarState.Off)
+      .divider({
+        strokeWidth: 0.5,
+        color: $r('sys.color.comp_divider'),
+        startMargin: 16,
+        endMargin: 16
+      })
+    }
+    .width('100%')
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(16)
+    .clip(true)
+  }
+
+  @Builder
+  private homeTaskRow(item: CareTask) {
+    ListItem() {
+      Column({ space: 10 }) {
+        // 主信息行：时间 + 图标 + 任务类型 + 老人 + 房号
+        Row({ space: 10 }) {
+          // 左侧时间
+          Text(item.time)
+            .fontSize($r('sys.float.Body_S'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor(item.priority === 'danger' && item.status !== 'done'
+              ? $r('app.color.status_danger')
+              : $r('sys.color.font_secondary'))
+            .width(58)
+
+          Text(item.title)
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+          Blank()
+            .layoutWeight(1)
+
+          Text(`${item.elder} · ${item.room}`)
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('sys.color.font_tertiary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+          if (this.taskTag(item.status, item.priority) !== '') {
+            Text(this.taskTag(item.status, item.priority))
+              .fontSize($r('sys.float.Caption_M'))
+              .fontColor(item.status === 'done'
+                ? $r('sys.color.font_tertiary')
+                : (item.priority === 'danger' ? $r('app.color.status_danger') : $r('app.color.status_warning')))
+              .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+              .backgroundColor(item.status === 'done'
+                ? $r('sys.color.comp_background_tertiary')
+                : (item.priority === 'danger' ? $r('app.color.status_danger_bg') : $r('app.color.status_warning_bg')))
+              .borderRadius(6)
+          }
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+
+        // 副文本（AI 建议/说明）
+        Row({ space: 0 }) {
+          Text(item.detail)
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('sys.color.font_tertiary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .width('100%')
+        .padding({ left: 74, right: 0 })
+
+        // 操作按钮
+        if (item.status !== 'done') {
+          Row({ space: 10 }) {
+            Button('执行')
+              .fontSize($r('sys.float.Caption_M'))
+              .fontColor($r('app.color.text_on_brand'))
+              .backgroundColor($r('app.color.brand_blue'))
+              .height(32)
+              .padding({ left: 14, right: 14 })
+              .borderRadius(16)
+              .onClick(() => {
+                // TODO: 执行任务
+              })
+            if (item.priority === 'warning') {
+              Button('稍后')
+                .fontSize($r('sys.float.Caption_M'))
+                .fontColor($r('sys.color.font_primary'))
+                .backgroundColor($r('sys.color.comp_background_secondary'))
+                .height(32)
+                .padding({ left: 14, right: 14 })
+                .borderRadius(16)
+                .onClick(() => {
+                  // TODO: 延后提醒
+                })
+            }
+          }
+          .width('100%')
+          .padding({ left: 74, right: 0 })
+        }
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+      .alignItems(HorizontalAlign.Start)
+    }
+    .onClick(() => {
+      this.selectedTaskId = item.id;
+      this.isTaskSheetOpen = true;
+    })
+    .bindSheet(this.isTaskSheetOpen && this.selectedTaskId === item.id, this.taskSheetBuilder, {
+      detents: [SheetSize.LARGE, SheetSize.MEDIUM],
+      showClose: true,
+      dragBar: true,
+      title: { title: '任务详情' },
+      backgroundColor: $r('sys.color.background_secondary'),
+      onDisappear: () => {
+        this.isTaskSheetOpen = false;
+      }
+    })
+  }
 
   // ---------------- resident builders ----------------
 
@@ -1003,7 +1690,7 @@ export struct TabPageView {
   private taskChipBar() {
     Scroll() {
       Row({ space: 10 }) {
-        ForEach(['全部', '系统', '长者'], (label: string, index: number) => {
+        ForEach(['全部', '系统', '计划', '长者'], (label: string, index: number) => {
           Row({ space: 6 }) {
             Text(label)
               .fontSize($r('sys.float.Body_S'))
@@ -1037,15 +1724,21 @@ export struct TabPageView {
     if (this.taskFilter === 'ai') {
       return 1;
     }
-    return 2;
+    if (this.taskFilter === 'plan') {
+      return 2;
+    }
+    return 3;
   }
 
-  private taskFilterValue(index: number): 'all' | 'ai' | 'elder' {
+  private taskFilterValue(index: number): 'all' | 'ai' | 'plan' | 'elder' {
     if (index === 0) {
       return 'all';
     }
     if (index === 1) {
       return 'ai';
+    }
+    if (index === 2) {
+      return 'plan';
     }
     return 'elder';
   }
@@ -1089,7 +1782,7 @@ export struct TabPageView {
           }
         },
         suffixItem: new SuffixText({
-          text: `${this.statusText(item.status)} · ${this.priorityText(item.priority)}`
+          text: this.statusText(item.status)
         }),
         cardBorderRadius: 0,
         cardBackgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
@@ -1454,18 +2147,18 @@ export struct TabPageView {
       }) {
       ListItem() {
         Column() {
-          this.homeSearchBar()
+          this.workInfoHeader()
         }
         .padding({
           left: this.pagePadding(),
           right: this.pagePadding(),
-          top: this.homeContentTopPadding()
+          top: this.contentTopPadding()
         })
       }
 
       ListItem() {
         Column() {
-          this.overviewGrid()
+          this.taskOverviewGrid()
         }
         .padding({
           left: this.pagePadding(),
@@ -1475,14 +2168,7 @@ export struct TabPageView {
 
       ListItem() {
         Column() {
-          HealthListCard({
-            cardData: this.healthCardData(),
-            widthBreakpoint: this.globalInfoModel.widthBreakpoint,
-            isExpanded: this.isHealthExpandShow,
-            onCardExpand: () => {
-              this.openHealthExpand();
-            }
-          })
+          this.aiReminderCard()
         }
         .padding({
           left: this.pagePadding(),
@@ -1492,10 +2178,7 @@ export struct TabPageView {
 
       ListItem() {
         Column() {
-          DeviceListCard({
-            cardData: this.deviceCardData(),
-            widthBreakpoint: this.globalInfoModel.widthBreakpoint
-          })
+          this.quickActionSection()
         }
         .padding({
           left: this.pagePadding(),
@@ -1505,16 +2188,10 @@ export struct TabPageView {
 
       ListItem() {
         Column() {
-          EventListCard({
-            cardData: this.eventCardData(),
-            widthBreakpoint: this.globalInfoModel.widthBreakpoint
-          })
+          Blank()
         }
-        .padding({
-          left: this.pagePadding(),
-          right: this.pagePadding(),
-          bottom: this.bottomPadding()
-        })
+        .height(this.bottomPadding())
+        .width('100%')
       }
     }
     .width('100%')

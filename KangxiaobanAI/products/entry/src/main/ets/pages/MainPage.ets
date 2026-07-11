@@ -81,6 +81,14 @@ struct MainPage {
     this.pathStack.pushPath({ name: CHECK_IN_ROUTE_NAME });
   }
 
+  private switchTab(index: number): void {
+    if (this.isWideLayout()) {
+      this.currentTabIndex = index;
+    } else {
+      this.controller.changeIndex(index);
+    }
+  }
+
   private openSearchPage(): void {
     this.pathStack.pushPath({ name: SEARCH_ROUTE_NAME });
   }
@@ -565,6 +573,9 @@ struct MainPage {
           config: this.pageConfigs[0],
           onOpenSearch: () => {
             this.openSearchPage();
+          },
+          onSwitchTab: (index: number) => {
+            this.switchTab(index);
           }
         })
       }
@@ -577,6 +588,9 @@ struct MainPage {
           config: this.pageConfigs[1],
           onOpenSearch: () => {
             this.openSearchPage();
+          },
+          onSwitchTab: (index: number) => {
+            this.switchTab(index);
           }
         })
       }
@@ -589,6 +603,9 @@ struct MainPage {
           config: this.pageConfigs[2],
           onOpenSearch: () => {
             this.openSearchPage();
+          },
+          onSwitchTab: (index: number) => {
+            this.switchTab(index);
           }
         })
       }
@@ -601,6 +618,9 @@ struct MainPage {
           config: this.pageConfigs[3],
           onOpenSearch: () => {
             this.openSearchPage();
+          },
+          onSwitchTab: (index: number) => {
+            this.switchTab(index);
           }
         })
       }
@@ -657,6 +677,9 @@ struct MainPage {
             config: this.pageConfigs[this.currentTabIndex],
             onOpenSearch: () => {
               this.openSearchPage();
+            },
+            onSwitchTab: (index: number) => {
+              this.switchTab(index);
             }
           })
         }
