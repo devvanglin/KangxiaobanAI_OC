@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import { AppStorageV2, SymbolGlyphModifier, curves } from '@kit.ArkUI';
+import { AppStorageV2, SymbolGlyphModifier, curves, router } from '@kit.ArkUI';
 import {
   HdsListItemCard,
   IconSize,
@@ -22,6 +22,7 @@ import {
   SuffixText
 } from '@kit.UIDesignKit';
 import { StorageKey } from '../common/CommonConstants';
+import Logger from '../util/Logger';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { HomeSearchState } from '../model/HomeSearchState';
 import { PageKeyEnum, PAGE_SCROLLER_MAP } from '../model/TabsBarModel';
@@ -99,6 +100,8 @@ interface SettingItemData {
   label: string;
   value?: string;
   showArrow: boolean;
+  isDanger?: boolean;
+  action?: () => void;
 }
 
 interface SettingGroupData {
@@ -216,10 +219,16 @@ export struct TabPageView {
   }
 
   private contentTopPadding(): number {
+    if (this.isWideLayout()) {
+      return 0;
+    }
     return this.topPadding() + this.titleBarHeight();
   }
 
   private homeContentTopPadding(): number {
+    if (this.isWideLayout()) {
+      return 0;
+    }
     return this.topPadding() + this.homeTitleBarHeight();
   }
 
@@ -1724,8 +1733,31 @@ export struct TabPageView {
           { icon: $r('sys.symbol.questionmark_circle'), label: '关于我们', showArrow: true },
           { icon: $r('sys.symbol.gearshape'), label: '通用设置', showArrow: true }
         ]
+      },
+      {
+        title: '',
+        items: [
+          {
+            icon: $r('sys.symbol.xmark'),
+            label: '退出登录',
+            showArrow: false,
+            isDanger: true,
+            action: () => {
+              this.handleLogout();
+            }
+          }
+        ]
       }
     ];
+  }
+
+  private async handleLogout(): Promise<void> {
+    // 预留：清空登录态、token、缓存
+    try {
+      await router.replaceUrl({ url: 'pages/LoginPage' });
+    } catch (err) {
+      Logger.error('[TabPageView]', `logout failed: ${JSON.stringify(err)}`);
+    }
   }
 
   @Builder
@@ -2000,7 +2032,7 @@ export struct TabPageView {
           iconSize: IconSize.SYSTEM_ICON,
           iconValue: {
             symbol: new SymbolGlyphModifier(item.icon)
-              .fontColor([$r('sys.color.font_primary')])
+              .fontColor([item.isDanger ? $r('app.color.status_danger') : $r('sys.color.font_primary')])
           }
         }),
         textItem: {
@@ -2010,7 +2042,7 @@ export struct TabPageView {
         },
         suffixItem: item.value ?
           new SuffixText({ text: item.value }) :
-          new SuffixArrow({ color: $r('sys.color.font_tertiary') }),
+          (item.showArrow ? new SuffixArrow({ color: $r('sys.color.font_tertiary') }) : undefined),
         cardBorderRadius: 0,
         cardBackgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
         cardHeight: 52,
@@ -2031,6 +2063,11 @@ export struct TabPageView {
     .stateStyles({
       pressed: this.itemPressedStyle,
       normal: this.itemNormalStyle
+    })
+    .onClick(() => {
+      if (item.action) {
+        item.action();
+      }
     })
   }
 

@@ -38,7 +38,7 @@ export default class KanxiaobanAbility extends UIAbility {
     // Main window is created, set main page for this ability
     Logger.info(TAG, 'Ability onWindowStageCreate');
 
-    windowStage.loadContent('pages/MainPage', (err) => {
+    windowStage.loadContent('pages/LoginPage', (err) => {
       if (err.code) {
         Logger.error(TAG, `Failed to load the content. Cause: ${err.message}`);
         return;

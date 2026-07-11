@@ -81,6 +81,12 @@ export class WindowUtil {
         if (avoidAreaOption.type === window.AvoidAreaType.TYPE_SYSTEM ||
           avoidAreaOption.type === window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR) {
           WindowUtil.setAvoidArea(avoidAreaOption.type, avoidAreaOption.area);
+        } else if (avoidAreaOption.type === window.AvoidAreaType.TYPE_KEYBOARD) {
+          const globalInfoModel: GlobalInfoModel =
+            AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO, () => new GlobalInfoModel()) ??
+              new GlobalInfoModel();
+          globalInfoModel.keyboardHeight = WindowUtil.uiContext.px2vp(avoidAreaOption.area?.bottomRect?.height ?? 0);
+          AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO, () => globalInfoModel);
         }
       });
     } catch (err) {

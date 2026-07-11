@@ -13,16 +13,21 @@
  * limitations under the License.
  */
 
-import { AppStorageV2, curves } from '@kit.ArkUI';
+import { AppStorageV2, curves, SymbolGlyphModifier } from '@kit.ArkUI';
 import {
   HdsBarStyle,
   hdsMaterial,
+  HdsListItemCard,
   HdsNavigation,
   HdsNavigationMenuContentOptions,
   HdsNavigationTitleMode,
   HdsTabs,
   HdsTabsController,
+  IconSize,
+  PrefixIcon,
   ScrollEffectType,
+  SuffixArrow,
+  SuffixText,
   TextStyleMode,
 } from '@kit.UIDesignKit';
 import { CheckInFlowPage } from '../component/CheckInFlowPage';
@@ -34,7 +39,6 @@ import { HomeSearchState } from '../model/HomeSearchState';
 import { PAGE_SCROLLER_MAP, PageKeyEnum, TabsBarModel } from '../model/TabsBarModel';
 import { TAB_PAGE_CONFIGS, TabPageConfig } from '../model/TabPageModel';
 import Logger from '../util/Logger';
-import { BreakpointType } from '../util/BreakpointSystem';
 
 const TAG: string = '[MainPage]';
 const CHECK_IN_ROUTE_NAME: string = 'CheckInRegister';
@@ -44,6 +48,13 @@ interface WideNavItem {
   label: ResourceStr;
   symbol: Resource;
   badge?: string;
+  tabIndex?: number;
+  action?: () => void;
+}
+
+interface WideNavGroup {
+  label: string;
+  items: WideNavItem[];
 }
 
 @Entry
@@ -57,8 +68,7 @@ struct MainPage {
   private pageConfigs: TabPageConfig[] = TAB_PAGE_CONFIGS;
   @Local isMiniBar: boolean = true;
   @Local currentTabIndex: number = 0;
-  @Local isShowSidebar: boolean = false;
-  @Local sidebarSearchText: string = '';
+  @Local isSidebarCollapsed: boolean = false;
   @Local homeSearchState: HomeSearchState =
     AppStorageV2.connect(HomeSearchState, StorageKey.HOME_SEARCH_STATE, () => new HomeSearchState()) ??
     new HomeSearchState();
@@ -103,262 +113,371 @@ struct MainPage {
   }
 
   private sidebarWidth(): number {
-    return new BreakpointType<number>({
-      sm: 248,
-      md: 268,
-      lg: 288,
-      xl: 304
-    }).getValue(this.globalInfoModel.widthBreakpoint);
+    return this.isSidebarCollapsed ? 72 : 288;
   }
 
-  private wideShellPadding(): number {
-    return new BreakpointType<number>({
-      sm: 16,
-      md: 20,
-      lg: 24,
-      xl: 28
-    }).getValue(this.globalInfoModel.widthBreakpoint);
+  private isNavActive(item: WideNavItem): boolean {
+    return item.tabIndex !== undefined && this.currentTabIndex === item.tabIndex;
   }
 
-  private sidebarTopPadding(): number {
-    return this.globalInfoModel.statusBarHeight + 26;
+  private handleNavClick(item: WideNavItem): void {
+    if (item.tabIndex !== undefined) {
+      this.currentTabIndex = item.tabIndex;
+    } else if (item.action) {
+      item.action();
+    }
   }
 
-  private isCurrentTab(index: number): boolean {
-    return this.currentTabIndex === index;
+  private toggleSidebar(): void {
+    this.getUIContext().animateTo({ curve: curves.springMotion() }, () => {
+      this.isSidebarCollapsed = !this.isSidebarCollapsed;
+    });
   }
 
-  private wideNavItems(): WideNavItem[] {
+  private wideNavGroups(): WideNavGroup[] {
     return [
       {
-        label: $r('app.string.tab_home'),
-        symbol: $r('sys.symbol.house_fill')
+        label: '业务',
+        items: [
+          { label: $r('app.string.tab_home'), symbol: $r('sys.symbol.house_fill'), tabIndex: 0 },
+          { label: $r('app.string.tab_music'), symbol: $r('sys.symbol.person_2_fill'), tabIndex: 1 },
+          { label: $r('app.string.tab_cafe'), symbol: $r('sys.symbol.square_and_pencil_fill'), tabIndex: 2, badge: '18' },
+        ]
       },
       {
-        label: $r('app.string.tab_music'),
-        symbol: $r('sys.symbol.person_2_fill')
+        label: '管理',
+        items: [
+          { label: '入住登记', symbol: $r('sys.symbol.square_and_pencil'), action: (): void => this.openCheckInFlow() },
+          { label: '排班', symbol: $r('sys.symbol.calendar_badge_clock') },
+          { label: '服务记录', symbol: $r('sys.symbol.doc_text') },
+        ]
       },
       {
-        label: $r('app.string.tab_cafe'),
-        symbol: $r('sys.symbol.square_and_pencil_fill'),
-        badge: '18'
+        label: '系统',
+        items: [
+          { label: $r('app.string.tab_mine'), symbol: $r('sys.symbol.gearshape'), tabIndex: 3 },
+          { label: '帮助', symbol: $r('sys.symbol.questionmark_circle') },
+        ]
       },
-      {
-        label: $r('app.string.tab_mine'),
-        symbol: $r('sys.symbol.person_crop_circle_fill')
-      }
     ];
   }
 
-  @Builder
-  private sidebarTag(text: string, backgroundColor: ResourceColor, fontColor: ResourceColor = $r('sys.color.font_secondary')) {
-    Text(text)
-      .fontSize($r('sys.float.Caption_M'))
-      .fontColor(fontColor)
-      .padding({
-        left: $r('sys.float.padding_level3'),
-        right: $r('sys.float.padding_level3'),
-        top: 4,
-        bottom: 4
-      })
-      .backgroundColor(backgroundColor)
-      .borderRadius(10)
-  }
+  // ==================== PC 侧边栏 ====================
 
   @Builder
-  private wideNavItemRow(item: WideNavItem, index: number) {
-    Row() {
-      SymbolGlyph(item.symbol)
-        .fontSize(24)
-        .fontColor([this.isCurrentTab(index) ? $r('sys.color.icon_emphasize') : $r('sys.color.icon_secondary')])
-        .margin({ right: 12 })
-
-      Text(item.label)
-        .fontSize(16)
-        .flexGrow(1)
-        .fontColor($r('sys.color.font_primary'))
-        .fontWeight(this.isCurrentTab(index) ? FontWeight.Medium : FontWeight.Regular)
-
-      Blank()
-
-      if (item.badge) {
-        Text(item.badge)
-          .fontSize(14)
-          .fontColor($r('sys.color.font_secondary'))
-          .margin({ right: 8 })
-      }
-
-      SymbolGlyph($r('sys.symbol.chevron_right'))
-        .fontSize(20)
-        .fontColor([$r('sys.color.font_tertiary')])
-    }
-    .width('100%')
-    .height(48)
-    .padding({ left: 8, right: 8 })
-    .borderRadius(12)
-    .backgroundColor(this.isCurrentTab(index) ? $r('sys.color.comp_background_emphasize') : Color.Transparent)
-    .onClick(() => {
-      this.currentTabIndex = index;
-    })
-  }
-
-  @Builder
-  private sidebarAccountItem() {
-    Row() {
-      Column() {
-        SymbolGlyph($r('sys.symbol.person_crop_circle_fill'))
-          .fontSize(48)
-          .fontColor([$r('sys.color.icon_secondary')])
-      }
-      .width(56)
-      .height(56)
-      .justifyContent(FlexAlign.Center)
-      .alignItems(HorizontalAlign.Center)
-
-      Column({ space: 4 }) {
-        Text('李护工')
-          .fontSize($r('sys.float.Body_L'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-        Text('A 栋 · 白班 08:00-18:00')
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor($r('sys.color.font_secondary'))
-      }
-      .layoutWeight(1)
-      .padding({ left: 12 })
-      .justifyContent(FlexAlign.Center)
-      .alignItems(HorizontalAlign.Start)
-
-      Blank()
-      this.sidebarTag('值班中', $r('app.color.status_normal_bg'), $r('app.color.status_normal'))
-    }
-    .width('100%')
-    .height(72)
-    .padding({ left: 8, right: 8 })
-    .borderRadius(12)
-    .onClick(() => {})
-  }
-
-  @Builder
-  private sidebarGroup(items: WideNavItem[], groupTitle?: string) {
+  private pcSidebar() {
     Column() {
-      if (groupTitle) {
-        Text(groupTitle)
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor($r('sys.color.font_tertiary'))
-          .margin({ bottom: 8, left: 4 })
-      }
-      Column() {
-        ForEach(items, (item: WideNavItem, index: number) => {
-          this.wideNavItemRow(item, index)
-          if (index < items.length - 1) {
-            Divider()
-              .strokeWidth(0.5)
-              .color($r('sys.color.comp_divider'))
-              .margin({ left: 44, right: 8 })
-          }
-        }, (item: WideNavItem, index: number) => item.label.toString() + index)
-      }
-      .width('100%')
-      .backgroundColor($r('sys.color.comp_background_primary'))
-      .borderRadius(16)
-      .padding(4)
-    }
-    .width('100%')
-  }
-
-  @Builder
-  private wideSidebarPanel() {
-    Column() {
-      Column() {
-        Search({ placeholder: '搜索功能、长者、任务' })
-          .width('100%')
-          .height(40)
-          .margin({ top: 8, bottom: 12 })
-          .onChange((value: string) => {
-            this.sidebarSearchText = value;
-          })
-      }
-      .width('100%')
-      .padding({ left: 20, right: 20 })
+      this.pcSidebarHeader()
 
       Scroll() {
-        Column({ space: 16 }) {
-          this.sidebarAccountItem()
-
-          this.sidebarGroup(this.wideNavItems(), '业务导航')
-
-          Column({ space: 12 }) {
-            Row() {
-              Column({ space: 4 }) {
-                Text('入住登记')
-                  .fontSize($r('sys.float.Body_M'))
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor($r('sys.color.font_primary'))
-                Text('资料核验、床位安排、照护计划与交接同步')
-                  .fontSize($r('sys.float.Body_S'))
-                  .fontColor($r('sys.color.font_secondary'))
-              }
-              .alignItems(HorizontalAlign.Start)
-              .layoutWeight(1)
-            }
-
-            Row({ space: 8 }) {
-              this.sidebarTag('今日预排 03', $r('sys.color.comp_background_emphasize'), $r('app.color.brand_blue'))
-              this.sidebarTag('空床 12', $r('sys.color.comp_background_secondary'), $r('sys.color.font_secondary'))
-            }
-
-            Button('开始办理')
-              .width('100%')
-              .height(44)
-              .backgroundColor($r('app.color.brand_blue'))
-              .borderRadius(12)
-              .fontColor($r('app.color.text_on_brand'))
-              .fontSize($r('sys.float.Body_M'))
-              .onClick(() => {
-                this.openCheckInFlow();
-              })
-          }
-          .alignItems(HorizontalAlign.Start)
-          .padding($r('sys.float.padding_level6'))
-          .backgroundColor($r('sys.color.comp_background_primary'))
-          .borderRadius(16)
-
-          Column({ space: 8 }) {
-            Row() {
-              Text('系统状态')
-                .fontSize($r('sys.float.Body_M'))
-                .fontWeight(FontWeight.Bold)
-                .fontColor($r('sys.color.font_primary'))
-              Blank()
-              Text('已同步')
-                .fontSize($r('sys.float.Caption_M'))
-                .fontColor($r('app.color.status_normal'))
-            }
-            Text('设备在线 186 台，毫米波与床垫数据回传稳定，家属端摘要推送正常。')
-              .fontSize($r('sys.float.Body_S'))
-              .fontColor($r('sys.color.font_secondary'))
-          }
-          .alignItems(HorizontalAlign.Start)
-          .padding($r('sys.float.padding_level6'))
-          .backgroundColor($r('sys.color.comp_background_primary'))
-          .borderRadius(16)
+        Column({ space: 20 }) {
+          ForEach(this.wideNavGroups(), (group: WideNavGroup, groupIndex: number) => {
+            this.pcNavGroup(group, groupIndex)
+          }, (group: WideNavGroup, groupIndex: number) => `${groupIndex}`)
         }
         .width('100%')
-        .padding({ left: 20, right: 20, bottom: 24 })
+        .padding({ left: 16, right: 16, top: 8, bottom: 24 })
       }
       .layoutWeight(1)
-      .width('100%')
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
       .align(Alignment.TopStart)
+
+      this.pcSidebarFooter()
     }
     .width('100%')
     .height('100%')
     .padding({ top: this.globalInfoModel.statusBarHeight })
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .backgroundColor($r('sys.color.background_secondary'))
   }
+
+  @Builder
+  private pcSidebarHeader() {
+    Row() {
+      Row({ space: 10 }) {
+        SymbolGlyph($r('sys.symbol.house_fill'))
+          .fontSize(28)
+          .fontColor([$r('app.color.brand_blue')])
+
+        if (!this.isSidebarCollapsed) {
+          Column({ space: 2 }) {
+            Text('康小伴')
+              .fontSize($r('sys.float.Body_L'))
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('sys.color.font_primary'))
+            Text('移动智慧养老')
+              .fontSize($r('sys.float.Caption_M'))
+              .fontColor($r('sys.color.font_secondary'))
+          }
+          .alignItems(HorizontalAlign.Start)
+        }
+      }
+      .layoutWeight(this.isSidebarCollapsed ? 0 : 1)
+      .justifyContent(this.isSidebarCollapsed ? FlexAlign.Center : FlexAlign.Start)
+      .width(this.isSidebarCollapsed ? '100%' : undefined)
+      .alignItems(VerticalAlign.Center)
+
+      if (!this.isSidebarCollapsed) {
+        Row() {
+          SymbolGlyph($r('sys.symbol.chevron_left'))
+            .fontSize(14)
+            .fontColor([$r('sys.color.font_tertiary')])
+        }
+        .width(28)
+        .height(28)
+        .borderRadius(14)
+        .backgroundColor($r('sys.color.comp_background_primary'))
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
+        .onClick(() => {
+          this.toggleSidebar();
+        })
+      }
+    }
+    .width('100%')
+    .height(68)
+    .padding({ left: this.isSidebarCollapsed ? 0 : 20, right: this.isSidebarCollapsed ? 0 : 12 })
+    .justifyContent(FlexAlign.SpaceBetween)
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  private pcSidebarFooter() {
+    Column() {
+      if (this.isSidebarCollapsed) {
+        HdsListItemCard({
+          prefixItem: new PrefixIcon({
+            iconSize: IconSize.SYSTEM_ICON,
+            iconValue: {
+              symbol: new SymbolGlyphModifier($r('sys.symbol.person_crop_circle_fill'))
+                .fontColor([$r('sys.color.icon_secondary')])
+            }
+          }),
+          cardBackgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
+          cardHeight: 56,
+          cardBorderRadius: 12,
+          cardPrefixMargin: 0,
+          cardSuffixMargin: 0
+        })
+      } else {
+        HdsListItemCard({
+          prefixItem: new PrefixIcon({
+            iconSize: IconSize.SYSTEM_ICON,
+            iconValue: {
+              symbol: new SymbolGlyphModifier($r('sys.symbol.person_crop_circle_fill'))
+                .fontColor([$r('sys.color.icon_secondary')])
+            }
+          }),
+          textItem: {
+            primaryText: { text: '李护工' },
+            secondaryText: { text: '白班 08:00-18:00' }
+          },
+          suffixItem: new SuffixArrow(),
+          cardBackgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
+          cardHeight: 56,
+          cardBorderRadius: 12,
+          cardPrefixMargin: 0,
+          cardSuffixMargin: 0
+        })
+      }
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+    .border({ width: { top: 0.5 }, color: { top: $r('sys.color.comp_divider') } })
+  }
+
+  @Builder
+  private pcNavGroup(group: WideNavGroup, groupIndex: number) {
+    Column({ space: 6 }) {
+      if (!this.isSidebarCollapsed) {
+        Text(group.label)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_tertiary'))
+          .fontWeight(FontWeight.Medium)
+          .margin({ left: 8, top: 4, bottom: 2 })
+      }
+      Column({ space: 2 }) {
+        ForEach(group.items, (item: WideNavItem, index: number) => {
+          if (this.isSidebarCollapsed) {
+            this.pcNavItemCollapsed(item, this.isNavActive(item))
+          } else {
+            this.pcNavItemExpanded(item, this.isNavActive(item))
+          }
+        }, (item: WideNavItem, index: number) => `${groupIndex}-${index}`)
+      }
+      .width('100%')
+    }
+    .width('100%')
+  }
+
+  @Builder
+  private pcNavItemExpanded(item: WideNavItem, isActive: boolean) {
+    HdsListItemCard({
+      prefixItem: new PrefixIcon({
+        iconSize: IconSize.SYSTEM_ICON,
+        iconValue: {
+          symbol: new SymbolGlyphModifier(item.symbol)
+            .fontColor([isActive ? $r('sys.color.icon_emphasize') : $r('sys.color.icon_secondary')])
+        }
+      }),
+      textItem: {
+        primaryText: {
+          text: item.label
+        }
+      },
+      suffixItem: item.badge ? new SuffixText({ text: item.badge }) : new SuffixArrow(),
+      cardBackgroundColor: isActive ? $r('sys.color.comp_background_emphasize') :
+        $r('sys.color.ohos_id_color_background_transparent'),
+      cardHeight: 48,
+      cardBorderRadius: 12,
+      cardPrefixMargin: 4,
+      cardSuffixMargin: 0
+    })
+    .onClick(() => {
+      this.handleNavClick(item);
+    })
+  }
+
+  @Builder
+  private pcNavItemCollapsed(item: WideNavItem, isActive: boolean) {
+    HdsListItemCard({
+      prefixItem: new PrefixIcon({
+        iconSize: IconSize.SYSTEM_ICON,
+        iconValue: {
+          symbol: new SymbolGlyphModifier(item.symbol)
+            .fontColor([isActive ? $r('sys.color.icon_emphasize') : $r('sys.color.icon_secondary')])
+        }
+      }),
+      cardBackgroundColor: isActive ? $r('sys.color.comp_background_emphasize') :
+        $r('sys.color.ohos_id_color_background_transparent'),
+      cardHeight: 48,
+      cardBorderRadius: 12,
+      cardPrefixMargin: 0,
+      cardSuffixMargin: 0
+    })
+    .onClick(() => {
+      this.handleNavClick(item);
+    })
+  }
+
+  // ==================== PC 顶部栏 ====================
+
+  @Builder
+  private pcTopBar() {
+    Row({ space: 16 }) {
+      Row({ space: 12 }) {
+        if (this.isSidebarCollapsed) {
+          Row() {
+            SymbolGlyph($r('sys.symbol.list_bullet'))
+              .fontSize($r('sys.float.Title_S'))
+              .fontColor([$r('sys.color.font_primary')])
+          }
+          .width(40)
+          .height(40)
+          .borderRadius(20)
+          .backgroundColor($r('sys.color.comp_background_primary'))
+          .justifyContent(FlexAlign.Center)
+          .alignItems(VerticalAlign.Center)
+          .onClick(() => {
+            this.toggleSidebar();
+          })
+        }
+
+        Column({ space: 2 }) {
+          Text(this.getCurrentPageTitle())
+            .fontSize($r('sys.float.Title_M'))
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text('移动智慧养老 · 半山敬老院')
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('sys.color.font_secondary'))
+            .maxLines(1)
+        }
+        .alignItems(HorizontalAlign.Start)
+      }
+      .alignItems(VerticalAlign.Center)
+
+      Blank()
+
+      this.pcSearchBox()
+
+      Row({ space: 8 }) {
+        this.pcTopBarIcon($r('sys.symbol.bell'), true)
+        this.pcTopBarIcon($r('sys.symbol.gearshape'), false)
+        SymbolGlyph($r('sys.symbol.person_crop_circle_fill'))
+          .fontSize(36)
+          .fontColor([$r('sys.color.icon_secondary')])
+      }
+      .alignItems(VerticalAlign.Center)
+    }
+    .width('100%')
+    .height(64)
+    .padding({ left: 24, right: 24 })
+    .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
+    .margin({ top: this.globalInfoModel.statusBarHeight })
+    .alignItems(VerticalAlign.Center)
+    .backgroundColor($r('sys.color.background_secondary'))
+  }
+
+  @Builder
+  private pcTopBarIcon(symbol: Resource, hasBadge: boolean) {
+    Stack({ alignContent: Alignment.TopEnd }) {
+      Row() {
+        SymbolGlyph(symbol)
+          .fontSize($r('sys.float.Title_S'))
+          .fontColor([$r('sys.color.font_primary')])
+      }
+      .width(40)
+      .height(40)
+      .borderRadius(20)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .justifyContent(FlexAlign.Center)
+      .alignItems(VerticalAlign.Center)
+
+      if (hasBadge) {
+        Column()
+          .width(8)
+          .height(8)
+          .borderRadius(4)
+          .backgroundColor($r('app.color.status_danger'))
+          .margin({ top: 6, right: 6 })
+      }
+    }
+    .width(40)
+    .height(40)
+  }
+
+  @Builder
+  private pcSearchBox() {
+    Row({ space: 8 }) {
+      SymbolGlyph($r('sys.symbol.magnifyingglass'))
+        .fontSize($r('sys.float.Title_S'))
+        .fontColor([$r('sys.color.font_tertiary')])
+      Text('搜索居民、工单、床位…')
+        .fontSize($r('sys.float.Body_M'))
+        .fontColor($r('sys.color.font_tertiary'))
+        .layoutWeight(1)
+      Text('⌘K')
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor($r('sys.color.font_tertiary'))
+        .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+        .backgroundColor($r('sys.color.background_secondary'))
+        .borderRadius(4)
+    }
+    .width(340)
+    .height(40)
+    .borderRadius(20)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .padding({ left: 14, right: 10 })
+    .alignItems(VerticalAlign.Center)
+    .onClick(() => {
+      this.openSearchPage();
+    })
+  }
+
+  // ==================== 手机端（原样保留） ====================
 
   @Builder
   private miniBarBuilder() {
@@ -486,38 +605,33 @@ struct MainPage {
     })
   }
 
-  private openDrawer(): void {
-    this.getUIContext().animateTo({
-      curve: curves.springMotion()
-    }, () => {
-      this.isShowSidebar = true;
-    })
-  }
-
-  private closeDrawer(): void {
-    this.getUIContext().animateTo({
-      curve: curves.springMotion()
-    }, () => {
-      this.isShowSidebar = false;
-    })
-  }
+  // ==================== PC 三栏骨架 ====================
 
   @Builder
   private wideShell() {
     Row({ space: 0 }) {
-      if (this.isShowSidebar) {
-        Column() {
-          this.wideSidebarPanel()
-        }
-        .width(336)
-        .height('100%')
-        .backgroundColor($r('sys.color.background_secondary'))
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-        .transition(TransitionEffect.translate({ x: -336 }).animation({ curve: curves.springMotion() }))
+      Column() {
+        this.pcSidebar()
       }
+      .width(this.sidebarWidth())
+      .height('100%')
+      .backgroundColor($r('sys.color.background_secondary'))
+      .border({ width: { right: 0.5 }, color: { right: $r('sys.color.comp_divider') } })
 
       Column() {
-        this.wideContentPanel()
+        this.pcTopBar()
+        Column() {
+          TabPageView({
+            currentTabIndex: this.currentTabIndex,
+            pageKey: PageKeyEnum.ADAPTIVE_TAB,
+            config: this.pageConfigs[this.currentTabIndex],
+            onOpenSearch: () => {
+              this.openSearchPage();
+            }
+          })
+        }
+        .layoutWeight(1)
+        .width('100%')
       }
       .layoutWeight(1)
       .height('100%')
@@ -526,60 +640,6 @@ struct MainPage {
     .width('100%')
     .height('100%')
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-  }
-
-  @Builder
-  private wideContentPanel() {
-    Stack({ alignContent: Alignment.TopStart }) {
-      TabPageView({
-        currentTabIndex: this.currentTabIndex,
-        pageKey: PageKeyEnum.ADAPTIVE_TAB,
-        config: this.pageConfigs[this.currentTabIndex],
-        onOpenSearch: () => {
-          this.openSearchPage();
-        }
-      })
-
-      Row({ space: 12 }) {
-        Row() {
-          SymbolGlyph(this.isShowSidebar ? $r('sys.symbol.xmark') : $r('sys.symbol.list_bullet'))
-            .fontSize(22)
-            .fontColor([$r('sys.color.font_primary')])
-        }
-        .width(40)
-        .height(40)
-        .borderRadius(20)
-        .backgroundColor($r('sys.color.comp_background_primary'))
-        .justifyContent(FlexAlign.Center)
-        .alignItems(VerticalAlign.Center)
-        .onClick(() => {
-          if (this.isShowSidebar) {
-            this.closeDrawer();
-          } else {
-            this.openDrawer();
-          }
-        })
-        .animation({ curve: curves.springMotion(), duration: 300 })
-
-        Text(this.getCurrentPageTitle())
-          .fontSize($r('sys.float.Title_M'))
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-      }
-      .alignItems(VerticalAlign.Center)
-      .margin({
-        left: 16,
-        top: this.globalInfoModel.statusBarHeight + 4
-      })
-    }
-    .width('100%')
-    .height('100%')
-    .padding({
-      right: this.wideShellPadding(),
-      bottom: this.wideShellPadding()
-    })
   }
 
   @Builder
