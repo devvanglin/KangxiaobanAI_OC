@@ -257,15 +257,13 @@ export struct AiChatPage {
   }
 
   private actionButtonText(type: string): string {
-    const map: Record<string, string> = {
-      copy: 'copy',
-      share: 'share',
-      like: 'like',
-      dislike: 'dislike',
-      retry: 'refresh',
-      more: '...'
-    };
-    return map[type] ?? '';
+    if (type === 'copy') return 'copy';
+    if (type === 'share') return 'share';
+    if (type === 'like') return 'like';
+    if (type === 'dislike') return 'dislike';
+    if (type === 'retry') return 'refresh';
+    if (type === 'more') return '...';
+    return '';
   }
 
   @Builder
@@ -395,22 +393,20 @@ export struct AiChatPage {
       this.topBar()
 
       List({ space: 0, scroller: this.listScroller }) {
-        Repeat<ChatMessage>(this.messages)
-          .each((repeatItem: RepeatItem<ChatMessage>, index: number) => {
-            ListItem() {
-              Row() {
-                if (repeatItem.item.role === 'ai') {
-                  this.aiMessageItem(repeatItem.item)
-                } else {
-                  this.userMessageItem(repeatItem.item, index)
-                }
+        ForEach(this.messages, (message: ChatMessage, index: number) => {
+          ListItem() {
+            Row() {
+              if (message.role === 'ai') {
+                this.aiMessageItem(message)
+              } else {
+                this.userMessageItem(message, index)
               }
-              .width('100%')
-              .constraintSize({ maxWidth: this.expandMaxWidth() })
-              .justifyContent(FlexAlign.Center)
             }
-          })
-          .key((item: ChatMessage) => item.id)
+            .width('100%')
+            .constraintSize({ maxWidth: this.expandMaxWidth() })
+            .justifyContent(FlexAlign.Center)
+          }
+        }, (message: ChatMessage, index: number) => message.id)
       }
       .width('100%')
       .layoutWeight(1)
