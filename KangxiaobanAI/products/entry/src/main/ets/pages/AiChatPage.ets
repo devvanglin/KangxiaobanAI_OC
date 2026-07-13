@@ -21,7 +21,8 @@ interface ChatMessage {
   id: string;
   role: 'ai' | 'user';
   content: string;
-  time: string;
+  thinkSeconds?: number;
+  suggestions?: string[];
 }
 
 @ComponentV2
@@ -32,15 +33,16 @@ export struct AiChatPage {
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
   @Local messages: ChatMessage[] = [];
   @Local inputText: string = '';
+  @Local isInputFocused: boolean = false;
   private listScroller: ListScroller = new ListScroller();
 
   @Styles
-  itemNormalStyle() {
+  iconButtonNormalStyle() {
     .backgroundColor($r('sys.color.ohos_id_color_background_transparent'))
   }
 
   @Styles
-  itemPressedStyle() {
+  iconButtonPressedStyle() {
     .backgroundColor($r('sys.color.interactive_pressed'))
   }
 
@@ -48,21 +50,15 @@ export struct AiChatPage {
     this.messages = [
       {
         id: 'm1',
-        role: 'ai',
-        content: '您好，我是康小伴智能守护。今日已识别 2 条重点关注事项：\n1. 302-1 张明华 血压连续3天偏高\n2. 3F-306 林爷爷 深睡时长低于均值 23%\n需要我为您安排护理任务吗？',
-        time: '08:30'
+        role: 'user',
+        content: '1'
       },
       {
         id: 'm2',
-        role: 'user',
-        content: '张明华的血压详细情况',
-        time: '08:31'
-      },
-      {
-        id: 'm3',
         role: 'ai',
-        content: '张明华（302-1）近3日血压记录：\n· 7/12  152/96 mmHg\n· 7/13  148/94 mmHg\n· 7/14  155/98 mmHg\n建议：今日重点观察，考虑调整用药方案并通知主治医生。',
-        time: '08:31'
+        content: 'What would you like me to do with "1"? Is this the start of a math problem, a list, code, or something else? Give me more context!',
+        thinkSeconds: 2,
+        suggestions: ['Explain basic arithmetic', 'Explore number theory']
       }
     ];
   }
@@ -72,16 +68,16 @@ export struct AiChatPage {
   }
 
   private pagePadding(): number {
-    return 16;
+    return 20;
   }
 
   private expandMaxWidth(): number {
     const widthBreakpoint: WidthBreakpoint = this.globalInfoModel.widthBreakpoint;
     if (widthBreakpoint === WidthBreakpoint.WIDTH_LG || widthBreakpoint === WidthBreakpoint.WIDTH_XL) {
-      return 880;
+      return 760;
     }
     if (widthBreakpoint === WidthBreakpoint.WIDTH_MD) {
-      return 720;
+      return 680;
     }
     return 9999;
   }
@@ -97,13 +93,10 @@ export struct AiChatPage {
     if (text.length === 0) {
       return;
     }
-    const now: Date = new Date();
-    const timeStr: string = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
     this.messages.push({
       id: `u-${Date.now()}`,
       role: 'user',
-      content: text,
-      time: timeStr
+      content: text
     });
     this.inputText = '';
     setTimeout(() => {
@@ -111,7 +104,8 @@ export struct AiChatPage {
         id: `a-${Date.now()}`,
         role: 'ai',
         content: '已收到您的消息，正在为您查询相关信息...',
-        time: timeStr
+        thinkSeconds: 1,
+        suggestions: ['查看今日健康摘要', '生成护理建议']
       });
       this.scrollToBottom();
     }, 400);
@@ -120,128 +114,203 @@ export struct AiChatPage {
   @Builder
   private topBar() {
     Row() {
-      Row({ space: 10 }) {
-        Row() {
-          SymbolGlyph($r('sys.symbol.ellipsis_message_fill'))
-            .fontSize(22)
-            .fontColor([$r('app.color.brand_blue')])
-        }
-        .width(40)
-        .height(40)
-        .borderRadius(20)
-        .backgroundColor($r('sys.color.comp_background_primary'))
-        .justifyContent(FlexAlign.Center)
-        .alignItems(VerticalAlign.Center)
-
-        Column({ space: 2 }) {
-          Text('康小伴智能守护')
-            .fontSize($r('sys.float.Title_S'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text('智能养老助手 · 在线')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_secondary'))
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-      }
-      .layoutWeight(1)
-      .alignItems(VerticalAlign.Center)
-
       Row() {
-        SymbolGlyph($r('sys.symbol.xmark'))
-          .fontSize(20)
+        SymbolGlyph($r('sys.symbol.list_bullet'))
+          .fontSize(24)
           .fontColor([$r('sys.color.font_primary')])
       }
       .width(40)
       .height(40)
-      .borderRadius(20)
-      .backgroundColor($r('sys.color.comp_background_primary'))
       .justifyContent(FlexAlign.Center)
       .alignItems(VerticalAlign.Center)
       .stateStyles({
-        normal: this.itemNormalStyle,
-        pressed: this.itemPressedStyle
+        normal: this.iconButtonNormalStyle,
+        pressed: this.iconButtonPressedStyle
       })
-      .onClick(() => {
-        this.onClose();
-      })
+
+      Blank()
+
+      Row({ space: 4 }) {
+        Row() {
+          SymbolGlyph($r('sys.symbol.share'))
+            .fontSize(22)
+            .fontColor([$r('sys.color.font_primary')])
+        }
+        .width(40)
+        .height(40)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
+        .stateStyles({
+          normal: this.iconButtonNormalStyle,
+          pressed: this.iconButtonPressedStyle
+        })
+
+        Row() {
+          SymbolGlyph($r('sys.symbol.square_and_pencil'))
+            .fontSize(22)
+            .fontColor([$r('sys.color.font_primary')])
+        }
+        .width(40)
+        .height(40)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
+        .stateStyles({
+          normal: this.iconButtonNormalStyle,
+          pressed: this.iconButtonPressedStyle
+        })
+        .onClick(() => {
+          this.onClose();
+        })
+      }
     }
     .width('100%')
+    .height(56)
     .padding({ left: this.pagePadding(), right: this.pagePadding() })
-    .margin({ top: this.topPadding(), bottom: 12 })
+    .margin({ top: this.topPadding() })
+    .alignItems(VerticalAlign.Center)
+    .justifyContent(FlexAlign.SpaceBetween)
   }
 
   @Builder
-  private messageBubble(message: ChatMessage) {
+  private userBadge(count: number) {
     Row() {
-      if (message.role === 'ai') {
-        Row() {
-          SymbolGlyph($r('sys.symbol.ellipsis_message_fill'))
-            .fontSize(18)
-            .fontColor([$r('app.color.brand_blue')])
+      Text(count.toString())
+        .fontSize(15)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+    }
+    .width(34)
+    .height(34)
+    .borderRadius(17)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .justifyContent(FlexAlign.Center)
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  private userMessageItem(message: ChatMessage, index: number) {
+    Row() {
+      Blank()
+      this.userBadge(index + 1)
+    }
+    .width('100%')
+    .padding({ left: this.pagePadding(), right: this.pagePadding() })
+    .margin({ bottom: 24 })
+  }
+
+  @Builder
+  private aiMessageItem(message: ChatMessage) {
+    Column({ space: 16 }) {
+      if (message.thinkSeconds !== undefined && message.thinkSeconds > 0) {
+        Row({ space: 6 }) {
+          Text('💡')
+            .fontSize(14)
+          Text(`思考了 ${message.thinkSeconds}s`)
+            .fontSize($r('sys.float.Body_S'))
+            .fontColor($r('sys.color.font_tertiary'))
         }
-        .width(32)
-        .height(32)
-        .borderRadius(16)
-        .backgroundColor($r('sys.color.comp_background_primary'))
-        .justifyContent(FlexAlign.Center)
-        .alignItems(VerticalAlign.Center)
+        .width('100%')
       }
 
-      Column({ space: 4 }) {
-        Text(message.content)
-          .fontSize($r('sys.float.Body_M'))
-          .fontColor(message.role === 'ai' ? $r('sys.color.font_primary') : $r('app.color.text_on_brand'))
-          .lineHeight(22)
-        Text(message.time)
-          .fontSize($r('sys.float.Caption_S'))
-          .fontColor(message.role === 'ai' ? $r('sys.color.font_tertiary') : $r('app.color.text_on_brand'))
-      }
-      .alignItems(message.role === 'ai' ? HorizontalAlign.Start : HorizontalAlign.End)
-      .constraintSize({ maxWidth: '75%' })
-      .padding({ left: 14, right: 14, top: 10, bottom: 10 })
-      .backgroundColor(message.role === 'ai' ? $r('sys.color.comp_background_primary') : $r('app.color.brand_blue'))
-      .borderRadius(16)
-      .border({
-        width: message.role === 'ai' ? 0.5 : 0,
-        color: $r('sys.color.comp_divider')
-      })
-      .margin({ left: message.role === 'ai' ? 10 : 0, right: message.role === 'ai' ? 0 : 10 })
+      Text(message.content)
+        .fontSize($r('sys.float.Body_L'))
+        .fontColor($r('sys.color.font_primary'))
+        .fontWeight(FontWeight.Regular)
+        .lineHeight(26)
+        .width('100%')
 
-      if (message.role === 'user') {
-        Row() {
-          SymbolGlyph($r('sys.symbol.person_fill'))
-            .fontSize(18)
-            .fontColor([$r('sys.color.icon_secondary')])
+      Row({ space: 4 }) {
+        this.aiActionButton('copy')
+        this.aiActionButton('share')
+        this.aiActionButton('like')
+        this.aiActionButton('dislike')
+        this.aiActionButton('retry')
+        this.aiActionButton('more')
+      }
+      .width('100%')
+      .margin({ top: 4 })
+
+      if (message.suggestions && message.suggestions.length > 0) {
+        Column({ space: 10 }) {
+          ForEach(message.suggestions, (suggestion: string, index: number) => {
+            Row({ space: 8 }) {
+              Text('↳')
+                .fontSize(16)
+                .fontColor($r('sys.color.font_tertiary'))
+              Text(suggestion)
+                .fontSize($r('sys.float.Body_M'))
+                .fontColor($r('sys.color.font_secondary'))
+            }
+            .width('100%')
+            .alignItems(VerticalAlign.Center)
+          }, (suggestion: string, index: number) => `${index}-${suggestion}`)
         }
-        .width(32)
-        .height(32)
-        .borderRadius(16)
-        .backgroundColor($r('sys.color.comp_background_primary'))
-        .justifyContent(FlexAlign.Center)
-        .alignItems(VerticalAlign.Center)
+        .width('100%')
+        .margin({ top: 8 })
       }
     }
     .width('100%')
-    .justifyContent(message.role === 'ai' ? FlexAlign.Start : FlexAlign.End)
-    .alignItems(VerticalAlign.Top)
-    .padding({ top: 6, bottom: 6 })
+    .padding({ left: this.pagePadding(), right: this.pagePadding() })
+    .margin({ bottom: 32 })
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  private actionButtonText(type: string): string {
+    const map: Record<string, string> = {
+      copy: 'copy',
+      share: 'share',
+      like: 'like',
+      dislike: 'dislike',
+      retry: 'refresh',
+      more: '...'
+    };
+    return map[type] ?? '';
+  }
+
+  @Builder
+  private aiActionButton(type: string) {
+    Row() {
+      Text(this.actionButtonText(type))
+        .fontSize(type === 'more' ? 14 : 12)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.icon_secondary'))
+    }
+    .width(32)
+    .height(32)
+    .justifyContent(FlexAlign.Center)
+    .alignItems(VerticalAlign.Center)
+    .stateStyles({
+      normal: this.iconButtonNormalStyle,
+      pressed: this.iconButtonPressedStyle
+    })
   }
 
   @Builder
   private inputBar() {
-    Row({ space: 10 }) {
-      TextInput({ text: this.inputText, placeholder: '输入消息...' })
+    Row({ space: 12 }) {
+      Row() {
+        Text('＋')
+          .fontSize(22)
+          .fontColor($r('sys.color.icon_secondary'))
+      }
+      .width(36)
+      .height(36)
+      .borderRadius(18)
+      .justifyContent(FlexAlign.Center)
+      .alignItems(VerticalAlign.Center)
+      .stateStyles({
+        normal: this.iconButtonNormalStyle,
+        pressed: this.iconButtonPressedStyle
+      })
+
+      TextInput({ text: this.inputText, placeholder: '畅所欲问' })
         .type(InputType.Normal)
         .fontSize($r('sys.float.Body_M'))
         .fontColor($r('sys.color.font_primary'))
         .placeholderFont({ size: $r('sys.float.Body_M') })
         .placeholderColor($r('sys.color.font_tertiary'))
-        .backgroundColor($r('sys.color.comp_background_primary'))
-        .borderRadius(26)
+        .backgroundColor('rgba(0,0,0,0)')
         .height(52)
         .layoutWeight(1)
         .onChange((value: string) => {
@@ -250,31 +319,75 @@ export struct AiChatPage {
         .onSubmit(() => {
           this.sendMessage();
         })
+        .onFocus(() => {
+          this.isInputFocused = true;
+        })
+        .onBlur(() => {
+          this.isInputFocused = false;
+        })
+
+      if (!this.isInputFocused && this.inputText.length === 0) {
+        Row({ space: 4 }) {
+          Text('Fast')
+            .fontSize($r('sys.float.Body_M'))
+            .fontColor($r('sys.color.font_secondary'))
+          SymbolGlyph($r('sys.symbol.chevron_down'))
+            .fontSize(12)
+            .fontColor([$r('sys.color.font_tertiary')])
+        }
+        .height(32)
+        .padding({ left: 10, right: 10 })
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
+        .stateStyles({
+          normal: this.iconButtonNormalStyle,
+          pressed: this.iconButtonPressedStyle
+        })
+
+        Row() {
+          Text('mic')
+            .fontSize(11)
+            .fontColor($r('sys.color.icon_secondary'))
+        }
+        .width(36)
+        .height(36)
+        .borderRadius(18)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
+        .stateStyles({
+          normal: this.iconButtonNormalStyle,
+          pressed: this.iconButtonPressedStyle
+        })
+      }
 
       Row() {
         Text('↑')
-          .fontSize(24)
+          .fontSize(22)
           .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.brand_blue'))
+          .fontColor($r('app.color.text_on_brand'))
       }
-      .width(52)
-      .height(52)
-      .borderRadius(26)
-      .backgroundColor($r('sys.color.comp_background_primary'))
+      .width(44)
+      .height(44)
+      .borderRadius(22)
+      .backgroundColor($r('sys.color.font_primary'))
       .justifyContent(FlexAlign.Center)
       .alignItems(VerticalAlign.Center)
       .stateStyles({
-        normal: this.itemNormalStyle,
-        pressed: this.itemPressedStyle
+        normal: this.iconButtonNormalStyle,
+        pressed: this.iconButtonPressedStyle
       })
       .onClick(() => {
         this.sendMessage();
       })
     }
     .width('100%')
-    .padding({ left: this.pagePadding(), right: this.pagePadding(), top: 10, bottom: 12 })
-    .backgroundColor($r('sys.color.background_secondary'))
-    .border({ width: { top: 0.5 }, color: { top: $r('sys.color.comp_divider') } })
+    .height(64)
+    .padding({ left: 8, right: 8 })
+    .margin({ left: this.pagePadding(), right: this.pagePadding(), bottom: 16 })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(32)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .alignItems(VerticalAlign.Center)
   }
 
   build() {
@@ -283,17 +396,17 @@ export struct AiChatPage {
 
       List({ space: 0, scroller: this.listScroller }) {
         Repeat<ChatMessage>(this.messages)
-          .each((repeatItem: RepeatItem<ChatMessage>) => {
+          .each((repeatItem: RepeatItem<ChatMessage>, index: number) => {
             ListItem() {
               Row() {
-                this.messageBubble(repeatItem.item)
+                if (repeatItem.item.role === 'ai') {
+                  this.aiMessageItem(repeatItem.item)
+                } else {
+                  this.userMessageItem(repeatItem.item, index)
+                }
               }
               .width('100%')
               .constraintSize({ maxWidth: this.expandMaxWidth() })
-              .padding({
-                left: this.pagePadding(),
-                right: this.pagePadding()
-              })
               .justifyContent(FlexAlign.Center)
             }
           })
@@ -301,7 +414,7 @@ export struct AiChatPage {
       }
       .width('100%')
       .layoutWeight(1)
-      .backgroundColor($r('sys.color.background_secondary'))
+      .backgroundColor($r('sys.color.background_primary'))
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
       .align(Alignment.TopStart)
@@ -310,7 +423,7 @@ export struct AiChatPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor($r('sys.color.background_secondary'))
+    .backgroundColor($r('sys.color.background_primary'))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .geometryTransition(this.geometryId)
     .transition(TransitionEffect.OPACITY)
