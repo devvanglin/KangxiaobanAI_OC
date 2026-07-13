@@ -14,6 +14,7 @@
  */
 
 import { AppStorageV2 } from '@kit.ArkUI';
+import { window } from '@kit.ArkUI';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { StorageKey } from '../common/CommonConstants';
 
@@ -34,7 +35,9 @@ export struct AiChatPage {
   @Local messages: ChatMessage[] = [];
   @Local inputText: string = '';
   @Local isInputFocused: boolean = false;
+  @Local keyboardHeight: number = 0;
   private listScroller: ListScroller = new ListScroller();
+  private keyboardCallbackId: number = -1;
 
   @Styles
   iconButtonNormalStyle() {
@@ -61,6 +64,34 @@ export struct AiChatPage {
         suggestions: ['Explain basic arithmetic', 'Explore number theory']
       }
     ];
+    this.registerKeyboardListener();
+  }
+
+  aboutToDisappear(): void {
+    this.unregisterKeyboardListener();
+  }
+
+  private registerKeyboardListener(): void {
+    try {
+      const win: window.Window = window.getLastWindowSync();
+      this.keyboardCallbackId = win.on('keyboardHeightChange', (data: window.KeyboardHeightChangeOptions) => {
+        this.keyboardHeight = data.height;
+      });
+    } catch (err) {
+      // ignore
+    }
+  }
+
+  private unregisterKeyboardListener(): void {
+    if (this.keyboardCallbackId !== -1) {
+      try {
+        const win: window.Window = window.getLastWindowSync();
+        win.off('keyboardHeightChange', this.keyboardCallbackId);
+      } catch (err) {
+        // ignore
+      }
+      this.keyboardCallbackId = -1;
+    }
   }
 
   private topPadding(): number {
@@ -114,9 +145,11 @@ export struct AiChatPage {
   @Builder
   private topBar() {
     Row() {
+      Blank()
+
       Row() {
-        SymbolGlyph($r('sys.symbol.list_bullet'))
-          .fontSize(24)
+        SymbolGlyph($r('sys.symbol.xmark'))
+          .fontSize(22)
           .fontColor([$r('sys.color.font_primary')])
       }
       .width(40)
@@ -127,48 +160,16 @@ export struct AiChatPage {
         normal: this.iconButtonNormalStyle,
         pressed: this.iconButtonPressedStyle
       })
-
-      Blank()
-
-      Row({ space: 4 }) {
-        Row() {
-          SymbolGlyph($r('sys.symbol.share'))
-            .fontSize(22)
-            .fontColor([$r('sys.color.font_primary')])
-        }
-        .width(40)
-        .height(40)
-        .justifyContent(FlexAlign.Center)
-        .alignItems(VerticalAlign.Center)
-        .stateStyles({
-          normal: this.iconButtonNormalStyle,
-          pressed: this.iconButtonPressedStyle
-        })
-
-        Row() {
-          SymbolGlyph($r('sys.symbol.square_and_pencil'))
-            .fontSize(22)
-            .fontColor([$r('sys.color.font_primary')])
-        }
-        .width(40)
-        .height(40)
-        .justifyContent(FlexAlign.Center)
-        .alignItems(VerticalAlign.Center)
-        .stateStyles({
-          normal: this.iconButtonNormalStyle,
-          pressed: this.iconButtonPressedStyle
-        })
-        .onClick(() => {
-          this.onClose();
-        })
-      }
+      .onClick(() => {
+        this.onClose();
+      })
     }
     .width('100%')
     .height(56)
     .padding({ left: this.pagePadding(), right: this.pagePadding() })
     .margin({ top: this.topPadding() })
     .alignItems(VerticalAlign.Center)
-    .justifyContent(FlexAlign.SpaceBetween)
+    .justifyContent(FlexAlign.End)
   }
 
   @Builder
@@ -285,7 +286,7 @@ export struct AiChatPage {
   }
 
   @Builder
-  private inputBar() {
+  private inputCapsule() {
     Row({ space: 12 }) {
       Row() {
         Text('＋')
@@ -381,11 +382,21 @@ export struct AiChatPage {
     .width('100%')
     .height(64)
     .padding({ left: 8, right: 8 })
-    .margin({ left: this.pagePadding(), right: this.pagePadding(), bottom: 16 })
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(32)
     .border({ width: 0.5, color: $r('sys.color.comp_divider') })
     .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  private inputBar() {
+    Column() {
+      this.inputCapsule()
+    }
+    .width('100%')
+    .padding({ left: this.pagePadding(), right: this.pagePadding(), bottom: 16 })
+    .padding({ bottom: this.keyboardHeight })
+    .backgroundColor($r('sys.color.background_primary'))
   }
 
   build() {
