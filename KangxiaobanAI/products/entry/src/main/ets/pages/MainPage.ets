@@ -15,11 +15,9 @@
 
 import { AppStorageV2, curves, SymbolGlyphModifier } from '@kit.ArkUI';
 import {
-  HdsBarStyle,
   hdsMaterial,
   HdsListItemCard,
   HdsNavigation,
-  HdsNavigationMenuContentOptions,
   HdsNavigationTitleMode,
   HdsTabs,
   HdsTabsController,
@@ -30,19 +28,14 @@ import {
   SuffixText,
   TextStyleMode,
 } from '@kit.UIDesignKit';
-import { CheckInFlowPage } from '../component/CheckInFlowPage';
-import { SearchPage } from '../component/SearchPage';
 import { TabPageView } from '../component/TabPageView';
 import { StorageKey } from '../common/CommonConstants';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
-import { HomeSearchState } from '../model/HomeSearchState';
 import { PAGE_SCROLLER_MAP, PageKeyEnum, TabsBarModel } from '../model/TabsBarModel';
 import { TAB_PAGE_CONFIGS, TabPageConfig } from '../model/TabPageModel';
 import Logger from '../util/Logger';
 
 const TAG: string = '[MainPage]';
-const CHECK_IN_ROUTE_NAME: string = 'CheckInRegister';
-const SEARCH_ROUTE_NAME: string = 'SearchPage';
 
 interface WideNavItem {
   label: ResourceStr;
@@ -66,19 +59,11 @@ struct MainPage {
   private controller: HdsTabsController = new HdsTabsController();
   private tabsBar: BottomTabBarStyle[] = TabsBarModel.getTabBarByPage(PageKeyEnum.ADAPTIVE_TAB) ?? [];
   private pageConfigs: TabPageConfig[] = TAB_PAGE_CONFIGS;
-  @Local isMiniBar: boolean = true;
   @Local currentTabIndex: number = 0;
   @Local isSidebarCollapsed: boolean = false;
-  @Local homeSearchState: HomeSearchState =
-    AppStorageV2.connect(HomeSearchState, StorageKey.HOME_SEARCH_STATE, () => new HomeSearchState()) ??
-    new HomeSearchState();
 
   private getCurrentPageTitle(): ResourceStr {
     return this.pageConfigs[this.currentTabIndex]?.title ?? $r('app.string.tab_home');
-  }
-
-  private openCheckInFlow(): void {
-    this.pathStack.pushPath({ name: CHECK_IN_ROUTE_NAME });
   }
 
   private switchTab(index: number): void {
@@ -87,10 +72,6 @@ struct MainPage {
     } else {
       this.controller.changeIndex(index);
     }
-  }
-
-  private openSearchPage(): void {
-    this.pathStack.pushPath({ name: SEARCH_ROUTE_NAME });
   }
 
   private isRoleAdapted(): boolean {
@@ -121,26 +102,6 @@ struct MainPage {
     .padding({ top: this.globalInfoModel.statusBarHeight })
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .backgroundColor($r('sys.color.background_secondary'))
-  }
-
-  private homeSearchMenu(): HdsNavigationMenuContentOptions {
-    if (this.isWideLayout()) {
-      return { value: [] };
-    }
-    const showSearchButton: boolean = this.currentTabIndex === 0 && this.homeSearchState.scrollY > 60;
-    return {
-      value: showSearchButton ? [
-        {
-          content: {
-            icon: $r('sys.symbol.magnifyingglass'),
-            isEnabled: true,
-            action: () => {
-              this.homeSearchState.searchTrigger++;
-            }
-          }
-        }
-      ] : []
-    };
   }
 
   private isWideLayout(): boolean {
@@ -185,7 +146,6 @@ struct MainPage {
       {
         label: '管理',
         items: [
-          { label: '入住登记', symbol: $r('sys.symbol.square_and_pencil'), action: (): void => this.openCheckInFlow() },
           { label: '排班', symbol: $r('sys.symbol.calendar_badge_clock') },
           { label: '服务记录', symbol: $r('sys.symbol.doc_text') },
         ]
@@ -439,8 +399,6 @@ struct MainPage {
 
       Blank()
 
-      this.pcSearchBox()
-
       Row({ space: 8 }) {
         this.pcTopBarIcon($r('sys.symbol.bell'), true)
         this.pcTopBarIcon($r('sys.symbol.gearshape'), false)
@@ -487,81 +445,7 @@ struct MainPage {
     .height(40)
   }
 
-  @Builder
-  private pcSearchBox() {
-    Row({ space: 8 }) {
-      SymbolGlyph($r('sys.symbol.magnifyingglass'))
-        .fontSize($r('sys.float.Title_S'))
-        .fontColor([$r('sys.color.font_tertiary')])
-      Text('搜索居民、工单、床位…')
-        .fontSize($r('sys.float.Body_M'))
-        .fontColor($r('sys.color.font_tertiary'))
-        .layoutWeight(1)
-      Text('⌘K')
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_tertiary'))
-        .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-        .backgroundColor($r('sys.color.background_secondary'))
-        .borderRadius(4)
-    }
-    .width(340)
-    .height(40)
-    .borderRadius(20)
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .padding({ left: 14, right: 10 })
-    .alignItems(VerticalAlign.Center)
-    .onClick(() => {
-      this.openSearchPage();
-    })
-  }
-
   // ==================== 手机端（原样保留） ====================
-
-  @Builder
-  private miniBarBuilder() {
-    Row({ space: 10 }) {
-      Stack({ alignContent: Alignment.Center }) {
-        Row()
-          .width(44)
-          .height(44)
-          .backgroundColor('#00000000')
-        SymbolGlyph($r('sys.symbol.plus'))
-          .fontSize($r('sys.float.Title_L'))
-          .fontColor([$r('sys.color.icon_primary')])
-      }
-      .width(44)
-      .height(44)
-
-      if (!this.isMiniBar) {
-        Column({ space: 4 }) {
-          Text('入住登记')
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .maxLines(1)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-            .fontSize($r('sys.float.Body_S'))
-          Text('预排 03  空床 12')
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .maxLines(1)
-            .fontWeight(FontWeight.Regular)
-            .fontColor($r('sys.color.font_secondary'))
-            .fontSize($r('sys.float.Caption_M'))
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-      }
-    }
-    .width('100%')
-    .padding({
-      left: this.isMiniBar ? 6 : 4,
-      right: this.isMiniBar ? 6 : 12,
-      top: this.isMiniBar ? 4 : 8,
-      bottom: this.isMiniBar ? 4 : 8
-    })
-    .onClick(() => {
-      this.openCheckInFlow();
-    })
-  }
 
   @Builder
   private phoneTabs() {
@@ -571,9 +455,6 @@ struct MainPage {
           currentTabIndex: 0,
           pageKey: PageKeyEnum.ADAPTIVE_TAB,
           config: this.pageConfigs[0],
-          onOpenSearch: () => {
-            this.openSearchPage();
-          },
           onSwitchTab: (index: number) => {
             this.switchTab(index);
           }
@@ -586,9 +467,6 @@ struct MainPage {
           currentTabIndex: 1,
           pageKey: PageKeyEnum.ADAPTIVE_TAB,
           config: this.pageConfigs[1],
-          onOpenSearch: () => {
-            this.openSearchPage();
-          },
           onSwitchTab: (index: number) => {
             this.switchTab(index);
           }
@@ -601,9 +479,6 @@ struct MainPage {
           currentTabIndex: 2,
           pageKey: PageKeyEnum.ADAPTIVE_TAB,
           config: this.pageConfigs[2],
-          onOpenSearch: () => {
-            this.openSearchPage();
-          },
           onSwitchTab: (index: number) => {
             this.switchTab(index);
           }
@@ -616,9 +491,6 @@ struct MainPage {
           currentTabIndex: 3,
           pageKey: PageKeyEnum.ADAPTIVE_TAB,
           config: this.pageConfigs[3],
-          onOpenSearch: () => {
-            this.openSearchPage();
-          },
           onSwitchTab: (index: number) => {
             this.switchTab(index);
           }
@@ -638,12 +510,6 @@ struct MainPage {
       systemMaterialEffect: {
         materialType: hdsMaterial.MaterialType.IMMERSIVE,
         materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
-      },
-      miniBar: {
-        miniBarBuilder: () => this.miniBarBuilder(),
-        onBarStyleChange: (miniBarStyle: HdsBarStyle) => {
-          this.isMiniBar = miniBarStyle === HdsBarStyle.COLLAPSE;
-        }
       }
     })
     .onAttach(() => {
@@ -675,9 +541,6 @@ struct MainPage {
             currentTabIndex: this.currentTabIndex,
             pageKey: PageKeyEnum.ADAPTIVE_TAB,
             config: this.pageConfigs[this.currentTabIndex],
-            onOpenSearch: () => {
-              this.openSearchPage();
-            },
             onSwitchTab: (index: number) => {
               this.switchTab(index);
             }
@@ -697,11 +560,6 @@ struct MainPage {
 
   @Builder
   private destinationBuilder(name: string, param?: ESObject) {
-    if (name === CHECK_IN_ROUTE_NAME) {
-      CheckInFlowPage()
-    } else if (name === SEARCH_ROUTE_NAME) {
-      SearchPage()
-    }
   }
 
   build() {
@@ -720,7 +578,7 @@ struct MainPage {
           title: {
             mainTitle: this.getCurrentPageTitle(),
           },
-          menu: this.homeSearchMenu(),
+          menu: { value: [] },
         },
         style: {
           scrollEffectOpts: {
@@ -735,7 +593,7 @@ struct MainPage {
       })
       .bindToScrollable(PAGE_SCROLLER_MAP.get(PageKeyEnum.ADAPTIVE_TAB) ?? [])
       .hideBackButton(true)
-      .hideTitleBar(this.isWideLayout() || this.homeSearchState.isSearchOpen, true)
+      .hideTitleBar(this.isWideLayout(), true)
       .titleMode(HdsNavigationTitleMode.MINI)
       .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
       .width('100%')

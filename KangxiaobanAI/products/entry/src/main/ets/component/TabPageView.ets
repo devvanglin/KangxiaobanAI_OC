@@ -24,7 +24,6 @@ import {
 import { StorageKey } from '../common/CommonConstants';
 import Logger from '../util/Logger';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
-import { HomeSearchState } from '../model/HomeSearchState';
 import { PageKeyEnum, PAGE_SCROLLER_MAP } from '../model/TabsBarModel';
 import { TabPageConfig } from '../model/TabPageModel';
 import { BreakpointType } from '../util/BreakpointSystem';
@@ -97,7 +96,10 @@ interface QuickActionData {
 
 interface AiReminder {
   level: StatusLevel;
-  text: string;
+  location: string;
+  name: string;
+  title: string;
+  detail: string;
 }
 
 interface QuickListRow {
@@ -135,23 +137,22 @@ export struct TabPageView {
   @Param @Require currentTabIndex: number;
   @Param @Require pageKey: PageKeyEnum;
   @Param @Require config: TabPageConfig;
-  @Param onOpenSearch: () => void = () => {};
   @Event onSwitchTab: (index: number) => void = () => {};
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
-  @Local homeSearchState: HomeSearchState =
-    AppStorageV2.connect(HomeSearchState, StorageKey.HOME_SEARCH_STATE, () => new HomeSearchState()) ??
-    new HomeSearchState();
   @Local isProfileSheetOpen: boolean = false;
   @Local selectedTaskId: string = '';
   @Local isTaskSheetOpen: boolean = false;
   @Local residentSearch: string = '';
   @Local residentFilter: 'all' | 'warning' | 'danger' = 'all';
   @Local taskFilter: 'all' | 'ai' | 'elder' | 'plan' = 'all';
-  @Local homeSearchText: string = '';
-  @Local isSearchPageShow: boolean = false;
   @Local selectedQuickActionIndex: number = 0;
-  @Local geometryId: string = '';
+  @Local currentTime: Date = new Date();
+  @Local isClockedIn: boolean = false;
+  @Local clockInTime: Date | null = null;
+  @Local isClockedOut: boolean = false;
+  @Local clockOutTime: Date | null = null;
+  private timerId: number = -1;
   @Local isHealthExpandShow: boolean = false;
   @Local isResidentDetailShow: boolean = false;
   @Local selectedResidentId: string = '';
@@ -174,18 +175,6 @@ export struct TabPageView {
     avatarText: ''
   } as ResidentData;
   @Local activeResidentGeometryId: string = '';
-
-  @Monitor('homeSearchState.searchTrigger')
-  onSearchTriggerChange(): void {
-    this.geometryId = '';
-    this.getUIContext().animateTo({
-      duration: 300,
-      curve: Curve.EaseInOut
-    }, () => {
-      this.isSearchPageShow = true;
-      this.homeSearchState.isSearchOpen = true;
-    })
-  }
 
   private openHealthExpand(): void {
     this.getUIContext().animateTo({
@@ -220,6 +209,19 @@ export struct TabPageView {
     }, () => {
       this.isResidentDetailShow = false;
     })
+  }
+
+  aboutToAppear(): void {
+    this.timerId = setInterval(() => {
+      this.currentTime = new Date();
+    }, 1000);
+  }
+
+  aboutToDisappear(): void {
+    if (this.timerId !== -1) {
+      clearInterval(this.timerId);
+      this.timerId = -1;
+    }
   }
 
   private topPadding(): number {
@@ -804,188 +806,114 @@ export struct TabPageView {
     .borderRadius(16)
   }
 
-  @Builder
-  private homeSearchBar() {
-    Search({ placeholder: '搜索姓名、房间或设备' })
-      .width('100%')
-      .height(44)
-      .placeholderColor($r('sys.color.font_tertiary'))
-      .backgroundColor($r('sys.color.comp_background_primary'))
-      .textFont({ size: $r('sys.float.Body_M'), weight: FontWeight.Regular })
-      .searchIcon({ src: $r('sys.media.ohos_ic_public_search_filled') })
-      .focusOnTouch(false)
-      .focusable(false)
-      .enableKeyboardOnFocus(false)
-      .borderRadius(10)
-      .padding({ left: 12, right: 12 })
-      .geometryTransition(this.geometryId, { follow: true })
-      .transition(TransitionEffect.OPACITY.animation({
-        duration: 200,
-        curve: curves.cubicBezierCurve(0.33, 0, 0.67, 1)
-      }))
-      .onClick(() => {
-        this.onSearchClicked();
-      })
-      .bindContentCover(
-        this.isSearchPageShow,
-        this.searchCoverBuilder,
-        {
-          modalTransition: ModalTransition.NONE,
-          backgroundColor: 'rgba(0,0,0,0)'
-        }
-      )
-  }
-
-  // ---------------- home: work info header ----------------
-
-  private greetingText(): string {
-    const hour: number = new Date().getHours();
-    if (hour < 6) {
-      return '凌晨好';
-    }
-    if (hour < 12) {
-      return '早上好';
-    }
-    if (hour < 14) {
-      return '中午好';
-    }
-    if (hour < 18) {
-      return '下午好';
-    }
-    return '晚上好';
-  }
-
-  private todayDateString(): string {
-    const now: Date = new Date();
-    const weekDays: string[] = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-    return `${now.getMonth() + 1}月${now.getDate()}日 ${weekDays[now.getDay()]}`;
-  }
-
-  private todayTaskCount(): number {
-    return this.allTasks().length;
-  }
-
-  private doneTaskCount(): number {
-    return this.allTasks().filter((t: CareTask): boolean => t.status === 'done').length;
-  }
-
-  private todoTaskCount(): number {
-    return this.allTasks().filter((t: CareTask): boolean => t.status !== 'done').length;
-  }
-
-  private alertTaskCount(): number {
-    return this.allTasks().filter((t: CareTask): boolean => t.priority === 'danger').length;
-  }
-
-  private urgentTaskCount(): number {
-    return this.allTasks().filter((t: CareTask): boolean => t.priority === 'danger' && t.status !== 'done').length;
-  }
-
-  private completionRate(): string {
-    const total: number = this.todayTaskCount();
-    if (total === 0) {
-      return '0%';
-    }
-    return `${Math.round(this.doneTaskCount() / total * 100)}%`;
-  }
-
-  @Builder
-  private workInfoHeader() {
-    Column({ space: 8 }) {
-      Row({ space: 12 }) {
-        Text(`${this.greetingText()}，刘婷`)
-          .fontSize($r('sys.float.Title_M'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-          .layoutWeight(1)
-
-        Text(this.todayDateString())
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_tertiary'))
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-
-      Row({ space: 12 }) {
-        Text('白班 · 08:00-16:00')
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_secondary'))
-        Text('今日负责 8 位老人')
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_secondary'))
-      }
-      .width('100%')
-    }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-  }
-
-  // ---------------- home: core metrics ----------------
+  // ---------------- home: clock in ----------------
 
   @Builder
   private taskOverviewGrid() {
-    Grid() {
-      GridItem() {
-        this.metricCard('总任务', `${this.todayTaskCount()}`, '项', `↑ 3 较昨日`, $r('sys.color.font_primary'))
-      }
-      GridItem() {
-        this.metricCard('已完成', `${this.doneTaskCount()}`, '项', `${this.completionRate()} 完成率`, $r('app.color.status_normal'))
-      }
-      GridItem() {
-        this.metricCard('待执行', `${this.todoTaskCount()}`, '项', `${this.urgentTaskCount()} 项紧急`, $r('app.color.brand_blue'))
-      }
-      GridItem() {
-        this.metricCard('安全', `${this.alertTaskCount()}`, '条', '1 条设备', $r('app.color.status_danger'))
-      }
-    }
-    .width('100%')
-    .columnsTemplate('1fr 1fr')
-    .rowsTemplate('1fr 1fr')
-    .columnsGap(10)
-    .rowsGap(10)
-    .height(200)
-  }
-
-  @Builder
-  private metricCard(label: string, value: string, unit: string, sub: string, valueColor: ResourceColor) {
     Column({ space: 0 }) {
-      Row({ space: 6 }) {
-        Text(label)
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor($r('sys.color.font_secondary'))
-      }
+      Row({ space: 0 }) {
+        Column({ space: 4 }) {
+          Text(this.currentTimeString())
+            .fontSize(40)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .height(48)
+          Text(this.clockInStatusText())
+            .fontSize($r('sys.float.Body_S'))
+            .fontColor(this.workStatusColor())
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
 
-      Row({ space: 4 }) {
-        Text(value)
-          .fontSize(28)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(valueColor)
-          .height(36)
-          .textAlign(TextAlign.Start)
-          .align(Alignment.Bottom)
-        Text(unit)
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor($r('sys.color.font_secondary'))
-          .height(36)
-          .textAlign(TextAlign.Start)
-          .align(Alignment.Bottom)
-          .padding({ bottom: 5 })
+        Row({ space: 8 }) {
+          if (!this.isClockedIn) {
+            Button('上班打卡')
+              .fontSize($r('sys.float.Body_M'))
+              .fontColor($r('app.color.text_on_brand'))
+              .backgroundColor($r('app.color.brand_blue'))
+              .height(48)
+              .padding({ left: 24, right: 24 })
+              .borderRadius(24)
+              .onClick(() => {
+                this.handleClockIn();
+              })
+          } else if (this.isClockedIn && !this.isClockedOut) {
+            Button('下班打卡')
+              .fontSize($r('sys.float.Body_M'))
+              .fontColor($r('app.color.text_on_brand'))
+              .backgroundColor($r('app.color.status_danger'))
+              .height(48)
+              .padding({ left: 24, right: 24 })
+              .borderRadius(24)
+              .onClick(() => {
+                this.handleClockOut();
+              })
+          } else {
+            Button('已下班')
+              .fontSize($r('sys.float.Body_M'))
+              .fontColor($r('sys.color.font_tertiary'))
+              .backgroundColor($r('sys.color.comp_background_secondary'))
+              .height(48)
+              .padding({ left: 24, right: 24 })
+              .borderRadius(24)
+              .enabled(false)
+          }
+        }
       }
-      .alignItems(VerticalAlign.Bottom)
-
-      Text(sub)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_tertiary'))
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
     }
     .width('100%')
-    .height('100%')
-    .padding(14)
-    .justifyContent(FlexAlign.SpaceBetween)
-    .alignItems(HorizontalAlign.Start)
+    .padding(20)
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(16)
+  }
+
+  private currentTimeString(): string {
+    const h: string = this.currentTime.getHours().toString().padStart(2, '0');
+    const m: string = this.currentTime.getMinutes().toString().padStart(2, '0');
+    return `${h}:${m}`;
+  }
+
+  private clockInStatusText(): string {
+    if (!this.isClockedIn) {
+      return '今日未打卡';
+    }
+    if (this.isClockedOut && this.clockInTime && this.clockOutTime) {
+      const diffMs: number = this.clockOutTime.getTime() - this.clockInTime.getTime();
+      const diffMin: number = Math.floor(diffMs / 60000);
+      const h: number = Math.floor(diffMin / 60);
+      const m: number = diffMin % 60;
+      return `今日工作 ${h}小时${m}分`;
+    }
+    if (this.clockInTime) {
+      const diffMs: number = this.currentTime.getTime() - this.clockInTime.getTime();
+      const diffMin: number = Math.floor(diffMs / 60000);
+      const h: number = Math.floor(diffMin / 60);
+      const m: number = diffMin % 60;
+      return `已上班 ${h}小时${m}分`;
+    }
+    return '';
+  }
+
+  private workStatusColor(): ResourceColor {
+    if (!this.isClockedIn) {
+      return $r('sys.color.font_secondary');
+    }
+    if (this.isClockedOut) {
+      return $r('sys.color.font_tertiary');
+    }
+    return $r('app.color.status_normal');
+  }
+
+  private handleClockIn(): void {
+    this.isClockedIn = true;
+    this.clockInTime = new Date();
+  }
+
+  private handleClockOut(): void {
+    this.isClockedOut = true;
+    this.clockOutTime = new Date();
   }
 
   // ---------------- home: AI reminders ----------------
@@ -994,67 +922,86 @@ export struct TabPageView {
     return [
       {
         level: 'danger',
-        text: '302-1 张明华 血压连续3天偏高，建议今日重点观察'
+        location: '302-1',
+        name: '张明华',
+        title: '血压连续3天偏高',
+        detail: '建议今日重点观察'
       },
       {
         level: 'normal',
-        text: '305-2 李秀英 康复训练完成率87%，继续保持'
+        location: '305-2',
+        name: '李秀英',
+        title: '康复训练完成率87%',
+        detail: '继续保持'
       }
     ];
   }
 
   @Builder
   private aiReminderCard() {
-    Column({ space: 10 }) {
+    Column({ space: 0 }) {
       Row({ space: 6 }) {
-        Text(`AI 智能提醒（${this.aiReminders().length}条）`)
+        Text('AI 智能提醒')
           .fontSize($r('sys.float.Body_M'))
           .fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.font_primary'))
+        Text(`· ${this.aiReminders().length}条`)
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_tertiary'))
         Blank()
       }
       .width('100%')
+      .margin({ bottom: 12 })
 
-      List({ space: 8 }) {
-        Repeat(this.aiReminders())
-          .each((repeatItem: RepeatItem<AiReminder>) => {
-            ListItem() {
-              Row({ space: 8 }) {
-                Text(repeatItem.item.text)
-                  .fontSize($r('sys.float.Body_S'))
-                  .fontColor($r('sys.color.font_secondary'))
-                  .layoutWeight(1)
-                  .maxLines(2)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-              }
-              .width('100%')
-              .padding(12)
-              .backgroundColor($r('sys.color.comp_background_secondary'))
-              .borderRadius(12)
-            }
-          })
+      Column({ space: 0 }) {
+        ForEach(this.aiReminders(), (item: AiReminder, index: number) => {
+          this.aiReminderRow(item, index === this.aiReminders().length - 1)
+        }, (item: AiReminder, index: number) => `ai-${index}`)
       }
       .width('100%')
-      .scrollBar(BarState.Off)
-      .listDirection(Axis.Vertical)
     }
     .width('100%')
-    .padding(16)
+    .padding({ left: 20, right: 20, top: 20, bottom: 12 })
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(16)
+  }
+
+  @Builder
+  private aiReminderRow(item: AiReminder, isLast: boolean) {
+    Column({ space: 4 }) {
+      Text(item.title)
+        .fontSize($r('sys.float.Body_M'))
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+      Text(`${item.location} ${item.name} · ${item.detail}`)
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor($r('sys.color.font_secondary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .width('100%')
+    .padding({ top: 12, bottom: isLast ? 0 : 12 })
+    .alignItems(HorizontalAlign.Start)
+    .border({
+      width: { bottom: isLast ? 0 : 0.5 },
+      color: { bottom: $r('sys.color.comp_divider') }
+    })
   }
 
   // ---------------- home: quick actions ----------------
 
   private quickActionLabels(): string[] {
-    return ['执行任务', '用药', '记录', '家属', '上报', '看板'];
+    return ['待办任务', '用药', '记录', '家属', '上报'];
   }
 
   @Builder
   private quickActionSection() {
-    Column({ space: 12 }) {
+    Column({ space: 16 }) {
       Scroll() {
-        Row({ space: 10 }) {
+        Row({ space: 12 }) {
           ForEach(this.quickActionLabels(), (label: string, index: number) => {
             Row() {
               Text(label)
@@ -1065,11 +1012,11 @@ export struct TabPageView {
                 .maxLines(1)
                 .textOverflow({ overflow: TextOverflow.Ellipsis })
             }
-            .padding({ left: 18, right: 18, top: 8, bottom: 8 })
+            .padding({ left: 20, right: 20, top: 10, bottom: 10 })
             .borderRadius(64)
             .backgroundColor(this.selectedQuickActionIndex === index ? $r('app.color.brand_blue') :
               $r('sys.color.comp_background_primary'))
-            .height(40)
+            .height(44)
             .justifyContent(FlexAlign.Center)
             .onClick(() => {
               this.selectedQuickActionIndex = index;
@@ -1090,7 +1037,9 @@ export struct TabPageView {
   private quickActionContent() {
     Column({ space: 0 }) {
       if (this.selectedQuickActionIndex === 0) {
-        this.taskQuickPage()
+        this.quickListPage('待办任务', this.taskListRows(), () => {
+          this.onSwitchTab(2);
+        })
       } else if (this.selectedQuickActionIndex === 1) {
         this.quickListPage('用药提醒', this.medicationItems())
       } else if (this.selectedQuickActionIndex === 2) {
@@ -1099,62 +1048,18 @@ export struct TabPageView {
         this.quickListPage('家属联系', this.familyItems())
       } else if (this.selectedQuickActionIndex === 4) {
         this.quickListPage('上报事项', this.reportItems())
-      } else {
-        this.dashboardQuickPage()
       }
     }
     .width('100%')
-    .height(320)
-    .padding(16)
+    .padding({ left: 20, right: 20, top: 20, bottom: 12 })
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(16)
     .clip(true)
   }
 
   @Builder
-  private taskQuickPage() {
-    Column({ space: 12 }) {
-      Row({ space: 6 }) {
-        Text('待办任务')
-          .fontSize($r('sys.float.Body_M'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-        Text(`· ${this.todoTaskCount()}项待执行`)
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_tertiary'))
-        Blank()
-        Text('查看全部')
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('app.color.brand_blue'))
-          .onClick(() => {
-            this.onSwitchTab(2);
-          })
-      }
-      .width('100%')
-
-      List({ space: 0 }) {
-        Repeat(this.homeTodoTasks())
-          .each((repeatItem: RepeatItem<CareTask>) => {
-            this.homeTaskRow(repeatItem.item)
-          })
-      }
-      .width('100%')
-      .layoutWeight(1)
-      .scrollBar(BarState.Off)
-      .divider({
-        strokeWidth: 0.5,
-        color: $r('sys.color.comp_divider'),
-        startMargin: 16,
-        endMargin: 16
-      })
-    }
-    .width('100%')
-    .height('100%')
-  }
-
-  @Builder
-  private quickListPage(title: string, rows: QuickListRow[]) {
-    Column({ space: 12 }) {
+  private quickListPage(title: string, rows: QuickListRow[], onViewAll?: () => void) {
+    Column({ space: 0 }) {
       Row({ space: 6 }) {
         Text(title)
           .fontSize($r('sys.float.Body_M'))
@@ -1167,134 +1072,66 @@ export struct TabPageView {
         Text('查看全部')
           .fontSize($r('sys.float.Body_S'))
           .fontColor($r('app.color.brand_blue'))
+          .onClick(onViewAll ?? (() => {}))
       }
       .width('100%')
+      .margin({ bottom: 12 })
 
-      List({ space: 0 }) {
-        Repeat(rows)
-          .each((repeatItem: RepeatItem<QuickListRow>) => {
-            this.quickListRow(repeatItem.item)
-          })
+      Column({ space: 0 }) {
+        ForEach(rows, (item: QuickListRow, index: number) => {
+          this.quickListRow(item, index === rows.length - 1)
+        }, (item: QuickListRow, index: number) => `${title}-${index}`)
       }
       .width('100%')
-      .layoutWeight(1)
-      .scrollBar(BarState.Off)
-      .divider({
-        strokeWidth: 0.5,
-        color: $r('sys.color.comp_divider'),
-        startMargin: 0,
-        endMargin: 0
-      })
     }
     .width('100%')
-    .height('100%')
+    .justifyContent(FlexAlign.Start)
   }
 
   @Builder
-  private quickListRow(item: QuickListRow) {
-    ListItem() {
-      Row({ space: 10 }) {
-        Column({ space: 4 }) {
-          Text(item.title)
-            .fontSize($r('sys.float.Body_M'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text(item.sub)
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_secondary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
-
-        if (item.time) {
-          Text(item.time)
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_tertiary'))
-        }
-
-        if (item.tag) {
-          Text(item.tag)
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor(item.tagColor ?? $r('sys.color.font_secondary'))
-            .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-            .backgroundColor(item.tagBg ?? $r('sys.color.comp_background_secondary'))
-            .borderRadius(6)
-        }
-      }
-      .width('100%')
-      .padding({ top: 12, bottom: 12 })
-      .alignItems(VerticalAlign.Center)
-    }
-  }
-
-  @Builder
-  private dashboardQuickPage() {
-    Column({ space: 12 }) {
-      Row() {
-        Text('今日看板')
+  private quickListRow(item: QuickListRow, isLast: boolean) {
+    Row({ space: 10 }) {
+      Column({ space: 4 }) {
+        Text(item.title)
           .fontSize($r('sys.float.Body_M'))
           .fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.font_primary'))
-        Blank()
-        Text('查看全部')
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('app.color.brand_blue'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(item.sub)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
-      .width('100%')
-
-      Grid() {
-        GridItem() {
-          this.dashboardMetric('总任务', `${this.todayTaskCount()}`)
-        }
-        GridItem() {
-          this.dashboardMetric('已完成', `${this.doneTaskCount()}`)
-        }
-        GridItem() {
-          this.dashboardMetric('待执行', `${this.todoTaskCount()}`)
-        }
-        GridItem() {
-          this.dashboardMetric('紧急', `${this.urgentTaskCount()}`)
-        }
-      }
-      .width('100%')
-      .columnsTemplate('1fr 1fr')
-      .rowsTemplate('1fr 1fr')
-      .columnsGap(10)
-      .rowsGap(10)
       .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      if (item.time) {
+        Text(item.time)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_tertiary'))
+      }
+
+      if (item.tag) {
+        Text(item.tag)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor(item.tagColor ?? $r('sys.color.font_secondary'))
+          .padding({ left: 6, right: 6, top: 1, bottom: 1 })
+          .backgroundColor(item.tagBg ?? $r('sys.color.comp_background_secondary'))
+          .borderRadius(6)
+      }
     }
     .width('100%')
-    .height('100%')
+    .padding({ top: 12, bottom: isLast ? 0 : 12 })
+    .alignItems(VerticalAlign.Center)
+    .border({
+      width: { bottom: isLast ? 0 : 0.5 },
+      color: { bottom: $r('sys.color.comp_divider') }
+    })
   }
 
-  @Builder
-  private dashboardMetric(label: string, value: string) {
-    Column({ space: 4 }) {
-      Text(value)
-        .fontSize($r('sys.float.Title_L'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-      Text(label)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_secondary'))
-    }
-    .width('100%')
-    .height('100%')
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Center)
-    .backgroundColor($r('sys.color.comp_background_secondary'))
-    .borderRadius(16)
-  }
-
-  // ---------------- home: task todo list ----------------
-
-  private homeTodoTasks(): CareTask[] {
-    return this.allTasks().slice(0, 4);
-  }
+  // ---------------- task helper ----------------
 
   private taskTag(status: TaskStatus, priority: StatusLevel): string {
     if (priority === 'danger' && status !== 'done') {
@@ -1309,158 +1146,21 @@ export struct TabPageView {
     return '';
   }
 
-  @Builder
-  private homeTaskList() {
-    Column({ space: 0 }) {
-      Row() {
-        Row({ space: 6 }) {
-          Text('待办任务')
-            .fontSize($r('sys.float.Body_M'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-          Text(`· 今日 · ${this.todoTaskCount()}项待执行`)
-            .fontSize($r('sys.float.Body_S'))
-            .fontColor($r('sys.color.font_tertiary'))
-        }
-        Blank()
-        Text(`查看全部`)
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('app.color.brand_blue'))
-        .onClick(() => {
-          this.onSwitchTab(2);
-        })
-      }
-      .width('100%')
-      .padding({ left: 16, right: 16, top: 14, bottom: 8 })
-
-      List({ space: 0 }) {
-        Repeat(this.homeTodoTasks())
-          .each((repeatItem: RepeatItem<CareTask>) => {
-            this.homeTaskRow(repeatItem.item)
-          })
-      }
-      .width('100%')
-      .backgroundColor($r('sys.color.ohos_id_color_background_transparent'))
-      .scrollBar(BarState.Off)
-      .divider({
-        strokeWidth: 0.5,
-        color: $r('sys.color.comp_divider'),
-        startMargin: 16,
-        endMargin: 16
-      })
-    }
-    .width('100%')
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .clip(true)
-  }
-
-  @Builder
-  private homeTaskRow(item: CareTask) {
-    ListItem() {
-      Column({ space: 10 }) {
-        // 主信息行：时间 + 图标 + 任务类型 + 老人 + 房号
-        Row({ space: 10 }) {
-          // 左侧时间
-          Text(item.time)
-            .fontSize($r('sys.float.Body_S'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor(item.priority === 'danger' && item.status !== 'done'
-              ? $r('app.color.status_danger')
-              : $r('sys.color.font_secondary'))
-            .width(58)
-
-          Text(item.title)
-            .fontSize($r('sys.float.Body_M'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-          Blank()
-            .layoutWeight(1)
-
-          Text(`${item.elder} · ${item.room}`)
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_tertiary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-          if (this.taskTag(item.status, item.priority) !== '') {
-            Text(this.taskTag(item.status, item.priority))
-              .fontSize($r('sys.float.Caption_M'))
-              .fontColor(item.status === 'done'
-                ? $r('sys.color.font_tertiary')
-                : (item.priority === 'danger' ? $r('app.color.status_danger') : $r('app.color.status_warning')))
-              .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-              .backgroundColor(item.status === 'done'
-                ? $r('sys.color.comp_background_tertiary')
-                : (item.priority === 'danger' ? $r('app.color.status_danger_bg') : $r('app.color.status_warning_bg')))
-              .borderRadius(6)
-          }
-        }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
-
-        // 副文本（AI 建议/说明）
-        Row({ space: 0 }) {
-          Text(item.detail)
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_tertiary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-        }
-        .width('100%')
-        .padding({ left: 74, right: 0 })
-
-        // 操作按钮
-        if (item.status !== 'done') {
-          Row({ space: 10 }) {
-            Button('执行')
-              .fontSize($r('sys.float.Caption_M'))
-              .fontColor($r('app.color.text_on_brand'))
-              .backgroundColor($r('app.color.brand_blue'))
-              .height(32)
-              .padding({ left: 14, right: 14 })
-              .borderRadius(16)
-              .onClick(() => {
-                // TODO: 执行任务
-              })
-            if (item.priority === 'warning') {
-              Button('稍后')
-                .fontSize($r('sys.float.Caption_M'))
-                .fontColor($r('sys.color.font_primary'))
-                .backgroundColor($r('sys.color.comp_background_secondary'))
-                .height(32)
-                .padding({ left: 14, right: 14 })
-                .borderRadius(16)
-                .onClick(() => {
-                  // TODO: 延后提醒
-                })
-            }
-          }
-          .width('100%')
-          .padding({ left: 74, right: 0 })
-        }
-      }
-      .width('100%')
-      .padding({ left: 16, right: 16, top: 12, bottom: 12 })
-      .alignItems(HorizontalAlign.Start)
-    }
-    .onClick(() => {
-      this.selectedTaskId = item.id;
-      this.isTaskSheetOpen = true;
-    })
-    .bindSheet(this.isTaskSheetOpen && this.selectedTaskId === item.id, this.taskSheetBuilder, {
-      detents: [SheetSize.LARGE, SheetSize.MEDIUM],
-      showClose: true,
-      dragBar: true,
-      title: { title: '任务详情' },
-      backgroundColor: $r('sys.color.background_secondary'),
-      onDisappear: () => {
-        this.isTaskSheetOpen = false;
-      }
-    })
+  private taskListRows(): QuickListRow[] {
+    return this.allTasks().map((item: CareTask): QuickListRow => {
+      const tag: string = this.taskTag(item.status, item.priority);
+      const isDone: boolean = item.status === 'done';
+      return {
+        title: item.title,
+        sub: `${item.elder} · ${item.room}`,
+        time: item.time,
+        tag: tag === '' ? undefined : tag,
+        tagColor: isDone ? $r('sys.color.font_tertiary') :
+          (item.priority === 'danger' ? $r('app.color.status_danger') : $r('app.color.status_warning')),
+        tagBg: isDone ? $r('sys.color.comp_background_tertiary') :
+          (item.priority === 'danger' ? $r('app.color.status_danger_bg') : $r('app.color.status_warning_bg'))
+      };
+    });
   }
 
   // ---------------- resident builders ----------------
@@ -1994,215 +1694,59 @@ export struct TabPageView {
       .onClick(onClick)
   }
 
-  // ---------------- search transition ----------------
-
-  private onSearchClicked(): void {
-    this.geometryId = 'search';
-    this.getUIContext().animateTo({
-      duration: 100,
-      curve: curves.interpolatingSpring(0, 1, 324, 38)
-    }, () => {
-      this.isSearchPageShow = true;
-      this.homeSearchState.isSearchOpen = true;
-    })
-  }
-
-  private onArrowClicked(): void {
-    const useGeo: boolean = this.geometryId !== '';
-    if (useGeo) {
-      this.getUIContext().animateTo({
-        curve: curves.interpolatingSpring(0, 1, 342, 38)
-      }, () => {
-        this.isSearchPageShow = false;
-        this.homeSearchState.isSearchOpen = false;
-        this.homeSearchText = '';
-        this.geometryId = '';
-      })
-    } else {
-      this.getUIContext().animateTo({
-        duration: 300,
-        curve: Curve.EaseInOut
-      }, () => {
-        this.isSearchPageShow = false;
-        this.homeSearchState.isSearchOpen = false;
-        this.homeSearchText = '';
-      })
-    }
-  }
-
   // ---------------- pages ----------------
-
-  @Builder
-  private searchCoverBuilder() {
-    Column() {
-      Row() {
-        Row() {
-          SymbolGlyph($r('sys.symbol.chevron_left'))
-            .fontSize(24)
-            .fontColor([$r('sys.color.font_primary')])
-            .transition(TransitionEffect.asymmetric(
-              TransitionEffect.opacity(0)
-                .animation({ curve: curves.cubicBezierCurve(0.33, 0, 0.67, 1), duration: 200, delay: 150 }),
-              TransitionEffect.opacity(0)
-                .animation({ curve: curves.cubicBezierCurve(0.33, 0, 0.67, 1), duration: 200 }),
-            ))
-        }
-        .justifyContent(FlexAlign.Center)
-        .width(40)
-        .height(40)
-        .borderRadius(20)
-        .backgroundColor($r('sys.color.comp_background_primary'))
-        .onClick(() => {
-          this.onArrowClicked();
-        })
-
-        Search({ value: this.homeSearchText, placeholder: '搜索姓名、房间或设备' })
-          .width('100%')
-          .height(40)
-          .placeholderColor($r('sys.color.font_tertiary'))
-          .backgroundColor($r('sys.color.comp_background_primary'))
-          .textFont({ size: $r('sys.float.Body_M'), weight: FontWeight.Regular })
-          .searchIcon({ src: $r('sys.media.ohos_ic_public_search_filled') })
-          .defaultFocus(true)
-          .borderRadius(12)
-          .geometryTransition(this.geometryId, { follow: true })
-          .transition(TransitionEffect.OPACITY.animation({
-            duration: 200,
-            curve: curves.cubicBezierCurve(0.33, 0, 0.67, 1)
-          }))
-          .layoutWeight(1)
-          .margin({ left: 8 })
-          .onChange((value: string) => {
-            this.homeSearchText = value;
-          })
-      }
-      .width('100%')
-      .padding({ left: this.pagePadding(), right: this.pagePadding() })
-      .margin({ top: this.topPadding() })
-
-      List() {
-        ListItem() {
-          Column() {
-            Text('搜索历史')
-              .fontSize($r('sys.float.Body_M'))
-              .fontColor($r('sys.color.font_primary'))
-              .width('100%')
-              .padding({ top: 12, bottom: 8 })
-
-            Row({ space: 8 }) {
-              Text('肖爷爷')
-                .fontSize($r('sys.float.Body_S'))
-                .fontColor($r('sys.color.font_secondary'))
-                .padding({ left: 10, right: 10, top: 5, bottom: 5 })
-                .backgroundColor($r('sys.color.comp_background_tertiary'))
-                .borderRadius(8)
-                .onClick(() => {
-                  this.homeSearchText = '肖爷爷';
-                })
-
-              Text('3F-302')
-                .fontSize($r('sys.float.Body_S'))
-                .fontColor($r('sys.color.font_secondary'))
-                .padding({ left: 10, right: 10, top: 5, bottom: 5 })
-                .backgroundColor($r('sys.color.comp_background_tertiary'))
-                .borderRadius(8)
-                .onClick(() => {
-                  this.homeSearchText = '3F-302';
-                })
-
-              Text('智能床垫')
-                .fontSize($r('sys.float.Body_S'))
-                .fontColor($r('sys.color.font_secondary'))
-                .padding({ left: 10, right: 10, top: 5, bottom: 5 })
-                .backgroundColor($r('sys.color.comp_background_tertiary'))
-                .borderRadius(8)
-                .onClick(() => {
-                  this.homeSearchText = '智能床垫';
-                })
-            }
-            .width('100%')
-          }
-          .width('100%')
-          .padding({ left: 16, right: 16 })
-        }
-      }
-      .width('100%')
-      .layoutWeight(1)
-      .scrollBar(BarState.Off)
-      .edgeEffect(EdgeEffect.Spring)
-    }
-    .transition(TransitionEffect.opacity(0))
-    .backgroundColor($r('sys.color.background_secondary'))
-    .width('100%')
-    .height('100%')
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-  }
 
   @Builder
   private homePage() {
     Stack({ alignContent: Alignment.TopStart }) {
       List({
         scroller: this.currentScroller(),
-        space: 12
+        space: 16
       }) {
-      ListItem() {
-        Column() {
-          this.workInfoHeader()
+        ListItem() {
+          Column() {
+            this.taskOverviewGrid()
+          }
+          .padding({
+            left: this.pagePadding(),
+            right: this.pagePadding(),
+            top: this.contentTopPadding()
+          })
         }
-        .padding({
-          left: this.pagePadding(),
-          right: this.pagePadding(),
-          top: this.contentTopPadding()
-        })
-      }
 
-      ListItem() {
-        Column() {
-          this.taskOverviewGrid()
+        ListItem() {
+          Column() {
+            this.aiReminderCard()
+          }
+          .padding({
+            left: this.pagePadding(),
+            right: this.pagePadding()
+          })
         }
-        .padding({
-          left: this.pagePadding(),
-          right: this.pagePadding()
-        })
-      }
 
-      ListItem() {
-        Column() {
-          this.aiReminderCard()
+        ListItem() {
+          Column() {
+            this.quickActionSection()
+          }
+          .padding({
+            left: this.pagePadding(),
+            right: this.pagePadding()
+          })
         }
-        .padding({
-          left: this.pagePadding(),
-          right: this.pagePadding()
-        })
-      }
 
-      ListItem() {
-        Column() {
-          this.quickActionSection()
+        ListItem() {
+          Column() {
+            Blank()
+          }
+          .height(this.bottomPadding())
+          .width('100%')
         }
-        .padding({
-          left: this.pagePadding(),
-          right: this.pagePadding()
-        })
       }
-
-      ListItem() {
-        Column() {
-          Blank()
-        }
-        .height(this.bottomPadding())
-        .width('100%')
-      }
-    }
-    .width('100%')
-    .height('100%')
-    .backgroundColor(this.pageBackgroundColor())
-    .scrollBar(BarState.Off)
-    .edgeEffect(EdgeEffect.Spring)
-    .onWillScroll(() => {
-      const scroller: Scroller | undefined = this.currentScroller();
-      this.homeSearchState.scrollY = scroller ? scroller.currentOffset().yOffset : 0;
-    })
+      .width('100%')
+      .height('100%')
+      .backgroundColor(this.pageBackgroundColor())
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
     }
     .width('100%')
     .height('100%')

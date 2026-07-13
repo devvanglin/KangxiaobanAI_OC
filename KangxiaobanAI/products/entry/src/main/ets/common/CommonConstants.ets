@@ -23,5 +23,4 @@ export enum StorageKey {
   UI_CONTEXT = 'kanxiaoban_UIContext',
   GLOBAL_INFO = 'kanxiaoban_GlobalInfoModel',
   MATERIAL_LEVEL = 'kanxiaoban_CustomMaterialLevel',
-  HOME_SEARCH_STATE = 'kanxiaoban_HomeSearchState',
 }
