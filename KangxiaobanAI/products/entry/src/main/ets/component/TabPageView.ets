@@ -112,6 +112,19 @@ interface QuickListRow {
   tagBg?: ResourceColor;
 }
 
+interface TaskGroup {
+  status: TaskStatus;
+  label: string;
+  level: StatusLevel;
+  tasks: CareTask[];
+}
+
+interface MedicationTimeGroup {
+  period: string;
+  timeRange: string;
+  items: QuickListRow[];
+}
+
 interface SettingItemData {
   icon: Resource;
   label: string;
@@ -146,6 +159,7 @@ export struct TabPageView {
   @Local isTaskSheetOpen: boolean = false;
   @Local selectedQuickRowId: string = '';
   @Local isQuickRowSheetOpen: boolean = false;
+  @Local isExpandSheetOpen: boolean = false;
   @Local residentSearch: string = '';
   @Local residentFilter: 'all' | 'warning' | 'danger' = 'all';
   @Local taskFilter: 'all' | 'ai' | 'elder' | 'plan' = 'all';
@@ -1327,6 +1341,59 @@ export struct TabPageView {
           (item.priority === 'danger' ? $r('app.color.status_danger_bg') : $r('app.color.status_warning_bg'))
       };
     });
+  }
+
+  private taskStatusLevel(status: TaskStatus): StatusLevel {
+    if (status === 'todo') {
+      return 'danger';
+    }
+    if (status === 'doing') {
+      return 'warning';
+    }
+    return 'normal';
+  }
+
+  private taskGroups(): TaskGroup[] {
+    const tasks: CareTask[] = this.allTasks();
+    const order: TaskStatus[] = ['doing', 'todo', 'done'];
+    const groups: TaskGroup[] = order.map((status: TaskStatus): TaskGroup => {
+      return {
+        status,
+        label: this.statusText(status),
+        level: this.taskStatusLevel(status),
+        tasks: tasks.filter((t: CareTask) => t.status === status)
+      };
+    });
+    return groups.filter((g: TaskGroup) => g.tasks.length > 0);
+  }
+
+  private taskCountByStatus(status: TaskStatus): number {
+    return this.allTasks().filter((t: CareTask) => t.status === status).length;
+  }
+
+  private medicationTimeGroups(): MedicationTimeGroup[] {
+    const items: QuickListRow[] = this.medicationItems();
+    const periods: MedicationTimeGroup[] = [
+      { period: '早晨', timeRange: '06:00 - 10:00', items: [] as QuickListRow[] },
+      { period: '中午', timeRange: '10:00 - 14:00', items: [] as QuickListRow[] },
+      { period: '晚上', timeRange: '14:00 - 22:00', items: [] as QuickListRow[] }
+    ];
+    items.forEach((item: QuickListRow) => {
+      const hourStr: string = item.time ? item.time.split(':')[0] : '0';
+      const hour: number = parseInt(hourStr, 10);
+      let idx: number = 2;
+      if (hour < 10) {
+        idx = 0;
+      } else if (hour < 14) {
+        idx = 1;
+      }
+      periods[idx].items.push(item);
+    });
+    return periods.filter((g: MedicationTimeGroup) => g.items.length > 0);
+  }
+
+  private medicationCountByTag(tag: string): number {
+    return this.medicationItems().filter((m: QuickListRow) => m.tag === tag).length;
   }
 
   // ---------------- resident builders ----------------
@@ -2583,63 +2650,266 @@ export struct TabPageView {
   }
 
   @Builder
+  private expandLargeTitle() {
+    Column({ space: 4 }) {
+      Text(this.quickExpandTitle())
+        .fontSize($r('sys.float.Title_L'))
+        .fontWeight(FontWeight.Bold)
+        .fontColor($r('sys.color.font_primary'))
+      Text(this.expandSubtitle())
+        .fontSize($r('sys.float.Body_M'))
+        .fontColor($r('sys.color.font_secondary'))
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  private expandSubtitle(): string {
+    if (this.selectedQuickActionIndex === 0) {
+      return '今日护理任务概览';
+    }
+    return '今日用药计划概览';
+  }
+
+  @Builder
+  private expandOverviewCard() {
+    Row() {
+      if (this.selectedQuickActionIndex === 0) {
+        this.overviewSegment(this.taskCountByStatus('todo'), '待办', 'danger')
+        this.overviewDivider()
+        this.overviewSegment(this.taskCountByStatus('doing'), '进行中', 'warning')
+        this.overviewDivider()
+        this.overviewSegment(this.taskCountByStatus('done'), '已完成', 'normal')
+      } else {
+        this.overviewSegment(this.medicationCountByTag('待服用'), '待服用', 'warning')
+        this.overviewDivider()
+        this.overviewSegment(this.medicationCountByTag('已完成'), '已完成', 'normal')
+      }
+    }
+    .width('100%')
+    .padding({ top: 18, bottom: 18 })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(16)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+  }
+
+  @Builder
+  private overviewSegment(count: number, label: string, level: StatusLevel) {
+    Column({ space: 4 }) {
+      Text(count.toString())
+        .fontSize($r('sys.float.Title_S'))
+        .fontWeight(FontWeight.Bold)
+        .fontColor(this.statusColor(level))
+      Text(label)
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor($r('sys.color.font_secondary'))
+    }
+    .layoutWeight(1)
+    .alignItems(HorizontalAlign.Center)
+  }
+
+  @Builder
+  private overviewDivider() {
+    Divider()
+      .vertical(true)
+      .height(32)
+      .width(0.5)
+      .color($r('sys.color.comp_divider'))
+  }
+
+  @Builder
+  private expandGroupTitle(title: string, subtitle?: string) {
+    Row({ space: 6 }) {
+      Text(title)
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor($r('sys.color.font_secondary'))
+      if (subtitle) {
+        Text(`· ${subtitle}`)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_tertiary'))
+      }
+    }
+    .width('100%')
+    .padding({ left: 4, bottom: 8 })
+  }
+
+  @Builder
+  private expandTaskRow(task: CareTask, isLast: boolean) {
+    Row({ space: 12 }) {
+      Row()
+        .width(8)
+        .height(8)
+        .borderRadius(4)
+        .backgroundColor(this.statusColor(this.taskStatusLevel(task.status)))
+
+      Column({ space: 4 }) {
+        Text(task.title)
+          .fontSize($r('sys.float.Body_L'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(`${task.elder} · ${task.room} · ${task.time}`)
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      Text(this.statusText(task.status))
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor(this.statusColor(this.taskStatusLevel(task.status)))
+        .padding({ left: 10, right: 10, top: 4, bottom: 4 })
+        .backgroundColor(this.statusBg(this.taskStatusLevel(task.status)))
+        .borderRadius(10)
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+    .alignItems(VerticalAlign.Center)
+    .border({
+      width: { bottom: isLast ? 0 : 0.5 },
+      color: { bottom: $r('sys.color.comp_divider') }
+    })
+    .stateStyles({
+      pressed: this.itemPressedStyle,
+      normal: this.itemNormalStyle
+    })
+    .onClick(() => {
+      this.selectedQuickRowId = task.id;
+      this.isExpandSheetOpen = true;
+    })
+    .bindSheet(this.isExpandSheetOpen && this.selectedQuickRowId === task.id, this.quickRowSheetBuilder, {
+      detents: [SheetSize.LARGE, SheetSize.MEDIUM],
+      showClose: true,
+      dragBar: true,
+      title: { title: task.title },
+      backgroundColor: $r('sys.color.background_secondary'),
+      onDisappear: () => {
+        this.isExpandSheetOpen = false;
+      }
+    })
+  }
+
+  @Builder
+  private expandMedicationRow(item: QuickListRow, isLast: boolean) {
+    Row({ space: 12 }) {
+      Row()
+        .width(8)
+        .height(8)
+        .borderRadius(4)
+        .backgroundColor(item.tag === '已完成' ? this.statusColor('normal') : this.statusColor('warning'))
+
+      Column({ space: 4 }) {
+        Text(item.title)
+          .fontSize($r('sys.float.Body_L'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(item.sub)
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      if (item.time) {
+        Text(item.time)
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_tertiary'))
+      }
+      if (item.tag) {
+        Text(item.tag)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor(item.tag === '已完成' ? this.statusColor('normal') : this.statusColor('warning'))
+          .padding({ left: 10, right: 10, top: 4, bottom: 4 })
+          .backgroundColor(item.tag === '已完成' ? this.statusBg('normal') : this.statusBg('warning'))
+          .borderRadius(10)
+      }
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+    .alignItems(VerticalAlign.Center)
+    .border({
+      width: { bottom: isLast ? 0 : 0.5 },
+      color: { bottom: $r('sys.color.comp_divider') }
+    })
+    .stateStyles({
+      pressed: this.itemPressedStyle,
+      normal: this.itemNormalStyle
+    })
+    .onClick(() => {
+      this.selectedQuickRowId = item.id;
+      this.isExpandSheetOpen = true;
+    })
+    .bindSheet(this.isExpandSheetOpen && this.selectedQuickRowId === item.id, this.quickRowSheetBuilder, {
+      detents: [SheetSize.LARGE, SheetSize.MEDIUM],
+      showClose: true,
+      dragBar: true,
+      title: { title: item.title },
+      backgroundColor: $r('sys.color.background_secondary'),
+      onDisappear: () => {
+        this.isExpandSheetOpen = false;
+      }
+    })
+  }
+
+  @Builder
   private taskExpandCover() {
     Column() {
       Stack({ alignContent: Alignment.TopStart }) {
-        List({ space: 12 }) {
-          if (this.selectedQuickActionIndex === 0) {
-            ListItem() {
-              this.taskChipBar()
-            }
-            .padding({
-              left: this.pagePadding(),
-              right: this.pagePadding(),
-              top: this.topPadding() + 48
-            })
+        Scroll() {
+          Column({ space: 16 }) {
+            this.expandLargeTitle()
+            this.expandOverviewCard()
 
-            ListItem() {
-              List({ space: 0 }) {
-                Repeat(this.filteredTasks())
-                  .each((repeatItem: RepeatItem<CareTask>) => {
-                    this.taskListRow(repeatItem.item)
-                  })
-              }
-              .width('100%')
-              .backgroundColor($r('sys.color.comp_background_primary'))
-              .borderRadius(16)
-              .clip(true)
-              .divider({
-                strokeWidth: 0.5,
-                color: $r('sys.color.comp_divider'),
-                startMargin: 16,
-                endMargin: 16
-              })
+            if (this.selectedQuickActionIndex === 0) {
+              ForEach(this.taskGroups(), (group: TaskGroup) => {
+                Column({ space: 0 }) {
+                  this.expandGroupTitle(group.label, `${group.tasks.length}条`)
+                  Column({ space: 0 }) {
+                    ForEach(group.tasks, (task: CareTask, index: number) => {
+                      this.expandTaskRow(task, index === group.tasks.length - 1)
+                    }, (task: CareTask) => task.id)
+                  }
+                  .width('100%')
+                  .backgroundColor($r('sys.color.comp_background_primary'))
+                  .borderRadius(16)
+                  .clip(true)
+                  .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+                }
+                .width('100%')
+              }, (group: TaskGroup) => group.status)
+            } else if (this.selectedQuickActionIndex === 1) {
+              ForEach(this.medicationTimeGroups(), (group: MedicationTimeGroup) => {
+                Column({ space: 0 }) {
+                  this.expandGroupTitle(group.period, group.timeRange)
+                  Column({ space: 0 }) {
+                    ForEach(group.items, (item: QuickListRow, index: number) => {
+                      this.expandMedicationRow(item, index === group.items.length - 1)
+                    }, (item: QuickListRow) => `med-${item.id}`)
+                  }
+                  .width('100%')
+                  .backgroundColor($r('sys.color.comp_background_primary'))
+                  .borderRadius(16)
+                  .clip(true)
+                  .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+                }
+                .width('100%')
+              }, (group: MedicationTimeGroup) => group.period)
             }
-            .padding({
-              left: this.pagePadding(),
-              right: this.pagePadding(),
-              bottom: this.bottomPadding()
-            })
-          } else {
-            ListItem() {
-              Column({ space: 0 }) {
-                ForEach(this.quickExpandRows(), (item: QuickListRow, index: number) => {
-                  this.quickListRow(item, index === this.quickExpandRows().length - 1)
-                }, (item: QuickListRow, index: number) => `expand-${item.id}-${index}`)
-              }
-              .width('100%')
-              .padding({ left: 20, right: 20, top: 20, bottom: 12 })
-              .backgroundColor($r('sys.color.comp_background_primary'))
-              .borderRadius(16)
-              .clip(true)
-            }
-            .padding({
-              left: this.pagePadding(),
-              right: this.pagePadding(),
-              top: this.topPadding() + 48,
-              bottom: this.bottomPadding()
-            })
           }
+          .width('100%')
+          .padding({
+            left: this.pagePadding(),
+            right: this.pagePadding(),
+            top: this.topPadding() + 56,
+            bottom: this.bottomPadding()
+          })
         }
         .width('100%')
         .height('100%')
