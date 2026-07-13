@@ -99,51 +99,56 @@ export struct HealthExpandPage {
       HdsNavDestination() {
         Stack({ alignContent: Alignment.End }) {
           Scroll() {
-            Column({ space: 12 }) {
-              Repeat<ElderGroup>(this.elderGroups())
-                .each((groupItem: RepeatItem<ElderGroup>) => {
-                  Column({ space: 0 }) {
-                    Row() {
-                      Text(`${groupItem.item.letter}F`)
-                        .fontSize($r('sys.float.Caption_L'))
-                        .fontColor($r('sys.color.font_secondary'))
-                        .fontWeight(FontWeight.Regular)
-                    }
-                    .height(40)
-                    .width('100%')
+            Row() {
+              Column({ space: 12 }) {
+                Repeat<ElderGroup>(this.elderGroups())
+                  .each((groupItem: RepeatItem<ElderGroup>) => {
+                    Column({ space: 0 }) {
+                      Row() {
+                        Text(`${groupItem.item.letter}F`)
+                          .fontSize($r('sys.float.Caption_L'))
+                          .fontColor($r('sys.color.font_secondary'))
+                          .fontWeight(FontWeight.Regular)
+                      }
+                      .height(40)
+                      .width('100%')
 
-                    Repeat<HealthRowData>(groupItem.item.elders)
-                      .each((elderItem: RepeatItem<HealthRowData>) => {
-                        Row({ space: 12 }) {
-                          Column({ space: 4 }) {
-                            Text(elderItem.item.name)
-                              .fontSize($r('sys.float.Subtitle_M'))
-                              .fontColor($r('sys.color.font_primary'))
-                              .fontWeight(FontWeight.Medium)
-                            Text(`${elderItem.item.age}岁 · ${elderItem.item.room} · ${elderItem.item.bed} · ${elderItem.item.status}`)
-                              .fontSize($r('sys.float.Body_S'))
-                              .fontColor($r('sys.color.font_secondary'))
+                      Repeat<HealthRowData>(groupItem.item.elders)
+                        .each((elderItem: RepeatItem<HealthRowData>) => {
+                          Row({ space: 12 }) {
+                            Column({ space: 4 }) {
+                              Text(elderItem.item.name)
+                                .fontSize($r('sys.float.Subtitle_M'))
+                                .fontColor($r('sys.color.font_primary'))
+                                .fontWeight(FontWeight.Medium)
+                              Text(`${elderItem.item.age}岁 · ${elderItem.item.room} · ${elderItem.item.bed} · ${elderItem.item.status}`)
+                                .fontSize($r('sys.float.Body_S'))
+                                .fontColor($r('sys.color.font_secondary'))
+                            }
+                            .alignItems(HorizontalAlign.Start)
+                            .layoutWeight(1)
+
+                            Text(this.statusText(elderItem.item.level))
+                              .fontSize($r('sys.float.Caption_M'))
+                              .fontColor(this.statusColor(elderItem.item.level))
                           }
-                          .alignItems(HorizontalAlign.Start)
-                          .layoutWeight(1)
-
-                          Text(this.statusText(elderItem.item.level))
-                            .fontSize($r('sys.float.Caption_M'))
-                            .fontColor(this.statusColor(elderItem.item.level))
-                        }
-                        .justifyContent(FlexAlign.Start)
-                        .alignItems(VerticalAlign.Center)
-                        .width('100%')
-                        .height(64)
-                      })
-                      .key((item: HealthRowData) => item.id)
-                  }
-                  .width('100%')
-                })
-                .key((item: ElderGroup) => item.letter)
+                          .justifyContent(FlexAlign.Start)
+                          .alignItems(VerticalAlign.Center)
+                          .width('100%')
+                          .height(64)
+                        })
+                        .key((item: HealthRowData) => item.id)
+                    }
+                    .width('100%')
+                  })
+                  .key((item: ElderGroup) => item.letter)
+              }
+              .width('100%')
+              .constraintSize({ maxWidth: 960 })
+              .padding({ left: 16, right: 24, top: 64, bottom: 16 })
             }
             .width('100%')
-            .padding({ left: 16, right: 24, top: 64, bottom: 16 })
+            .justifyContent(FlexAlign.Center)
           }
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring)

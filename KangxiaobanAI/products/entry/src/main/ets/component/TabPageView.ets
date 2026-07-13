@@ -369,6 +369,34 @@ export struct TabPageView {
     .backgroundColor($r('sys.color.interactive_pressed'))
   }
 
+  @Styles
+  itemHoverStyle() {
+    .backgroundColor($r('sys.color.comp_background_emphasize'))
+  }
+
+  @Styles
+  itemFocusedStyle() {
+    .border({ width: 2, color: $r('sys.color.focus_outline') })
+    .backgroundColor($r('sys.color.comp_background_emphasize'))
+  }
+
+  private rowStateStyles(): Record<string, () => void> {
+    return {
+      normal: this.itemNormalStyle,
+      hover: this.itemHoverStyle,
+      pressed: this.itemPressedStyle,
+      focused: this.itemFocusedStyle
+    };
+  }
+
+  private sheetWidthForWide(): number | undefined {
+    return this.isWideLayout() ? 480 : undefined;
+  }
+
+  private expandMaxWidth(): number {
+    return this.isWideLayout() ? 880 : 9999;
+  }
+
   private sourceText(source: TaskSource): string {
     if (source === 'ai') {
       return '系统';
@@ -1189,6 +1217,14 @@ export struct TabPageView {
       width: { bottom: isLast ? 0 : 0.5 },
       color: { bottom: $r('sys.color.comp_divider') }
     })
+    .stateStyles({
+      pressed: this.itemPressedStyle,
+      normal: this.itemNormalStyle,
+      hover: this.itemHoverStyle,
+      focused: this.itemFocusedStyle
+    })
+    .focusable(true)
+    .focusOnTouch(true)
     .onClick(() => {
       this.selectedQuickRowId = item.id;
       this.isQuickRowSheetOpen = true;
@@ -1499,6 +1535,14 @@ export struct TabPageView {
         })
         .geometryTransition(this.residentGeometryId(item.id), { follow: true })
         .transition(TransitionEffect.OPACITY)
+        .stateStyles({
+          pressed: this.itemPressedStyle,
+          normal: this.itemNormalStyle,
+          hover: this.itemHoverStyle,
+          focused: this.itemFocusedStyle
+        })
+        .focusable(true)
+        .focusOnTouch(true)
         .onClick(() => {
           this.openResidentDetail(item);
         })
@@ -1728,8 +1772,12 @@ export struct TabPageView {
     .padding({ left: 16, right: 16 })
     .stateStyles({
       pressed: this.itemPressedStyle,
-      normal: this.itemNormalStyle
+      normal: this.itemNormalStyle,
+      hover: this.itemHoverStyle,
+      focused: this.itemFocusedStyle
     })
+    .focusable(true)
+    .focusOnTouch(true)
     .onClick(() => {
       this.selectedTaskId = item.id;
       this.isTaskSheetOpen = true;
@@ -2516,8 +2564,12 @@ export struct TabPageView {
     .padding({ left: 16, right: 16 })
     .stateStyles({
       pressed: this.itemPressedStyle,
-      normal: this.itemNormalStyle
+      normal: this.itemNormalStyle,
+      hover: this.itemHoverStyle,
+      focused: this.itemFocusedStyle
     })
+    .focusable(true)
+    .focusOnTouch(true)
     .onClick(() => {
       if (item.action) {
         item.action();
@@ -2774,8 +2826,12 @@ export struct TabPageView {
     })
     .stateStyles({
       pressed: this.itemPressedStyle,
-      normal: this.itemNormalStyle
+      normal: this.itemNormalStyle,
+      hover: this.itemHoverStyle,
+      focused: this.itemFocusedStyle
     })
+    .focusable(true)
+    .focusOnTouch(true)
     .onClick(() => {
       this.selectedQuickRowId = task.id;
       this.isExpandSheetOpen = true;
@@ -2840,8 +2896,12 @@ export struct TabPageView {
     })
     .stateStyles({
       pressed: this.itemPressedStyle,
-      normal: this.itemNormalStyle
+      normal: this.itemNormalStyle,
+      hover: this.itemHoverStyle,
+      focused: this.itemFocusedStyle
     })
+    .focusable(true)
+    .focusOnTouch(true)
     .onClick(() => {
       this.selectedQuickRowId = item.id;
       this.isExpandSheetOpen = true;
@@ -2863,53 +2923,58 @@ export struct TabPageView {
     Column() {
       Stack({ alignContent: Alignment.TopStart }) {
         Scroll() {
-          Column({ space: 16 }) {
-            this.expandLargeTitle()
-            this.expandOverviewCard()
+          Row() {
+            Column({ space: 16 }) {
+              this.expandLargeTitle()
+              this.expandOverviewCard()
 
-            if (this.selectedQuickActionIndex === 0) {
-              ForEach(this.taskGroups(), (group: TaskGroup) => {
-                Column({ space: 0 }) {
-                  this.expandGroupTitle(group.label, `${group.tasks.length}条`)
+              if (this.selectedQuickActionIndex === 0) {
+                ForEach(this.taskGroups(), (group: TaskGroup) => {
                   Column({ space: 0 }) {
-                    ForEach(group.tasks, (task: CareTask, index: number) => {
-                      this.expandTaskRow(task, index === group.tasks.length - 1)
-                    }, (task: CareTask) => task.id)
+                    this.expandGroupTitle(group.label, `${group.tasks.length}条`)
+                    Column({ space: 0 }) {
+                      ForEach(group.tasks, (task: CareTask, index: number) => {
+                        this.expandTaskRow(task, index === group.tasks.length - 1)
+                      }, (task: CareTask) => task.id)
+                    }
+                    .width('100%')
+                    .backgroundColor($r('sys.color.comp_background_primary'))
+                    .borderRadius(16)
+                    .clip(true)
+                    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
                   }
                   .width('100%')
-                  .backgroundColor($r('sys.color.comp_background_primary'))
-                  .borderRadius(16)
-                  .clip(true)
-                  .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-                }
-                .width('100%')
-              }, (group: TaskGroup) => group.status)
-            } else if (this.selectedQuickActionIndex === 1) {
-              ForEach(this.medicationTimeGroups(), (group: MedicationTimeGroup) => {
-                Column({ space: 0 }) {
-                  this.expandGroupTitle(group.period, group.timeRange)
+                }, (group: TaskGroup) => group.status)
+              } else if (this.selectedQuickActionIndex === 1) {
+                ForEach(this.medicationTimeGroups(), (group: MedicationTimeGroup) => {
                   Column({ space: 0 }) {
-                    ForEach(group.items, (item: QuickListRow, index: number) => {
-                      this.expandMedicationRow(item, index === group.items.length - 1)
-                    }, (item: QuickListRow) => `med-${item.id}`)
+                    this.expandGroupTitle(group.period, group.timeRange)
+                    Column({ space: 0 }) {
+                      ForEach(group.items, (item: QuickListRow, index: number) => {
+                        this.expandMedicationRow(item, index === group.items.length - 1)
+                      }, (item: QuickListRow) => `med-${item.id}`)
+                    }
+                    .width('100%')
+                    .backgroundColor($r('sys.color.comp_background_primary'))
+                    .borderRadius(16)
+                    .clip(true)
+                    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
                   }
                   .width('100%')
-                  .backgroundColor($r('sys.color.comp_background_primary'))
-                  .borderRadius(16)
-                  .clip(true)
-                  .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-                }
-                .width('100%')
-              }, (group: MedicationTimeGroup) => group.period)
+                }, (group: MedicationTimeGroup) => group.period)
+              }
             }
+            .width('100%')
+            .constraintSize({ maxWidth: this.expandMaxWidth() })
+            .padding({
+              left: this.pagePadding(),
+              right: this.pagePadding(),
+              top: this.topPadding() + 56,
+              bottom: this.bottomPadding()
+            })
           }
           .width('100%')
-          .padding({
-            left: this.pagePadding(),
-            right: this.pagePadding(),
-            top: this.topPadding() + 56,
-            bottom: this.bottomPadding()
-          })
+          .justifyContent(FlexAlign.Center)
         }
         .width('100%')
         .height('100%')
@@ -2934,6 +2999,11 @@ export struct TabPageView {
           .borderRadius(20)
           .backgroundColor($r('sys.color.comp_background_primary'))
           .justifyContent(FlexAlign.Center)
+          .stateStyles({
+            normal: this.itemNormalStyle,
+            hover: this.itemHoverStyle,
+            pressed: this.itemPressedStyle
+          })
           .onClick(() => {
             this.closeTaskExpand();
           })

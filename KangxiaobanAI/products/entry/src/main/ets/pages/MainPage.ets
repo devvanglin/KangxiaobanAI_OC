@@ -62,6 +62,21 @@ struct MainPage {
   @Local currentTabIndex: number = 0;
   @Local isSidebarCollapsed: boolean = false;
 
+  @Styles
+  pcIconNormalStyle() {
+    .backgroundColor($r('sys.color.comp_background_primary'))
+  }
+
+  @Styles
+  pcIconHoverStyle() {
+    .backgroundColor($r('sys.color.comp_background_emphasize'))
+  }
+
+  @Styles
+  pcIconPressedStyle() {
+    .backgroundColor($r('sys.color.interactive_pressed'))
+  }
+
   private getCurrentPageTitle(): ResourceStr {
     return this.pageConfigs[this.currentTabIndex]?.title ?? $r('app.string.tab_home');
   }
@@ -227,6 +242,12 @@ struct MainPage {
         .backgroundColor($r('sys.color.comp_background_primary'))
         .justifyContent(FlexAlign.Center)
         .alignItems(VerticalAlign.Center)
+        .stateStyles({
+          normal: this.pcIconNormalStyle,
+          hover: this.pcIconHoverStyle,
+          pressed: this.pcIconPressedStyle
+        })
+        .focusable(true)
         .onClick(() => {
           this.toggleSidebar();
         })
@@ -331,6 +352,8 @@ struct MainPage {
       cardPrefixMargin: 4,
       cardSuffixMargin: 0
     })
+    .focusable(true)
+    .focusOnTouch(true)
     .onClick(() => {
       this.handleNavClick(item);
     })
@@ -353,6 +376,8 @@ struct MainPage {
       cardPrefixMargin: 0,
       cardSuffixMargin: 0
     })
+    .focusable(true)
+    .focusOnTouch(true)
     .onClick(() => {
       this.handleNavClick(item);
     })
@@ -376,6 +401,12 @@ struct MainPage {
           .backgroundColor($r('sys.color.comp_background_primary'))
           .justifyContent(FlexAlign.Center)
           .alignItems(VerticalAlign.Center)
+          .stateStyles({
+            normal: this.pcIconNormalStyle,
+            hover: this.pcIconHoverStyle,
+            pressed: this.pcIconPressedStyle
+          })
+          .focusable(true)
           .onClick(() => {
             this.toggleSidebar();
           })
@@ -431,6 +462,12 @@ struct MainPage {
       .backgroundColor($r('sys.color.comp_background_primary'))
       .justifyContent(FlexAlign.Center)
       .alignItems(VerticalAlign.Center)
+      .stateStyles({
+        normal: this.pcIconNormalStyle,
+        hover: this.pcIconHoverStyle,
+        pressed: this.pcIconPressedStyle
+      })
+      .focusable(true)
 
       if (hasBadge) {
         Column()

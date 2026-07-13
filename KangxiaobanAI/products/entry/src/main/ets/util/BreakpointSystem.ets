@@ -52,3 +52,31 @@ export class BreakpointType<T> {
     return this.lg;
   }
 }
+
+/**
+ * 断点判定工具：统一 wide/tablet/pc 判定，避免散落维护。
+ * - wide  = MD / LG / XL（平板及以上）
+ * - tablet = MD（平板）
+ * - pc    = LG / XL（PC 桌面）
+ */
+export class BreakpointUtil {
+  static isWide(breakpoint: WidthBreakpoint): boolean {
+    return breakpoint === WidthBreakpoint.WIDTH_MD ||
+      breakpoint === WidthBreakpoint.WIDTH_LG ||
+      breakpoint === WidthBreakpoint.WIDTH_XL;
+  }
+
+  static isTablet(breakpoint: WidthBreakpoint): boolean {
+    return breakpoint === WidthBreakpoint.WIDTH_MD;
+  }
+
+  static isPc(breakpoint: WidthBreakpoint): boolean {
+    return breakpoint === WidthBreakpoint.WIDTH_LG ||
+      breakpoint === WidthBreakpoint.WIDTH_XL;
+  }
+
+  static isExtraWide(breakpoint: WidthBreakpoint): boolean {
+    return breakpoint === WidthBreakpoint.WIDTH_LG ||
+      breakpoint === WidthBreakpoint.WIDTH_XL;
+  }
+}
