@@ -39,6 +39,7 @@ import {
 } from '../model/DetailTypes';
 import { HealthExpandPage } from '../pages/HealthExpandPage';
 import { ResidentDetailPage } from '../pages/ResidentDetailPage';
+import { AiChatPage } from '../pages/AiChatPage';
 
 type TaskSource = 'ai' | 'elder' | 'staff' | 'plan';
 type TaskStatus = 'todo' | 'doing' | 'done';
@@ -193,6 +194,23 @@ export struct TabPageView {
     avatarText: ''
   } as ResidentData;
   @Local activeResidentGeometryId: string = '';
+  @Local isAiChatShow: boolean = false;
+
+  private openAiChat(): void {
+    this.getUIContext().animateTo({
+      curve: curves.interpolatingSpring(0, 1, 328, 36)
+    }, () => {
+      this.isAiChatShow = true;
+    })
+  }
+
+  private closeAiChat(): void {
+    this.getUIContext().animateTo({
+      curve: curves.interpolatingSpring(0, 1, 342, 38)
+    }, () => {
+      this.isAiChatShow = false;
+    })
+  }
 
   private openHealthExpand(): void {
     this.getUIContext().animateTo({
@@ -1005,7 +1023,7 @@ export struct TabPageView {
   private aiReminderCard() {
     Column({ space: 0 }) {
       Row({ space: 6 }) {
-        Text('AI 智能提醒')
+        Text('康小伴智能守护')
           .fontSize($r('sys.float.Body_L'))
           .fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.font_primary'))
@@ -1013,6 +1031,23 @@ export struct TabPageView {
           .fontSize($r('sys.float.Body_M'))
           .fontColor($r('sys.color.font_tertiary'))
         Blank()
+        Row() {
+          SymbolGlyph($r('sys.symbol.chevron_right'))
+            .fontSize(16)
+            .fontColor([$r('sys.color.font_tertiary')])
+        }
+        .width(32)
+        .height(32)
+        .borderRadius(16)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
+        .stateStyles({
+          normal: this.itemNormalStyle,
+          pressed: this.itemPressedStyle
+        })
+        .onClick(() => {
+          this.openAiChat();
+        })
       }
       .width('100%')
       .margin({ bottom: 14 })
@@ -1028,6 +1063,7 @@ export struct TabPageView {
     .padding({ left: 20, right: 20, top: 20, bottom: 12 })
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(16)
+    .geometryTransition('aiReminderCard', { follow: true })
   }
 
   @Builder
@@ -2674,6 +2710,16 @@ export struct TabPageView {
   }
 
   @Builder
+  private aiChatCover() {
+    AiChatPage({
+      geometryId: 'aiReminderCard',
+      onClose: () => {
+        this.closeAiChat();
+      }
+    })
+  }
+
+  @Builder
   private expandLargeTitle() {
     Column({ space: 4 }) {
       Text(this.quickExpandTitle())
@@ -3035,6 +3081,16 @@ export struct TabPageView {
         onWillDismiss: (action: DismissContentCoverAction) => {
           if (action.reason === DismissReason.PRESS_BACK) {
             this.closeTaskExpand();
+          }
+        }
+      })
+    .bindContentCover(this.isAiChatShow, this.aiChatCover,
+      {
+        modalTransition: ModalTransition.NONE,
+        backgroundColor: 'rgba(0,0,0,0)',
+        onWillDismiss: (action: DismissContentCoverAction) => {
+          if (action.reason === DismissReason.PRESS_BACK) {
+            this.closeAiChat();
           }
         }
       })
