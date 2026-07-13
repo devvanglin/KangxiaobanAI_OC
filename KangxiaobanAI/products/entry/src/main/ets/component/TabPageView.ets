@@ -103,6 +103,7 @@ interface AiReminder {
 }
 
 interface QuickListRow {
+  id: string;
   title: string;
   sub: string;
   time?: string;
@@ -143,6 +144,8 @@ export struct TabPageView {
   @Local isProfileSheetOpen: boolean = false;
   @Local selectedTaskId: string = '';
   @Local isTaskSheetOpen: boolean = false;
+  @Local selectedQuickRowId: string = '';
+  @Local isQuickRowSheetOpen: boolean = false;
   @Local residentSearch: string = '';
   @Local residentFilter: 'all' | 'warning' | 'danger' = 'all';
   @Local taskFilter: 'all' | 'ai' | 'elder' | 'plan' = 'all';
@@ -156,7 +159,6 @@ export struct TabPageView {
   @Local isHealthExpandShow: boolean = false;
   @Local isResidentDetailShow: boolean = false;
   @Local isTaskExpandShow: boolean = false;
-  @Local taskExpandGeometryId: string = 'task_expand_geo';
   @Local selectedResidentId: string = '';
   @Local selectedResident: ResidentData = {
     id: '',
@@ -227,6 +229,28 @@ export struct TabPageView {
     }, () => {
       this.isTaskExpandShow = false;
     })
+  }
+
+  private quickExpandGeometryId(): string {
+    return `quick_expand_geo_${this.selectedQuickActionIndex}`;
+  }
+
+  private quickExpandTitle(): string {
+    if (this.selectedQuickActionIndex === 0) {
+      return '待办任务';
+    } else if (this.selectedQuickActionIndex === 1) {
+      return '用药提醒';
+    }
+    return '';
+  }
+
+  private quickExpandRows(): QuickListRow[] {
+    if (this.selectedQuickActionIndex === 0) {
+      return this.taskListRows();
+    } else if (this.selectedQuickActionIndex === 1) {
+      return this.medicationItems();
+    }
+    return [];
   }
 
   aboutToAppear(): void {
@@ -493,48 +517,48 @@ export struct TabPageView {
 
   private medicationItems(): QuickListRow[] {
     return [
-      { title: '降压药', sub: '李秀英 · 1片', time: '08:00', tag: '待服用', tagColor: $r('app.color.brand_blue'),
+      { id: 'med-1', title: '降压药', sub: '李秀英 · 1片', time: '08:00', tag: '待服用', tagColor: $r('app.color.brand_blue'),
         tagBg: $r('app.color.status_normal_bg') },
-      { title: '钙片', sub: '王德林 · 2片', time: '08:00', tag: '待服用', tagColor: $r('app.color.brand_blue'),
+      { id: 'med-2', title: '钙片', sub: '王德林 · 2片', time: '08:00', tag: '待服用', tagColor: $r('app.color.brand_blue'),
         tagBg: $r('app.color.status_normal_bg') },
-      { title: '二甲双胍', sub: '张明华 · 0.5g', time: '12:00', tag: '待服用', tagColor: $r('app.color.brand_blue'),
+      { id: 'med-3', title: '二甲双胍', sub: '张明华 · 0.5g', time: '12:00', tag: '待服用', tagColor: $r('app.color.brand_blue'),
         tagBg: $r('app.color.status_normal_bg') },
-      { title: '维生素D', sub: '肖爷爷 · 1粒', time: '07:00', tag: '已完成', tagColor: $r('sys.color.font_tertiary'),
+      { id: 'med-4', title: '维生素D', sub: '肖爷爷 · 1粒', time: '07:00', tag: '已完成', tagColor: $r('sys.color.font_tertiary'),
         tagBg: $r('sys.color.comp_background_tertiary') }
     ];
   }
 
   private recordItems(): QuickListRow[] {
     return [
-      { title: '体征测量', sub: '3F-302 肖爷爷', time: '10:24', tag: '已记录',
+      { id: 'rec-1', title: '体征测量', sub: '3F-302 肖爷爷', time: '10:24', tag: '已记录',
         tagColor: $r('app.color.status_normal'), tagBg: $r('app.color.status_normal_bg') },
-      { title: '翻身护理', sub: '2F-215 周奶奶', time: '09:46', tag: '已记录',
+      { id: 'rec-2', title: '翻身护理', sub: '2F-215 周奶奶', time: '09:46', tag: '已记录',
         tagColor: $r('app.color.status_normal'), tagBg: $r('app.color.status_normal_bg') },
-      { title: '用药执行', sub: '3F-306 林爷爷', time: '09:12', tag: '已记录',
+      { id: 'rec-3', title: '用药执行', sub: '3F-306 林爷爷', time: '09:12', tag: '已记录',
         tagColor: $r('app.color.status_normal'), tagBg: $r('app.color.status_normal_bg') },
-      { title: '夜间巡查', sub: '2F 东区', time: '06:30', tag: '已记录',
+      { id: 'rec-4', title: '夜间巡查', sub: '2F 东区', time: '06:30', tag: '已记录',
         tagColor: $r('app.color.status_normal'), tagBg: $r('app.color.status_normal_bg') }
     ];
   }
 
   private familyItems(): QuickListRow[] {
     return [
-      { title: '张建国', sub: '李秀英儿子 · 13800138000' },
-      { title: '李秀兰', sub: '王德林女儿 · 13900139000' },
-      { title: '林涛', sub: '林爷爷儿子 · 13700137000' },
-      { title: '周敏', sub: '周奶奶女儿 · 13600136000' }
+      { id: 'fam-1', title: '张建国', sub: '李秀英儿子 · 13800138000' },
+      { id: 'fam-2', title: '李秀兰', sub: '王德林女儿 · 13900139000' },
+      { id: 'fam-3', title: '林涛', sub: '林爷爷儿子 · 13700137000' },
+      { id: 'fam-4', title: '周敏', sub: '周奶奶女儿 · 13600136000' }
     ];
   }
 
   private reportItems(): QuickListRow[] {
     return [
-      { title: '智能床垫离线', sub: '3F-306', time: '14:20', tag: '待处理',
+      { id: 'rep-1', title: '智能床垫离线', sub: '3F-306', time: '14:20', tag: '待处理',
         tagColor: $r('app.color.status_danger'), tagBg: $r('app.color.status_danger_bg') },
-      { title: '血压异常偏高', sub: '3F-302 肖爷爷', time: '10:24', tag: '已跟进',
+      { id: 'rep-2', title: '血压异常偏高', sub: '3F-302 肖爷爷', time: '10:24', tag: '已跟进',
         tagColor: $r('app.color.status_normal'), tagBg: $r('app.color.status_normal_bg') },
-      { title: '离床频次增加', sub: '2F-215 周奶奶', time: '09:46', tag: '已跟进',
+      { id: 'rep-3', title: '离床频次增加', sub: '2F-215 周奶奶', time: '09:46', tag: '已跟进',
         tagColor: $r('app.color.status_normal'), tagBg: $r('app.color.status_normal_bg') },
-      { title: '卫生间滞留超时', sub: '3F-308', time: '08:15', tag: '待处理',
+      { id: 'rep-4', title: '卫生间滞留超时', sub: '3F-308', time: '08:15', tag: '待处理',
         tagColor: $r('app.color.status_danger'), tagBg: $r('app.color.status_danger_bg') }
     ];
   }
@@ -1059,7 +1083,9 @@ export struct TabPageView {
           this.openTaskExpand();
         })
       } else if (this.selectedQuickActionIndex === 1) {
-        this.quickListPage('用药提醒', this.medicationItems())
+        this.quickListPage('用药提醒', this.medicationItems(), () => {
+          this.openTaskExpand();
+        })
       } else if (this.selectedQuickActionIndex === 2) {
         this.quickListPage('服务记录', this.recordItems())
       } else if (this.selectedQuickActionIndex === 3) {
@@ -1073,7 +1099,7 @@ export struct TabPageView {
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(16)
     .clip(true)
-    .geometryTransition(this.taskExpandGeometryId, { follow: true })
+    .geometryTransition(this.quickExpandGeometryId(), { follow: true })
     .transition(TransitionEffect.OPACITY)
   }
 
@@ -1149,6 +1175,125 @@ export struct TabPageView {
       width: { bottom: isLast ? 0 : 0.5 },
       color: { bottom: $r('sys.color.comp_divider') }
     })
+    .onClick(() => {
+      this.selectedQuickRowId = item.id;
+      this.isQuickRowSheetOpen = true;
+    })
+    .bindSheet(this.isQuickRowSheetOpen && this.selectedQuickRowId === item.id, this.quickRowSheetBuilder, {
+      detents: [SheetSize.LARGE, SheetSize.MEDIUM],
+      showClose: true,
+      dragBar: true,
+      title: { title: item.title },
+      backgroundColor: $r('sys.color.background_secondary'),
+      onDisappear: () => {
+        this.isQuickRowSheetOpen = false;
+      }
+    })
+  }
+
+  private selectedQuickRow(): QuickListRow | undefined {
+    const all: QuickListRow[] = [
+      ...this.taskListRows(),
+      ...this.medicationItems(),
+      ...this.recordItems(),
+      ...this.familyItems(),
+      ...this.reportItems()
+    ];
+    return all.find((item: QuickListRow) => item.id === this.selectedQuickRowId);
+  }
+
+  private selectedTaskByQuickRow(): CareTask | undefined {
+    return this.allTasks().find((t: CareTask) => t.id === this.selectedQuickRowId);
+  }
+
+  @Builder
+  private quickRowSheetBuilder() {
+    Column({ space: 0 }) {
+      if (this.selectedQuickRow()) {
+        if (this.selectedTaskByQuickRow()) {
+          List({ space: 16 }) {
+            ListItem() {
+              this.taskDetailHeader(this.selectedTaskByQuickRow()!)
+            }
+            ListItem() {
+              this.taskDetailForm(this.selectedTaskByQuickRow()!)
+            }
+            ListItem() {
+              this.taskDetailTimeline()
+            }
+            ListItem() {
+              this.taskActionButtons(this.selectedTaskByQuickRow()!)
+            }
+          }
+          .width('100%')
+          .layoutWeight(1)
+          .padding({ left: 16, right: 16, top: 8, bottom: 36 })
+          .scrollBar(BarState.Off)
+          .edgeEffect(EdgeEffect.Spring)
+        } else {
+          List({ space: 0 }) {
+            ListItem() {
+              Column({ space: 8 }) {
+                Text(this.selectedQuickRow()!.title)
+                  .fontSize($r('sys.float.Title_M'))
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('sys.color.font_primary'))
+                Text(this.selectedQuickRow()!.sub)
+                  .fontSize($r('sys.float.Body_M'))
+                  .fontColor($r('sys.color.font_secondary'))
+              }
+              .width('100%')
+              .padding({ top: 16, bottom: 16 })
+            }
+
+            if (this.selectedQuickRow()!.time) {
+              ListItem() {
+                Row() {
+                  Text('时间')
+                    .fontSize($r('sys.float.Body_M'))
+                    .fontColor($r('sys.color.font_secondary'))
+                  Blank()
+                  Text(this.selectedQuickRow()!.time!)
+                    .fontSize($r('sys.float.Body_M'))
+                    .fontColor($r('sys.color.font_primary'))
+                }
+                .width('100%')
+                .padding({ top: 14, bottom: 14 })
+                .border({ width: { bottom: 0.5 }, color: $r('sys.color.comp_divider') })
+              }
+            }
+
+            if (this.selectedQuickRow()!.tag) {
+              ListItem() {
+                Row() {
+                  Text('状态')
+                    .fontSize($r('sys.float.Body_M'))
+                    .fontColor($r('sys.color.font_secondary'))
+                  Blank()
+                  Text(this.selectedQuickRow()!.tag!)
+                    .fontSize($r('sys.float.Body_S'))
+                    .fontColor(this.selectedQuickRow()!.tagColor ?? $r('sys.color.font_secondary'))
+                    .padding({ left: 8, right: 8, top: 2, bottom: 2 })
+                    .backgroundColor(this.selectedQuickRow()!.tagBg ?? $r('sys.color.comp_background_secondary'))
+                    .borderRadius(8)
+                }
+                .width('100%')
+                .padding({ top: 14, bottom: 14 })
+                .border({ width: { bottom: 0.5 }, color: $r('sys.color.comp_divider') })
+              }
+            }
+          }
+          .width('100%')
+          .layoutWeight(1)
+          .padding({ left: 20, right: 20 })
+          .scrollBar(BarState.Off)
+          .edgeEffect(EdgeEffect.Spring)
+        }
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('sys.color.background_secondary'))
   }
 
   // ---------------- task helper ----------------
@@ -1171,6 +1316,7 @@ export struct TabPageView {
       const tag: string = this.taskTag(item.status, item.priority);
       const isDone: boolean = item.status === 'done';
       return {
+        id: item.id,
         title: item.title,
         sub: `${item.elder} · ${item.room}`,
         time: item.time,
@@ -2441,38 +2587,59 @@ export struct TabPageView {
     Column() {
       Stack({ alignContent: Alignment.TopStart }) {
         List({ space: 12 }) {
-          ListItem() {
-            this.taskChipBar()
-          }
-          .padding({
-            left: this.pagePadding(),
-            right: this.pagePadding(),
-            top: this.topPadding() + 48
-          })
-
-          ListItem() {
-            List({ space: 0 }) {
-              Repeat(this.filteredTasks())
-                .each((repeatItem: RepeatItem<CareTask>) => {
-                  this.taskListRow(repeatItem.item)
-                })
+          if (this.selectedQuickActionIndex === 0) {
+            ListItem() {
+              this.taskChipBar()
             }
-            .width('100%')
-            .backgroundColor($r('sys.color.comp_background_primary'))
-            .borderRadius(16)
-            .clip(true)
-            .divider({
-              strokeWidth: 0.5,
-              color: $r('sys.color.comp_divider'),
-              startMargin: 16,
-              endMargin: 16
+            .padding({
+              left: this.pagePadding(),
+              right: this.pagePadding(),
+              top: this.topPadding() + 48
+            })
+
+            ListItem() {
+              List({ space: 0 }) {
+                Repeat(this.filteredTasks())
+                  .each((repeatItem: RepeatItem<CareTask>) => {
+                    this.taskListRow(repeatItem.item)
+                  })
+              }
+              .width('100%')
+              .backgroundColor($r('sys.color.comp_background_primary'))
+              .borderRadius(16)
+              .clip(true)
+              .divider({
+                strokeWidth: 0.5,
+                color: $r('sys.color.comp_divider'),
+                startMargin: 16,
+                endMargin: 16
+              })
+            }
+            .padding({
+              left: this.pagePadding(),
+              right: this.pagePadding(),
+              bottom: this.bottomPadding()
+            })
+          } else {
+            ListItem() {
+              Column({ space: 0 }) {
+                ForEach(this.quickExpandRows(), (item: QuickListRow, index: number) => {
+                  this.quickListRow(item, index === this.quickExpandRows().length - 1)
+                }, (item: QuickListRow, index: number) => `expand-${item.id}-${index}`)
+              }
+              .width('100%')
+              .padding({ left: 20, right: 20, top: 20, bottom: 12 })
+              .backgroundColor($r('sys.color.comp_background_primary'))
+              .borderRadius(16)
+              .clip(true)
+            }
+            .padding({
+              left: this.pagePadding(),
+              right: this.pagePadding(),
+              top: this.topPadding() + 48,
+              bottom: this.bottomPadding()
             })
           }
-          .padding({
-            left: this.pagePadding(),
-            right: this.pagePadding(),
-            bottom: this.bottomPadding()
-          })
         }
         .width('100%')
         .height('100%')
@@ -2481,7 +2648,7 @@ export struct TabPageView {
         .edgeEffect(EdgeEffect.Spring)
 
         Row() {
-          Text('待办任务')
+          Text(this.quickExpandTitle())
             .fontSize($r('sys.float.Title_S'))
             .fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary'))
@@ -2512,7 +2679,7 @@ export struct TabPageView {
     .height('100%')
     .backgroundColor($r('sys.color.background_secondary'))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-    .geometryTransition(this.taskExpandGeometryId)
+    .geometryTransition(this.quickExpandGeometryId())
     .transition(TransitionEffect.OPACITY)
   }
 
