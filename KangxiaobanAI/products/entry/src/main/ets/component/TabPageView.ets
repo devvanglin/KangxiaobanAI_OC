@@ -155,6 +155,8 @@ export struct TabPageView {
   private timerId: number = -1;
   @Local isHealthExpandShow: boolean = false;
   @Local isResidentDetailShow: boolean = false;
+  @Local isTaskExpandShow: boolean = false;
+  @Local taskExpandGeometryId: string = 'task_expand_geo';
   @Local selectedResidentId: string = '';
   @Local selectedResident: ResidentData = {
     id: '',
@@ -208,6 +210,22 @@ export struct TabPageView {
       curve: curves.interpolatingSpring(0, 1, 342, 38)
     }, () => {
       this.isResidentDetailShow = false;
+    })
+  }
+
+  private openTaskExpand(): void {
+    this.getUIContext().animateTo({
+      curve: curves.interpolatingSpring(0, 1, 328, 36)
+    }, () => {
+      this.isTaskExpandShow = true;
+    })
+  }
+
+  private closeTaskExpand(): void {
+    this.getUIContext().animateTo({
+      curve: curves.interpolatingSpring(0, 1, 342, 38)
+    }, () => {
+      this.isTaskExpandShow = false;
     })
   }
 
@@ -812,14 +830,14 @@ export struct TabPageView {
   private taskOverviewGrid() {
     Column({ space: 0 }) {
       Row({ space: 0 }) {
-        Column({ space: 4 }) {
+        Column({ space: 5 }) {
           Text(this.currentTimeString())
-            .fontSize(40)
+            .fontSize(44)
             .fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary'))
-            .height(48)
+            .height(52)
           Text(this.clockInStatusText())
-            .fontSize($r('sys.float.Body_S'))
+            .fontSize($r('sys.float.Body_M'))
             .fontColor(this.workStatusColor())
         }
         .alignItems(HorizontalAlign.Start)
@@ -828,34 +846,34 @@ export struct TabPageView {
         Row({ space: 8 }) {
           if (!this.isClockedIn) {
             Button('上班打卡')
-              .fontSize($r('sys.float.Body_M'))
+              .fontSize($r('sys.float.Body_L'))
               .fontColor($r('app.color.text_on_brand'))
               .backgroundColor($r('app.color.brand_blue'))
-              .height(48)
-              .padding({ left: 24, right: 24 })
-              .borderRadius(24)
+              .height(52)
+              .padding({ left: 26, right: 26 })
+              .borderRadius(26)
               .onClick(() => {
                 this.handleClockIn();
               })
           } else if (this.isClockedIn && !this.isClockedOut) {
             Button('下班打卡')
-              .fontSize($r('sys.float.Body_M'))
+              .fontSize($r('sys.float.Body_L'))
               .fontColor($r('app.color.text_on_brand'))
               .backgroundColor($r('app.color.status_danger'))
-              .height(48)
-              .padding({ left: 24, right: 24 })
-              .borderRadius(24)
+              .height(52)
+              .padding({ left: 26, right: 26 })
+              .borderRadius(26)
               .onClick(() => {
                 this.handleClockOut();
               })
           } else {
             Button('已下班')
-              .fontSize($r('sys.float.Body_M'))
+              .fontSize($r('sys.float.Body_L'))
               .fontColor($r('sys.color.font_tertiary'))
               .backgroundColor($r('sys.color.comp_background_secondary'))
-              .height(48)
-              .padding({ left: 24, right: 24 })
-              .borderRadius(24)
+              .height(52)
+              .padding({ left: 26, right: 26 })
+              .borderRadius(26)
               .enabled(false)
           }
         }
@@ -942,16 +960,16 @@ export struct TabPageView {
     Column({ space: 0 }) {
       Row({ space: 6 }) {
         Text('AI 智能提醒')
-          .fontSize($r('sys.float.Body_M'))
+          .fontSize($r('sys.float.Body_L'))
           .fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.font_primary'))
         Text(`· ${this.aiReminders().length}条`)
-          .fontSize($r('sys.float.Body_S'))
+          .fontSize($r('sys.float.Body_M'))
           .fontColor($r('sys.color.font_tertiary'))
         Blank()
       }
       .width('100%')
-      .margin({ bottom: 12 })
+      .margin({ bottom: 14 })
 
       Column({ space: 0 }) {
         ForEach(this.aiReminders(), (item: AiReminder, index: number) => {
@@ -968,22 +986,22 @@ export struct TabPageView {
 
   @Builder
   private aiReminderRow(item: AiReminder, isLast: boolean) {
-    Column({ space: 4 }) {
+    Column({ space: 5 }) {
       Text(item.title)
-        .fontSize($r('sys.float.Body_M'))
+        .fontSize($r('sys.float.Body_L'))
         .fontWeight(FontWeight.Medium)
         .fontColor($r('sys.color.font_primary'))
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
 
       Text(`${item.location} ${item.name} · ${item.detail}`)
-        .fontSize($r('sys.float.Caption_M'))
+        .fontSize($r('sys.float.Body_M'))
         .fontColor($r('sys.color.font_secondary'))
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
     }
     .width('100%')
-    .padding({ top: 12, bottom: isLast ? 0 : 12 })
+    .padding({ top: 14, bottom: isLast ? 0 : 14 })
     .alignItems(HorizontalAlign.Start)
     .border({
       width: { bottom: isLast ? 0 : 0.5 },
@@ -1005,18 +1023,18 @@ export struct TabPageView {
           ForEach(this.quickActionLabels(), (label: string, index: number) => {
             Row() {
               Text(label)
-                .fontSize($r('sys.float.Body_M'))
+                .fontSize($r('sys.float.Body_L'))
                 .fontWeight(this.selectedQuickActionIndex === index ? FontWeight.Medium : FontWeight.Regular)
                 .fontColor(this.selectedQuickActionIndex === index ? $r('app.color.text_on_brand') :
                   $r('sys.color.font_primary'))
                 .maxLines(1)
                 .textOverflow({ overflow: TextOverflow.Ellipsis })
             }
-            .padding({ left: 20, right: 20, top: 10, bottom: 10 })
+            .padding({ left: 22, right: 22, top: 12, bottom: 12 })
             .borderRadius(64)
             .backgroundColor(this.selectedQuickActionIndex === index ? $r('app.color.brand_blue') :
               $r('sys.color.comp_background_primary'))
-            .height(44)
+            .height(48)
             .justifyContent(FlexAlign.Center)
             .onClick(() => {
               this.selectedQuickActionIndex = index;
@@ -1038,7 +1056,7 @@ export struct TabPageView {
     Column({ space: 0 }) {
       if (this.selectedQuickActionIndex === 0) {
         this.quickListPage('待办任务', this.taskListRows(), () => {
-          this.onSwitchTab(2);
+          this.openTaskExpand();
         })
       } else if (this.selectedQuickActionIndex === 1) {
         this.quickListPage('用药提醒', this.medicationItems())
@@ -1055,6 +1073,8 @@ export struct TabPageView {
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(16)
     .clip(true)
+    .geometryTransition(this.taskExpandGeometryId, { follow: true })
+    .transition(TransitionEffect.OPACITY)
   }
 
   @Builder
@@ -1062,20 +1082,20 @@ export struct TabPageView {
     Column({ space: 0 }) {
       Row({ space: 6 }) {
         Text(title)
-          .fontSize($r('sys.float.Body_M'))
+          .fontSize($r('sys.float.Body_L'))
           .fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.font_primary'))
         Text(`· ${rows.length}条`)
-          .fontSize($r('sys.float.Body_S'))
+          .fontSize($r('sys.float.Body_M'))
           .fontColor($r('sys.color.font_tertiary'))
         Blank()
-        Text('查看全部')
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('app.color.brand_blue'))
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(20)
+          .fontColor([$r('sys.color.font_tertiary')])
           .onClick(onViewAll ?? (() => {}))
       }
       .width('100%')
-      .margin({ bottom: 12 })
+      .margin({ bottom: 14 })
 
       Column({ space: 0 }) {
         ForEach(rows, (item: QuickListRow, index: number) => {
@@ -1091,15 +1111,15 @@ export struct TabPageView {
   @Builder
   private quickListRow(item: QuickListRow, isLast: boolean) {
     Row({ space: 10 }) {
-      Column({ space: 4 }) {
+      Column({ space: 5 }) {
         Text(item.title)
-          .fontSize($r('sys.float.Body_M'))
+          .fontSize($r('sys.float.Body_L'))
           .fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.font_primary'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
         Text(item.sub)
-          .fontSize($r('sys.float.Caption_M'))
+          .fontSize($r('sys.float.Body_M'))
           .fontColor($r('sys.color.font_secondary'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -1109,21 +1129,21 @@ export struct TabPageView {
 
       if (item.time) {
         Text(item.time)
-          .fontSize($r('sys.float.Caption_M'))
+          .fontSize($r('sys.float.Body_M'))
           .fontColor($r('sys.color.font_tertiary'))
       }
 
       if (item.tag) {
         Text(item.tag)
-          .fontSize($r('sys.float.Caption_M'))
+          .fontSize($r('sys.float.Body_S'))
           .fontColor(item.tagColor ?? $r('sys.color.font_secondary'))
-          .padding({ left: 6, right: 6, top: 1, bottom: 1 })
+          .padding({ left: 8, right: 8, top: 2, bottom: 2 })
           .backgroundColor(item.tagBg ?? $r('sys.color.comp_background_secondary'))
-          .borderRadius(6)
+          .borderRadius(8)
       }
     }
     .width('100%')
-    .padding({ top: 12, bottom: isLast ? 0 : 12 })
+    .padding({ top: 14, bottom: isLast ? 0 : 14 })
     .alignItems(VerticalAlign.Center)
     .border({
       width: { bottom: isLast ? 0 : 0.5 },
@@ -2416,6 +2436,86 @@ export struct TabPageView {
     })
   }
 
+  @Builder
+  private taskExpandCover() {
+    Column() {
+      Stack({ alignContent: Alignment.TopStart }) {
+        List({ space: 12 }) {
+          ListItem() {
+            this.taskChipBar()
+          }
+          .padding({
+            left: this.pagePadding(),
+            right: this.pagePadding(),
+            top: this.topPadding() + 48
+          })
+
+          ListItem() {
+            List({ space: 0 }) {
+              Repeat(this.filteredTasks())
+                .each((repeatItem: RepeatItem<CareTask>) => {
+                  this.taskListRow(repeatItem.item)
+                })
+            }
+            .width('100%')
+            .backgroundColor($r('sys.color.comp_background_primary'))
+            .borderRadius(16)
+            .clip(true)
+            .divider({
+              strokeWidth: 0.5,
+              color: $r('sys.color.comp_divider'),
+              startMargin: 16,
+              endMargin: 16
+            })
+          }
+          .padding({
+            left: this.pagePadding(),
+            right: this.pagePadding(),
+            bottom: this.bottomPadding()
+          })
+        }
+        .width('100%')
+        .height('100%')
+        .backgroundColor(this.pageBackgroundColor())
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
+
+        Row() {
+          Text('待办任务')
+            .fontSize($r('sys.float.Title_S'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+
+          Row() {
+            SymbolGlyph($r('sys.symbol.xmark'))
+              .fontSize(20)
+              .fontColor([$r('sys.color.font_primary')])
+          }
+          .width(40)
+          .height(40)
+          .borderRadius(20)
+          .backgroundColor($r('sys.color.comp_background_primary'))
+          .justifyContent(FlexAlign.Center)
+          .onClick(() => {
+            this.closeTaskExpand();
+          })
+        }
+        .width('100%')
+        .padding({ left: this.pagePadding(), right: this.pagePadding() })
+        .margin({ top: this.topPadding() })
+      }
+      .width('100%')
+      .height('100%')
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('sys.color.background_secondary'))
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .geometryTransition(this.taskExpandGeometryId)
+    .transition(TransitionEffect.OPACITY)
+  }
+
   build() {
     Column() {
       Column() {
@@ -2451,6 +2551,16 @@ export struct TabPageView {
         onWillDismiss: (action: DismissContentCoverAction) => {
           if (action.reason === DismissReason.PRESS_BACK) {
             this.closeHealthExpand();
+          }
+        }
+      })
+    .bindContentCover(this.isTaskExpandShow, this.taskExpandCover,
+      {
+        modalTransition: ModalTransition.NONE,
+        backgroundColor: 'rgba(0,0,0,0)',
+        onWillDismiss: (action: DismissContentCoverAction) => {
+          if (action.reason === DismissReason.PRESS_BACK) {
+            this.closeTaskExpand();
           }
         }
       })
