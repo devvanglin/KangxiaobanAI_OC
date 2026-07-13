@@ -55,11 +55,6 @@ export struct HealthListCard {
     .backgroundColor($r('sys.color.ohos_id_color_background_transparent'))
   }
 
-  @Styles
-  itemHoverStyle() {
-    .backgroundColor($r('sys.color.comp_background_emphasize'))
-  }
-
   private bottomPadding(): number {
     return new BreakpointType<number>({
       sm: 4,
@@ -147,8 +142,7 @@ export struct HealthListCard {
               })
               .stateStyles({
                 pressed: this.itemPressedStyle,
-                normal: this.itemNormalStyle,
-                hover: this.itemHoverStyle
+                normal: this.itemNormalStyle
               })
               .focusable(true)
               .clip(false)

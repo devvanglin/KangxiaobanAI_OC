@@ -369,26 +369,6 @@ export struct TabPageView {
     .backgroundColor($r('sys.color.interactive_pressed'))
   }
 
-  @Styles
-  itemHoverStyle() {
-    .backgroundColor($r('sys.color.comp_background_emphasize'))
-  }
-
-  @Styles
-  itemFocusedStyle() {
-    .border({ width: 2, color: $r('sys.color.focus_outline') })
-    .backgroundColor($r('sys.color.comp_background_emphasize'))
-  }
-
-  private rowStateStyles(): Record<string, () => void> {
-    return {
-      normal: this.itemNormalStyle,
-      hover: this.itemHoverStyle,
-      pressed: this.itemPressedStyle,
-      focused: this.itemFocusedStyle
-    };
-  }
-
   private sheetWidthForWide(): number | undefined {
     return this.isWideLayout() ? 480 : undefined;
   }
@@ -1219,9 +1199,7 @@ export struct TabPageView {
     })
     .stateStyles({
       pressed: this.itemPressedStyle,
-      normal: this.itemNormalStyle,
-      hover: this.itemHoverStyle,
-      focused: this.itemFocusedStyle
+      normal: this.itemNormalStyle
     })
     .focusable(true)
     .focusOnTouch(true)
@@ -1537,9 +1515,7 @@ export struct TabPageView {
         .transition(TransitionEffect.OPACITY)
         .stateStyles({
           pressed: this.itemPressedStyle,
-          normal: this.itemNormalStyle,
-          hover: this.itemHoverStyle,
-          focused: this.itemFocusedStyle
+          normal: this.itemNormalStyle
         })
         .focusable(true)
         .focusOnTouch(true)
@@ -1772,9 +1748,7 @@ export struct TabPageView {
     .padding({ left: 16, right: 16 })
     .stateStyles({
       pressed: this.itemPressedStyle,
-      normal: this.itemNormalStyle,
-      hover: this.itemHoverStyle,
-      focused: this.itemFocusedStyle
+      normal: this.itemNormalStyle
     })
     .focusable(true)
     .focusOnTouch(true)
@@ -2564,9 +2538,7 @@ export struct TabPageView {
     .padding({ left: 16, right: 16 })
     .stateStyles({
       pressed: this.itemPressedStyle,
-      normal: this.itemNormalStyle,
-      hover: this.itemHoverStyle,
-      focused: this.itemFocusedStyle
+      normal: this.itemNormalStyle
     })
     .focusable(true)
     .focusOnTouch(true)
@@ -2826,9 +2798,7 @@ export struct TabPageView {
     })
     .stateStyles({
       pressed: this.itemPressedStyle,
-      normal: this.itemNormalStyle,
-      hover: this.itemHoverStyle,
-      focused: this.itemFocusedStyle
+      normal: this.itemNormalStyle
     })
     .focusable(true)
     .focusOnTouch(true)
@@ -2896,9 +2866,7 @@ export struct TabPageView {
     })
     .stateStyles({
       pressed: this.itemPressedStyle,
-      normal: this.itemNormalStyle,
-      hover: this.itemHoverStyle,
-      focused: this.itemFocusedStyle
+      normal: this.itemNormalStyle
     })
     .focusable(true)
     .focusOnTouch(true)
@@ -3001,7 +2969,6 @@ export struct TabPageView {
           .justifyContent(FlexAlign.Center)
           .stateStyles({
             normal: this.itemNormalStyle,
-            hover: this.itemHoverStyle,
             pressed: this.itemPressedStyle
           })
           .onClick(() => {

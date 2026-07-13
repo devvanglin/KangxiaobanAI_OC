@@ -68,11 +68,6 @@ struct MainPage {
   }
 
   @Styles
-  pcIconHoverStyle() {
-    .backgroundColor($r('sys.color.comp_background_emphasize'))
-  }
-
-  @Styles
   pcIconPressedStyle() {
     .backgroundColor($r('sys.color.interactive_pressed'))
   }
@@ -244,7 +239,6 @@ struct MainPage {
         .alignItems(VerticalAlign.Center)
         .stateStyles({
           normal: this.pcIconNormalStyle,
-          hover: this.pcIconHoverStyle,
           pressed: this.pcIconPressedStyle
         })
         .focusable(true)
@@ -403,7 +397,6 @@ struct MainPage {
           .alignItems(VerticalAlign.Center)
           .stateStyles({
             normal: this.pcIconNormalStyle,
-            hover: this.pcIconHoverStyle,
             pressed: this.pcIconPressedStyle
           })
           .focusable(true)
@@ -464,7 +457,6 @@ struct MainPage {
       .alignItems(VerticalAlign.Center)
       .stateStyles({
         normal: this.pcIconNormalStyle,
-        hover: this.pcIconHoverStyle,
         pressed: this.pcIconPressedStyle
       })
       .focusable(true)
