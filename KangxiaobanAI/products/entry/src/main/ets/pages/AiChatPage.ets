@@ -14,6 +14,7 @@
  */
 
 import { AppStorageV2 } from '@kit.ArkUI';
+import { HdsNavDestination, hdsMaterial, ScrollEffectType, TitleBarContentOptions, TitleBarStyleOptions } from '@kit.UIDesignKit';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { StorageKey } from '../common/CommonConstants';
 
@@ -33,6 +34,7 @@ interface ChatMessage {
 export struct AiChatPage {
   @Param @Require geometryId: string;
   @Event onClose: () => void = () => {};
+  @Event onMenu: () => void = () => {};
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
   @Local messages: ChatMessage[] = [];
@@ -48,6 +50,9 @@ export struct AiChatPage {
     }, () => {
       this.keyboardOffset = this.globalInfoModel.keyboardHeight;
     })
+    setTimeout(() => {
+      this.scrollToBottom();
+    }, 320);
   }
 
   @Styles
@@ -76,19 +81,44 @@ export struct AiChatPage {
     ];
   }
 
-  private inputBottomMargin(): number {
-    if (this.keyboardOffset > 0) {
-      return this.keyboardOffset;
-    }
-    return Math.max(this.globalInfoModel.naviIndicatorHeight, 12);
+  private titleBarContent(): TitleBarContentOptions {
+    return {
+      title: { mainTitle: '康小伴智能守护' },
+      backIcon: {
+        icon: $r('sys.symbol.list_bullet'),
+        action: () => {
+          this.onMenu();
+        }
+      },
+      menu: {
+        value: [{
+          content: {
+            icon: $r('sys.symbol.xmark'),
+            isEnabled: true,
+            action: () => {
+              this.onClose();
+            }
+          }
+        }]
+      }
+    };
   }
 
-  private topPadding(): number {
-    return this.globalInfoModel.statusBarHeight + 16;
+  private titleBarStyle(): TitleBarStyleOptions {
+    return {
+      systemMaterialEffect: {
+        materialType: hdsMaterial.MaterialType.IMMERSIVE,
+        materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+      },
+      scrollEffectOpts: {
+        enableScrollEffect: true,
+        scrollEffectType: ScrollEffectType.GRADIENT_BLUR
+      }
+    };
   }
 
   private pagePadding(): number {
-    return 20;
+    return 16;
   }
 
   private expandMaxWidth(): number {
@@ -151,69 +181,6 @@ export struct AiChatPage {
       });
       this.scrollToBottom();
     }, 400);
-  }
-
-  @Builder
-  private menuIcon() {
-    Column({ space: 4 }) {
-      Row()
-        .width(20)
-        .height(2)
-        .borderRadius(1)
-        .backgroundColor($r('sys.color.font_primary'))
-      Row()
-        .width(20)
-        .height(2)
-        .borderRadius(1)
-        .backgroundColor($r('sys.color.font_primary'))
-      Row()
-        .width(20)
-        .height(2)
-        .borderRadius(1)
-        .backgroundColor($r('sys.color.font_primary'))
-    }
-  }
-
-  @Builder
-  private topBar() {
-    Row() {
-      Row() {
-        this.menuIcon()
-      }
-      .width(40)
-      .height(40)
-      .justifyContent(FlexAlign.Center)
-      .alignItems(VerticalAlign.Center)
-      .stateStyles({
-        normal: this.iconButtonNormalStyle,
-        pressed: this.iconButtonPressedStyle
-      })
-
-      Blank()
-
-      Row() {
-        SymbolGlyph($r('sys.symbol.xmark'))
-          .fontSize(22)
-          .fontColor([$r('sys.color.font_primary')])
-      }
-      .width(40)
-      .height(40)
-      .justifyContent(FlexAlign.Center)
-      .alignItems(VerticalAlign.Center)
-      .stateStyles({
-        normal: this.iconButtonNormalStyle,
-        pressed: this.iconButtonPressedStyle
-      })
-      .onClick(() => {
-        this.onClose();
-      })
-    }
-    .width('100%')
-    .height(56)
-    .padding({ left: this.pagePadding(), right: this.pagePadding() })
-    .margin({ top: this.topPadding() })
-    .alignItems(VerticalAlign.Center)
-    .justifyContent(FlexAlign.SpaceBetween)
   }
 
   @Builder
@@ -368,56 +335,80 @@ export struct AiChatPage {
     .alignItems(VerticalAlign.Center)
   }
 
+  private inputBottomMargin(): number {
+    return Math.max(this.keyboardOffset, this.globalInfoModel.naviIndicatorHeight);
+  }
+
   @Builder
   private inputArea() {
-    Column({ space: 10 }) {
+    Column({ space: this.keyboardOffset > 0 ? 0 : 6 }) {
       this.inputCapsule()
-      Text('内容由 AI 生成，请仔细甄别')
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_tertiary'))
-        .width('100%')
-        .textAlign(TextAlign.Center)
+      if (this.keyboardOffset === 0) {
+        Text('内容由 AI 生成，请仔细甄别')
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_tertiary'))
+          .width('100%')
+          .textAlign(TextAlign.Center)
+      }
     }
     .width('100%')
-    .padding({ left: this.pagePadding(), right: this.pagePadding(), top: 20, bottom: 4 })
+    .padding({
+      left: this.pagePadding(),
+      right: this.pagePadding(),
+      top: 8,
+      bottom: this.keyboardOffset > 0 ? 0 : 2
+    })
     .margin({ bottom: this.inputBottomMargin() })
     .backgroundColor($r('sys.color.background_primary'))
   }
 
   build() {
     Column() {
-      this.topBar()
-
-      Blank()
-
-      List({ space: 0, scroller: this.listScroller }) {
-        ForEach(this.messages, (message: ChatMessage, index: number) => {
-          ListItem() {
-            Row() {
-              if (message.role === 'ai') {
-                this.aiMessageItem(message, index)
-              } else {
-                this.userMessageItem(message)
+      HdsNavDestination() {
+        Column() {
+          Blank()
+          List({ space: 0, scroller: this.listScroller }) {
+            ForEach(this.messages, (message: ChatMessage, index: number) => {
+              ListItem() {
+                Row() {
+                  if (message.role === 'ai') {
+                    this.aiMessageItem(message, index)
+                  } else {
+                    this.userMessageItem(message)
+                  }
+                }
+                .width('100%')
+                .constraintSize({ maxWidth: this.expandMaxWidth() })
+                .justifyContent(FlexAlign.Center)
               }
-            }
-            .width('100%')
-            .constraintSize({ maxWidth: this.expandMaxWidth() })
-            .justifyContent(FlexAlign.Center)
+            }, (message: ChatMessage, index: number) => message.id)
           }
-        }, (message: ChatMessage, index: number) => message.id)
-      }
-      .width('100%')
-      .scrollBar(BarState.Off)
-      .edgeEffect(EdgeEffect.Spring)
-      .constraintSize({ maxHeight: '70%' })
+          .width('100%')
+          .scrollBar(BarState.Off)
+          .edgeEffect(EdgeEffect.Spring)
+          .constraintSize({ maxHeight: '70%' })
 
-      this.inputArea()
+          this.inputArea()
+        }
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.End)
+        .backgroundColor($r('sys.color.background_primary'))
+        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+      }
+      .backgroundColor($r('sys.color.background_primary'))
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+      .titleBar({
+        enableComponentSafeArea: false,
+        style: this.titleBarStyle(),
+        content: this.titleBarContent()
+      })
     }
     .width('100%')
     .height('100%')
-    .justifyContent(FlexAlign.End)
     .backgroundColor($r('sys.color.background_primary'))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .padding({ top: this.globalInfoModel.statusBarHeight })
     .geometryTransition(this.geometryId)
     .transition(TransitionEffect.OPACITY)
   }

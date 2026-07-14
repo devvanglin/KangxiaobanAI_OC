@@ -630,6 +630,11 @@ struct MainPage {
       geometryId: 'aiReminderCard',
       onClose: () => {
         this.closeAiChat();
+      },
+      onMenu: () => {
+        if (this.isWideLayout()) {
+          this.toggleSidebar();
+        }
       }
     })
   }
@@ -681,5 +686,6 @@ struct MainPage {
     }
     .width('100%')
     .height('100%')
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 }
