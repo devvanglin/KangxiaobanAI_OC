@@ -22,7 +22,6 @@ interface ChatMessage {
   role: 'ai' | 'user';
   content: string;
   thinkSeconds?: number;
-  suggestions?: string[];
 }
 
 @ComponentV2
@@ -55,9 +54,8 @@ export struct AiChatPage {
       {
         id: 'm2',
         role: 'ai',
-        content: 'What would you like me to do with "1"? Is this the start of a math problem, a list, code, or something else? Give me more context!',
-        thinkSeconds: 2,
-        suggestions: ['Explain basic arithmetic', 'Explore number theory']
+        content: '你好！我收到了你的"1"。\n\n不过因为我们没有之前的对话记录，我不太确定这个"1"具体指什么。你是想：\n• 选择某个选项（比如列表里的第1项）？\n• 测试我是否在线（收到，我在👋）？\n• 数个数（那就是数字1）？\n• 还是不小心点到了发送？\n\n麻烦你补充一下上下文或者具体需求，我随时准备好为你效劳！😄',
+        thinkSeconds: 6
       }
     ];
   }
@@ -103,62 +101,88 @@ export struct AiChatPage {
         id: `a-${Date.now()}`,
         role: 'ai',
         content: '已收到您的消息，正在为您查询相关信息...',
-        thinkSeconds: 1,
-        suggestions: ['查看今日健康摘要', '生成护理建议']
+        thinkSeconds: 1
       });
       this.scrollToBottom();
     }, 400);
   }
 
   @Builder
+  private menuIcon() {
+    Column({ space: 4 }) {
+      Row()
+        .width(20)
+        .height(2)
+        .borderRadius(1)
+        .backgroundColor($r('sys.color.font_primary'))
+      Row()
+        .width(20)
+        .height(2)
+        .borderRadius(1)
+        .backgroundColor($r('sys.color.font_primary'))
+      Row()
+        .width(20)
+        .height(2)
+        .borderRadius(1)
+        .backgroundColor($r('sys.color.font_primary'))
+    }
+  }
+
+  @Builder
+  private iconButton(symbol: Resource, onClick?: () => void) {
+    Row() {
+      SymbolGlyph(symbol)
+        .fontSize(22)
+        .fontColor([$r('sys.color.font_primary')])
+    }
+    .width(40)
+    .height(40)
+    .justifyContent(FlexAlign.Center)
+    .alignItems(VerticalAlign.Center)
+    .stateStyles({
+      normal: this.iconButtonNormalStyle,
+      pressed: this.iconButtonPressedStyle
+    })
+    .onClick(onClick ?? (() => {}))
+  }
+
+  @Builder
   private topBar() {
     Row() {
       Row() {
-        Column({ space: 4 }) {
-          Row()
-            .width(20)
-            .height(2)
-            .borderRadius(1)
-            .backgroundColor($r('sys.color.font_primary'))
-          Row()
-            .width(20)
-            .height(2)
-            .borderRadius(1)
-            .backgroundColor($r('sys.color.font_primary'))
-          Row()
-            .width(20)
-            .height(2)
-            .borderRadius(1)
-            .backgroundColor($r('sys.color.font_primary'))
+        this.menuIcon()
+      }
+      .width(40)
+      .height(40)
+      .justifyContent(FlexAlign.Center)
+      .alignItems(VerticalAlign.Center)
+      .stateStyles({
+        normal: this.iconButtonNormalStyle,
+        pressed: this.iconButtonPressedStyle
+      })
+
+      Column({ space: 2 }) {
+        Text('数字1的询问')
+          .fontSize($r('sys.float.Body_L'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+        Row({ space: 4 }) {
+          SymbolGlyph($r('sys.symbol.bolt_fill'))
+            .fontSize(10)
+            .fontColor([$r('app.color.brand_blue')])
+          Text('快速模式')
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('app.color.brand_blue'))
         }
       }
-      .width(40)
-      .height(40)
-      .justifyContent(FlexAlign.Center)
-      .alignItems(VerticalAlign.Center)
-      .stateStyles({
-        normal: this.iconButtonNormalStyle,
-        pressed: this.iconButtonPressedStyle
-      })
 
-      Blank()
-
-      Row() {
-        SymbolGlyph($r('sys.symbol.xmark'))
-          .fontSize(22)
-          .fontColor([$r('sys.color.font_primary')])
+      Row({ space: 2 }) {
+        this.iconButton($r('sys.symbol.plus'))
+        this.iconButton($r('sys.symbol.share'))
+        this.iconButton($r('sys.symbol.xmark'), () => {
+          this.onClose();
+        })
       }
-      .width(40)
-      .height(40)
-      .justifyContent(FlexAlign.Center)
-      .alignItems(VerticalAlign.Center)
-      .stateStyles({
-        normal: this.iconButtonNormalStyle,
-        pressed: this.iconButtonPressedStyle
-      })
-      .onClick(() => {
-        this.onClose();
-      })
     }
     .width('100%')
     .height(56)
@@ -197,79 +221,34 @@ export struct AiChatPage {
   }
 
   @Builder
-  private aiMessageItem(message: ChatMessage) {
-    Column({ space: 16 }) {
-      if (message.thinkSeconds !== undefined && message.thinkSeconds > 0) {
-        Row({ space: 6 }) {
-          Text('💡')
-            .fontSize(14)
-          Text(`思考了 ${message.thinkSeconds}s`)
-            .fontSize($r('sys.float.Body_S'))
-            .fontColor($r('sys.color.font_tertiary'))
-        }
-        .width('100%')
-      }
-
-      Text(message.content)
-        .fontSize($r('sys.float.Body_L'))
-        .fontColor($r('sys.color.font_primary'))
-        .fontWeight(FontWeight.Regular)
-        .lineHeight(26)
-        .width('100%')
-
-      Row({ space: 4 }) {
-        this.aiActionButton('copy')
-        this.aiActionButton('share')
-        this.aiActionButton('like')
-        this.aiActionButton('dislike')
-        this.aiActionButton('retry')
-        this.aiActionButton('more')
-      }
-      .width('100%')
-      .margin({ top: 4 })
-
-      if (message.suggestions && message.suggestions.length > 0) {
-        Column({ space: 10 }) {
-          ForEach(message.suggestions, (suggestion: string, index: number) => {
-            Row({ space: 8 }) {
-              Text('↳')
-                .fontSize(16)
-                .fontColor($r('sys.color.font_tertiary'))
-              Text(suggestion)
-                .fontSize($r('sys.float.Body_M'))
-                .fontColor($r('sys.color.font_secondary'))
-            }
-            .width('100%')
-            .alignItems(VerticalAlign.Center)
-          }, (suggestion: string, index: number) => `${index}-${suggestion}`)
-        }
-        .width('100%')
-        .margin({ top: 8 })
-      }
+  private aiThinkRow(seconds: number) {
+    Row({ space: 6 }) {
+      SymbolGlyph($r('sys.symbol.bolt_fill'))
+        .fontSize(12)
+        .fontColor([$r('sys.color.icon_secondary')])
+      Text(`已思考（用时 ${seconds} 秒）`)
+        .fontSize($r('sys.float.Body_S'))
+        .fontColor($r('sys.color.font_secondary'))
+      SymbolGlyph($r('sys.symbol.chevron_right'))
+        .fontSize(10)
+        .fontColor([$r('sys.color.font_tertiary')])
     }
     .width('100%')
-    .padding({ left: this.pagePadding(), right: this.pagePadding() })
-    .margin({ bottom: 32 })
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  private actionButtonText(type: string): string {
-    if (type === 'copy') return 'copy';
-    if (type === 'share') return 'share';
-    if (type === 'like') return 'like';
-    if (type === 'dislike') return 'dislike';
-    if (type === 'retry') return 'refresh';
-    if (type === 'more') return '...';
-    return '';
+    .alignItems(VerticalAlign.Center)
   }
 
   @Builder
-  private aiActionButton(type: string) {
+  private aiActionButton(symbol: Resource | string) {
     Row() {
-      Text(this.actionButtonText(type))
-        .fontSize(type === 'more' ? 14 : 12)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.icon_secondary'))
+      if (typeof symbol === 'string') {
+        Text(symbol)
+          .fontSize(16)
+          .fontColor($r('sys.color.icon_secondary'))
+      } else {
+        SymbolGlyph(symbol)
+          .fontSize(18)
+          .fontColor([$r('sys.color.icon_secondary')])
+      }
     }
     .width(32)
     .height(32)
@@ -282,72 +261,137 @@ export struct AiChatPage {
   }
 
   @Builder
-  private inputCapsule() {
-    Row({ space: 12 }) {
-      Row() {
-        Text('＋')
-          .fontSize(22)
-          .fontColor($r('sys.color.icon_secondary'))
+  private aiMessageItem(message: ChatMessage) {
+    Column({ space: 16 }) {
+      if (message.thinkSeconds !== undefined && message.thinkSeconds > 0) {
+        this.aiThinkRow(message.thinkSeconds)
       }
-      .width(36)
-      .height(36)
-      .borderRadius(18)
-      .justifyContent(FlexAlign.Center)
-      .alignItems(VerticalAlign.Center)
-      .stateStyles({
-        normal: this.iconButtonNormalStyle,
-        pressed: this.iconButtonPressedStyle
-      })
 
-      TextInput({ text: this.inputText, placeholder: '畅所欲问' })
-        .type(InputType.Normal)
-        .fontSize($r('sys.float.Body_M'))
+      Text(message.content)
+        .fontSize($r('sys.float.Body_L'))
         .fontColor($r('sys.color.font_primary'))
-        .placeholderFont({ size: $r('sys.float.Body_M') })
-        .placeholderColor($r('sys.color.font_tertiary'))
-        .backgroundColor('rgba(0,0,0,0)')
-        .height(52)
-        .layoutWeight(1)
-        .onChange((value: string) => {
-          this.inputText = value;
-        })
-        .onSubmit(() => {
-          this.sendMessage();
-        })
+        .fontWeight(FontWeight.Regular)
+        .lineHeight(26)
+        .width('100%')
 
-      Row() {
-        Text('↑')
-          .fontSize(22)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.text_on_brand'))
+      Row({ space: 8 }) {
+        this.aiActionButton($r('sys.symbol.doc_text'))
+        this.aiActionButton('↻')
+        this.aiActionButton($r('sys.symbol.hand_thumbsup'))
+        this.aiActionButton($r('sys.symbol.hand_thumbsdown'))
+        this.aiActionButton($r('sys.symbol.share'))
       }
-      .width(44)
-      .height(44)
-      .borderRadius(22)
-      .backgroundColor($r('sys.color.font_primary'))
-      .justifyContent(FlexAlign.Center)
-      .alignItems(VerticalAlign.Center)
-      .stateStyles({
-        normal: this.iconButtonNormalStyle,
-        pressed: this.iconButtonPressedStyle
-      })
-      .onClick(() => {
-        this.sendMessage();
-      })
+      .width('100%')
+      .margin({ top: 4 })
     }
     .width('100%')
-    .height(64)
-    .padding({ left: 8, right: 8 })
+    .padding({ left: this.pagePadding(), right: this.pagePadding() })
+    .margin({ bottom: 32 })
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private quickTag(label: string, icon: Resource | string) {
+    Row({ space: 5 }) {
+      if (typeof icon === 'string') {
+        Text(icon)
+          .fontSize(12)
+          .fontColor($r('sys.color.icon_secondary'))
+      } else {
+        SymbolGlyph(icon)
+          .fontSize(12)
+          .fontColor([$r('sys.color.icon_secondary')])
+      }
+      Text(label)
+        .fontSize($r('sys.float.Body_S'))
+        .fontColor($r('sys.color.font_secondary'))
+    }
+    .height(28)
+    .padding({ left: 10, right: 10 })
     .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(32)
+    .borderRadius(14)
     .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .justifyContent(FlexAlign.Center)
     .alignItems(VerticalAlign.Center)
   }
 
   @Builder
-  private inputBar() {
-    Column() {
-      this.inputCapsule()
+  private inputArea() {
+    Column({ space: 10 }) {
+      Column({ space: 0 }) {
+        Row({ space: 8 }) {
+          TextInput({ text: this.inputText, placeholder: '给 康小伴 发送消息' })
+            .type(InputType.Normal)
+            .fontSize($r('sys.float.Body_M'))
+            .fontColor($r('sys.color.font_primary'))
+            .placeholderFont({ size: $r('sys.float.Body_M') })
+            .placeholderColor($r('sys.color.font_tertiary'))
+            .backgroundColor('rgba(0,0,0,0)')
+            .height(52)
+            .layoutWeight(1)
+            .onChange((value: string) => {
+              this.inputText = value;
+            })
+            .onSubmit(() => {
+              this.sendMessage();
+            })
+
+          Row() {
+            Text('🔗')
+              .fontSize(20)
+          }
+          .width(36)
+          .height(36)
+          .borderRadius(18)
+          .justifyContent(FlexAlign.Center)
+          .alignItems(VerticalAlign.Center)
+          .stateStyles({
+            normal: this.iconButtonNormalStyle,
+            pressed: this.iconButtonPressedStyle
+          })
+
+          Row() {
+            Text('↑')
+              .fontSize(22)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('app.color.text_on_brand'))
+          }
+          .width(40)
+          .height(40)
+          .borderRadius(20)
+          .backgroundColor($r('app.color.brand_blue'))
+          .justifyContent(FlexAlign.Center)
+          .alignItems(VerticalAlign.Center)
+          .stateStyles({
+            normal: this.iconButtonNormalStyle,
+            pressed: this.iconButtonPressedStyle
+          })
+          .onClick(() => {
+            this.sendMessage();
+          })
+        }
+        .width('100%')
+        .height(56)
+        .padding({ left: 8, right: 8 })
+        .alignItems(VerticalAlign.Center)
+
+        Row({ space: 8 }) {
+          this.quickTag('深度思考', $r('sys.symbol.bolt_fill'))
+          this.quickTag('智能搜索', $r('sys.symbol.magnifyingglass'))
+        }
+        .width('100%')
+        .padding({ left: 8, right: 8, bottom: 8 })
+      }
+      .width('100%')
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(24)
+      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+
+      Text('内容由 AI 生成，请仔细甄别')
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor($r('sys.color.font_tertiary'))
+        .width('100%')
+        .textAlign(TextAlign.Center)
     }
     .width('100%')
     .padding({ left: this.pagePadding(), right: this.pagePadding(), bottom: 16 })
@@ -382,7 +426,7 @@ export struct AiChatPage {
       .edgeEffect(EdgeEffect.Spring)
       .align(Alignment.TopStart)
 
-      this.inputBar()
+      this.inputArea()
     }
     .width('100%')
     .height('100%')
