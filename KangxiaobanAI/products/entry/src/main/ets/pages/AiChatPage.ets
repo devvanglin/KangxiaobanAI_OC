@@ -14,7 +14,6 @@
  */
 
 import { AppStorageV2 } from '@kit.ArkUI';
-import { window } from '@kit.ArkUI';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { StorageKey } from '../common/CommonConstants';
 
@@ -35,9 +34,7 @@ export struct AiChatPage {
   @Local messages: ChatMessage[] = [];
   @Local inputText: string = '';
   @Local isInputFocused: boolean = false;
-  @Local keyboardHeight: number = 0;
   private listScroller: ListScroller = new ListScroller();
-  private keyboardCallbackId: number = -1;
 
   @Styles
   iconButtonNormalStyle() {
@@ -64,34 +61,6 @@ export struct AiChatPage {
         suggestions: ['Explain basic arithmetic', 'Explore number theory']
       }
     ];
-    this.registerKeyboardListener();
-  }
-
-  aboutToDisappear(): void {
-    this.unregisterKeyboardListener();
-  }
-
-  private registerKeyboardListener(): void {
-    try {
-      const win: window.Window = window.getLastWindowSync();
-      this.keyboardCallbackId = win.on('keyboardHeightChange', (data: window.KeyboardHeightChangeOptions) => {
-        this.keyboardHeight = data.height;
-      });
-    } catch (err) {
-      // ignore
-    }
-  }
-
-  private unregisterKeyboardListener(): void {
-    if (this.keyboardCallbackId !== -1) {
-      try {
-        const win: window.Window = window.getLastWindowSync();
-        win.off('keyboardHeightChange', this.keyboardCallbackId);
-      } catch (err) {
-        // ignore
-      }
-      this.keyboardCallbackId = -1;
-    }
   }
 
   private topPadding(): number {
@@ -395,7 +364,7 @@ export struct AiChatPage {
     }
     .width('100%')
     .padding({ left: this.pagePadding(), right: this.pagePadding(), bottom: 16 })
-    .padding({ bottom: this.keyboardHeight })
+    .margin({ bottom: this.globalInfoModel.keyboardHeight })
     .backgroundColor($r('sys.color.background_primary'))
   }
 
