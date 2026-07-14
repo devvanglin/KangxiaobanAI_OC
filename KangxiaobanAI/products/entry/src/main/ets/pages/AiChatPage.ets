@@ -33,7 +33,6 @@ export struct AiChatPage {
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
   @Local messages: ChatMessage[] = [];
   @Local inputText: string = '';
-  @Local isInputFocused: boolean = false;
   private listScroller: ListScroller = new ListScroller();
 
   @Styles
@@ -114,6 +113,34 @@ export struct AiChatPage {
   @Builder
   private topBar() {
     Row() {
+      Row() {
+        Column({ space: 4 }) {
+          Row()
+            .width(20)
+            .height(2)
+            .borderRadius(1)
+            .backgroundColor($r('sys.color.font_primary'))
+          Row()
+            .width(20)
+            .height(2)
+            .borderRadius(1)
+            .backgroundColor($r('sys.color.font_primary'))
+          Row()
+            .width(20)
+            .height(2)
+            .borderRadius(1)
+            .backgroundColor($r('sys.color.font_primary'))
+        }
+      }
+      .width(40)
+      .height(40)
+      .justifyContent(FlexAlign.Center)
+      .alignItems(VerticalAlign.Center)
+      .stateStyles({
+        normal: this.iconButtonNormalStyle,
+        pressed: this.iconButtonPressedStyle
+      })
+
       Blank()
 
       Row() {
@@ -138,7 +165,7 @@ export struct AiChatPage {
     .padding({ left: this.pagePadding(), right: this.pagePadding() })
     .margin({ top: this.topPadding() })
     .alignItems(VerticalAlign.Center)
-    .justifyContent(FlexAlign.End)
+    .justifyContent(FlexAlign.SpaceBetween)
   }
 
   @Builder
@@ -287,46 +314,6 @@ export struct AiChatPage {
         .onSubmit(() => {
           this.sendMessage();
         })
-        .onFocus(() => {
-          this.isInputFocused = true;
-        })
-        .onBlur(() => {
-          this.isInputFocused = false;
-        })
-
-      if (!this.isInputFocused && this.inputText.length === 0) {
-        Row({ space: 4 }) {
-          Text('Fast')
-            .fontSize($r('sys.float.Body_M'))
-            .fontColor($r('sys.color.font_secondary'))
-          SymbolGlyph($r('sys.symbol.chevron_down'))
-            .fontSize(12)
-            .fontColor([$r('sys.color.font_tertiary')])
-        }
-        .height(32)
-        .padding({ left: 10, right: 10 })
-        .justifyContent(FlexAlign.Center)
-        .alignItems(VerticalAlign.Center)
-        .stateStyles({
-          normal: this.iconButtonNormalStyle,
-          pressed: this.iconButtonPressedStyle
-        })
-
-        Row() {
-          Text('mic')
-            .fontSize(11)
-            .fontColor($r('sys.color.icon_secondary'))
-        }
-        .width(36)
-        .height(36)
-        .borderRadius(18)
-        .justifyContent(FlexAlign.Center)
-        .alignItems(VerticalAlign.Center)
-        .stateStyles({
-          normal: this.iconButtonNormalStyle,
-          pressed: this.iconButtonPressedStyle
-        })
-      }
 
       Row() {
         Text('↑')

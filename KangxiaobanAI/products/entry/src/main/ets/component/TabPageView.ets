@@ -1031,23 +1031,13 @@ export struct TabPageView {
           .fontSize($r('sys.float.Body_M'))
           .fontColor($r('sys.color.font_tertiary'))
         Blank()
-        Row() {
-          SymbolGlyph($r('sys.symbol.chevron_right'))
-            .fontSize(16)
-            .fontColor([$r('sys.color.font_tertiary')])
-        }
-        .width(32)
-        .height(32)
-        .borderRadius(16)
-        .justifyContent(FlexAlign.Center)
-        .alignItems(VerticalAlign.Center)
-        .stateStyles({
-          normal: this.itemNormalStyle,
-          pressed: this.itemPressedStyle
-        })
-        .onClick(() => {
-          this.openAiChat();
-        })
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(16)
+          .fontColor([$r('sys.color.font_tertiary')])
+          .padding(8)
+          .onClick(() => {
+            this.openAiChat();
+          })
       }
       .width('100%')
       .margin({ bottom: 14 })
