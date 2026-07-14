@@ -378,14 +378,14 @@ export struct AiChatPage {
         })
 
       Row() {
-        Text('发送')
-          .fontSize($r('sys.float.Body_M'))
-          .fontWeight(FontWeight.Medium)
+        Text('↑')
+          .fontSize(22)
+          .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.text_on_brand'))
       }
-      .height(40)
-      .padding({ left: 16, right: 16 })
-      .borderRadius(20)
+      .width(44)
+      .height(44)
+      .borderRadius(22)
       .backgroundColor($r('app.color.brand_blue'))
       .justifyContent(FlexAlign.Center)
       .alignItems(VerticalAlign.Center)
