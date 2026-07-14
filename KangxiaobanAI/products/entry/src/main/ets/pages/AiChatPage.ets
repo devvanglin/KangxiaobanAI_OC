@@ -340,12 +340,12 @@ export struct AiChatPage {
     Row({ space: 10 }) {
       Row() {
         Text('＋')
-          .fontSize(22)
+          .fontSize(28)
           .fontColor($r('sys.color.icon_secondary'))
       }
-      .width(36)
-      .height(36)
-      .borderRadius(18)
+      .width(40)
+      .height(40)
+      .borderRadius(20)
       .justifyContent(FlexAlign.Center)
       .alignItems(VerticalAlign.Center)
       .stateStyles({
@@ -355,12 +355,12 @@ export struct AiChatPage {
 
       TextInput({ text: this.inputText, placeholder: '给 康小伴 发送消息' })
         .type(InputType.Normal)
-        .fontSize($r('sys.float.Body_M'))
+        .fontSize($r('sys.float.Body_L'))
         .fontColor($r('sys.color.font_primary'))
-        .placeholderFont({ size: $r('sys.float.Body_M') })
+        .placeholderFont({ size: $r('sys.float.Body_L') })
         .placeholderColor($r('sys.color.font_tertiary'))
         .backgroundColor('rgba(0,0,0,0)')
-        .height(52)
+        .height(56)
         .layoutWeight(1)
         .onChange((value: string) => {
           this.inputText = value;
@@ -371,13 +371,13 @@ export struct AiChatPage {
 
       Row() {
         Text('↑')
-          .fontSize(22)
+          .fontSize(26)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.text_on_brand'))
       }
-      .width(44)
-      .height(44)
-      .borderRadius(22)
+      .width(48)
+      .height(48)
+      .borderRadius(24)
       .backgroundColor($r('app.color.brand_blue'))
       .justifyContent(FlexAlign.Center)
       .alignItems(VerticalAlign.Center)
@@ -386,10 +386,10 @@ export struct AiChatPage {
       })
     }
     .width('100%')
-    .height(64)
+    .height(72)
     .padding({ left: 12, right: 8 })
     .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(32)
+    .borderRadius(36)
     .border({ width: 0.5, color: $r('sys.color.comp_divider') })
     .shadow({
       radius: 16,
@@ -402,11 +402,16 @@ export struct AiChatPage {
 
   @Builder
   private inputArea() {
-    Column() {
+    Column({ space: 10 }) {
       this.inputCapsule()
+      Text('内容由 AI 生成，请仔细甄别')
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor($r('sys.color.font_tertiary'))
+        .width('100%')
+        .textAlign(TextAlign.Center)
     }
     .width('100%')
-    .padding({ left: this.pagePadding(), right: this.pagePadding(), bottom: 16 })
+    .padding({ left: this.pagePadding(), right: this.pagePadding(), top: 12, bottom: 16 })
     .margin({ bottom: this.globalInfoModel.keyboardHeight })
     .backgroundColor($r('sys.color.background_primary'))
   }
