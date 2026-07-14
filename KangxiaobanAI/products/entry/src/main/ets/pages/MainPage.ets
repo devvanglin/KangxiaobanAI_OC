@@ -29,6 +29,7 @@ import {
   TextStyleMode,
 } from '@kit.UIDesignKit';
 import { TabPageView } from '../component/TabPageView';
+import { AiChatPage } from '../pages/AiChatPage';
 import { StorageKey } from '../common/CommonConstants';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { PAGE_SCROLLER_MAP, PageKeyEnum, TabsBarModel } from '../model/TabsBarModel';
@@ -61,6 +62,7 @@ struct MainPage {
   private pageConfigs: TabPageConfig[] = TAB_PAGE_CONFIGS;
   @Local currentTabIndex: number = 0;
   @Local isSidebarCollapsed: boolean = false;
+  @Local isAiChatShow: boolean = false;
 
   @Styles
   pcIconNormalStyle() {
@@ -141,6 +143,22 @@ struct MainPage {
     this.getUIContext().animateTo({ curve: curves.springMotion() }, () => {
       this.isSidebarCollapsed = !this.isSidebarCollapsed;
     });
+  }
+
+  private openAiChat(): void {
+    this.getUIContext().animateTo({
+      curve: curves.interpolatingSpring(0, 1, 328, 36)
+    }, () => {
+      this.isAiChatShow = true;
+    })
+  }
+
+  private closeAiChat(): void {
+    this.getUIContext().animateTo({
+      curve: curves.interpolatingSpring(0, 1, 342, 38)
+    }, () => {
+      this.isAiChatShow = false;
+    })
   }
 
   private wideNavGroups(): WideNavGroup[] {
@@ -486,6 +504,9 @@ struct MainPage {
           config: this.pageConfigs[0],
           onSwitchTab: (index: number) => {
             this.switchTab(index);
+          },
+          onOpenAiChat: () => {
+            this.openAiChat();
           }
         })
       }
@@ -498,6 +519,9 @@ struct MainPage {
           config: this.pageConfigs[1],
           onSwitchTab: (index: number) => {
             this.switchTab(index);
+          },
+          onOpenAiChat: () => {
+            this.openAiChat();
           }
         })
       }
@@ -510,6 +534,9 @@ struct MainPage {
           config: this.pageConfigs[2],
           onSwitchTab: (index: number) => {
             this.switchTab(index);
+          },
+          onOpenAiChat: () => {
+            this.openAiChat();
           }
         })
       }
@@ -522,6 +549,9 @@ struct MainPage {
           config: this.pageConfigs[3],
           onSwitchTab: (index: number) => {
             this.switchTab(index);
+          },
+          onOpenAiChat: () => {
+            this.openAiChat();
           }
         })
       }
@@ -572,6 +602,9 @@ struct MainPage {
             config: this.pageConfigs[this.currentTabIndex],
             onSwitchTab: (index: number) => {
               this.switchTab(index);
+            },
+            onOpenAiChat: () => {
+              this.openAiChat();
             }
           })
         }
@@ -591,44 +624,62 @@ struct MainPage {
   private destinationBuilder(name: string, param?: ESObject) {
   }
 
-  build() {
-    if (this.isRoleAdapted()) {
-      HdsNavigation(this.pathStack) {
-        if (this.isWideLayout()) {
-          this.wideShell()
-        } else {
-          this.phoneTabs()
-        }
+  @Builder
+  private aiChatCover() {
+    AiChatPage({
+      geometryId: 'aiReminderCard',
+      onClose: () => {
+        this.closeAiChat();
       }
-      .mode(NavigationMode.Stack)
-      .navDestination(this.destinationBuilder)
-      .titleBar({
-        content: {
-          title: {
-            mainTitle: this.getCurrentPageTitle(),
+    })
+  }
+
+  build() {
+    Stack() {
+      if (this.isRoleAdapted()) {
+        HdsNavigation(this.pathStack) {
+          if (this.isWideLayout()) {
+            this.wideShell()
+          } else {
+            this.phoneTabs()
+          }
+        }
+        .mode(NavigationMode.Stack)
+        .navDestination(this.destinationBuilder)
+        .titleBar({
+          content: {
+            title: {
+              mainTitle: this.getCurrentPageTitle(),
+            },
+            menu: { value: [] },
           },
-          menu: { value: [] },
-        },
-        style: {
-          scrollEffectOpts: {
-            enableScrollEffect: true,
-            scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
+          style: {
+            scrollEffectOpts: {
+              enableScrollEffect: true,
+              scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
+            },
+            systemMaterialEffect: {
+              materialType: hdsMaterial.MaterialType.IMMERSIVE,
+              materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+            },
           },
-          systemMaterialEffect: {
-            materialType: hdsMaterial.MaterialType.IMMERSIVE,
-            materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
-          },
-        },
-      })
-      .bindToScrollable(PAGE_SCROLLER_MAP.get(PageKeyEnum.ADAPTIVE_TAB) ?? [])
-      .hideBackButton(true)
-      .hideTitleBar(this.isWideLayout(), true)
-      .titleMode(HdsNavigationTitleMode.MINI)
-      .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
-      .width('100%')
-      .height('100%')
-    } else {
-      this.roleWipPanel()
+        })
+        .bindToScrollable(PAGE_SCROLLER_MAP.get(PageKeyEnum.ADAPTIVE_TAB) ?? [])
+        .hideBackButton(true)
+        .hideTitleBar(this.isWideLayout(), true)
+        .titleMode(HdsNavigationTitleMode.MINI)
+        .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
+        .width('100%')
+        .height('100%')
+      } else {
+        this.roleWipPanel()
+      }
+
+      if (this.isAiChatShow) {
+        this.aiChatCover()
+      }
     }
+    .width('100%')
+    .height('100%')
   }
 }

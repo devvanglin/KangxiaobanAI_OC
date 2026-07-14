@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import { AppStorageV2, KeyboardAvoidMode } from '@kit.ArkUI';
+import { AppStorageV2 } from '@kit.ArkUI';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { StorageKey } from '../common/CommonConstants';
 
@@ -37,7 +37,18 @@ export struct AiChatPage {
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
   @Local messages: ChatMessage[] = [];
   @Local inputText: string = '';
+  @Local keyboardOffset: number = 0;
   private listScroller: ListScroller = new ListScroller();
+
+  @Monitor('globalInfoModel.keyboardHeight')
+  onKeyboardHeightChange(): void {
+    this.getUIContext().animateTo({
+      duration: 300,
+      curve: Curve.EaseOut
+    }, () => {
+      this.keyboardOffset = this.globalInfoModel.keyboardHeight;
+    })
+  }
 
   @Styles
   iconButtonNormalStyle() {
@@ -63,7 +74,13 @@ export struct AiChatPage {
         thinkSeconds: 6
       }
     ];
-    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
+  }
+
+  private inputBottomMargin(): number {
+    if (this.keyboardOffset > 0) {
+      return this.keyboardOffset;
+    }
+    return Math.max(this.globalInfoModel.naviIndicatorHeight, 12);
   }
 
   private topPadding(): number {
@@ -256,80 +273,30 @@ export struct AiChatPage {
 
   @Builder
   private aiMessageItem(message: ChatMessage, index: number) {
-    Row() {
-      Column({ space: 0 }) {
-        Row()
-          .width(3)
-          .height('100%')
-          .backgroundColor($r('app.color.brand_blue'))
-      }
-      .width(3)
-      .height('100%')
-      .margin({ right: 12 })
-
-      Column({ space: 12 }) {
-        Row({ space: 8 }) {
-          Text('AI 助手')
-            .fontSize($r('sys.float.Body_M'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.brand_blue'))
-          if (message.thinkSeconds !== undefined && message.thinkSeconds > 0) {
-            Text(`已思考 ${message.thinkSeconds} 秒`)
-              .fontSize($r('sys.float.Caption_M'))
-              .fontColor($r('sys.color.font_tertiary'))
-          }
-        }
-        .width('100%')
-
-        this.aiContent(message.content)
-
-        Row({ space: 12 }) {
-          Text('复制')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_tertiary'))
-          Text('重试')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_tertiary'))
-          Text('点赞')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_tertiary'))
-        }
-        .width('100%')
-        .margin({ top: 4 })
-      }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
+    Column({ space: 10 }) {
+      Text('AI 助手')
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor($r('sys.color.font_tertiary'))
+      this.aiContent(message.content)
     }
     .width('100%')
-    .padding({ left: 16, right: 16, top: 16, bottom: 16 })
-    .margin({ left: this.pagePadding(), right: this.pagePadding(), bottom: 24 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .shadow({
-      radius: 12,
-      color: 'rgba(0,0,0,0.06)',
-      offsetX: 0,
-      offsetY: 4
-    })
-    .alignItems(VerticalAlign.Top)
+    .padding({ left: this.pagePadding(), right: this.pagePadding() })
+    .margin({ bottom: 24 })
+    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
   private userMessageItem(message: ChatMessage) {
     Row() {
       Blank()
-      Column({ space: 8 }) {
-        Text(message.content)
-          .fontSize($r('sys.float.Body_L'))
-          .fontColor($r('sys.color.font_primary'))
-          .lineHeight(26)
-          .width('100%')
-      }
-      .constraintSize({ maxWidth: '78%' })
-      .padding({ left: 16, right: 16, top: 12, bottom: 12 })
-      .backgroundColor(0xFFE8F0FE)
-      .borderRadius(16)
-      .alignItems(HorizontalAlign.Start)
+      Text(message.content)
+        .fontSize($r('sys.float.Body_L'))
+        .fontColor($r('sys.color.font_primary'))
+        .lineHeight(26)
+        .constraintSize({ maxWidth: '78%' })
+        .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+        .backgroundColor(0xFFE8F0FE)
+        .borderRadius(16)
     }
     .width('100%')
     .padding({ left: this.pagePadding(), right: this.pagePadding() })
@@ -361,7 +328,7 @@ export struct AiChatPage {
         .placeholderFont({ size: $r('sys.float.Body_L') })
         .placeholderColor($r('sys.color.font_tertiary'))
         .backgroundColor('rgba(0,0,0,0)')
-        .height(56)
+        .height(44)
         .layoutWeight(1)
         .onChange((value: string) => {
           this.inputText = value;
@@ -372,13 +339,13 @@ export struct AiChatPage {
 
       Row() {
         Text('↑')
-          .fontSize(26)
+          .fontSize(22)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.text_on_brand'))
       }
-      .width(48)
-      .height(48)
-      .borderRadius(24)
+      .width(40)
+      .height(40)
+      .borderRadius(20)
       .backgroundColor($r('app.color.brand_blue'))
       .justifyContent(FlexAlign.Center)
       .alignItems(VerticalAlign.Center)
@@ -387,10 +354,10 @@ export struct AiChatPage {
       })
     }
     .width('100%')
-    .height(66)
-    .padding({ left: 12, right: 8 })
+    .height(56)
+    .padding({ left: 10, right: 6 })
     .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(33)
+    .borderRadius(28)
     .border({ width: 0.5, color: $r('sys.color.comp_divider') })
     .shadow({
       radius: 16,
@@ -412,14 +379,16 @@ export struct AiChatPage {
         .textAlign(TextAlign.Center)
     }
     .width('100%')
-    .padding({ left: this.pagePadding(), right: this.pagePadding(), top: 20, bottom: 16 })
-    .margin({ bottom: this.globalInfoModel.keyboardHeight })
+    .padding({ left: this.pagePadding(), right: this.pagePadding(), top: 20, bottom: 4 })
+    .margin({ bottom: this.inputBottomMargin() })
     .backgroundColor($r('sys.color.background_primary'))
   }
 
   build() {
     Column() {
       this.topBar()
+
+      Blank()
 
       List({ space: 0, scroller: this.listScroller }) {
         ForEach(this.messages, (message: ChatMessage, index: number) => {
@@ -438,16 +407,15 @@ export struct AiChatPage {
         }, (message: ChatMessage, index: number) => message.id)
       }
       .width('100%')
-      .layoutWeight(1)
-      .backgroundColor($r('sys.color.background_primary'))
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
-      .align(Alignment.TopStart)
+      .constraintSize({ maxHeight: '70%' })
 
       this.inputArea()
     }
     .width('100%')
     .height('100%')
+    .justifyContent(FlexAlign.End)
     .backgroundColor($r('sys.color.background_primary'))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .geometryTransition(this.geometryId)

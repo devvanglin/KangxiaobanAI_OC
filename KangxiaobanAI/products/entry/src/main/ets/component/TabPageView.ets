@@ -39,7 +39,6 @@ import {
 } from '../model/DetailTypes';
 import { HealthExpandPage } from '../pages/HealthExpandPage';
 import { ResidentDetailPage } from '../pages/ResidentDetailPage';
-import { AiChatPage } from '../pages/AiChatPage';
 
 type TaskSource = 'ai' | 'elder' | 'staff' | 'plan';
 type TaskStatus = 'todo' | 'doing' | 'done';
@@ -153,6 +152,7 @@ export struct TabPageView {
   @Param @Require pageKey: PageKeyEnum;
   @Param @Require config: TabPageConfig;
   @Event onSwitchTab: (index: number) => void = () => {};
+  @Event onOpenAiChat: () => void = () => {};
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
   @Local isProfileSheetOpen: boolean = false;
@@ -194,22 +194,9 @@ export struct TabPageView {
     avatarText: ''
   } as ResidentData;
   @Local activeResidentGeometryId: string = '';
-  @Local isAiChatShow: boolean = false;
 
   private openAiChat(): void {
-    this.getUIContext().animateTo({
-      curve: curves.interpolatingSpring(0, 1, 328, 36)
-    }, () => {
-      this.isAiChatShow = true;
-    })
-  }
-
-  private closeAiChat(): void {
-    this.getUIContext().animateTo({
-      curve: curves.interpolatingSpring(0, 1, 342, 38)
-    }, () => {
-      this.isAiChatShow = false;
-    })
+    this.onOpenAiChat();
   }
 
   private openHealthExpand(): void {
@@ -2700,16 +2687,6 @@ export struct TabPageView {
   }
 
   @Builder
-  private aiChatCover() {
-    AiChatPage({
-      geometryId: 'aiReminderCard',
-      onClose: () => {
-        this.closeAiChat();
-      }
-    })
-  }
-
-  @Builder
   private expandLargeTitle() {
     Column({ space: 4 }) {
       Text(this.quickExpandTitle())
@@ -3027,62 +3004,57 @@ export struct TabPageView {
   }
 
   build() {
-    Column() {
+    Stack() {
       Column() {
-        if (this.currentTabIndex === 0) {
-          this.homePage();
-        } else if (this.currentTabIndex === 1) {
-          this.elderPage();
-        } else if (this.currentTabIndex === 2) {
-          this.taskPage();
-        } else {
-          this.minePage();
+        Column() {
+          if (this.currentTabIndex === 0) {
+            this.homePage();
+          } else if (this.currentTabIndex === 1) {
+            this.elderPage();
+          } else if (this.currentTabIndex === 2) {
+            this.taskPage();
+          } else {
+            this.minePage();
+          }
         }
+        .width('100%')
+        .height('100%')
+        .bindContentCover(this.isResidentDetailShow, this.residentDetailCover,
+          {
+            modalTransition: ModalTransition.NONE,
+            backgroundColor: 'rgba(0,0,0,0)',
+            onWillDismiss: (action: DismissContentCoverAction) => {
+              if (action.reason === DismissReason.PRESS_BACK) {
+                this.closeResidentDetail();
+              }
+            }
+          })
       }
       .width('100%')
       .height('100%')
-      .bindContentCover(this.isResidentDetailShow, this.residentDetailCover,
+      .bindContentCover(this.isHealthExpandShow, this.healthExpandCover,
         {
           modalTransition: ModalTransition.NONE,
           backgroundColor: 'rgba(0,0,0,0)',
           onWillDismiss: (action: DismissContentCoverAction) => {
             if (action.reason === DismissReason.PRESS_BACK) {
-              this.closeResidentDetail();
+              this.closeHealthExpand();
             }
           }
         })
+      .bindContentCover(this.isTaskExpandShow, this.taskExpandCover,
+        {
+          modalTransition: ModalTransition.NONE,
+          backgroundColor: 'rgba(0,0,0,0)',
+          onWillDismiss: (action: DismissContentCoverAction) => {
+            if (action.reason === DismissReason.PRESS_BACK) {
+              this.closeTaskExpand();
+            }
+          }
+        })
+
     }
     .width('100%')
     .height('100%')
-    .bindContentCover(this.isHealthExpandShow, this.healthExpandCover,
-      {
-        modalTransition: ModalTransition.NONE,
-        backgroundColor: 'rgba(0,0,0,0)',
-        onWillDismiss: (action: DismissContentCoverAction) => {
-          if (action.reason === DismissReason.PRESS_BACK) {
-            this.closeHealthExpand();
-          }
-        }
-      })
-    .bindContentCover(this.isTaskExpandShow, this.taskExpandCover,
-      {
-        modalTransition: ModalTransition.NONE,
-        backgroundColor: 'rgba(0,0,0,0)',
-        onWillDismiss: (action: DismissContentCoverAction) => {
-          if (action.reason === DismissReason.PRESS_BACK) {
-            this.closeTaskExpand();
-          }
-        }
-      })
-    .bindContentCover(this.isAiChatShow, this.aiChatCover,
-      {
-        modalTransition: ModalTransition.NONE,
-        backgroundColor: 'rgba(0,0,0,0)',
-        onWillDismiss: (action: DismissContentCoverAction) => {
-          if (action.reason === DismissReason.PRESS_BACK) {
-            this.closeAiChat();
-          }
-        }
-      })
   }
 }
