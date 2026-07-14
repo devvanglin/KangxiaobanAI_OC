@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import { AppStorageV2 } from '@kit.ArkUI';
+import { AppStorageV2, KeyboardAvoidMode } from '@kit.ArkUI';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { StorageKey } from '../common/CommonConstants';
 
@@ -63,6 +63,7 @@ export struct AiChatPage {
         thinkSeconds: 6
       }
     ];
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
   }
 
   private topPadding(): number {
@@ -386,10 +387,10 @@ export struct AiChatPage {
       })
     }
     .width('100%')
-    .height(72)
+    .height(66)
     .padding({ left: 12, right: 8 })
     .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(36)
+    .borderRadius(33)
     .border({ width: 0.5, color: $r('sys.color.comp_divider') })
     .shadow({
       radius: 16,
@@ -411,7 +412,7 @@ export struct AiChatPage {
         .textAlign(TextAlign.Center)
     }
     .width('100%')
-    .padding({ left: this.pagePadding(), right: this.pagePadding(), top: 12, bottom: 16 })
+    .padding({ left: this.pagePadding(), right: this.pagePadding(), top: 20, bottom: 16 })
     .margin({ bottom: this.globalInfoModel.keyboardHeight })
     .backgroundColor($r('sys.color.background_primary'))
   }
