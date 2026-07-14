@@ -171,15 +171,7 @@ export struct AiChatPage {
         pressed: this.iconButtonPressedStyle
       })
 
-      Column({ space: 3 }) {
-        Text('康小伴智能守护')
-          .fontSize($r('sys.float.Body_L'))
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
-        Text('AI 助手 · 在线')
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor($r('sys.color.font_secondary'))
-      }
+      Blank()
 
       Row() {
         SymbolGlyph($r('sys.symbol.xmark'))
