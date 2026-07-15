@@ -72,6 +72,76 @@ interface ChatSession {
   updatedAt: number;
 }
 
+interface AiInformationFeedItem {
+  id: string;
+  title: string;
+  prompt: string;
+  expertMode: boolean;
+}
+
+const AI_INFORMATION_FEED_ROWS: AiInformationFeedItem[][] = [
+  [
+    {
+      id: 'care-summary',
+      title: '资讯：今日重点照护事项已汇总 4 条',
+      prompt: '请汇总今天需要优先关注的照护事项',
+      expertMode: false
+    },
+    {
+      id: 'health-change',
+      title: '健康：3 位住户晨间指标出现变化',
+      prompt: '请解读今天晨间健康指标的变化和关注重点',
+      expertMode: true
+    },
+    {
+      id: 'care-priority',
+      title: '如何安排今天的护理优先级',
+      prompt: '请根据风险和时间节点安排今天的护理优先级',
+      expertMode: false
+    }
+  ],
+  [
+    {
+      id: 'shift-records',
+      title: '交班：下午班新增 2 条重点记录',
+      prompt: '请帮我整理下午班新增的重点交班记录',
+      expertMode: false
+    },
+    {
+      id: 'family-follow-up',
+      title: '家属：今天有 2 项回访需要准备',
+      prompt: '请生成今天家属回访的沟通提纲',
+      expertMode: false
+    },
+    {
+      id: 'rehab-progress',
+      title: '分享一下近期康复训练的完成情况',
+      prompt: '请总结近期康复训练完成情况并给出后续建议',
+      expertMode: true
+    }
+  ],
+  [
+    {
+      id: 'shift-plan',
+      title: '帮我整理一份当班护理工作计划',
+      prompt: '请帮我整理一份清晰可执行的当班护理工作计划',
+      expertMode: false
+    },
+    {
+      id: 'health-trend',
+      title: '解读本周异常健康数据趋势',
+      prompt: '请深度解读本周异常健康数据的变化趋势',
+      expertMode: true
+    },
+    {
+      id: 'family-script',
+      title: '生成一段专业的家属沟通话术',
+      prompt: '请生成一段专业、温和的家属沟通话术',
+      expertMode: false
+    }
+  ]
+];
+
 @ObservedV2
 class AiChatHistoryStore {
   @Trace sessions: ChatSession[] = [];
@@ -325,7 +395,10 @@ export struct AiChatPage {
 
   private titleBarTitle(): HdsNavigationTitle {
     if (this.messages.length === 0) {
-      return { mainTitle: '康小伴智能守护' };
+      return {
+        mainTitle: '新对话',
+        subTitle: this.currentModeLabel()
+      };
     }
     return {
       mainTitle: this.conversationTitle(),
@@ -339,24 +412,37 @@ export struct AiChatPage {
       backIcon: {
         label: '打开菜单',
         icon: $r('sys.symbol.line_3_horizontal'),
-        type: IconStyleMode.NORMAL,
+        type: IconStyleMode.SMALL,
         isEnabled: true,
         action: () => {
           this.openHistoryDrawer();
         }
       },
       menu: {
-        value: [{
-          content: {
-            label: '关闭',
-            icon: $r('sys.symbol.xmark'),
-            type: IconStyleMode.NORMAL,
-            isEnabled: true,
-            action: () => {
-              this.closeChatPage();
+        value: [
+          {
+            content: {
+              label: '分享',
+              icon: $r('sys.symbol.share'),
+              type: IconStyleMode.SMALL,
+              isEnabled: true,
+              action: () => {
+                this.showToast('分享能力接入中');
+              }
+            }
+          },
+          {
+            content: {
+              label: '关闭',
+              icon: $r('sys.symbol.xmark'),
+              type: IconStyleMode.SMALL,
+              isEnabled: true,
+              action: () => {
+                this.closeChatPage();
+              }
             }
           }
-        }]
+        ]
       }
     };
   }
@@ -374,11 +460,11 @@ export struct AiChatPage {
       originalStyle: {
         contentStyle: {
           backIconStyle: {
-            backgroundColor: $r('sys.color.comp_background_tertiary'),
+            backgroundColor: Color.Transparent,
             iconColor: $r('sys.color.icon_primary')
           },
           menuStyle: {
-            backgroundColor: $r('sys.color.comp_background_tertiary'),
+            backgroundColor: Color.Transparent,
             iconColor: $r('sys.color.icon_primary')
           }
         }
@@ -386,11 +472,11 @@ export struct AiChatPage {
       scrollEffectStyle: {
         contentStyle: {
           backIconStyle: {
-            backgroundColor: $r('sys.color.comp_background_tertiary'),
+            backgroundColor: Color.Transparent,
             iconColor: $r('sys.color.icon_primary')
           },
           menuStyle: {
-            backgroundColor: $r('sys.color.comp_background_tertiary'),
+            backgroundColor: Color.Transparent,
             iconColor: $r('sys.color.icon_primary')
           }
         }
@@ -918,63 +1004,103 @@ export struct AiChatPage {
     .padding({ left: this.pagePadding(), right: this.pagePadding(), top: 8, bottom: 24 })
   }
 
+  private usePromptShortcut(prompt: string, expertMode: boolean = false): void {
+    this.inputText = prompt;
+    if (expertMode) {
+      this.modeSelectedIndex = 1;
+      this.deepThinkingEnabled = true;
+    }
+  }
+
+  private emptyTitleHorizontalPadding(): number {
+    const widthBreakpoint: WidthBreakpoint = this.globalInfoModel.widthBreakpoint;
+    if (widthBreakpoint === WidthBreakpoint.WIDTH_MD || widthBreakpoint === WidthBreakpoint.WIDTH_LG ||
+      widthBreakpoint === WidthBreakpoint.WIDTH_XL) {
+      return this.pagePadding();
+    }
+    return 46;
+  }
+
   @Builder
-  private modeButton(index: number, label: string, symbol: Resource) {
+  private informationFeedItem(item: AiInformationFeedItem) {
     Button({ type: ButtonType.Capsule, stateEffect: true }) {
-      Row({ space: 4 }) {
-        SymbolGlyph(symbol)
-          .fontSize(14)
-          .fontColor([this.modeSelectedIndex === index ?
-            $r('app.color.brand_blue') : $r('sys.color.icon_secondary')])
-        Text(label)
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor(this.modeSelectedIndex === index ?
-            $r('app.color.brand_blue') : $r('sys.color.font_secondary'))
-          .maxLines(1)
-      }
-      .justifyContent(FlexAlign.Center)
+      Text(item.title)
+        .fontSize($r('sys.float.Body_S'))
+        .fontColor($r('sys.color.font_primary'))
+        .maxLines(1)
     }
     .buttonStyle(ButtonStyleMode.NORMAL)
-    .layoutWeight(1)
-    .height(36)
-    .padding({ left: 5, right: 5 })
-    .backgroundColor(this.modeSelectedIndex === index ? 0xFFEAF1FF : Color.Transparent)
-    .border({
-      width: 0.5,
-      color: this.modeSelectedIndex === index ? $r('app.color.brand_blue') : $r('sys.color.comp_divider')
-    })
+    .height(40)
+    .padding({ left: 14, right: 14 })
+    .backgroundColor($r('app.color.ai_feed_background'))
+    .borderRadius(12)
     .onClick(() => {
-      this.modeSelectedIndex = index;
-      this.syncActiveSession();
+      this.usePromptShortcut(item.prompt, item.expertMode);
     })
   }
 
   @Builder
-  private emptyHero() {
-    Column({ space: 16 }) {
-      Row({ space: 10 }) {
-        SymbolGlyph($r('sys.symbol.AI_message'))
-          .fontSize(26)
-          .fontColor([$r('app.color.brand_blue')])
-        Text(`使用${this.currentModeLabel()}开始对话`)
-          .fontSize($r('sys.float.Title_S'))
-          .fontColor($r('sys.color.font_primary'))
-          .fontWeight(FontWeight.Medium)
+  private informationFeedRow(items: AiInformationFeedItem[]) {
+    Scroll() {
+      Row({ space: 8 }) {
+        ForEach(items, (item: AiInformationFeedItem) => {
+          this.informationFeedItem(item)
+        }, (item: AiInformationFeedItem) => item.id)
       }
-
-      Row({ space: 6 }) {
-        this.modeButton(0, '快速模式', $r('sys.symbol.bolt_fill'))
-        this.modeButton(1, '专家模式', $r('sys.symbol.AI_deep_thinking'))
-        this.modeButton(2, '识图模式', $r('sys.symbol.AI_picture_on_square'))
-      }
-      .width('100%')
-      .height(40)
-      .constraintSize({ maxWidth: 320 })
+      .padding({ left: this.pagePadding(), right: this.pagePadding() })
     }
     .width('100%')
-    .alignItems(HorizontalAlign.Center)
-    .margin({ bottom: 18 })
+    .height(40)
+    .scrollable(ScrollDirection.Horizontal)
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.Spring)
   }
+
+  @Builder
+  private emptyInformationHero() {
+    Column({ space: 26 }) {
+      Text('有什么我能帮你的吗？')
+        .fontSize(28)
+        .fontColor($r('sys.color.font_primary'))
+        .fontWeight(FontWeight.Bold)
+        .width('100%')
+        .padding({
+          left: this.emptyTitleHorizontalPadding(),
+          right: this.pagePadding()
+        })
+        .maxLines(2)
+
+      Column({ space: 8 }) {
+        this.informationFeedRow(AI_INFORMATION_FEED_ROWS[0])
+        this.informationFeedRow(AI_INFORMATION_FEED_ROWS[1])
+        this.informationFeedRow(AI_INFORMATION_FEED_ROWS[2])
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .constraintSize({ maxWidth: this.expandMaxWidth() })
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private emptyConversationPage() {
+    Column() {
+      Blank()
+        .layoutWeight(4)
+
+      this.emptyInformationHero()
+
+      Blank()
+        .layoutWeight(5)
+
+      this.inputArea(true)
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ top: this.globalInfoModel.statusBarHeight + CONTENT_TOP_OFFSET })
+    .alignItems(HorizontalAlign.Center)
+  }
+
 
   @Builder
   private featureChip(
@@ -1307,18 +1433,10 @@ export struct AiChatPage {
   private pageContent() {
     Column() {
       if (this.messages.length === 0) {
-        Blank()
-          .layoutWeight(4)
-        this.emptyHero()
+        this.emptyConversationPage()
       } else {
         this.messageList()
-      }
-
-      this.inputArea(this.messages.length > 0)
-
-      if (this.messages.length === 0) {
-        Blank()
-          .layoutWeight(5)
+        this.inputArea(true)
       }
     }
     .width('100%')

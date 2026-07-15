@@ -12,6 +12,7 @@
     { "name": "alert_danger_border", "value": "#5C3030" },
     { "name": "event_care", "value": "#3DBFA8" },
     { "name": "event_family", "value": "#E0B568" },
+    { "name": "ai_feed_background", "value": "#28292C" },
     { "name": "text_on_brand", "value": "#0A0A0A" }
   ]
 }
