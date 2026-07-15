@@ -2773,12 +2773,6 @@ export struct TabPageView {
   @Builder
   private expandTaskRow(task: CareTask, isLast: boolean) {
     Row({ space: 12 }) {
-      Row()
-        .width(8)
-        .height(8)
-        .borderRadius(4)
-        .backgroundColor(this.statusColor(this.taskStatusLevel(task.status)))
-
       Column({ space: 4 }) {
         Text(task.title)
           .fontSize($r('sys.float.Body_L'))
@@ -2906,8 +2900,10 @@ export struct TabPageView {
         Scroll() {
           Row() {
             Column({ space: 16 }) {
-              this.expandLargeTitle()
-              this.expandOverviewCard()
+              if (this.selectedQuickActionIndex === 1) {
+                this.expandLargeTitle()
+                this.expandOverviewCard()
+              }
 
               if (this.selectedQuickActionIndex === 0) {
                 ForEach(this.taskGroups(), (group: TaskGroup) => {
