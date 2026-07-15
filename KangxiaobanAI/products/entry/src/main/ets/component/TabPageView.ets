@@ -15,11 +15,16 @@
 
 import { AppStorageV2, SymbolGlyphModifier, curves, router } from '@kit.ArkUI';
 import {
+  HdsNavDestination,
   HdsListItemCard,
   IconSize,
   PrefixIcon,
+  ScrollEffectType,
   SuffixArrow,
-  SuffixText
+  SuffixText,
+  TitleBarContentOptions,
+  TitleBarStyleOptions,
+  hdsMaterial
 } from '@kit.UIDesignKit';
 import { StorageKey } from '../common/CommonConstants';
 import Logger from '../util/Logger';
@@ -2893,11 +2898,42 @@ export struct TabPageView {
     })
   }
 
+  private taskExpandTitleBarStyle(): TitleBarStyleOptions {
+    return {
+      systemMaterialEffect: {
+        materialType: hdsMaterial.MaterialType.IMMERSIVE,
+        materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+      },
+      scrollEffectOpts: {
+        enableScrollEffect: true,
+        scrollEffectType: ScrollEffectType.GRADIENT_BLUR
+      }
+    };
+  }
+
+  private taskExpandTitleBarContent(): TitleBarContentOptions {
+    return {
+      title: { mainTitle: this.quickExpandTitle() },
+      menu: {
+        value: [{
+          content: {
+            icon: $r('sys.symbol.xmark'),
+            isEnabled: true,
+            action: () => {
+              this.closeTaskExpand();
+            }
+          }
+        }]
+      }
+    };
+  }
+
   @Builder
   private taskExpandCover() {
     Column() {
-      Stack({ alignContent: Alignment.TopStart }) {
-        Scroll() {
+      HdsNavDestination() {
+        Stack({ alignContent: Alignment.End }) {
+          Scroll() {
           Row() {
             Column({ space: 16 }) {
               if (this.selectedQuickActionIndex === 1) {
@@ -2946,55 +2982,49 @@ export struct TabPageView {
             .padding({
               left: this.pagePadding(),
               right: this.pagePadding(),
-              top: this.topPadding() + 56,
-              bottom: this.bottomPadding()
+              top: 64,
+              bottom: 16
             })
           }
           .width('100%')
           .justifyContent(FlexAlign.Center)
         }
-        .width('100%')
-        .height('100%')
-        .backgroundColor(this.pageBackgroundColor())
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.Spring)
-
-        Row() {
-          Text(this.quickExpandTitle())
-            .fontSize($r('sys.float.Title_S'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-            .layoutWeight(1)
-
-          Row() {
-            SymbolGlyph($r('sys.symbol.xmark'))
-              .fontSize(20)
-              .fontColor([$r('sys.color.font_primary')])
-          }
-          .width(40)
-          .height(40)
-          .borderRadius(20)
-          .backgroundColor($r('sys.color.comp_background_primary'))
-          .justifyContent(FlexAlign.Center)
-          .stateStyles({
-            normal: this.itemNormalStyle,
-            pressed: this.itemPressedStyle
-          })
-          .onClick(() => {
-            this.closeTaskExpand();
-          })
+          .scrollBar(BarState.Off)
+          .edgeEffect(EdgeEffect.Spring)
+          .width('100%')
+          .height('100%')
+          .expandSafeArea(
+            [SafeAreaType.SYSTEM],
+            [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM]
+          )
         }
         .width('100%')
-        .padding({ left: this.pagePadding(), right: this.pagePadding() })
-        .margin({ top: this.topPadding() })
+        .height('100%')
+        .expandSafeArea(
+          [SafeAreaType.SYSTEM],
+          [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM]
+        )
       }
-      .width('100%')
-      .height('100%')
+      .backgroundColor($r('sys.color.background_secondary'))
+      .expandSafeArea(
+        [SafeAreaType.SYSTEM],
+        [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM]
+      )
+      .hideBackButton(true)
+      .titleBar({
+        enableComponentSafeArea: false,
+        style: this.taskExpandTitleBarStyle(),
+        content: this.taskExpandTitleBarContent()
+      })
     }
     .width('100%')
     .height('100%')
     .backgroundColor($r('sys.color.background_secondary'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .expandSafeArea(
+      [SafeAreaType.SYSTEM],
+      [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM]
+    )
+    .padding({ top: this.globalInfoModel.statusBarHeight })
     .geometryTransition(this.quickExpandGeometryId())
     .transition(TransitionEffect.OPACITY)
   }
