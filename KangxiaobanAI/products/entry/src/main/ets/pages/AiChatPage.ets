@@ -15,12 +15,9 @@
 
 import {
   AppStorageV2,
-  Chip,
-  ChipSize,
   ColorMetrics,
   KeyboardAvoidMode,
-  LengthMetrics,
-  SymbolGlyphModifier
+  LengthMetrics
 } from '@kit.ArkUI';
 import { BusinessError, pasteboard } from '@kit.BasicServicesKit';
 import {
@@ -29,7 +26,6 @@ import {
   HdsActionBar,
   HdsNavDestination,
   HdsNavDestinationTitleMode,
-  HdsNavigationTitle,
   IconStyleMode,
   hdsMaterial,
   ScrollEffectType,
@@ -43,6 +39,7 @@ import { WindowUtil } from '../util/WindowUtil';
 const CONTENT_TOP_OFFSET: number = 56;
 const AI_CHAT_HISTORY_KEY: string = 'aiChatHistoryStore';
 const MAX_CHAT_SESSIONS: number = 50;
+const CURRENT_USER_DISPLAY_NAME: string = '刘婷';
 
 type ChatRole = 'ai' | 'user';
 type ChatFeedback = 'none' | 'up' | 'down';
@@ -56,9 +53,6 @@ interface ChatMessage {
   id: string;
   role: ChatRole;
   content: string;
-  thinkingContent?: string;
-  thinkSeconds?: number;
-  thinkingExpanded?: boolean;
   feedback?: ChatFeedback;
 }
 
@@ -66,9 +60,6 @@ interface ChatSession {
   id: string;
   title: string;
   messages: ChatMessage[];
-  modeIndex: number;
-  deepThinkingEnabled: boolean;
-  smartSearchEnabled: boolean;
   updatedAt: number;
 }
 
@@ -76,7 +67,6 @@ interface AiInformationFeedItem {
   id: string;
   title: string;
   prompt: string;
-  expertMode: boolean;
 }
 
 const AI_INFORMATION_FEED_ROWS: AiInformationFeedItem[][] = [
@@ -84,60 +74,51 @@ const AI_INFORMATION_FEED_ROWS: AiInformationFeedItem[][] = [
     {
       id: 'care-summary',
       title: '资讯：今日重点照护事项已汇总 4 条',
-      prompt: '请汇总今天需要优先关注的照护事项',
-      expertMode: false
+      prompt: '请汇总今天需要优先关注的照护事项'
     },
     {
       id: 'health-change',
       title: '健康：3 位住户晨间指标出现变化',
-      prompt: '请解读今天晨间健康指标的变化和关注重点',
-      expertMode: true
+      prompt: '请解读今天晨间健康指标的变化和关注重点'
     },
     {
       id: 'care-priority',
       title: '如何安排今天的护理优先级',
-      prompt: '请根据风险和时间节点安排今天的护理优先级',
-      expertMode: false
+      prompt: '请根据风险和时间节点安排今天的护理优先级'
     }
   ],
   [
     {
       id: 'shift-records',
       title: '交班：下午班新增 2 条重点记录',
-      prompt: '请帮我整理下午班新增的重点交班记录',
-      expertMode: false
+      prompt: '请帮我整理下午班新增的重点交班记录'
     },
     {
       id: 'family-follow-up',
       title: '家属：今天有 2 项回访需要准备',
-      prompt: '请生成今天家属回访的沟通提纲',
-      expertMode: false
+      prompt: '请生成今天家属回访的沟通提纲'
     },
     {
       id: 'rehab-progress',
       title: '分享一下近期康复训练的完成情况',
-      prompt: '请总结近期康复训练完成情况并给出后续建议',
-      expertMode: true
+      prompt: '请总结近期康复训练完成情况并给出后续建议'
     }
   ],
   [
     {
       id: 'shift-plan',
       title: '帮我整理一份当班护理工作计划',
-      prompt: '请帮我整理一份清晰可执行的当班护理工作计划',
-      expertMode: false
+      prompt: '请帮我整理一份清晰可执行的当班护理工作计划'
     },
     {
       id: 'health-trend',
       title: '解读本周异常健康数据趋势',
-      prompt: '请深度解读本周异常健康数据的变化趋势',
-      expertMode: true
+      prompt: '请深度解读本周异常健康数据的变化趋势'
     },
     {
       id: 'family-script',
       title: '生成一段专业的家属沟通话术',
-      prompt: '请生成一段专业、温和的家属沟通话术',
-      expertMode: false
+      prompt: '请生成一段专业、温和的家属沟通话术'
     }
   ]
 ];
@@ -161,9 +142,6 @@ export struct AiChatPage {
   @Local messages: ChatMessage[] = [];
   @Local inputText: string = '';
   @Local keyboardOffset: number = 0;
-  @Local modeSelectedIndex: number = 0;
-  @Local deepThinkingEnabled: boolean = true;
-  @Local smartSearchEnabled: boolean = true;
   @Local isGenerating: boolean = false;
   @Local historyDrawerOpen: boolean = false;
   private listScroller: ListScroller = new ListScroller();
@@ -185,9 +163,6 @@ export struct AiChatPage {
       id: message.id,
       role: message.role,
       content: message.content,
-      thinkingContent: message.thinkingContent,
-      thinkSeconds: message.thinkSeconds,
-      thinkingExpanded: message.thinkingExpanded,
       feedback: message.feedback
     };
   }
@@ -217,16 +192,6 @@ export struct AiChatPage {
     return normalized.length > 18 ? `${normalized.substring(0, 18)}…` : normalized;
   }
 
-  private sessionModeLabel(index: number): string {
-    if (index === 1) {
-      return '专家模式';
-    }
-    if (index === 2) {
-      return '识图模式';
-    }
-    return '快速模式';
-  }
-
   private syncActiveSession(messages: ChatMessage[] = this.messages, refreshActivity: boolean = true): void {
     const activeId: string = this.historyStore.activeSessionId;
     if (activeId.length === 0) {
@@ -241,9 +206,6 @@ export struct AiChatPage {
       id: current.id,
       title: current.title,
       messages: this.cloneMessages(messages),
-      modeIndex: this.modeSelectedIndex,
-      deepThinkingEnabled: this.deepThinkingEnabled,
-      smartSearchEnabled: this.smartSearchEnabled,
       updatedAt: refreshActivity ? Date.now() : current.updatedAt
     };
     if (!refreshActivity) {
@@ -265,9 +227,6 @@ export struct AiChatPage {
       id: `session-${Date.now()}`,
       title: this.buildSessionTitle(firstText),
       messages: this.cloneMessages(messages),
-      modeIndex: this.modeSelectedIndex,
-      deepThinkingEnabled: this.deepThinkingEnabled,
-      smartSearchEnabled: this.smartSearchEnabled,
       updatedAt: Date.now()
     };
     this.historyStore.activeSessionId = session.id;
@@ -289,14 +248,9 @@ export struct AiChatPage {
   private restoreSession(session: ChatSession): void {
     this.historyStore.activeSessionId = session.id;
     this.messages = this.cloneMessages(session.messages);
-    this.modeSelectedIndex = session.modeIndex;
-    this.deepThinkingEnabled = session.deepThinkingEnabled;
-    this.smartSearchEnabled = session.smartSearchEnabled;
     this.inputText = '';
     this.isGenerating = false;
-    this.getUIContext().setKeyboardAvoidMode(
-      session.messages.length > 0 ? KeyboardAvoidMode.RESIZE : KeyboardAvoidMode.NONE
-    );
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
   }
 
   private restoreActiveSession(): void {
@@ -310,7 +264,7 @@ export struct AiChatPage {
     }
     this.historyStore.activeSessionId = '';
     this.messages = [];
-    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.NONE);
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
   }
 
   private openHistoryDrawer(): void {
@@ -338,10 +292,7 @@ export struct AiChatPage {
     this.historyStore.activeSessionId = '';
     this.messages = [];
     this.inputText = '';
-    this.modeSelectedIndex = 0;
-    this.deepThinkingEnabled = true;
-    this.smartSearchEnabled = true;
-    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.NONE);
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
     this.closeHistoryDrawer();
   }
 
@@ -393,22 +344,33 @@ export struct AiChatPage {
     WindowUtil.setImmersiveMode(false);
   }
 
-  private titleBarTitle(): HdsNavigationTitle {
-    if (this.messages.length === 0) {
-      return {
-        mainTitle: '新对话',
-        subTitle: this.currentModeLabel()
-      };
+  private titleBarTitleText(): string {
+    return this.messages.length === 0 ? '新对话' : this.conversationTitle();
+  }
+
+  @Builder
+  private titleBarTitleBuilder() {
+    Row() {
+      Text(this.titleBarTitleText())
+        .fontSize($r('sys.float.Title_M'))
+        .fontWeight(FontWeight.Bold)
+        .fontColor($r('sys.color.font_primary'))
+        .maxLines(1)
+        .ellipsisMode(EllipsisMode.END)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .width('100%')
+        .accessibilityText(this.titleBarTitleText())
     }
-    return {
-      mainTitle: this.conversationTitle(),
-      subTitle: this.currentModeLabel()
-    };
+    .width('100%')
+    .height('100%')
+    .padding({ left: 64, right: 112 })
+    .alignItems(VerticalAlign.Center)
+    .hitTestBehavior(HitTestMode.Transparent)
   }
 
   private titleBarContent(): TitleBarContentOptions {
     return {
-      title: this.titleBarTitle(),
+      stackBuilder: (): void => this.titleBarTitleBuilder(),
       backIcon: {
         label: '打开菜单',
         icon: $r('sys.symbol.line_3_horizontal'),
@@ -422,12 +384,12 @@ export struct AiChatPage {
         value: [
           {
             content: {
-              label: '分享',
-              icon: $r('sys.symbol.share'),
+              label: '新建对话',
+              icon: $r('sys.symbol.square_and_pencil'),
               type: IconStyleMode.SMALL,
               isEnabled: true,
               action: () => {
-                this.showToast('分享能力接入中');
+                this.startNewConversation();
               }
             }
           },
@@ -503,27 +465,11 @@ export struct AiChatPage {
     return 9999;
   }
 
-  private currentModeIndex(): number {
-    return this.modeSelectedIndex;
-  }
-
-  private currentModeLabel(): string {
-    const index: number = this.currentModeIndex();
-    if (index === 1) {
-      return '专家模式';
-    }
-    if (index === 2) {
-      return '识图模式';
-    }
-    return '快速模式';
-  }
-
   private conversationTitle(): string {
     for (let i: number = 0; i < this.messages.length; i++) {
       if (this.messages[i].role === 'user') {
         const text: string = this.messages[i].content.replace(/\n/g, ' ').trim();
-        const shortText: string = text.length > 10 ? `${text.substring(0, 10)}…` : text;
-        return `用户发送${shortText}`;
+        return `用户发送${text}`;
       }
     }
     return '康小伴智能守护';
@@ -591,40 +537,24 @@ export struct AiChatPage {
     }, delay);
   }
 
-  private buildThinkingText(text: string, modeIndex: number): string {
-    if (modeIndex === 2) {
-      return '用户当前选择了识图模式，但这条消息没有附带图片。我会先根据文字理解意图，同时提醒用户可以添加图片，以便进行更准确的分析。';
-    }
-    if (text.trim() === '1') {
-      return '好的，用户只发了一个“1”。这肯定不是完整的问题，可能是在测试，也可能是不小心按到了发送，或者在等着我先开口。\n\n无论如何，直接回应“1”没有意义。我需要主动打破僵局，引导用户说出真实意图。回复应该友好、开放，并提供几个常见的可选方向，让用户能快速说明需求。';
-    }
-    return `我需要先理解“${text}”背后的真实需求，再结合护理工作场景给出清晰、可执行的回答。回答应避免过度推断，同时把需要确认的信息交还给用户。`;
-  }
-
-  private buildAnswerText(text: string, modeIndex: number): string {
+  private buildAnswerText(text: string): string {
     if (text.trim() === '1') {
       return '你好！看起来你只发了一个“1”，是想测试我是否在线，还是不小心按到了发送键？🙂\n\n不管怎样，我在这里呢！有什么我可以帮你的吗？无论是提问、聊天、查资料，还是需要我帮你处理什么问题，都随时告诉我吧～';
     }
-    if (modeIndex === 2) {
-      return `我收到了你的消息：“${text}”。当前是识图模式，你可以点击输入框右下角的附件按钮添加图片；收到图片后，我会结合文字说明一起分析。`;
-    }
-    return `我收到了你的消息：“${text}”。\n\n我会按照${modeIndex === 1 ? '专家模式' : '快速模式'}整理重点，并优先给出清晰、可执行的建议。如果涉及住户健康或安全风险，请同时补充时间、症状和最近一次测量结果。`;
+    return `我收到了你的消息：“${text}”。\n\n我会整理重点，并优先给出清晰、可执行的建议。如果涉及住户健康或安全风险，请同时补充时间、症状和最近一次测量结果。`;
   }
 
-  private createAiMessage(id: string, text: string, modeIndex: number, useThinking: boolean): ChatMessage {
+  private createAiMessage(id: string, text: string): ChatMessage {
     return {
       id: id,
       role: 'ai',
-      content: this.buildAnswerText(text, modeIndex),
-      thinkingContent: useThinking ? this.buildThinkingText(text, modeIndex) : undefined,
-      thinkSeconds: useThinking ? (modeIndex === 1 ? 4 : 2) : undefined,
-      thinkingExpanded: useThinking,
+      content: this.buildAnswerText(text),
       feedback: 'none'
     };
   }
 
-  private appendAiResponse(text: string, modeIndex: number, useThinking: boolean): void {
-    const message: ChatMessage = this.createAiMessage(`a-${Date.now()}`, text, modeIndex, useThinking);
+  private appendAiResponse(text: string): void {
+    const message: ChatMessage = this.createAiMessage(`a-${Date.now()}`, text);
     const nextMessages: ChatMessage[] = [...this.messages, message];
     this.messages = nextMessages;
     this.syncActiveSession(nextMessages);
@@ -637,8 +567,6 @@ export struct AiChatPage {
     if (text.length === 0 || this.isGenerating) {
       return;
     }
-    const modeIndex: number = this.currentModeIndex();
-    const useThinking: boolean = this.deepThinkingEnabled;
     if (this.messages.length === 0) {
       this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
     }
@@ -658,7 +586,7 @@ export struct AiChatPage {
     this.isGenerating = true;
     this.scheduleScrollToBottom(80);
     this.responseTimer = setTimeout(() => {
-      this.appendAiResponse(text, modeIndex, useThinking);
+      this.appendAiResponse(text);
       this.responseTimer = -1;
     }, 650);
   }
@@ -673,10 +601,8 @@ export struct AiChatPage {
     }
     this.isGenerating = true;
     this.showToast('正在重新生成');
-    const modeIndex: number = this.currentModeIndex();
-    const useThinking: boolean = this.deepThinkingEnabled;
     this.responseTimer = setTimeout(() => {
-      const replacement: ChatMessage = this.createAiMessage(message.id, text, modeIndex, useThinking);
+      const replacement: ChatMessage = this.createAiMessage(message.id, text);
       this.messages = this.messages.map((item: ChatMessage): ChatMessage =>
         item.id === message.id ? replacement : item);
       this.syncActiveSession();
@@ -684,24 +610,6 @@ export struct AiChatPage {
       this.scheduleScrollToBottom(100);
       this.responseTimer = -1;
     }, 500);
-  }
-
-  private toggleThinking(message: ChatMessage): void {
-    this.messages = this.messages.map((item: ChatMessage): ChatMessage => {
-      if (item.id !== message.id) {
-        return item;
-      }
-      return {
-        id: item.id,
-        role: item.role,
-        content: item.content,
-        thinkingContent: item.thinkingContent,
-        thinkSeconds: item.thinkSeconds,
-        thinkingExpanded: !(item.thinkingExpanded ?? true),
-        feedback: item.feedback
-      };
-    });
-    this.syncActiveSession();
   }
 
   private setFeedback(message: ChatMessage, feedback: ChatFeedback): void {
@@ -714,9 +622,6 @@ export struct AiChatPage {
         id: item.id,
         role: item.role,
         content: item.content,
-        thinkingContent: item.thinkingContent,
-        thinkSeconds: item.thinkSeconds,
-        thinkingExpanded: item.thinkingExpanded,
         feedback: nextFeedback
       };
     });
@@ -747,12 +652,6 @@ export struct AiChatPage {
   private editMessage(message: ChatMessage): void {
     this.inputText = message.content;
     this.showToast('已放回输入框');
-  }
-
-  private chipSymbol(symbol: Resource, color: ResourceColor): SymbolGlyphModifier {
-    return new SymbolGlyphModifier(symbol)
-      .fontSize(15)
-      .fontColor([color]);
   }
 
   private colorMetric(color: ResourceColor): ColorMetrics | undefined {
@@ -925,52 +824,8 @@ export struct AiChatPage {
   }
 
   @Builder
-  private thoughtBlock(message: ChatMessage) {
-    Column({ space: 8 }) {
-      Row({ space: 8 }) {
-        SymbolGlyph($r('sys.symbol.AI_deep_thinking'))
-          .fontSize(18)
-          .fontColor([$r('app.color.brand_blue')])
-        Text(`已思考（用时 ${message.thinkSeconds ?? 0} 秒）`)
-          .fontSize($r('sys.float.Body_M'))
-          .fontColor($r('sys.color.font_secondary'))
-        SymbolGlyph(message.thinkingExpanded === false ?
-          $r('sys.symbol.chevron_down') : $r('sys.symbol.chevron_up'))
-          .fontSize(14)
-          .fontColor([$r('sys.color.icon_secondary')])
-      }
-      .height(40)
-      .onClick(() => {
-        this.toggleThinking(message);
-      })
-
-      if (message.thinkingExpanded !== false) {
-        Row({ space: 12 }) {
-          Column()
-            .width(1)
-            .alignSelf(ItemAlign.Stretch)
-            .backgroundColor($r('sys.color.comp_divider'))
-          Text(message.thinkingContent ?? '')
-            .fontSize($r('sys.float.Body_M'))
-            .fontColor($r('sys.color.font_secondary'))
-            .lineHeight(24)
-            .layoutWeight(1)
-        }
-        .width('100%')
-        .alignItems(VerticalAlign.Top)
-      }
-    }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
   private aiMessageItem(message: ChatMessage) {
     Column({ space: 12 }) {
-      if (message.thinkingContent && message.thinkingContent.length > 0) {
-        this.thoughtBlock(message)
-      }
-
       this.aiContent(message.content)
 
       Row() {
@@ -996,7 +851,7 @@ export struct AiChatPage {
         .width(20)
         .height(20)
         .color($r('app.color.brand_blue'))
-      Text(this.deepThinkingEnabled ? '康小伴正在思考…' : '康小伴正在回复…')
+      Text('康小伴正在回复…')
         .fontSize($r('sys.float.Body_M'))
         .fontColor($r('sys.color.font_secondary'))
     }
@@ -1004,21 +859,18 @@ export struct AiChatPage {
     .padding({ left: this.pagePadding(), right: this.pagePadding(), top: 8, bottom: 24 })
   }
 
-  private usePromptShortcut(prompt: string, expertMode: boolean = false): void {
+  private usePromptShortcut(prompt: string): void {
     this.inputText = prompt;
-    if (expertMode) {
-      this.modeSelectedIndex = 1;
-      this.deepThinkingEnabled = true;
-    }
   }
 
-  private emptyTitleHorizontalPadding(): number {
-    const widthBreakpoint: WidthBreakpoint = this.globalInfoModel.widthBreakpoint;
-    if (widthBreakpoint === WidthBreakpoint.WIDTH_MD || widthBreakpoint === WidthBreakpoint.WIDTH_LG ||
-      widthBreakpoint === WidthBreakpoint.WIDTH_XL) {
-      return this.pagePadding();
+  private emptyGreetingText(hour: number = new Date().getHours()): string {
+    let greeting: string = '上午好';
+    if (hour >= 14) {
+      greeting = '下午好';
+    } else if (hour >= 12) {
+      greeting = '中午好';
     }
-    return 46;
+    return `${greeting}，${CURRENT_USER_DISPLAY_NAME}`;
   }
 
   @Builder
@@ -1035,7 +887,7 @@ export struct AiChatPage {
     .backgroundColor($r('app.color.ai_feed_background'))
     .borderRadius(12)
     .onClick(() => {
-      this.usePromptShortcut(item.prompt, item.expertMode);
+      this.usePromptShortcut(item.prompt);
     })
   }
 
@@ -1058,17 +910,29 @@ export struct AiChatPage {
 
   @Builder
   private emptyInformationHero() {
-    Column({ space: 26 }) {
-      Text('有什么我能帮你的吗？')
-        .fontSize(28)
-        .fontColor($r('sys.color.font_primary'))
-        .fontWeight(FontWeight.Bold)
-        .width('100%')
-        .padding({
-          left: this.emptyTitleHorizontalPadding(),
-          right: this.pagePadding()
-        })
-        .maxLines(2)
+    Column({ space: 20 }) {
+      Column({ space: 4 }) {
+        Text(this.emptyGreetingText())
+          .fontSize($r('sys.float.Title_M'))
+          .fontColor($r('sys.color.font_primary'))
+          .fontWeight(FontWeight.Medium)
+          .width('100%')
+          .maxLines(1)
+          .ellipsisMode(EllipsisMode.END)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+        Text('让我们开始当前的工作吧')
+          .fontSize($r('sys.float.Body_L'))
+          .fontColor($r('sys.color.font_secondary'))
+          .fontWeight(FontWeight.Regular)
+          .width('100%')
+          .maxLines(1)
+          .ellipsisMode(EllipsisMode.END)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .width('100%')
+      .padding({ left: this.pagePadding(), right: this.pagePadding() })
+      .alignItems(HorizontalAlign.Start)
 
       Column({ space: 8 }) {
         this.informationFeedRow(AI_INFORMATION_FEED_ROWS[0])
@@ -1100,40 +964,9 @@ export struct AiChatPage {
     .padding({ top: this.globalInfoModel.statusBarHeight + CONTENT_TOP_OFFSET })
     .alignItems(HorizontalAlign.Center)
   }
-
-
-  @Builder
-  private featureChip(
-    label: string,
-    symbol: Resource,
-    activated: boolean,
-    action: () => void
-  ) {
-    Chip({
-      prefixSymbol: {
-        normal: this.chipSymbol(symbol, $r('sys.color.icon_secondary')),
-        activated: this.chipSymbol(symbol, $r('app.color.brand_blue'))
-      },
-      label: {
-        text: label,
-        fontSize: $r('sys.float.Caption_M'),
-        fontColor: $r('sys.color.font_secondary'),
-        activatedFontColor: $r('app.color.brand_blue'),
-        labelMargin: { left: 3, right: 3 }
-      },
-      size: ChipSize.SMALL,
-      allowClose: false,
-      activated: activated,
-      backgroundColor: Color.Transparent,
-      activatedBackgroundColor: 0xFFEAF1FF,
-      enabled: true,
-      onClicked: action
-    })
-  }
-
   @Builder
   private composer() {
-    Column({ space: 4 }) {
+    Row({ space: 4 }) {
       TextInput({ text: this.inputText, placeholder: '给 康小伴 发送消息' })
         .type(InputType.Normal)
         .fontSize($r('sys.float.Body_L'))
@@ -1141,9 +974,9 @@ export struct AiChatPage {
         .placeholderFont({ size: $r('sys.float.Body_L') })
         .placeholderColor($r('sys.color.font_tertiary'))
         .backgroundColor(Color.Transparent)
-        .padding({ left: 2, right: 2 })
-        .height(36)
-        .width('100%')
+        .padding({ left: 8, right: 4 })
+        .height(44)
+        .layoutWeight(1)
         .onChange((value: string) => {
           this.inputText = value;
         })
@@ -1151,70 +984,53 @@ export struct AiChatPage {
           this.sendMessage();
         })
 
-      Row({ space: 4 }) {
-        this.featureChip('深度思考', $r('sys.symbol.AI_deep_thinking'), this.deepThinkingEnabled, () => {
-          this.deepThinkingEnabled = !this.deepThinkingEnabled;
-          this.syncActiveSession();
-        })
-        this.featureChip('智能搜索', $r('sys.symbol.AI_search'), this.smartSearchEnabled, () => {
-          this.smartSearchEnabled = !this.smartSearchEnabled;
-          this.syncActiveSession();
-        })
-        Blank()
-
-        Button({ type: ButtonType.Circle, stateEffect: true }) {
-          SymbolGlyph($r('sys.symbol.paperclip'))
-            .fontSize(19)
-            .fontColor([$r('sys.color.icon_primary')])
-        }
-        .buttonStyle(ButtonStyleMode.TEXTUAL)
-        .width(36)
-        .height(36)
-        .accessibilityText('添加附件')
-        .onClick(() => {
-          this.showToast('附件能力接入中');
-        })
-
-        Button({ type: ButtonType.Circle, stateEffect: true }) {
-          SymbolGlyph($r('sys.symbol.arrow_up'))
-            .fontSize(19)
-            .fontColor([$r('app.color.text_on_brand')])
-        }
-        .buttonStyle(ButtonStyleMode.NORMAL)
-        .width(38)
-        .height(38)
-        .backgroundColor(this.inputText.trim().length > 0 && !this.isGenerating ?
-          $r('app.color.brand_blue') : 0xFFB7C8F8)
-        .enabled(this.inputText.trim().length > 0 && !this.isGenerating)
-        .opacity(this.inputText.trim().length > 0 && !this.isGenerating ? 1 : 0.72)
-        .accessibilityText('发送')
-        .onClick(() => {
-          this.sendMessage();
-        })
+      Button({ type: ButtonType.Circle, stateEffect: true }) {
+        SymbolGlyph($r('sys.symbol.paperclip'))
+          .fontSize(19)
+          .fontColor([$r('sys.color.icon_primary')])
       }
-      .width('100%')
+      .buttonStyle(ButtonStyleMode.TEXTUAL)
+      .width(40)
       .height(40)
-      .alignItems(VerticalAlign.Center)
+      .accessibilityText('添加附件')
+      .onClick(() => {
+        this.showToast('附件能力接入中');
+      })
+
+      Button({ type: ButtonType.Circle, stateEffect: true }) {
+        SymbolGlyph($r('sys.symbol.arrow_up'))
+          .fontSize(19)
+          .fontColor([$r('app.color.text_on_brand')])
+      }
+      .buttonStyle(ButtonStyleMode.NORMAL)
+      .width(40)
+      .height(40)
+      .backgroundColor(this.inputText.trim().length > 0 && !this.isGenerating ?
+        $r('app.color.brand_blue') : 0xFFB7C8F8)
+      .enabled(this.inputText.trim().length > 0 && !this.isGenerating)
+      .opacity(this.inputText.trim().length > 0 && !this.isGenerating ? 1 : 0.72)
+      .accessibilityText('发送')
+      .onClick(() => {
+        this.sendMessage();
+      })
     }
     .width('100%')
-    .constraintSize({ maxWidth: this.expandMaxWidth(), minHeight: 94 })
-    .padding({ left: 12, right: 8, top: 8, bottom: 6 })
+    .height(56)
+    .constraintSize({ maxWidth: this.expandMaxWidth() })
+    .padding({ left: 10, right: 6 })
     .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(22)
+    .borderRadius(28)
     .border({ width: 0.5, color: $r('sys.color.comp_divider') })
     .shadow({
-      radius: 18,
-      color: 'rgba(0,0,0,0.07)',
+      radius: 12,
+      color: 'rgba(0,0,0,0.06)',
       offsetX: 0,
-      offsetY: 7
+      offsetY: 4
     })
-    .alignItems(HorizontalAlign.Start)
+    .alignItems(VerticalAlign.Center)
   }
 
   private inputBottomMargin(): number {
-    if (this.messages.length === 0) {
-      return this.globalInfoModel.naviIndicatorHeight;
-    }
     return this.keyboardOffset > 0 ? 8 : this.globalInfoModel.naviIndicatorHeight;
   }
 
@@ -1235,7 +1051,7 @@ export struct AiChatPage {
       left: this.pagePadding(),
       right: this.pagePadding(),
       top: 8,
-      bottom: this.messages.length > 0 && this.keyboardOffset > 0 ? 0 : 2
+      bottom: this.keyboardOffset > 0 ? 0 : 2
     })
     .margin({ bottom: this.inputBottomMargin() })
     .backgroundColor($r('sys.color.background_primary'))
@@ -1405,8 +1221,7 @@ export struct AiChatPage {
           .constraintSize({ maxWidth: this.expandMaxWidth() })
           .justifyContent(FlexAlign.Center)
         }
-      }, (message: ChatMessage) =>
-        `${message.id}-${message.thinkingExpanded ?? true}-${message.feedback ?? 'none'}`)
+      }, (message: ChatMessage) => `${message.id}-${message.feedback ?? 'none'}`)
 
       if (this.isGenerating) {
         ListItem() {
