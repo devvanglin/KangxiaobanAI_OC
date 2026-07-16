@@ -27,6 +27,7 @@ import {
   AlertEvent,
   CareTaskItem,
   FootprintRecord,
+  MedicationProgress,
   Medication,
   MealRecord,
   MonitorSnapshot,
@@ -40,6 +41,11 @@ import {
 } from '../model/DetailTypes';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { StorageKey } from '../common/CommonConstants';
+import {
+  RESIDENT_SUMMARY_DETAIL_HEIGHT,
+  RESIDENT_SUMMARY_DETAIL_NO_ALLERGY_HEIGHT,
+  ResidentSummaryCard
+} from '../component/ResidentSummaryCard';
 
 interface VitalTrendRow {
   time: string;
@@ -50,30 +56,12 @@ interface VitalTrendRow {
 @ComponentV2
 export struct ResidentDetailPage {
   @Param @Require resident: ResidentData;
+  @Param @Require vitalSignData: VitalSign;
+  @Param @Require medicationProgress: MedicationProgress;
   @Param @Require geometryId: string;
   @Event onClose: () => void = () => {};
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
-
-  private statusColor(level: StatusLevel): ResourceColor {
-    if (level === 'danger') {
-      return $r('app.color.status_danger');
-    }
-    if (level === 'warning') {
-      return $r('app.color.status_warning');
-    }
-    return $r('app.color.status_normal');
-  }
-
-  private statusBg(level: StatusLevel): ResourceColor {
-    if (level === 'danger') {
-      return $r('app.color.status_danger_bg');
-    }
-    if (level === 'warning') {
-      return $r('app.color.status_warning_bg');
-    }
-    return $r('app.color.status_normal_bg');
-  }
 
   private statusText(level: StatusLevel): string {
     if (level === 'danger') {
@@ -146,14 +134,17 @@ export struct ResidentDetailPage {
           Scroll() {
             Row() {
               Column({ space: 12 }) {
-                // 状态概览
-                this.statusOverviewCard()
-                // 过敏警示（如有）
-                if (this.resident.allergies.length > 0) {
-                  this.allergyAlertCard()
+                Column() {
+                  ResidentSummaryCard({
+                    resident: this.resident,
+                    vitalSign: this.vitalSignData,
+                    medicationProgress: this.medicationProgress,
+                    mode: 'detail'
+                  })
                 }
-                // 生命体征网格
-                this.vitalSignGrid()
+                .width('100%')
+                .height(this.resident.allergies.length > 0 ?
+                  RESIDENT_SUMMARY_DETAIL_HEIGHT : RESIDENT_SUMMARY_DETAIL_NO_ALLERGY_HEIGHT)
                 // 体征趋势
                 this.vitalTrendCard()
                 // 房间监控
@@ -212,64 +203,6 @@ export struct ResidentDetailPage {
     .transition(TransitionEffect.OPACITY)
   }
 
-  // ---------------- 状态概览（无姓名，标题栏已有） ----------------
-
-  @Builder
-  private statusOverviewCard() {
-    Column({ space: 12 }) {
-      Row() {
-        Text(`${this.resident.age}岁 · ${this.genderText(this.resident.gender)} · ${this.resident.room} ${this.resident.bed}`)
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_secondary'))
-          .layoutWeight(1)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-        Text(this.resident.careLevel)
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor($r('sys.color.font_tertiary'))
-          .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-          .backgroundColor($r('sys.color.comp_background_tertiary'))
-          .borderRadius(6)
-          .margin({ right: 6 })
-
-        Text(this.statusText(this.resident.level))
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor(this.statusColor(this.resident.level))
-          .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-          .backgroundColor(this.statusBg(this.resident.level))
-          .borderRadius(6)
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-
-      Text(this.resident.status)
-        .fontSize($r('sys.float.Body_S'))
-        .fontColor($r('sys.color.font_secondary'))
-        .maxLines(2)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-      if (this.resident.diagnosis.length > 0) {
-        Row({ space: 6 }) {
-          ForEach(this.resident.diagnosis, (item: string, index: number) => {
-            Text(item)
-              .fontSize($r('sys.float.Caption_M'))
-              .fontColor($r('sys.color.font_secondary'))
-              .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-              .backgroundColor($r('sys.color.comp_background_tertiary'))
-              .borderRadius(6)
-          }, (item: string, index: number) => index.toString())
-        }
-        .width('100%')
-      }
-    }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-  }
-
   // ---------------- 基础信息 ----------------
 
   @Builder
@@ -313,39 +246,6 @@ export struct ResidentDetailPage {
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(16)
     .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-  }
-
-  @Builder
-  private allergyAlertCard() {
-    Column({ space: 8 }) {
-      Row({ space: 6 }) {
-        SymbolGlyph($r('sys.symbol.exclamationmark_triangle_fill'))
-          .fontSize(16)
-          .fontColor([$r('app.color.status_danger')])
-        Text('过敏警示')
-          .fontSize($r('sys.float.Body_M'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.status_danger'))
-      }
-      .width('100%')
-
-      Row({ space: 6 }) {
-        ForEach(this.resident.allergies, (item: string, index: number) => {
-          Text(item)
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('app.color.status_danger'))
-            .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-            .backgroundColor($r('app.color.status_danger_bg'))
-            .borderRadius(6)
-        }, (item: string, index: number) => index.toString())
-      }
-      .width('100%')
-    }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-    .backgroundColor($r('app.color.alert_danger_bg'))
-    .borderRadius(16)
-    .border({ width: 0.5, color: $r('app.color.alert_danger_border') })
   }
 
   @Builder
@@ -423,108 +323,6 @@ export struct ResidentDetailPage {
       this.divider(isLast)
     }
     .width('100%')
-  }
-
-  // ---------------- 监测 Tab ----------------
-
-  @Builder
-  private vitalSignGrid() {
-    Column({ space: 8 }) {
-      this.sectionTitle('实时生命体征')
-      Grid() {
-        GridItem() {
-          this.vitalGridItem('心率', `${this.vitalSign().heartRate}`, 'bpm', this.heartRateLevel())
-        }
-        GridItem() {
-          this.vitalGridItem('血压', `${this.vitalSign().systolic}/${this.vitalSign().diastolic}`, 'mmHg', this.bpLevel())
-        }
-        GridItem() {
-          this.vitalGridItem('血氧', `${this.vitalSign().oxygen}`, '%', this.oxygenLevel())
-        }
-        GridItem() {
-          this.vitalGridItem('体温', `${this.vitalSign().temperature}`, '°C', 'normal')
-        }
-        GridItem() {
-          this.vitalGridItem('呼吸', `${this.vitalSign().respiratory}`, '次/分', 'normal')
-        }
-        GridItem() {
-          this.vitalGridItem('步数', `${this.vitalSign().steps}`, '步', 'normal')
-        }
-        GridItem() {
-          this.vitalGridItem('睡眠', `${this.vitalSign().sleepHours}`, '小时', this.sleepLevel())
-        }
-        GridItem() {
-          this.vitalGridItem('更新', this.vitalSign().measuredAt, '', 'normal')
-        }
-      }
-      .columnsTemplate('1fr 1fr 1fr 1fr')
-      .rowsTemplate('1fr 1fr')
-      .columnsGap(8)
-      .rowsGap(8)
-      .height(140)
-      .width('100%')
-    }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 4, bottom: 12 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-  }
-
-  private heartRateLevel(): StatusLevel {
-    const hr: number = this.vitalSign().heartRate;
-    if (hr > 100 || hr < 60) {
-      return 'warning';
-    }
-    return 'normal';
-  }
-
-  private bpLevel(): StatusLevel {
-    const s: number = this.vitalSign().systolic;
-    if (s >= 140) {
-      return 'danger';
-    }
-    if (s >= 130) {
-      return 'warning';
-    }
-    return 'normal';
-  }
-
-  private oxygenLevel(): StatusLevel {
-    if (this.vitalSign().oxygen < 95) {
-      return 'danger';
-    }
-    return 'normal';
-  }
-
-  private sleepLevel(): StatusLevel {
-    if (this.vitalSign().sleepHours < 5) {
-      return 'warning';
-    }
-    return 'normal';
-  }
-
-  @Builder
-  private vitalGridItem(label: string, value: string, unit: string, level: StatusLevel) {
-    Column({ space: 4 }) {
-      Text(value)
-        .fontSize($r('sys.float.Body_M'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor(level === 'normal' ? $r('sys.color.font_primary') : this.statusColor(level))
-      if (unit !== '') {
-        Text(unit)
-          .fontSize($r('sys.float.Caption_S'))
-          .fontColor($r('sys.color.font_tertiary'))
-      }
-      Text(label)
-        .fontSize($r('sys.float.Caption_S'))
-        .fontColor($r('sys.color.font_tertiary'))
-    }
-    .width('100%')
-    .height('100%')
-    .justifyContent(FlexAlign.Center)
-    .backgroundColor(level === 'normal' ? $r('sys.color.comp_background_tertiary') : this.statusBg(level))
-    .borderRadius(10)
   }
 
   @Builder
@@ -889,38 +687,7 @@ export struct ResidentDetailPage {
   // ---------------- 数据方法 ----------------
 
   private vitalSign(): VitalSign {
-    const map: Record<string, VitalSign> = {
-      'r1': {
-        heartRate: 72, systolic: 138, diastolic: 85, oxygen: 96,
-        temperature: 36.5, respiratory: 18, steps: 1240, sleepHours: 5.2,
-        measuredAt: '10:24'
-      },
-      'r2': {
-        heartRate: 78, systolic: 125, diastolic: 80, oxygen: 97,
-        temperature: 36.4, respiratory: 17, steps: 2100, sleepHours: 6.8,
-        measuredAt: '09:46'
-      },
-      'r3': {
-        heartRate: 70, systolic: 142, diastolic: 88, oxygen: 95,
-        temperature: 36.6, respiratory: 19, steps: 380, sleepHours: 4.5,
-        measuredAt: '09:12'
-      },
-      'r4': {
-        heartRate: 68, systolic: 118, diastolic: 76, oxygen: 98,
-        temperature: 36.3, respiratory: 16, steps: 3200, sleepHours: 7.2,
-        measuredAt: '08:30'
-      },
-      'r5': {
-        heartRate: 75, systolic: 122, diastolic: 78, oxygen: 98,
-        temperature: 36.4, respiratory: 17, steps: 2800, sleepHours: 7.0,
-        measuredAt: '08:15'
-      }
-    };
-    return map[this.resident.id] ?? {
-      heartRate: 0, systolic: 0, diastolic: 0, oxygen: 0,
-      temperature: 0, respiratory: 0, steps: 0, sleepHours: 0,
-      measuredAt: '--'
-    };
+    return this.vitalSignData;
   }
 
   private vitalTrend(): VitalTrendRow[] {

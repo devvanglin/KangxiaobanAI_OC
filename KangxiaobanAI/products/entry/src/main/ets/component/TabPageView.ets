@@ -46,6 +46,10 @@ import {
 import { HealthExpandPage } from '../pages/HealthExpandPage';
 import { ResidentDetailPage } from '../pages/ResidentDetailPage';
 import { AiTitleLabel } from './AiTitleLabel';
+import {
+  RESIDENT_SUMMARY_CARD_HEIGHT,
+  ResidentSummaryCard
+} from './ResidentSummaryCard';
 
 type TaskSource = 'ai' | 'elder' | 'staff' | 'plan';
 type TaskStatus = 'todo' | 'doing' | 'done';
@@ -405,7 +409,12 @@ export struct TabPageView {
 
   @Styles
   residentCardNormalStyle() {
-    .backgroundColor($r('sys.color.comp_background_primary'))
+    .opacity(1)
+  }
+
+  @Styles
+  residentCardPressedStyle() {
+    .opacity(0.72)
   }
 
   private sheetWidthForWide(): number | undefined {
@@ -781,17 +790,7 @@ export struct TabPageView {
   }
 
   private residentCardHeight(): number {
-    return 148;
-  }
-
-  private residentPriorityText(level: StatusLevel): string {
-    if (level === 'danger') {
-      return '危险';
-    }
-    if (level === 'warning') {
-      return '关注';
-    }
-    return '稳定';
+    return RESIDENT_SUMMARY_CARD_HEIGHT;
   }
 
   /** 模拟长者最新体征快照（后续接真实数据源） */
@@ -1471,91 +1470,20 @@ export struct TabPageView {
             color: $r('sys.color.comp_divider')
           })
       } else {
-        Column({ space: 12 }) {
-          // 行1：姓名 + 年龄·性别 + 房间床号 + 状态色块 + 更新时间
-          Row() {
-            Text(item.name)
-              .fontSize($r('sys.float.Subtitle_L'))
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_primary'))
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-            Text(`${item.age}岁·${item.gender === 'male' ? '男' : '女'}`)
-              .fontSize($r('sys.float.Body_S'))
-              .fontColor($r('sys.color.font_secondary'))
-              .margin({ left: 8 })
-
-            Text(`${item.room} ${item.bed}`)
-              .fontSize($r('sys.float.Body_S'))
-              .fontColor($r('sys.color.font_secondary'))
-              .margin({ left: 8 })
-              .layoutWeight(1)
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-            Text(this.residentPriorityText(item.level))
-              .fontSize($r('sys.float.Caption_M'))
-              .fontColor(this.statusColor(item.level))
-              .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-              .backgroundColor(this.statusBg(item.level))
-              .borderRadius(6)
-              .margin({ right: 6 })
-
-            Text(this.residentVitalSign(item).measuredAt)
-              .fontSize($r('sys.float.Caption_M'))
-              .fontColor($r('sys.color.font_tertiary'))
-          }
-          .width('100%')
-          .alignItems(VerticalAlign.Center)
-
-          // 行2：状态描述 + 诊断标签
-          Row({ space: 8 }) {
-            Text(item.status)
-              .fontSize($r('sys.float.Body_S'))
-              .fontColor($r('sys.color.font_secondary'))
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .layoutWeight(1)
-
-            if (item.diagnosis.length > 0) {
-              Text(item.diagnosis.slice(0, 2).join('·'))
-                .fontSize($r('sys.float.Caption_M'))
-                .fontColor($r('sys.color.font_tertiary'))
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-            }
-          }
-          .width('100%')
-          .alignItems(VerticalAlign.Center)
-
-          // 行3：核心体征（心率/血压/步数/用药），4列居中布局
-          Column({ space: 8 }) {
-            Row() {
-              this.vitalMiniItem('心率', `${this.residentVitalSign(item).heartRate}`, 'bpm', this.heartRateMiniLevel(item), false)
-              this.vitalMiniItem('血压', `${this.residentVitalSign(item).systolic}/${this.residentVitalSign(item).diastolic}`, '', this.bpMiniLevel(item), false)
-              this.vitalMiniItem('步数', `${this.residentVitalSign(item).steps}`, '步', 'normal', false)
-              this.vitalMiniItem('用药', `${this.residentMedicationProgress(item).done}/${this.residentMedicationProgress(item).total}`, '次', 'normal', true)
-            }
-            .width('100%')
-            .layoutWeight(1)
-          }
-          .width('100%')
-          .layoutWeight(1)
+        Column() {
+          ResidentSummaryCard({
+            resident: item,
+            vitalSign: this.residentVitalSign(item),
+            medicationProgress: this.residentMedicationProgress(item),
+            mode: 'compact'
+          })
         }
         .width('100%')
         .height(this.residentCardHeight())
-        .padding({ left: 14, right: 14, top: 14, bottom: 14 })
-        .backgroundColor($r('sys.color.comp_background_primary'))
-        .borderRadius(16)
-        .border({
-          width: 0.5,
-          color: $r('sys.color.comp_divider')
-        })
         .geometryTransition(this.residentGeometryId(item.id), { follow: true })
         .transition(TransitionEffect.OPACITY)
         .stateStyles({
-          pressed: this.itemPressedStyle,
+          pressed: this.residentCardPressedStyle,
           normal: this.residentCardNormalStyle
         })
         .focusable(true)
@@ -1566,55 +1494,6 @@ export struct TabPageView {
       }
     }
     .padding({ left: 16, right: 16 })
-  }
-
-  private heartRateMiniLevel(item: ResidentData): StatusLevel {
-    const hr: number = this.residentVitalSign(item).heartRate;
-    if (hr > 100 || hr < 60) {
-      return 'warning';
-    }
-    return 'normal';
-  }
-
-  private bpMiniLevel(item: ResidentData): StatusLevel {
-    const s: number = this.residentVitalSign(item).systolic;
-    if (s >= 140) {
-      return 'danger';
-    }
-    if (s >= 130) {
-      return 'warning';
-    }
-    return 'normal';
-  }
-
-  @Builder
-  private vitalMiniItem(label: string, value: string, unit: string, level: StatusLevel, isLast: boolean) {
-    Row() {
-      Column({ space: 3 }) {
-        Row({ space: 2 }) {
-          Text(value)
-            .fontSize($r('sys.float.Subtitle_L'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor(level === 'normal' ? $r('sys.color.font_primary') : this.statusColor(level))
-          if (unit !== '') {
-            Text(unit)
-              .fontSize($r('sys.float.Caption_M'))
-              .fontColor($r('sys.color.font_tertiary'))
-          }
-        }
-        .alignItems(VerticalAlign.Bottom)
-
-        Text(label)
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor($r('sys.color.font_tertiary'))
-      }
-      .layoutWeight(1)
-      .justifyContent(FlexAlign.Center)
-      .alignItems(HorizontalAlign.Center)
-    }
-    .layoutWeight(1)
-    .height('100%')
-    .alignItems(VerticalAlign.Center)
   }
 
   @Builder
@@ -3168,6 +3047,8 @@ export struct TabPageView {
   private residentDetailCover() {
     ResidentDetailPage({
       resident: this.selectedResident,
+      vitalSignData: this.residentVitalSign(this.selectedResident),
+      medicationProgress: this.residentMedicationProgress(this.selectedResident),
       geometryId: this.activeResidentGeometryId,
       onClose: () => {
         this.closeResidentDetail();
