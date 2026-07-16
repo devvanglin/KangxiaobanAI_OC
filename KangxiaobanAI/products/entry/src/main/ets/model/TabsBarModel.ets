@@ -68,9 +68,9 @@ const PAGE_BAR_MAP: Map<PageKeyEnum, BarItem[]> = new Map([
     {
       label: '',
       normalColor: $r('sys.color.icon_primary'),
-      normalSymbolResource: $r('sys.symbol.square_and_pencil_fill'),
+      normalSymbolResource: $r('sys.symbol.message_on_message_fill'),
       selectedColor: $r('app.color.brand_blue'),
-      selectedSymbolResource: $r('sys.symbol.square_and_pencil_fill'),
+      selectedSymbolResource: $r('sys.symbol.message_on_message_fill'),
     },
     {
       label: '',

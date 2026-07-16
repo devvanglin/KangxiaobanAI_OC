@@ -156,9 +156,9 @@ export const TAB_PAGE_CONFIGS: TabPageConfig[] = [
     }
   },
   {
-    title: $r('app.string.tab_cafe'),
+    title: $r('app.string.tab_message'),
     subtitle: $r('app.string.page_task_subtitle'),
-    heroSymbol: $r('sys.symbol.square_and_pencil_fill'),
+    heroSymbol: $r('sys.symbol.message_on_message_fill'),
     heroValue: $r('app.string.page_task_hero_value'),
     heroNote: $r('app.string.page_task_hero_note'),
     stats: [

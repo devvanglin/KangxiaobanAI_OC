@@ -30,6 +30,7 @@ import {
 } from '@kit.UIDesignKit';
 import { TabPageView } from '../component/TabPageView';
 import { AiChatPage } from '../pages/AiChatPage';
+import { MineDetailPage } from '../pages/MineDetailPage';
 import { StorageKey } from '../common/CommonConstants';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { PAGE_SCROLLER_MAP, PageKeyEnum, TabsBarModel } from '../model/TabsBarModel';
@@ -168,7 +169,7 @@ struct MainPage {
         items: [
           { label: $r('app.string.tab_home'), symbol: $r('sys.symbol.house_fill'), tabIndex: 0 },
           { label: $r('app.string.tab_music'), symbol: $r('sys.symbol.person_2_fill'), tabIndex: 1 },
-          { label: $r('app.string.tab_cafe'), symbol: $r('sys.symbol.square_and_pencil_fill'), tabIndex: 2, badge: '18' },
+          { label: $r('app.string.tab_message'), symbol: $r('sys.symbol.message_on_message_fill'), tabIndex: 2 },
         ]
       },
       {
@@ -622,6 +623,11 @@ struct MainPage {
 
   @Builder
   private destinationBuilder(name: string, param?: ESObject) {
+    if (name === 'AboutPage') {
+      MineDetailPage({ pageType: 'about' })
+    } else if (name === 'GeneralSettingsPage') {
+      MineDetailPage({ pageType: 'general' })
+    }
   }
 
   @Builder

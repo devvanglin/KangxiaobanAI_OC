@@ -35,6 +35,7 @@ import {
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { StorageKey } from '../common/CommonConstants';
 import { WindowUtil } from '../util/WindowUtil';
+import { AI_BRAND_NAME, AiTitleLabel } from '../component/AiTitleLabel';
 
 const CONTENT_TOP_OFFSET: number = 56;
 const AI_CHAT_HISTORY_KEY: string = 'aiChatHistoryStore';
@@ -187,7 +188,7 @@ export struct AiChatPage {
   private buildSessionTitle(text: string): string {
     const normalized: string = text.replace(/\n/g, ' ').trim();
     if (normalized.length === 0) {
-      return '新对话';
+      return AI_BRAND_NAME;
     }
     return normalized.length > 18 ? `${normalized.substring(0, 18)}…` : normalized;
   }
@@ -345,21 +346,15 @@ export struct AiChatPage {
   }
 
   private titleBarTitleText(): string {
-    return this.messages.length === 0 ? '新对话' : this.conversationTitle();
+    const activeSession: ChatSession | undefined = this.findSession(this.historyStore.activeSessionId);
+    return activeSession?.title ?? AI_BRAND_NAME;
   }
 
   @Builder
   private titleBarTitleBuilder() {
     Row() {
-      Text(this.titleBarTitleText())
-        .fontSize($r('sys.float.Title_M'))
-        .fontWeight(FontWeight.Bold)
-        .fontColor($r('sys.color.font_primary'))
-        .maxLines(1)
-        .ellipsisMode(EllipsisMode.END)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      AiTitleLabel({ text: this.titleBarTitleText(), compact: true })
         .width('100%')
-        .accessibilityText(this.titleBarTitleText())
     }
     .width('100%')
     .height('100%')
@@ -463,16 +458,6 @@ export struct AiChatPage {
       return 680;
     }
     return 9999;
-  }
-
-  private conversationTitle(): string {
-    for (let i: number = 0; i < this.messages.length; i++) {
-      if (this.messages[i].role === 'user') {
-        const text: string = this.messages[i].content.replace(/\n/g, ' ').trim();
-        return `用户发送${text}`;
-      }
-    }
-    return '康小伴智能守护';
   }
 
   private userTextBeforeMessage(messageId: string): string {
@@ -967,21 +952,22 @@ export struct AiChatPage {
   @Builder
   private composer() {
     Row({ space: 4 }) {
-      TextInput({ text: this.inputText, placeholder: '给 康小伴 发送消息' })
-        .type(InputType.Normal)
+      TextArea({ text: this.inputText, placeholder: '给 康小伴 发送消息' })
+        .enterKeyType(EnterKeyType.NEW_LINE)
         .fontSize($r('sys.float.Body_L'))
         .fontColor($r('sys.color.font_primary'))
+        .lineHeight(24)
         .placeholderFont({ size: $r('sys.float.Body_L') })
         .placeholderColor($r('sys.color.font_tertiary'))
         .backgroundColor(Color.Transparent)
-        .padding({ left: 8, right: 4 })
-        .height(44)
+        .padding({ left: 8, right: 4, top: 8, bottom: 8 })
+        .minLines(1)
+        .maxLines(4, { overflowMode: MaxLinesMode.SCROLL })
+        .textOverflow(TextOverflow.Clip)
+        .barState(BarState.Auto)
         .layoutWeight(1)
         .onChange((value: string) => {
           this.inputText = value;
-        })
-        .onSubmit(() => {
-          this.sendMessage();
         })
 
       Button({ type: ButtonType.Circle, stateEffect: true }) {
@@ -1015,9 +1001,8 @@ export struct AiChatPage {
       })
     }
     .width('100%')
-    .height(56)
-    .constraintSize({ maxWidth: this.expandMaxWidth() })
-    .padding({ left: 10, right: 6 })
+    .constraintSize({ minHeight: 56, maxWidth: this.expandMaxWidth() })
+    .padding({ left: 10, right: 6, top: 6, bottom: 6 })
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(28)
     .border({ width: 0.5, color: $r('sys.color.comp_divider') })
@@ -1027,7 +1012,8 @@ export struct AiChatPage {
       offsetX: 0,
       offsetY: 4
     })
-    .alignItems(VerticalAlign.Center)
+    .alignItems(VerticalAlign.Bottom)
+    .animation({ duration: 180, curve: Curve.EaseOut })
   }
 
   private inputBottomMargin(): number {

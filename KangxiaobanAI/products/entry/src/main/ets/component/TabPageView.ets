@@ -16,6 +16,7 @@
 import { AppStorageV2, SymbolGlyphModifier, curves, router } from '@kit.ArkUI';
 import {
   HdsNavDestination,
+  HdsNavDestinationTitleMode,
   HdsListItemCard,
   IconSize,
   PrefixIcon,
@@ -44,10 +45,28 @@ import {
 } from '../model/DetailTypes';
 import { HealthExpandPage } from '../pages/HealthExpandPage';
 import { ResidentDetailPage } from '../pages/ResidentDetailPage';
+import { AiTitleLabel } from './AiTitleLabel';
 
 type TaskSource = 'ai' | 'elder' | 'staff' | 'plan';
 type TaskStatus = 'todo' | 'doing' | 'done';
 type EventType = 'ai' | 'alert' | 'care' | 'family';
+type MessageKind = 'handoff' | 'family' | 'notice';
+type MessageFilter = 'all' | 'unread' | MessageKind;
+
+interface InboxMessage {
+  id: string;
+  kind: MessageKind;
+  sender: string;
+  preview: string;
+  content: string;
+  time: string;
+  unread: boolean;
+}
+
+interface MessageFilterOption {
+  label: string;
+  value: MessageFilter;
+}
 
 interface BedSummary {
   total: number;
@@ -156,6 +175,7 @@ export struct TabPageView {
   @Param @Require currentTabIndex: number;
   @Param @Require pageKey: PageKeyEnum;
   @Param @Require config: TabPageConfig;
+  @Consumer('mainPageStack') pathStack: NavPathStack = new NavPathStack();
   @Event onSwitchTab: (index: number) => void = () => {};
   @Event onOpenAiChat: () => void = () => {};
   @Local globalInfoModel: GlobalInfoModel =
@@ -169,6 +189,10 @@ export struct TabPageView {
   @Local residentSearch: string = '';
   @Local residentFilter: 'all' | 'warning' | 'danger' = 'all';
   @Local taskFilter: 'all' | 'ai' | 'elder' | 'plan' = 'all';
+  @Local messageFilter: MessageFilter = 'all';
+  @Local selectedMessageId: string = '';
+  @Local readMessageIds: string[] = [];
+  @Local isMessageSheetOpen: boolean = false;
   @Local selectedQuickActionIndex: number = 0;
   @Local currentTime: Date = new Date();
   @Local isClockedIn: boolean = false;
@@ -1015,13 +1039,7 @@ export struct TabPageView {
   private aiReminderCard() {
     Column({ space: 0 }) {
       Row({ space: 6 }) {
-        Text('康小伴智能守护')
-          .fontSize($r('sys.float.Body_L'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-        Text(`· ${this.aiReminders().length}条`)
-          .fontSize($r('sys.float.Body_M'))
-          .fontColor($r('sys.color.font_tertiary'))
+        AiTitleLabel({ compact: true })
         Blank()
         SymbolGlyph($r('sys.symbol.chevron_right'))
           .fontSize(16)
@@ -1151,9 +1169,6 @@ export struct TabPageView {
           .fontSize($r('sys.float.Body_L'))
           .fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.font_primary'))
-        Text(`· ${rows.length}条`)
-          .fontSize($r('sys.float.Body_M'))
-          .fontColor($r('sys.color.font_tertiary'))
         Blank()
         SymbolGlyph($r('sys.symbol.chevron_right'))
           .fontSize(20)
@@ -1259,7 +1274,7 @@ export struct TabPageView {
         if (this.selectedTaskByQuickRow()) {
           List({ space: 16 }) {
             ListItem() {
-              this.taskDetailHeader(this.selectedTaskByQuickRow()!)
+              this.taskDetailHeader(this.selectedTaskByQuickRow()!, false)
             }
             ListItem() {
               this.taskDetailForm(this.selectedTaskByQuickRow()!)
@@ -1280,10 +1295,6 @@ export struct TabPageView {
           List({ space: 0 }) {
             ListItem() {
               Column({ space: 8 }) {
-                Text(this.selectedQuickRow()!.title)
-                  .fontSize($r('sys.float.Title_M'))
-                  .fontWeight(FontWeight.Medium)
-                  .fontColor($r('sys.color.font_primary'))
                 Text(this.selectedQuickRow()!.sub)
                   .fontSize($r('sys.float.Body_M'))
                   .fontColor($r('sys.color.font_secondary'))
@@ -1847,13 +1858,15 @@ export struct TabPageView {
   }
 
   @Builder
-  private taskDetailHeader(task: CareTask) {
+  private taskDetailHeader(task: CareTask, showTitle: boolean = true) {
     Row() {
       Column({ space: 4 }) {
-        Text(task.title)
-          .fontSize($r('sys.float.Title_M'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
+        if (showTitle) {
+          Text(task.title)
+            .fontSize($r('sys.float.Title_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+        }
         Text(`${task.elder} · ${task.room} · ${task.time}`)
           .fontSize($r('sys.float.Body_S'))
           .fontColor($r('sys.color.font_secondary'))
@@ -2101,6 +2114,455 @@ export struct TabPageView {
     }
   }
 
+  private inboxMessages(): InboxMessage[] {
+    return [
+      {
+        id: 'msg-family-health',
+        kind: 'family',
+        sender: '张明华家属',
+        preview: '已回复今日健康情况，晚些时候会来电沟通。',
+        content: '您好，张爷爷上午精神状态稳定，家属已经了解近期血压变化。晚些时候会来电与护理站进一步沟通，请保持电话畅通。',
+        time: '10:32',
+        unread: true
+      },
+      {
+        id: 'msg-handoff-night',
+        kind: 'handoff',
+        sender: '护理站',
+        preview: '夜间不适评估记录已补充，请交班时重点说明。',
+        content: '周奶奶夜间不适评估记录已经补充。下午交班时请重点说明休息情况、进食状态和最近一次生命体征。',
+        time: '10:08',
+        unread: true
+      },
+      {
+        id: 'msg-notice-training',
+        kind: 'notice',
+        sender: '护理部',
+        preview: '压疮预防培训调整至本周五 16:00。',
+        content: '本周压疮预防培训调整至周五 16:00，在二楼培训室进行。请提前十分钟签到，并携带个人学习记录。',
+        time: '09:46',
+        unread: true
+      },
+      {
+        id: 'msg-family-visit',
+        kind: 'family',
+        sender: '李秀英家属',
+        preview: '已确认周六下午三点到院探视。',
+        content: '家属已确认周六下午三点到院探视，并已了解探视登记和陪同要求。',
+        time: '09:18',
+        unread: false
+      },
+      {
+        id: 'msg-handoff-record',
+        kind: 'handoff',
+        sender: '刘婷',
+        preview: '晨间护理记录已经同步完成。',
+        content: '305-2 李秀英的晨间护理记录已经同步，康复训练完成情况和饮水记录均已补充。',
+        time: '08:52',
+        unread: false
+      },
+      {
+        id: 'msg-notice-update',
+        kind: 'notice',
+        sender: '系统通知',
+        preview: '消息同步和离线缓存能力已更新。',
+        content: '应用服务已更新完成。消息同步和离线缓存能力已经恢复，可以继续正常使用。',
+        time: '昨天',
+        unread: false
+      }
+    ];
+  }
+
+  private messageFilterOptions(): MessageFilterOption[] {
+    return [
+      { label: '全部', value: 'all' },
+      { label: '未读', value: 'unread' },
+      { label: '交接', value: 'handoff' },
+      { label: '家属', value: 'family' },
+      { label: '通知', value: 'notice' }
+    ];
+  }
+
+  private isMessageUnread(item: InboxMessage): boolean {
+    return item.unread && !this.readMessageIds.includes(item.id);
+  }
+
+  private filteredInboxMessages(): InboxMessage[] {
+    const messages: InboxMessage[] = this.inboxMessages();
+    if (this.messageFilter === 'all') {
+      return messages;
+    }
+    if (this.messageFilter === 'unread') {
+      return messages.filter((item: InboxMessage) => this.isMessageUnread(item));
+    }
+    return messages.filter((item: InboxMessage) => item.kind === this.messageFilter);
+  }
+
+  private selectedMessage(): InboxMessage | undefined {
+    return this.inboxMessages().find((item: InboxMessage) => item.id === this.selectedMessageId);
+  }
+
+  private messageKindLabel(kind: MessageKind): string {
+    if (kind === 'handoff') {
+      return '交接消息';
+    }
+    if (kind === 'family') {
+      return '家属沟通';
+    }
+    return '通知';
+  }
+
+  private messageIcon(kind: MessageKind): Resource {
+    if (kind === 'handoff') {
+      return $r('sys.symbol.person_2_fill');
+    }
+    if (kind === 'family') {
+      return $r('sys.symbol.phone_fill');
+    }
+    return $r('sys.symbol.bell_fill');
+  }
+
+  private messageIconColor(kind: MessageKind): ResourceColor {
+    if (kind === 'family') {
+      return $r('app.color.status_normal');
+    }
+    if (kind === 'notice') {
+      return $r('app.color.status_warning');
+    }
+    return $r('app.color.brand_blue');
+  }
+
+  private messageIconBackground(kind: MessageKind): ResourceColor {
+    if (kind === 'family') {
+      return 0xFFE9F7EF;
+    }
+    if (kind === 'notice') {
+      return 0xFFFFF4DC;
+    }
+    return 0xFFEAF1FF;
+  }
+
+  private openMessage(item: InboxMessage): void {
+    this.selectedMessageId = item.id;
+    if (this.isMessageUnread(item)) {
+      this.readMessageIds = [...this.readMessageIds, item.id];
+    }
+    if (!this.isWideLayout()) {
+      this.isMessageSheetOpen = true;
+    }
+  }
+
+  @Builder
+  private messageChipBar() {
+    Scroll() {
+      Row({ space: 10 }) {
+        ForEach(this.messageFilterOptions(), (option: MessageFilterOption) => {
+          Row() {
+            Text(option.label)
+              .fontSize($r('sys.float.Body_S'))
+              .fontWeight(this.messageFilter === option.value ? FontWeight.Medium : FontWeight.Regular)
+              .fontColor(this.messageFilter === option.value ? $r('app.color.text_on_brand') :
+                $r('sys.color.font_secondary'))
+          }
+          .height(36)
+          .padding({ left: 16, right: 16 })
+          .justifyContent(FlexAlign.Center)
+          .borderRadius(18)
+          .backgroundColor(this.messageFilter === option.value ? $r('app.color.brand_blue') :
+            $r('sys.color.comp_background_primary'))
+          .onClick(() => {
+            this.messageFilter = option.value;
+          })
+        }, (option: MessageFilterOption) => option.value)
+      }
+    }
+    .width('100%')
+    .scrollable(ScrollDirection.Horizontal)
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.Spring)
+  }
+
+  @Builder
+  private messageRow(item: InboxMessage, isLast: boolean) {
+    Row({ space: 12 }) {
+      Stack({ alignContent: Alignment.BottomEnd }) {
+        Row() {
+          SymbolGlyph(this.messageIcon(item.kind))
+            .fontSize(20)
+            .fontColor([this.messageIconColor(item.kind)])
+        }
+        .width(44)
+        .height(44)
+        .borderRadius(22)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
+        .backgroundColor(this.messageIconBackground(item.kind))
+
+        if (this.isMessageUnread(item)) {
+          Row()
+            .width(9)
+            .height(9)
+            .borderRadius(5)
+            .backgroundColor($r('app.color.brand_blue'))
+            .border({ width: 2, color: $r('sys.color.comp_background_primary') })
+        }
+      }
+      .width(44)
+      .height(44)
+
+      Column({ space: 5 }) {
+        Row({ space: 8 }) {
+          Text(item.sender)
+            .fontSize($r('sys.float.Body_L'))
+            .fontWeight(this.isMessageUnread(item) ? FontWeight.Medium : FontWeight.Regular)
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .layoutWeight(1)
+          Text(item.time)
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('sys.color.font_tertiary'))
+        }
+        .width('100%')
+
+        Text(item.preview)
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor(this.isMessageUnread(item) ? $r('sys.color.font_secondary') : $r('sys.color.font_tertiary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .width('100%')
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+    .alignItems(VerticalAlign.Center)
+    .border({
+      width: { bottom: isLast ? 0 : 0.5 },
+      color: { bottom: $r('sys.color.comp_divider') }
+    })
+    .stateStyles({
+      pressed: this.itemPressedStyle,
+      normal: this.itemNormalStyle
+    })
+    .focusable(true)
+    .focusOnTouch(true)
+    .onClick(() => {
+      this.openMessage(item);
+    })
+  }
+
+  @Builder
+  private messageEmptyState() {
+    Column({ space: 12 }) {
+      SymbolGlyph($r('sys.symbol.message_on_message_fill'))
+        .fontSize(42)
+        .fontColor([$r('sys.color.icon_tertiary')])
+      Text('暂无消息')
+        .fontSize($r('sys.float.Body_L'))
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_secondary'))
+      Text('新的沟通和通知会显示在这里')
+        .fontSize($r('sys.float.Body_S'))
+        .fontColor($r('sys.color.font_tertiary'))
+    }
+    .width('100%')
+    .padding({ top: 56, bottom: 56 })
+    .alignItems(HorizontalAlign.Center)
+  }
+
+  @Builder
+  private messageListCard() {
+    Column({ space: 0 }) {
+      if (this.filteredInboxMessages().length === 0) {
+        this.messageEmptyState()
+      } else {
+        ForEach(this.filteredInboxMessages(), (item: InboxMessage, index: number) => {
+          this.messageRow(item, index === this.filteredInboxMessages().length - 1)
+        }, (item: InboxMessage) => item.id)
+      }
+    }
+    .width('100%')
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(16)
+    .clip(true)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+  }
+
+  @Builder
+  private messageSheetBuilder() {
+    Column({ space: 16 }) {
+      if (this.selectedMessage()) {
+        Row() {
+          Text(this.messageKindLabel(this.selectedMessage()!.kind))
+            .fontSize($r('sys.float.Body_S'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor(this.messageIconColor(this.selectedMessage()!.kind))
+            .padding({ left: 10, right: 10, top: 4, bottom: 4 })
+            .borderRadius(12)
+            .backgroundColor(this.messageIconBackground(this.selectedMessage()!.kind))
+          Blank()
+          Text(this.selectedMessage()!.time)
+            .fontSize($r('sys.float.Body_S'))
+            .fontColor($r('sys.color.font_tertiary'))
+        }
+        .width('100%')
+
+        Text(this.selectedMessage()!.content)
+          .fontSize($r('sys.float.Body_L'))
+          .fontColor($r('sys.color.font_primary'))
+          .lineHeight(28)
+          .width('100%')
+          .padding(16)
+          .backgroundColor($r('sys.color.comp_background_primary'))
+          .borderRadius(16)
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ left: 16, right: 16, top: 12, bottom: 24 })
+    .backgroundColor($r('sys.color.background_secondary'))
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private messageDetailPane() {
+    if (this.selectedMessage()) {
+      Scroll() {
+        Column({ space: 20 }) {
+          Row({ space: 14 }) {
+            Row() {
+              SymbolGlyph(this.messageIcon(this.selectedMessage()!.kind))
+                .fontSize(24)
+                .fontColor([this.messageIconColor(this.selectedMessage()!.kind)])
+            }
+            .width(48)
+            .height(48)
+            .borderRadius(24)
+            .justifyContent(FlexAlign.Center)
+            .backgroundColor(this.messageIconBackground(this.selectedMessage()!.kind))
+
+            Column({ space: 4 }) {
+              Text(this.selectedMessage()!.sender)
+                .fontSize($r('sys.float.Title_M'))
+                .fontWeight(FontWeight.Bold)
+                .fontColor($r('sys.color.font_primary'))
+              Text(`${this.messageKindLabel(this.selectedMessage()!.kind)} · ${this.selectedMessage()!.time}`)
+                .fontSize($r('sys.float.Body_S'))
+                .fontColor($r('sys.color.font_secondary'))
+            }
+            .alignItems(HorizontalAlign.Start)
+          }
+          .width('100%')
+
+          Text(this.selectedMessage()!.content)
+            .fontSize($r('sys.float.Body_L'))
+            .fontColor($r('sys.color.font_primary'))
+            .lineHeight(28)
+            .width('100%')
+            .padding(20)
+            .backgroundColor($r('sys.color.comp_background_primary'))
+            .borderRadius(16)
+        }
+        .width('100%')
+        .constraintSize({ maxWidth: 760 })
+        .padding(24)
+      }
+      .width('100%')
+      .height('100%')
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
+    } else {
+      Column({ space: 14 }) {
+        SymbolGlyph($r('sys.symbol.message_on_message_fill'))
+          .fontSize(52)
+          .fontColor([$r('sys.color.icon_tertiary')])
+        Text('选择一条消息查看内容')
+          .fontSize($r('sys.float.Body_L'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_secondary'))
+        Text('这里用于查看完整的沟通和通知内容')
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_tertiary'))
+      }
+      .width('100%')
+      .height('100%')
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
+    }
+  }
+
+  @Builder
+  private messagePage() {
+    if (this.isWideLayout()) {
+      Row({ space: 0 }) {
+        List({ scroller: this.currentScroller(), space: 12 }) {
+          ListItem() {
+            this.messageChipBar()
+          }
+          ListItem() {
+            this.messageListCard()
+          }
+        }
+        .width(this.isExtraWideLayout() ? 440 : 380)
+        .height('100%')
+        .padding({ left: 12, right: 12, top: 12, bottom: 24 })
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
+        .backgroundColor($r('sys.color.background_secondary'))
+
+        Column() {
+          this.messageDetailPane()
+        }
+        .layoutWeight(1)
+        .height('100%')
+        .backgroundColor(this.pageBackgroundColor())
+      }
+      .width('100%')
+      .height('100%')
+      .padding({ top: this.contentTopPadding() })
+      .backgroundColor(this.pageBackgroundColor())
+    } else {
+      List({ scroller: this.currentScroller(), space: 12 }) {
+        ListItem() {
+          this.messageChipBar()
+        }
+        .padding({
+          left: this.pagePadding(),
+          right: this.pagePadding(),
+          top: this.contentTopPadding()
+        })
+
+        ListItem() {
+          this.messageListCard()
+        }
+        .padding({ left: this.pagePadding(), right: this.pagePadding() })
+
+        ListItem() {
+          Row()
+            .width('100%')
+            .height(this.bottomPadding())
+        }
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(this.pageBackgroundColor())
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
+      .bindSheet(this.isMessageSheetOpen, this.messageSheetBuilder, {
+        detents: [SheetSize.MEDIUM],
+        showClose: true,
+        dragBar: true,
+        title: { title: this.selectedMessage()?.sender ?? '消息' },
+        backgroundColor: $r('sys.color.background_secondary'),
+        onDisappear: () => {
+          this.isMessageSheetOpen = false;
+        }
+      })
+    }
+  }
+
   @Builder
   private taskPage() {
     if (this.isWideLayout()) {
@@ -2205,11 +2667,7 @@ export struct TabPageView {
 
   private quickActions(): QuickActionData[] {
     return [
-      { icon: $r('sys.symbol.square_and_pencil'), label: '入住登记' },
-      { icon: $r('sys.symbol.person_2'), label: '我的长者' },
-      { icon: $r('sys.symbol.bell'), label: '消息通知' },
       { icon: $r('sys.symbol.paintpalette'), label: '培训学习' },
-      { icon: $r('sys.symbol.hand_thumbsup'), label: '我的评价' },
       { icon: $r('sys.symbol.calendar_badge_clock'), label: '排班表' },
       { icon: $r('sys.symbol.doc_text'), label: '服务记录' },
       { icon: $r('sys.symbol.questionmark_circle'), label: '帮助中心' }
@@ -2224,8 +2682,22 @@ export struct TabPageView {
           { icon: $r('sys.symbol.lock'), label: '账号安全', value: 'L3 权限', showArrow: true },
           { icon: $r('sys.symbol.bell'), label: '通知提醒', value: '关键提醒', showArrow: true },
           { icon: $r('sys.symbol.share'), label: '登录设备', value: '2 台', showArrow: true },
-          { icon: $r('sys.symbol.questionmark_circle'), label: '关于我们', showArrow: true },
-          { icon: $r('sys.symbol.gearshape'), label: '通用设置', showArrow: true }
+          {
+            icon: $r('sys.symbol.info_circle'),
+            label: '关于我们',
+            showArrow: true,
+            action: () => {
+              this.pathStack.pushPath({ name: 'AboutPage' });
+            }
+          },
+          {
+            icon: $r('sys.symbol.gearshape'),
+            label: '通用设置',
+            showArrow: true,
+            action: () => {
+              this.pathStack.pushPath({ name: 'GeneralSettingsPage' });
+            }
+          }
         ]
       },
       {
@@ -2633,14 +3105,6 @@ export struct TabPageView {
             this.quickActionItem(this.quickActions()[3])
           }
           .width('100%')
-
-          Row({ space: 0 }) {
-            this.quickActionItem(this.quickActions()[4])
-            this.quickActionItem(this.quickActions()[5])
-            this.quickActionItem(this.quickActions()[6])
-            this.quickActionItem(this.quickActions()[7])
-          }
-          .width('100%')
         }
         .padding({ bottom: 6 })
         .backgroundColor($r('sys.color.comp_background_primary'))
@@ -2657,6 +3121,14 @@ export struct TabPageView {
 
       ListItem() {
         this.settingGroup(this.settingGroups()[0])
+      }
+      .padding({
+        left: this.pagePadding(),
+        right: this.pagePadding()
+      })
+
+      ListItem() {
+        this.settingGroup(this.settingGroups()[1])
       }
       .padding({
         left: this.pagePadding(),
@@ -2763,12 +3235,13 @@ export struct TabPageView {
   private expandGroupTitle(title: string, subtitle?: string) {
     Row({ space: 6 }) {
       Text(title)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_secondary'))
+        .fontSize($r('sys.float.Body_M'))
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
       if (subtitle) {
         Text(`· ${subtitle}`)
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor($r('sys.color.font_tertiary'))
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor($r('sys.color.font_secondary'))
       }
     }
     .width('100%')
@@ -2911,9 +3384,28 @@ export struct TabPageView {
     };
   }
 
+  @Builder
+  private taskExpandTitleBuilder() {
+    Row() {
+      Text(this.quickExpandTitle())
+        .fontSize($r('sys.float.Title_M'))
+        .fontWeight(FontWeight.Bold)
+        .fontColor($r('sys.color.font_primary'))
+        .maxLines(1)
+        .ellipsisMode(EllipsisMode.END)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .width('100%')
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ left: 16, right: 64 })
+    .alignItems(VerticalAlign.Center)
+    .hitTestBehavior(HitTestMode.Transparent)
+  }
+
   private taskExpandTitleBarContent(): TitleBarContentOptions {
     return {
-      title: { mainTitle: this.quickExpandTitle() },
+      stackBuilder: (): void => this.taskExpandTitleBuilder(),
       menu: {
         value: [{
           content: {
@@ -2932,7 +3424,7 @@ export struct TabPageView {
   private taskExpandCover() {
     Column() {
       HdsNavDestination() {
-        Stack({ alignContent: Alignment.End }) {
+        Stack({ alignContent: Alignment.TopStart }) {
           Scroll() {
           Row() {
             Column({ space: 16 }) {
@@ -2982,7 +3474,7 @@ export struct TabPageView {
             .padding({
               left: this.pagePadding(),
               right: this.pagePadding(),
-              top: 64,
+              top: 20,
               bottom: 16
             })
           }
@@ -3011,11 +3503,17 @@ export struct TabPageView {
         [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM]
       )
       .hideBackButton(true)
+      .titleMode(HdsNavDestinationTitleMode.MINI)
       .titleBar({
+        avoidLayoutSafeArea: true,
         enableComponentSafeArea: false,
         style: this.taskExpandTitleBarStyle(),
         content: this.taskExpandTitleBarContent()
       })
+      .ignoreLayoutSafeArea(
+        [LayoutSafeAreaType.SYSTEM],
+        [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM]
+      )
     }
     .width('100%')
     .height('100%')
@@ -3024,7 +3522,6 @@ export struct TabPageView {
       [SafeAreaType.SYSTEM],
       [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM]
     )
-    .padding({ top: this.globalInfoModel.statusBarHeight })
     .geometryTransition(this.quickExpandGeometryId())
     .transition(TransitionEffect.OPACITY)
   }
@@ -3038,7 +3535,7 @@ export struct TabPageView {
           } else if (this.currentTabIndex === 1) {
             this.elderPage();
           } else if (this.currentTabIndex === 2) {
-            this.taskPage();
+            this.messagePage();
           } else {
             this.minePage();
           }
