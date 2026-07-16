@@ -1002,7 +1002,7 @@ export struct AiChatPage {
     }
     .width('100%')
     .constraintSize({ minHeight: 56, maxWidth: this.expandMaxWidth() })
-    .padding({ left: 10, right: 6, top: 6, bottom: 6 })
+    .padding({ left: 10, right: 6, top: 8, bottom: 8 })
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(28)
     .border({ width: 0.5, color: $r('sys.color.comp_divider') })

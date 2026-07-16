@@ -403,6 +403,11 @@ export struct TabPageView {
     .backgroundColor($r('sys.color.interactive_pressed'))
   }
 
+  @Styles
+  residentCardNormalStyle() {
+    .backgroundColor($r('sys.color.comp_background_primary'))
+  }
+
   private sheetWidthForWide(): number | undefined {
     return this.isWideLayout() ? 480 : undefined;
   }
@@ -1240,8 +1245,25 @@ export struct TabPageView {
       this.selectedQuickRowId = item.id;
       this.isQuickRowSheetOpen = true;
     })
-    .bindSheet(this.isQuickRowSheetOpen && this.selectedQuickRowId === item.id, this.quickRowSheetBuilder, {
-      detents: [SheetSize.LARGE, SheetSize.MEDIUM],
+    .bindSheet(this.isQuickRowSheetOpen && this.selectedQuickRowId === item.id, this.quickRowSheetBuilder,
+      this.quickRowSheetOptions(item))
+  }
+
+  private quickRowSheetOptions(item: QuickListRow): SheetOptions {
+    if (this.allTasks().some((task: CareTask) => task.id === item.id)) {
+      return {
+        detents: [SheetSize.LARGE, SheetSize.MEDIUM],
+        showClose: true,
+        dragBar: true,
+        title: { title: item.title },
+        backgroundColor: $r('sys.color.background_secondary'),
+        onDisappear: () => {
+          this.isQuickRowSheetOpen = false;
+        }
+      };
+    }
+    return {
+      height: SheetSize.FIT_CONTENT,
       showClose: true,
       dragBar: true,
       title: { title: item.title },
@@ -1249,7 +1271,7 @@ export struct TabPageView {
       onDisappear: () => {
         this.isQuickRowSheetOpen = false;
       }
-    })
+    };
   }
 
   private selectedQuickRow(): QuickListRow | undefined {
@@ -1269,9 +1291,9 @@ export struct TabPageView {
 
   @Builder
   private quickRowSheetBuilder() {
-    Column({ space: 0 }) {
-      if (this.selectedQuickRow()) {
-        if (this.selectedTaskByQuickRow()) {
+    if (this.selectedQuickRow()) {
+      if (this.selectedTaskByQuickRow()) {
+        Column({ space: 0 }) {
           List({ space: 16 }) {
             ListItem() {
               this.taskDetailHeader(this.selectedTaskByQuickRow()!, false)
@@ -1291,66 +1313,56 @@ export struct TabPageView {
           .padding({ left: 16, right: 16, top: 8, bottom: 36 })
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring)
-        } else {
-          List({ space: 0 }) {
-            ListItem() {
-              Column({ space: 8 }) {
-                Text(this.selectedQuickRow()!.sub)
-                  .fontSize($r('sys.float.Body_M'))
-                  .fontColor($r('sys.color.font_secondary'))
-              }
-              .width('100%')
-              .padding({ top: 16, bottom: 16 })
-            }
-
-            if (this.selectedQuickRow()!.time) {
-              ListItem() {
-                Row() {
-                  Text('时间')
-                    .fontSize($r('sys.float.Body_M'))
-                    .fontColor($r('sys.color.font_secondary'))
-                  Blank()
-                  Text(this.selectedQuickRow()!.time!)
-                    .fontSize($r('sys.float.Body_M'))
-                    .fontColor($r('sys.color.font_primary'))
-                }
-                .width('100%')
-                .padding({ top: 14, bottom: 14 })
-                .border({ width: { bottom: 0.5 }, color: $r('sys.color.comp_divider') })
-              }
-            }
-
-            if (this.selectedQuickRow()!.tag) {
-              ListItem() {
-                Row() {
-                  Text('状态')
-                    .fontSize($r('sys.float.Body_M'))
-                    .fontColor($r('sys.color.font_secondary'))
-                  Blank()
-                  Text(this.selectedQuickRow()!.tag!)
-                    .fontSize($r('sys.float.Body_S'))
-                    .fontColor(this.selectedQuickRow()!.tagColor ?? $r('sys.color.font_secondary'))
-                    .padding({ left: 8, right: 8, top: 2, bottom: 2 })
-                    .backgroundColor(this.selectedQuickRow()!.tagBg ?? $r('sys.color.comp_background_secondary'))
-                    .borderRadius(8)
-                }
-                .width('100%')
-                .padding({ top: 14, bottom: 14 })
-                .border({ width: { bottom: 0.5 }, color: $r('sys.color.comp_divider') })
-              }
-            }
-          }
-          .width('100%')
-          .layoutWeight(1)
-          .padding({ left: 20, right: 20 })
-          .scrollBar(BarState.Off)
-          .edgeEffect(EdgeEffect.Spring)
         }
+        .width('100%')
+        .height('100%')
+        .backgroundColor($r('sys.color.background_secondary'))
+      } else {
+        Column({ space: 0 }) {
+          Text(this.selectedQuickRow()!.sub)
+            .fontSize($r('sys.float.Body_M'))
+            .fontColor($r('sys.color.font_secondary'))
+            .width('100%')
+            .textAlign(TextAlign.Center)
+            .padding({ top: 8, bottom: 14 })
+
+          if (this.selectedQuickRow()!.time) {
+            Row() {
+              Text('时间')
+                .fontSize($r('sys.float.Body_M'))
+                .fontColor($r('sys.color.font_secondary'))
+              Blank()
+              Text(this.selectedQuickRow()!.time!)
+                .fontSize($r('sys.float.Body_M'))
+                .fontColor($r('sys.color.font_primary'))
+            }
+            .width('100%')
+            .height(48)
+            .border({ width: { bottom: 0.5 }, color: $r('sys.color.comp_divider') })
+          }
+
+          if (this.selectedQuickRow()!.tag) {
+            Row() {
+              Text('状态')
+                .fontSize($r('sys.float.Body_M'))
+                .fontColor($r('sys.color.font_secondary'))
+              Blank()
+              Text(this.selectedQuickRow()!.tag!)
+                .fontSize($r('sys.float.Body_S'))
+                .fontColor(this.selectedQuickRow()!.tagColor ?? $r('sys.color.font_secondary'))
+                .padding({ left: 8, right: 8, top: 2, bottom: 2 })
+                .backgroundColor(this.selectedQuickRow()!.tagBg ?? $r('sys.color.comp_background_secondary'))
+                .borderRadius(8)
+            }
+            .width('100%')
+            .height(48)
+          }
+        }
+        .width('100%')
+        .padding({ left: 20, right: 20, bottom: 12 })
+        .backgroundColor($r('sys.color.background_secondary'))
       }
     }
-    .width('100%')
-    .height('100%')
-    .backgroundColor($r('sys.color.background_secondary'))
   }
 
   // ---------------- task helper ----------------
@@ -1544,7 +1556,7 @@ export struct TabPageView {
         .transition(TransitionEffect.OPACITY)
         .stateStyles({
           pressed: this.itemPressedStyle,
-          normal: this.itemNormalStyle
+          normal: this.residentCardNormalStyle
         })
         .focusable(true)
         .focusOnTouch(true)
@@ -3164,28 +3176,6 @@ export struct TabPageView {
   }
 
   @Builder
-  private expandLargeTitle() {
-    Column({ space: 4 }) {
-      Text(this.quickExpandTitle())
-        .fontSize($r('sys.float.Title_L'))
-        .fontWeight(FontWeight.Bold)
-        .fontColor($r('sys.color.font_primary'))
-      Text(this.expandSubtitle())
-        .fontSize($r('sys.float.Body_M'))
-        .fontColor($r('sys.color.font_secondary'))
-    }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  private expandSubtitle(): string {
-    if (this.selectedQuickActionIndex === 0) {
-      return '今日护理任务概览';
-    }
-    return '今日用药计划概览';
-  }
-
-  @Builder
   private expandOverviewCard() {
     Row() {
       if (this.selectedQuickActionIndex === 0) {
@@ -3306,12 +3296,6 @@ export struct TabPageView {
   @Builder
   private expandMedicationRow(item: QuickListRow, isLast: boolean) {
     Row({ space: 12 }) {
-      Row()
-        .width(8)
-        .height(8)
-        .borderRadius(4)
-        .backgroundColor(item.tag === '已完成' ? this.statusColor('normal') : this.statusColor('warning'))
-
       Column({ space: 4 }) {
         Text(item.title)
           .fontSize($r('sys.float.Body_L'))
@@ -3360,7 +3344,7 @@ export struct TabPageView {
       this.isExpandSheetOpen = true;
     })
     .bindSheet(this.isExpandSheetOpen && this.selectedQuickRowId === item.id, this.quickRowSheetBuilder, {
-      detents: [SheetSize.LARGE, SheetSize.MEDIUM],
+      height: SheetSize.FIT_CONTENT,
       showClose: true,
       dragBar: true,
       title: { title: item.title },
@@ -3429,7 +3413,6 @@ export struct TabPageView {
           Row() {
             Column({ space: 16 }) {
               if (this.selectedQuickActionIndex === 1) {
-                this.expandLargeTitle()
                 this.expandOverviewCard()
               }
 
@@ -3474,7 +3457,7 @@ export struct TabPageView {
             .padding({
               left: this.pagePadding(),
               right: this.pagePadding(),
-              top: 20,
+              top: 104,
               bottom: 16
             })
           }
@@ -3483,6 +3466,7 @@ export struct TabPageView {
         }
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring)
+          .align(Alignment.Top)
           .width('100%')
           .height('100%')
           .expandSafeArea(
