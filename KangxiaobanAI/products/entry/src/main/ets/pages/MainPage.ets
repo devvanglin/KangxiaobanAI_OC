@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import { AppStorageV2, curves, SymbolGlyphModifier } from '@kit.ArkUI';
+import { AppStorageV2, curves, router, SymbolGlyphModifier } from '@kit.ArkUI';
 import {
   hdsMaterial,
   HdsListItemCard,
@@ -29,6 +29,7 @@ import {
   TextStyleMode,
 } from '@kit.UIDesignKit';
 import { TabPageView } from '../component/TabPageView';
+import { WideCaregiverWorkspace } from '../component/wide/WideCaregiverWorkspace';
 import { AiChatPage } from '../pages/AiChatPage';
 import { MineDetailPage } from '../pages/MineDetailPage';
 import { StorageKey } from '../common/CommonConstants';
@@ -36,6 +37,7 @@ import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { PAGE_SCROLLER_MAP, PageKeyEnum, TabsBarModel } from '../model/TabsBarModel';
 import { TAB_PAGE_CONFIGS, TabPageConfig } from '../model/TabPageModel';
 import Logger from '../util/Logger';
+import { BreakpointUtil } from '../util/BreakpointSystem';
 
 const TAG: string = '[MainPage]';
 
@@ -118,10 +120,15 @@ struct MainPage {
   }
 
   private isWideLayout(): boolean {
-    const widthBreakpoint: WidthBreakpoint = this.globalInfoModel.widthBreakpoint;
-    return widthBreakpoint === WidthBreakpoint.WIDTH_MD ||
-      widthBreakpoint === WidthBreakpoint.WIDTH_LG ||
-      widthBreakpoint === WidthBreakpoint.WIDTH_XL;
+    return BreakpointUtil.isWide(this.globalInfoModel.widthBreakpoint);
+  }
+
+  private async handleLogout(): Promise<void> {
+    try {
+      await router.replaceUrl({ url: 'pages/LoginPage' });
+    } catch (error) {
+      Logger.error(TAG, `logout failed: ${JSON.stringify(error)}`);
+    }
   }
 
   private sidebarWidth(): number {
@@ -581,44 +588,30 @@ struct MainPage {
     })
   }
 
-  // ==================== PC 三栏骨架 ====================
+  // ==================== 平板 / PC 共用工作台 ====================
 
   @Builder
   private wideShell() {
-    Row({ space: 0 }) {
-      Column() {
-        this.pcSidebar()
+    WideCaregiverWorkspace({
+      currentTabIndex: this.currentTabIndex,
+      statusBarHeight: this.globalInfoModel.statusBarHeight,
+      naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
+      onSwitchTab: (index: number) => {
+        this.switchTab(index);
+      },
+      onOpenAiChat: () => {
+        this.openAiChat();
+      },
+      onOpenAbout: () => {
+        this.pathStack.pushPath({ name: 'AboutPage' });
+      },
+      onOpenGeneral: () => {
+        this.pathStack.pushPath({ name: 'GeneralSettingsPage' });
+      },
+      onLogout: () => {
+        this.handleLogout();
       }
-      .width(this.sidebarWidth())
-      .height('100%')
-      .backgroundColor($r('sys.color.background_secondary'))
-      .border({ width: { right: 0.5 }, color: { right: $r('sys.color.comp_divider') } })
-
-      Column() {
-        this.pcTopBar()
-        Column() {
-          TabPageView({
-            currentTabIndex: this.currentTabIndex,
-            pageKey: PageKeyEnum.ADAPTIVE_TAB,
-            config: this.pageConfigs[this.currentTabIndex],
-            onSwitchTab: (index: number) => {
-              this.switchTab(index);
-            },
-            onOpenAiChat: () => {
-              this.openAiChat();
-            }
-          })
-        }
-        .layoutWeight(1)
-        .width('100%')
-      }
-      .layoutWeight(1)
-      .height('100%')
-      .backgroundColor($r('sys.color.background_secondary'))
-    }
-    .width('100%')
-    .height('100%')
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    })
   }
 
   @Builder
