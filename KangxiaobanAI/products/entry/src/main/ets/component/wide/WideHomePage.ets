@@ -559,6 +559,7 @@ export struct WideHomePage {
     .backgroundColor(this.isAiCardHovered ? $r('sys.color.interactive_hover') :
       $r('sys.color.comp_background_primary'))
     .borderRadius(16)
+    .geometryTransition('aiReminderCard', { follow: true })
     .keyboardFocusStyle()
     .onHover((isHover: boolean) => {
       this.isAiCardHovered = isHover;

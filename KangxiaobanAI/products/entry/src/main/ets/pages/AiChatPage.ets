@@ -134,7 +134,6 @@ class AiChatHistoryStore {
 @ComponentV2
 export struct AiChatPage {
   @Param @Require geometryId: string;
-  @Param embeddedInWorkspace: boolean = false;
   @Event onClose: () => void = () => {};
   @Event onMenu: () => void = () => {};
   @Local globalInfoModel: GlobalInfoModel =
@@ -342,9 +341,7 @@ export struct AiChatPage {
   }
 
   aboutToAppear(): void {
-    if (!this.embeddedInWorkspace) {
-      WindowUtil.setImmersiveMode(true);
-    }
+    WindowUtil.setImmersiveMode(true);
     this.previousKeyboardAvoidMode = this.getUIContext().getKeyboardAvoidMode();
     this.restoreActiveSession();
   }
@@ -353,9 +350,7 @@ export struct AiChatPage {
     this.syncActiveSession(this.messages, false);
     this.getUIContext().setKeyboardAvoidMode(this.previousKeyboardAvoidMode);
     this.cancelPendingWork();
-    if (!this.embeddedInWorkspace) {
-      WindowUtil.setImmersiveMode(false);
-    }
+    WindowUtil.setImmersiveMode(false);
   }
 
   private titleBarTitleText(): string {
@@ -1032,7 +1027,8 @@ export struct AiChatPage {
     if (this.keyboardOffset > 0) {
       return 8;
     }
-    return this.isWideLayout() ? 12 : this.globalInfoModel.naviIndicatorHeight;
+    return this.isWideLayout() ? Math.max(12, this.globalInfoModel.naviIndicatorHeight) :
+      this.globalInfoModel.naviIndicatorHeight;
   }
 
   @Builder
@@ -1205,7 +1201,8 @@ export struct AiChatPage {
       left: 14,
       right: 14,
       top: this.isWideLayout() ? 18 : this.globalInfoModel.statusBarHeight + 10,
-      bottom: this.isWideLayout() ? 18 : this.globalInfoModel.naviIndicatorHeight + 8
+      bottom: this.isWideLayout() ? Math.max(18, this.globalInfoModel.naviIndicatorHeight + 8) :
+        this.globalInfoModel.naviIndicatorHeight + 8
     })
     .backgroundColor($r('sys.color.background_secondary'))
     .shadow(this.isWideLayout() ? { radius: 0, color: Color.Transparent, offsetX: 0 } :
@@ -1393,7 +1390,7 @@ export struct AiChatPage {
     }
     .width('100%')
     .height('100%')
-    .padding({ top: this.embeddedInWorkspace ? 0 : this.globalInfoModel.statusBarHeight })
+    .padding({ top: this.globalInfoModel.statusBarHeight })
     .backgroundColor($r('sys.color.background_secondary'))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }

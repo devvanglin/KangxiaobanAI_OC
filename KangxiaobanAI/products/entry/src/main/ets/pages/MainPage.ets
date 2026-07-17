@@ -170,6 +170,14 @@ struct MainPage {
     })
   }
 
+  onBackPress(): boolean {
+    if (this.isAiChatShow) {
+      this.closeAiChat();
+      return true;
+    }
+    return false;
+  }
+
   private wideNavGroups(): WideNavGroup[] {
     return [
       {
@@ -596,7 +604,6 @@ struct MainPage {
     WideCaregiverWorkspace({
       currentTabIndex: this.currentTabIndex,
       statusBarHeight: this.globalInfoModel.statusBarHeight,
-      isAiChatShow: this.isAiChatShow,
       onSwitchTab: (index: number) => {
         this.switchTab(index);
       },
@@ -611,9 +618,6 @@ struct MainPage {
       },
       onLogout: () => {
         this.handleLogout();
-      },
-      onCloseAiChat: () => {
-        this.closeAiChat();
       }
     })
   }
@@ -683,7 +687,7 @@ struct MainPage {
         this.roleWipPanel()
       }
 
-      if (this.isAiChatShow && !this.isWideLayout()) {
+      if (this.isAiChatShow) {
         this.aiChatCover()
       }
     }

@@ -19,7 +19,6 @@ import { WideHomePage } from './WideHomePage';
 import { WideMessagePage } from './WideMessagePage';
 import { WideMinePage } from './WideMinePage';
 import { WideResidentPage } from './WideResidentPage';
-import { AiChatPage } from '../../pages/AiChatPage';
 
 interface WorkspaceNavItem {
   title: string;
@@ -33,13 +32,11 @@ interface WorkspaceNavItem {
 export struct WideCaregiverWorkspace {
   @Param @Require currentTabIndex: number;
   @Param statusBarHeight: number = 0;
-  @Param isAiChatShow: boolean = false;
   @Event onSwitchTab: (index: number) => void = (_index: number) => {};
   @Event onOpenAiChat: () => void = () => {};
   @Event onOpenAbout: () => void = () => {};
   @Event onOpenGeneral: () => void = () => {};
   @Event onLogout: () => void = () => {};
-  @Event onCloseAiChat: () => void = () => {};
   @Local hoveredNavIndex: number = -1;
   @Local focusedTarget: string = '';
 
@@ -92,60 +89,8 @@ export struct WideCaregiverWorkspace {
       .width('100%')
       .padding({ left: 14, right: 14, top: 12 })
 
-      Column({ space: 10 }) {
-        Row({ space: 12 }) {
-          Stack({ alignContent: Alignment.Center }) {
-            Row()
-              .width(38)
-              .height(38)
-              .borderRadius(19)
-              .backgroundColor($r('app.color.brand_blue'))
-              .opacity(0.12)
-            SymbolGlyph($r('sys.symbol.message_on_message_fill'))
-              .fontSize(20)
-              .fontColor([$r('app.color.brand_blue')])
-          }
-          Column({ space: 2 }) {
-            Text('康小伴 AI')
-              .fontSize(15)
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_primary'))
-            Text('随时发起照护咨询')
-              .fontSize(12)
-              .fontColor($r('sys.color.font_secondary'))
-          }
-          .layoutWeight(1)
-          .alignItems(HorizontalAlign.Start)
-          SymbolGlyph($r('sys.symbol.chevron_right'))
-            .fontSize(14)
-            .fontColor([$r('sys.color.icon_tertiary')])
-        }
-        .width('100%')
-        .height(62)
-        .padding({ left: 12, right: 12 })
-        .borderRadius(14)
-        .backgroundColor(this.focusedTarget === 'ai-entry' ? $r('sys.color.interactive_hover') :
-          $r('sys.color.comp_background_primary'))
-        .border({
-          width: this.focusedTarget === 'ai-entry' ? 2 : 0,
-          color: $r('app.color.brand_blue')
-        })
-        .focusable(true)
-        .focusOnTouch(true)
-        .onFocus(() => this.focusedTarget = 'ai-entry')
-        .onBlur(() => this.focusedTarget = '')
-        .onHover((isHover: boolean) => {
-          this.focusedTarget = isHover ? 'ai-entry' : '';
-        })
-        .onKeyEvent((event: KeyEvent) => {
-          this.activateWithKeyboard(event, () => this.onOpenAiChat());
-        })
-        .onClick(() => this.onOpenAiChat())
-      }
-      .layoutWeight(1)
-      .width('100%')
-      .justifyContent(FlexAlign.End)
-      .padding({ left: 14, right: 14, bottom: 14 })
+      Blank()
+        .layoutWeight(1)
 
       Row({ space: 12 }) {
         Stack({ alignContent: Alignment.Center }) {
@@ -370,22 +315,13 @@ export struct WideCaregiverWorkspace {
   @Builder
   private contentPanel() {
     Column() {
-      if (this.isAiChatShow) {
-        AiChatPage({
-          geometryId: 'aiReminderCard',
-          embeddedInWorkspace: true,
-          onClose: () => this.onCloseAiChat(),
-          onMenu: () => {}
-        })
-      } else {
-        this.commandBar()
-        Column() {
-          this.currentPage()
-        }
-        .layoutWeight(1)
-        .width('100%')
-        .backgroundColor($r('sys.color.background_secondary'))
+      this.commandBar()
+      Column() {
+        this.currentPage()
       }
+      .layoutWeight(1)
+      .width('100%')
+      .backgroundColor($r('sys.color.background_secondary'))
     }
     .width('100%')
     .height('100%')
