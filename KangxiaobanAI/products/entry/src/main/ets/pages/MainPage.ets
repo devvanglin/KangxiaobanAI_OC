@@ -83,6 +83,7 @@ struct MainPage {
 
   private switchTab(index: number): void {
     if (this.isWideLayout()) {
+      this.isAiChatShow = false;
       this.currentTabIndex = index;
     } else {
       this.controller.changeIndex(index);
@@ -595,7 +596,7 @@ struct MainPage {
     WideCaregiverWorkspace({
       currentTabIndex: this.currentTabIndex,
       statusBarHeight: this.globalInfoModel.statusBarHeight,
-      naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
+      isAiChatShow: this.isAiChatShow,
       onSwitchTab: (index: number) => {
         this.switchTab(index);
       },
@@ -610,6 +611,9 @@ struct MainPage {
       },
       onLogout: () => {
         this.handleLogout();
+      },
+      onCloseAiChat: () => {
+        this.closeAiChat();
       }
     })
   }
@@ -679,7 +683,7 @@ struct MainPage {
         this.roleWipPanel()
       }
 
-      if (this.isAiChatShow) {
+      if (this.isAiChatShow && !this.isWideLayout()) {
         this.aiChatCover()
       }
     }

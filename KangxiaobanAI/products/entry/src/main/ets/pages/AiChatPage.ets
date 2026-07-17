@@ -35,6 +35,7 @@ import {
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { StorageKey } from '../common/CommonConstants';
 import { WindowUtil } from '../util/WindowUtil';
+import { BreakpointUtil } from '../util/BreakpointSystem';
 import { AI_BRAND_NAME, AiTitleLabel } from '../component/AiTitleLabel';
 
 const CONTENT_TOP_OFFSET: number = 56;
@@ -133,6 +134,7 @@ class AiChatHistoryStore {
 @ComponentV2
 export struct AiChatPage {
   @Param @Require geometryId: string;
+  @Param embeddedInWorkspace: boolean = false;
   @Event onClose: () => void = () => {};
   @Event onMenu: () => void = () => {};
   @Local globalInfoModel: GlobalInfoModel =
@@ -326,14 +328,23 @@ export struct AiChatPage {
   }
 
   private historyDrawerWidth(): number {
+    if (this.isWideLayout()) {
+      return 280;
+    }
     if (this.globalInfoModel.deviceWidth <= 0) {
       return 240;
     }
     return Math.min(272, Math.max(232, this.globalInfoModel.deviceWidth * 0.64));
   }
 
+  private isWideLayout(): boolean {
+    return BreakpointUtil.isWide(this.globalInfoModel.widthBreakpoint);
+  }
+
   aboutToAppear(): void {
-    WindowUtil.setImmersiveMode(true);
+    if (!this.embeddedInWorkspace) {
+      WindowUtil.setImmersiveMode(true);
+    }
     this.previousKeyboardAvoidMode = this.getUIContext().getKeyboardAvoidMode();
     this.restoreActiveSession();
   }
@@ -342,7 +353,9 @@ export struct AiChatPage {
     this.syncActiveSession(this.messages, false);
     this.getUIContext().setKeyboardAvoidMode(this.previousKeyboardAvoidMode);
     this.cancelPendingWork();
-    WindowUtil.setImmersiveMode(false);
+    if (!this.embeddedInWorkspace) {
+      WindowUtil.setImmersiveMode(false);
+    }
   }
 
   private titleBarTitleText(): string {
@@ -442,8 +455,7 @@ export struct AiChatPage {
   }
 
   private pagePadding(): number {
-    if (this.globalInfoModel.widthBreakpoint === WidthBreakpoint.WIDTH_LG ||
-      this.globalInfoModel.widthBreakpoint === WidthBreakpoint.WIDTH_XL) {
+    if (this.isWideLayout()) {
       return 24;
     }
     return 16;
@@ -452,10 +464,10 @@ export struct AiChatPage {
   private expandMaxWidth(): number {
     const widthBreakpoint: WidthBreakpoint = this.globalInfoModel.widthBreakpoint;
     if (widthBreakpoint === WidthBreakpoint.WIDTH_LG || widthBreakpoint === WidthBreakpoint.WIDTH_XL) {
-      return 760;
+      return 1040;
     }
     if (widthBreakpoint === WidthBreakpoint.WIDTH_MD) {
-      return 680;
+      return 920;
     }
     return 9999;
   }
@@ -946,7 +958,7 @@ export struct AiChatPage {
     }
     .width('100%')
     .height('100%')
-    .padding({ top: this.globalInfoModel.statusBarHeight + CONTENT_TOP_OFFSET })
+    .padding({ top: this.isWideLayout() ? 20 : this.globalInfoModel.statusBarHeight + CONTENT_TOP_OFFSET })
     .alignItems(HorizontalAlign.Center)
   }
   @Builder
@@ -1017,7 +1029,10 @@ export struct AiChatPage {
   }
 
   private inputBottomMargin(): number {
-    return this.keyboardOffset > 0 ? 8 : this.globalInfoModel.naviIndicatorHeight;
+    if (this.keyboardOffset > 0) {
+      return 8;
+    }
+    return this.isWideLayout() ? 12 : this.globalInfoModel.naviIndicatorHeight;
   }
 
   @Builder
@@ -1034,8 +1049,8 @@ export struct AiChatPage {
     }
     .width('100%')
     .padding({
-      left: this.pagePadding(),
-      right: this.pagePadding(),
+      left: this.isWideLayout() ? 28 : this.pagePadding(),
+      right: this.isWideLayout() ? 28 : this.pagePadding(),
       top: 8,
       bottom: this.keyboardOffset > 0 ? 0 : 2
     })
@@ -1059,6 +1074,8 @@ export struct AiChatPage {
     .border({ width: 0.5, color: $r('sys.color.comp_divider') })
     .backgroundColor($r('sys.color.comp_background_primary'))
     .shadow({ radius: 8, color: 'rgba(0,0,0,0.06)', offsetY: 2 })
+    .focusable(true)
+    .focusOnTouch(true)
     .onClick(() => {
       this.startNewConversation();
     })
@@ -1120,6 +1137,8 @@ export struct AiChatPage {
     .borderRadius(9)
     .backgroundColor(session.id === this.historyStore.activeSessionId ?
       $r('sys.color.comp_background_tertiary') : Color.Transparent)
+    .focusable(true)
+    .focusOnTouch(true)
     .onClick(() => {
       this.selectSession(session.id);
     })
@@ -1142,6 +1161,21 @@ export struct AiChatPage {
   @Builder
   private historyDrawer() {
     Column({ space: 10 }) {
+      if (this.isWideLayout()) {
+        Column({ space: 3 }) {
+          Text('康小伴 AI')
+            .fontSize($r('sys.float.Title_M'))
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('sys.color.font_primary'))
+          Text('对话记录')
+            .fontSize($r('sys.float.Body_S'))
+            .fontColor($r('sys.color.font_secondary'))
+        }
+        .width('100%')
+        .padding({ left: 4, right: 4, bottom: 6 })
+        .alignItems(HorizontalAlign.Start)
+      }
+
       this.newConversationButton()
 
       Scroll() {
@@ -1170,12 +1204,12 @@ export struct AiChatPage {
     .padding({
       left: 14,
       right: 14,
-      top: this.globalInfoModel.statusBarHeight + 10,
-      bottom: this.globalInfoModel.naviIndicatorHeight + 8
+      top: this.isWideLayout() ? 18 : this.globalInfoModel.statusBarHeight + 10,
+      bottom: this.isWideLayout() ? 18 : this.globalInfoModel.naviIndicatorHeight + 8
     })
     .backgroundColor($r('sys.color.background_secondary'))
-    .shadow({ radius: 18, color: 'rgba(0,0,0,0.12)', offsetX: 3 })
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .shadow(this.isWideLayout() ? { radius: 0, color: Color.Transparent, offsetX: 0 } :
+      { radius: 18, color: 'rgba(0,0,0,0.12)', offsetX: 3 })
   }
 
   @Builder
@@ -1197,14 +1231,17 @@ export struct AiChatPage {
       ForEach(this.messages, (message: ChatMessage) => {
         ListItem() {
           Row() {
-            if (message.role === 'ai') {
-              this.aiMessageItem(message)
-            } else {
-              this.userMessageItem(message)
+            Column() {
+              if (message.role === 'ai') {
+                this.aiMessageItem(message)
+              } else {
+                this.userMessageItem(message)
+              }
             }
+            .width('100%')
+            .constraintSize({ maxWidth: this.expandMaxWidth() })
           }
           .width('100%')
-          .constraintSize({ maxWidth: this.expandMaxWidth() })
           .justifyContent(FlexAlign.Center)
         }
       }, (message: ChatMessage) => `${message.id}-${message.feedback ?? 'none'}`)
@@ -1212,10 +1249,13 @@ export struct AiChatPage {
       if (this.isGenerating) {
         ListItem() {
           Row() {
-            this.generatingItem()
+            Column() {
+              this.generatingItem()
+            }
+            .width('100%')
+            .constraintSize({ maxWidth: this.expandMaxWidth() })
           }
           .width('100%')
-          .constraintSize({ maxWidth: this.expandMaxWidth() })
           .justifyContent(FlexAlign.Center)
         }
       }
@@ -1225,7 +1265,7 @@ export struct AiChatPage {
     .edgeEffect(EdgeEffect.Spring)
     .contentStartOffset(8)
     .contentEndOffset(8)
-    .margin({ top: this.globalInfoModel.statusBarHeight + CONTENT_TOP_OFFSET })
+    .margin({ top: this.isWideLayout() ? 16 : this.globalInfoModel.statusBarHeight + CONTENT_TOP_OFFSET })
     .clip(true)
     .layoutWeight(1)
   }
@@ -1246,7 +1286,120 @@ export struct AiChatPage {
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 
-  build() {
+  @Builder
+  private wideHeaderIcon(symbol: Resource, label: string, action: () => void) {
+    Button({ type: ButtonType.Circle, stateEffect: true }) {
+      SymbolGlyph(symbol)
+        .fontSize(19)
+        .fontColor([$r('sys.color.icon_primary')])
+    }
+    .buttonStyle(ButtonStyleMode.NORMAL)
+    .width(40)
+    .height(40)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .accessibilityText(label)
+    .onClick(action)
+  }
+
+  @Builder
+  private wideTitleBar() {
+    Row({ space: 10 }) {
+      Column({ space: 3 }) {
+        Text(this.titleBarTitleText())
+          .fontSize($r('sys.float.Title_M'))
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('sys.color.font_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text('康小伴 AI · 智慧照护助手')
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(1)
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      Button({ type: ButtonType.Capsule, stateEffect: true }) {
+        Row({ space: 6 }) {
+          SymbolGlyph($r('sys.symbol.square_and_pencil'))
+            .fontSize(17)
+            .fontColor([$r('app.color.brand_blue')])
+          Text('新建对话')
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.brand_blue'))
+        }
+      }
+      .buttonStyle(ButtonStyleMode.NORMAL)
+      .height(40)
+      .padding({ left: 14, right: 14 })
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+      .onClick(() => {
+        this.startNewConversation();
+      })
+
+      this.wideHeaderIcon($r('sys.symbol.xmark'), '关闭', () => {
+        this.closeChatPage();
+      })
+    }
+    .width('100%')
+    .height(68)
+    .padding({ left: 24, right: 24 })
+    .alignItems(VerticalAlign.Center)
+    .backgroundColor($r('sys.color.background_primary'))
+    .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
+  }
+
+  @Builder
+  private wideConversationContent() {
+    Column() {
+      if (this.messages.length === 0) {
+        this.emptyConversationPage()
+      } else {
+        this.messageList()
+        this.inputArea(true)
+      }
+    }
+    .width('100%')
+    .layoutWeight(1)
+    .backgroundColor($r('sys.color.background_primary'))
+  }
+
+  @Builder
+  private wideLayout() {
+    Row({ space: 0 }) {
+      Column() {
+        this.historyDrawer()
+      }
+      .width(this.historyDrawerWidth())
+      .height('100%')
+      .backgroundColor($r('sys.color.background_secondary'))
+
+      Divider()
+        .vertical(true)
+        .height('100%')
+        .strokeWidth(0.5)
+        .color($r('sys.color.comp_divider'))
+
+      Column() {
+        this.wideTitleBar()
+        this.wideConversationContent()
+      }
+      .layoutWeight(1)
+      .height('100%')
+      .backgroundColor($r('sys.color.background_primary'))
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ top: this.embeddedInWorkspace ? 0 : this.globalInfoModel.statusBarHeight })
+    .backgroundColor($r('sys.color.background_secondary'))
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+  }
+
+  @Builder
+  private phoneLayout() {
     SideBarContainer(SideBarContainerType.Overlay) {
       this.historyDrawer()
 
@@ -1294,6 +1447,19 @@ export struct AiChatPage {
     .height('100%')
     .backgroundColor($r('sys.color.background_primary'))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+  }
+
+  build() {
+    Stack() {
+      if (this.isWideLayout()) {
+        this.wideLayout()
+      } else {
+        this.phoneLayout()
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('sys.color.background_primary'))
     .geometryTransition(this.geometryId)
     .transition(TransitionEffect.OPACITY)
   }

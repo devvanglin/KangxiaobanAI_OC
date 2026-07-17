@@ -115,10 +115,6 @@ export struct WideMessagePage {
     return this.unreadMessageIds.includes(messageId);
   }
 
-  private unreadCount(): number {
-    return this.unreadMessageIds.length;
-  }
-
   private filteredMessages(): WideMessageData[] {
     const query: string = this.searchText.trim().toLowerCase();
     return this.messages().filter((item: WideMessageData) => {
@@ -178,7 +174,7 @@ export struct WideMessagePage {
 
   private rowBackground(messageId: string): ResourceColor {
     if (messageId === this.selectedMessageId) {
-      return 0xFFEAF1FF;
+      return $r('sys.color.comp_background_secondary');
     }
     if (messageId === this.hoveredMessageId || messageId === this.focusedMessageId) {
       return $r('sys.color.interactive_hover');
@@ -297,13 +293,6 @@ export struct WideMessagePage {
   private messageRow(item: WideMessageData, isLast: boolean) {
     Column({ space: 0 }) {
       Row({ space: 12 }) {
-        Row()
-          .width(3)
-          .height(42)
-          .borderRadius(2)
-          .backgroundColor(item.id === this.selectedMessageId ? $r('app.color.brand_blue') :
-            $r('sys.color.ohos_id_color_background_transparent'))
-
         this.messageAvatar(item)
 
         Column({ space: 5 }) {
@@ -412,25 +401,6 @@ export struct WideMessagePage {
   @Builder
   private listPane() {
     Column({ space: 12 }) {
-      Row() {
-        Column({ space: 3 }) {
-          Text('全部消息')
-            .fontSize($r('sys.float.Title_M'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-          Text(`${this.unreadCount()} 条未读`)
-            .fontSize($r('sys.float.Body_S'))
-            .fontColor($r('sys.color.font_secondary'))
-        }
-        .alignItems(HorizontalAlign.Start)
-        Blank()
-        Text(`${this.filteredMessages().length}`)
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_tertiary'))
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-
       this.messageSearch()
       this.filterBar()
       this.messageList()

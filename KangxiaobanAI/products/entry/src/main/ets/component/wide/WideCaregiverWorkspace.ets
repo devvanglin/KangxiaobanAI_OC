@@ -19,6 +19,7 @@ import { WideHomePage } from './WideHomePage';
 import { WideMessagePage } from './WideMessagePage';
 import { WideMinePage } from './WideMinePage';
 import { WideResidentPage } from './WideResidentPage';
+import { AiChatPage } from '../../pages/AiChatPage';
 
 interface WorkspaceNavItem {
   title: string;
@@ -32,12 +33,13 @@ interface WorkspaceNavItem {
 export struct WideCaregiverWorkspace {
   @Param @Require currentTabIndex: number;
   @Param statusBarHeight: number = 0;
-  @Param naviIndicatorHeight: number = 0;
+  @Param isAiChatShow: boolean = false;
   @Event onSwitchTab: (index: number) => void = (_index: number) => {};
   @Event onOpenAiChat: () => void = () => {};
   @Event onOpenAbout: () => void = () => {};
   @Event onOpenGeneral: () => void = () => {};
   @Event onLogout: () => void = () => {};
+  @Event onCloseAiChat: () => void = () => {};
   @Local hoveredNavIndex: number = -1;
   @Local focusedTarget: string = '';
 
@@ -47,8 +49,7 @@ export struct WideCaregiverWorkspace {
     {
       title: '消息', subtitle: '通知与沟通', symbol: $r('sys.symbol.message_on_message_fill'), index: 2,
       badge: '3'
-    },
-    { title: '我的', subtitle: '账号与应用设置', symbol: $r('sys.symbol.person_crop_circle_fill'), index: 3 }
+    }
   ];
 
   private pageTitle(): string {
@@ -76,35 +77,6 @@ export struct WideCaregiverWorkspace {
   @Builder
   private sideBarPanel() {
     Column() {
-      Row({ space: 12 }) {
-        Stack({ alignContent: Alignment.Center }) {
-          Row()
-            .width(42)
-            .height(42)
-            .borderRadius(14)
-            .backgroundColor($r('app.color.brand_blue'))
-          Text('康')
-            .fontSize(20)
-            .fontWeight(FontWeight.Bold)
-            .fontColor(Color.White)
-        }
-
-        Column({ space: 2 }) {
-          Text('康小伴 AI')
-            .fontSize(19)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-          Text('智慧照护工作台')
-            .fontSize(12)
-            .fontColor($r('sys.color.font_secondary'))
-        }
-        .alignItems(HorizontalAlign.Start)
-      }
-      .width('100%')
-      .height(76)
-      .padding({ left: 22, right: 20 })
-      .alignItems(VerticalAlign.Center)
-
       Column({ space: 8 }) {
         Text('工作空间')
           .width('100%')
@@ -185,28 +157,41 @@ export struct WideCaregiverWorkspace {
           Text('LT')
             .fontSize(14)
             .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
+            .fontColor(this.currentTabIndex === 3 ? $r('app.color.brand_blue') :
+              $r('sys.color.font_primary'))
         }
         Column({ space: 2 }) {
           Text('刘婷')
             .fontSize(15)
             .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
+            .fontColor(this.currentTabIndex === 3 ? $r('app.color.brand_blue') :
+              $r('sys.color.font_primary'))
           Text('护工 · 白班')
             .fontSize(12)
             .fontColor($r('sys.color.font_secondary'))
         }
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
-        SymbolGlyph($r('sys.symbol.ellipsis_message_fill'))
-          .fontSize(18)
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(15)
           .fontColor([$r('sys.color.icon_secondary')])
       }
       .width('100%')
       .height(66)
       .padding({ left: 18, right: 18 })
       .border({ width: { top: 0.5 }, color: { top: $r('sys.color.comp_divider') } })
+      .backgroundColor(this.currentTabIndex === 3 ? $r('sys.color.comp_background_primary') :
+        this.focusedTarget === 'profile-entry' ? $r('sys.color.interactive_hover') : Color.Transparent)
       .alignItems(VerticalAlign.Center)
+      .focusable(true)
+      .focusOnTouch(true)
+      .onFocus(() => this.focusedTarget = 'profile-entry')
+      .onBlur(() => this.focusedTarget = '')
+      .onHover((isHover: boolean) => this.focusedTarget = isHover ? 'profile-entry' : '')
+      .onKeyEvent((event: KeyEvent) => {
+        this.activateWithKeyboard(event, () => this.onSwitchTab(3));
+      })
+      .onClick(() => this.onSwitchTab(3))
     }
     .width('100%')
     .height('100%')
@@ -257,10 +242,11 @@ export struct WideCaregiverWorkspace {
     .height(58)
     .padding({ left: 12, right: 12 })
     .borderRadius(14)
-    .backgroundColor(this.currentTabIndex === item.index ? $r('sys.color.comp_background_emphasize') :
+    .backgroundColor(this.currentTabIndex === item.index ? $r('sys.color.comp_background_primary') :
       this.hoveredNavIndex === item.index ? $r('sys.color.interactive_hover') : Color.Transparent)
     .border({
-      width: this.focusedTarget === `nav-${item.index}` ? 2 : 0,
+      width: this.focusedTarget === `nav-${item.index}` ? 2 :
+        this.currentTabIndex === item.index ? 1 : 0,
       color: $r('app.color.brand_blue')
     })
     .focusable(true)
@@ -351,19 +337,6 @@ export struct WideCaregiverWorkspace {
         this.commandBarAction('ai-action', $r('sys.symbol.message_on_message_fill'), false,
           () => this.onOpenAiChat())
         this.commandBarAction('notification-action', $r('sys.symbol.bell'), true, () => this.onSwitchTab(2))
-
-        Stack({ alignContent: Alignment.Center }) {
-          Row()
-            .width(40)
-            .height(40)
-            .borderRadius(20)
-            .backgroundColor($r('app.color.brand_blue'))
-            .opacity(0.14)
-          Text('LT')
-            .fontSize(13)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.brand_blue'))
-        }
       }
       .alignItems(VerticalAlign.Center)
     }
@@ -397,13 +370,22 @@ export struct WideCaregiverWorkspace {
   @Builder
   private contentPanel() {
     Column() {
-      this.commandBar()
-      Column() {
-        this.currentPage()
+      if (this.isAiChatShow) {
+        AiChatPage({
+          geometryId: 'aiReminderCard',
+          embeddedInWorkspace: true,
+          onClose: () => this.onCloseAiChat(),
+          onMenu: () => {}
+        })
+      } else {
+        this.commandBar()
+        Column() {
+          this.currentPage()
+        }
+        .layoutWeight(1)
+        .width('100%')
+        .backgroundColor($r('sys.color.background_secondary'))
       }
-      .layoutWeight(1)
-      .width('100%')
-      .backgroundColor($r('sys.color.background_secondary'))
     }
     .width('100%')
     .height('100%')
@@ -424,7 +406,7 @@ export struct WideCaregiverWorkspace {
     })
       .width('100%')
       .height('100%')
-      .padding({ top: this.statusBarHeight, bottom: this.naviIndicatorHeight })
+      .padding({ top: this.statusBarHeight })
       .backgroundColor($r('sys.color.background_secondary'))
   }
 }

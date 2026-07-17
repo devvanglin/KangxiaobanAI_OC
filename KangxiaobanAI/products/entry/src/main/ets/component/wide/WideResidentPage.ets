@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import { LengthMetrics } from '@kit.ArkUI';
+import { CapsuleSegmentButtonV2, LengthMetrics, SegmentButtonV2Items } from '@kit.ArkUI';
 import {
   MedicationProgress,
   ResidentData,
@@ -29,11 +29,6 @@ import {
 
 type ResidentFilter = 'all' | 'warning' | 'danger';
 type ResidentDetailTab = 'overview' | 'vitals' | 'care' | 'devices';
-
-interface ResidentFilterOption {
-  value: ResidentFilter;
-  label: string;
-}
 
 interface ResidentTabOption {
   value: ResidentDetailTab;
@@ -64,7 +59,12 @@ interface RiskRow {
 @ComponentV2
 export struct WideResidentPage {
   @Local residentSearch: string = '';
-  @Local residentFilter: ResidentFilter = 'all';
+  @Local residentFilterIndex: number = 0;
+  @Local residentFilterItems: SegmentButtonV2Items = new SegmentButtonV2Items([
+    { text: '全部 5' },
+    { text: '关注 2' },
+    { text: '危险 1' }
+  ]);
   @Local selectedResidentId: string = 'r1';
   @Local selectedTab: ResidentDetailTab = 'overview';
   @Local hoveredResidentId: string = '';
@@ -162,20 +162,23 @@ export struct WideResidentPage {
 
   private filteredResidents(): ResidentData[] {
     const keyword: string = this.residentSearch.trim();
+    const activeFilter: ResidentFilter = this.activeResidentFilter();
     return this.allResidents().filter((item: ResidentData) => {
       const matchesKeyword: boolean = keyword === '' ||
         item.name.includes(keyword) || item.room.includes(keyword) || item.bed.includes(keyword);
-      const matchesFilter: boolean = this.residentFilter === 'all' || item.level === this.residentFilter;
+      const matchesFilter: boolean = activeFilter === 'all' || item.level === activeFilter;
       return matchesKeyword && matchesFilter;
     });
   }
 
-  private filterOptions(): ResidentFilterOption[] {
-    return [
-      { value: 'all', label: '全部 5' },
-      { value: 'warning', label: '关注 2' },
-      { value: 'danger', label: '危险 1' }
-    ];
+  private activeResidentFilter(): ResidentFilter {
+    if (this.residentFilterIndex === 1) {
+      return 'warning';
+    }
+    if (this.residentFilterIndex === 2) {
+      return 'danger';
+    }
+    return 'all';
   }
 
   private tabOptions(): ResidentTabOption[] {
@@ -217,19 +220,14 @@ export struct WideResidentPage {
     return $r('app.color.status_normal_bg');
   }
 
-  private residentCardBackground(residentId: string): ResourceColor {
+  private residentRowBackground(residentId: string): ResourceColor {
     if (this.selectedResidentId === residentId) {
-      return 'rgba(29,99,237,0.10)';
+      return $r('sys.color.comp_background_secondary');
     }
     if (this.hoveredResidentId === residentId) {
       return $r('sys.color.interactive_hover');
     }
-    return $r('sys.color.comp_background_primary');
-  }
-
-  private residentCardBorder(residentId: string): ResourceColor {
-    return this.selectedResidentId === residentId ?
-      $r('app.color.brand_blue') : $r('sys.color.comp_divider');
+    return Color.Transparent;
   }
 
   private trendRows(resident: ResidentData): VitalTrendRow[] {
@@ -309,58 +307,38 @@ export struct WideResidentPage {
   @Builder
   private masterPane() {
     Column({ space: 0 }) {
-      Column({ space: 14 }) {
+      Column({ space: 12 }) {
         Row() {
-          Column({ space: 3 }) {
-            Text('长者管理')
-              .fontSize($r('sys.float.Title_M'))
-              .fontWeight(FontWeight.Bold)
-              .fontColor($r('sys.color.font_primary'))
-            Text('5 位长者 · 3 项需要关注')
-              .fontSize($r('sys.float.Body_S'))
-              .fontColor($r('sys.color.font_secondary'))
-          }
-          .alignItems(HorizontalAlign.Start)
-          .layoutWeight(1)
+          Text('5 位长者 · 3 项需要关注')
+            .fontSize($r('sys.float.Body_S'))
+            .fontColor($r('sys.color.font_secondary'))
+            .layoutWeight(1)
 
           Text('护理区 A')
             .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('app.color.brand_blue'))
-            .padding({ left: 9, right: 9, top: 5, bottom: 5 })
-            .backgroundColor('rgba(29,99,237,0.10)')
-            .borderRadius(6)
+            .fontColor($r('sys.color.font_secondary'))
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)
 
-        Row({ space: 8 }) {
-          SymbolGlyph($r('sys.symbol.magnifyingglass'))
-            .fontSize(17)
-            .fontColor([$r('sys.color.font_tertiary')])
-          TextInput({ placeholder: '搜索姓名、房间或床位', text: $$this.residentSearch })
-            .layoutWeight(1)
-            .height(40)
-            .fontSize($r('sys.float.Body_M'))
-            .fontColor($r('sys.color.font_primary'))
-            .placeholderColor($r('sys.color.font_tertiary'))
-            .backgroundColor(Color.Transparent)
-        }
-        .width('100%')
-        .height(42)
-        .padding({ left: 12, right: 8 })
-        .backgroundColor($r('sys.color.comp_background_tertiary'))
-        .borderRadius(8)
+        Search({ value: this.residentSearch, placeholder: '搜索姓名、房间或床位' })
+          .width('100%')
+          .height(40)
+          .fontColor($r('sys.color.font_primary'))
+          .placeholderColor($r('sys.color.font_tertiary'))
+          .backgroundColor($r('sys.color.comp_background_tertiary'))
+          .borderRadius(10)
+          .focusBox({ margin: LengthMetrics.vp(1), strokeWidth: LengthMetrics.vp(2) })
+          .onChange((value: string) => {
+            this.residentSearch = value;
+          })
 
         this.filterBar()
       }
       .width('100%')
-      .padding({ left: 18, right: 18, top: 20, bottom: 16 })
+      .padding({ left: 16, right: 16, top: 16, bottom: 12 })
 
-      Divider()
-        .strokeWidth(0.5)
-        .color($r('sys.color.comp_divider'))
-
-      List({ space: 8 }) {
+      List({ space: 0 }) {
         if (this.filteredResidents().length === 0) {
           ListItem() {
             Column({ space: 8 }) {
@@ -378,7 +356,16 @@ export struct WideResidentPage {
           Repeat(this.filteredResidents())
             .each((repeatItem: RepeatItem<ResidentData>) => {
               ListItem() {
-                this.residentListCard(repeatItem.item)
+                Column({ space: 0 }) {
+                  this.residentListRow(repeatItem.item)
+                  if (repeatItem.index !== this.filteredResidents().length - 1) {
+                    Divider()
+                      .strokeWidth(0.5)
+                      .color($r('sys.color.comp_divider'))
+                      .margin({ left: 68, right: 12 })
+                  }
+                }
+                .width('100%')
               }
             })
             .key((item: ResidentData) => item.id)
@@ -386,68 +373,50 @@ export struct WideResidentPage {
       }
       .width('100%')
       .layoutWeight(1)
-      .padding({ left: 12, right: 12, top: 12, bottom: 16 })
+      .margin({ left: 12, right: 12, bottom: 14 })
+      .padding({ top: 4, bottom: 4 })
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(14)
+      .clip(true)
       .scrollBar(BarState.Auto)
       .edgeEffect(EdgeEffect.Spring)
     }
     .width(360)
     .height('100%')
-    .backgroundColor($r('sys.color.comp_background_primary'))
+    .backgroundColor($r('sys.color.background_secondary'))
   }
 
   @Builder
   private filterBar() {
-    Row({ space: 6 }) {
-      Repeat(this.filterOptions())
-        .each((repeatItem: RepeatItem<ResidentFilterOption>) => {
-          Button(repeatItem.item.label, { type: ButtonType.Normal, stateEffect: true })
-            .layoutWeight(1)
-            .height(32)
-            .fontSize($r('sys.float.Body_S'))
-            .fontWeight(this.residentFilter === repeatItem.item.value ? FontWeight.Medium : FontWeight.Regular)
-            .fontColor(this.residentFilter === repeatItem.item.value ?
-              $r('app.color.text_on_brand') : $r('sys.color.font_secondary'))
-            .backgroundColor(this.residentFilter === repeatItem.item.value ?
-              $r('app.color.brand_blue') : $r('sys.color.comp_background_tertiary'))
-            .borderRadius(6)
-            .focusBox({ margin: LengthMetrics.vp(2), strokeWidth: LengthMetrics.vp(2) })
-            .onClick(() => {
-              this.residentFilter = repeatItem.item.value;
-            })
-        })
-        .key((item: ResidentFilterOption) => item.value)
-    }
+    CapsuleSegmentButtonV2({
+      items: this.residentFilterItems,
+      selectedIndex: this.residentFilterIndex,
+      onItemClicked: (index: number) => {
+        this.residentFilterIndex = index;
+      }
+    })
     .width('100%')
+    .height(36)
   }
 
   @Builder
-  private residentListCard(resident: ResidentData) {
+  private residentListRow(resident: ResidentData) {
     Button({ type: ButtonType.Normal, stateEffect: true }) {
       Row({ space: 12 }) {
-        Stack({ alignContent: Alignment.Center }) {
-          Text(resident.avatarText ?? resident.name.slice(0, 1))
-            .fontSize($r('sys.float.Subtitle_L'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.brand_blue'))
-            .width(44)
-            .height(44)
-            .textAlign(TextAlign.Center)
-            .backgroundColor('rgba(29,99,237,0.12)')
-            .borderRadius(22)
+        Text(resident.avatarText ?? resident.name.slice(0, 1))
+          .fontSize($r('sys.float.Subtitle_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+          .width(40)
+          .height(40)
+          .textAlign(TextAlign.Center)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .borderRadius(20)
 
-          Circle({ width: 10, height: 10 })
-            .fill(this.statusColor(resident.level))
-            .stroke($r('sys.color.comp_background_primary'))
-            .strokeWidth(2)
-            .align(Alignment.BottomEnd)
-        }
-        .width(44)
-        .height(44)
-
-        Column({ space: 7 }) {
+        Column({ space: 5 }) {
           Row({ space: 8 }) {
             Text(resident.name)
-              .fontSize($r('sys.float.Subtitle_M'))
+              .fontSize($r('sys.float.Body_L'))
               .fontWeight(FontWeight.Medium)
               .fontColor($r('sys.color.font_primary'))
               .maxLines(1)
@@ -456,53 +425,34 @@ export struct WideResidentPage {
 
             Text(this.statusText(resident.level))
               .fontSize($r('sys.float.Caption_M'))
-              .fontColor(this.statusColor(resident.level))
-              .padding({ left: 7, right: 7, top: 2, bottom: 2 })
-              .backgroundColor(this.statusBackground(resident.level))
-              .borderRadius(5)
+              .fontColor($r('sys.color.font_secondary'))
           }
           .width('100%')
           .alignItems(VerticalAlign.Center)
 
-          Row({ space: 8 }) {
-            Text(`${resident.room} · ${resident.bed}`)
-              .fontSize($r('sys.float.Body_S'))
-              .fontColor($r('sys.color.font_secondary'))
-              .maxLines(1)
-
-            Text(resident.status)
-              .fontSize($r('sys.float.Body_S'))
-              .fontColor(resident.level === 'normal' ?
-                $r('sys.color.font_tertiary') : this.statusColor(resident.level))
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .layoutWeight(1)
-          }
-          .width('100%')
+          Text(`${resident.room} · ${resident.bed} · ${resident.status}`)
+            .width('100%')
+            .fontSize($r('sys.float.Body_S'))
+            .fontColor($r('sys.color.font_tertiary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
         }
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
-
-        SymbolGlyph($r('sys.symbol.chevron_right'))
-          .fontSize(15)
-          .fontColor([this.selectedResidentId === resident.id ?
-            $r('app.color.brand_blue') : $r('sys.color.font_tertiary')])
       }
       .width('100%')
       .height('100%')
-      .padding({ left: 14, right: 12 })
+      .padding({ left: 12, right: 12 })
       .alignItems(VerticalAlign.Center)
     }
-    .width('100%')
-    .height(82)
-    .backgroundColor(this.residentCardBackground(resident.id))
+    .width('calc(100% - 8vp)')
+    .height(72)
+    .margin({ left: 4, right: 4 })
+    .backgroundColor(this.residentRowBackground(resident.id))
     .borderRadius(10)
-    .border({
-      width: this.selectedResidentId === resident.id ? 1 : 0.5,
-      color: this.residentCardBorder(resident.id)
-    })
     .hoverEffect(HoverEffect.None)
     .focusable(true)
+    .focusOnTouch(true)
     .focusBox({ margin: LengthMetrics.vp(2), strokeWidth: LengthMetrics.vp(2) })
     .onHover((isHover: boolean) => {
       this.hoveredResidentId = isHover ? resident.id : '';

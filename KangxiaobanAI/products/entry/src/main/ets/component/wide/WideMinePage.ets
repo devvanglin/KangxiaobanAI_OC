@@ -14,6 +14,7 @@
  */
 
 import { ColorMetrics, LengthMetrics } from '@kit.ArkUI';
+import { KeyCode } from '@kit.InputKit';
 
 interface WideMineQuickAction {
   id: string;
@@ -70,7 +71,7 @@ export struct WideMinePage {
     ];
   }
 
-  private settingItems(): WideMineSettingItem[] {
+  private accountSettingItems(): WideMineSettingItem[] {
     return [
       {
         id: 'security',
@@ -89,7 +90,12 @@ export struct WideMinePage {
         icon: $r('sys.symbol.share'),
         label: '登录设备',
         value: '2 台'
-      },
+      }
+    ];
+  }
+
+  private applicationSettingItems(): WideMineSettingItem[] {
+    return [
       {
         id: 'about',
         icon: $r('sys.symbol.info_circle'),
@@ -127,75 +133,68 @@ export struct WideMinePage {
     }
   }
 
-  @Builder
-  private identityCard() {
-    Column({ space: 18 }) {
-      Row({ space: 14 }) {
-        Stack({ alignContent: Alignment.Center }) {
-          Row()
-            .width(68)
-            .height(68)
-            .borderRadius(34)
-            .backgroundColor(0xFFEAF1FF)
-          Text('LT')
-            .fontSize(24)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.brand_blue'))
-        }
-
-        Column({ space: 5 }) {
-          Row({ space: 8 }) {
-            Text('刘婷')
-              .fontSize($r('sys.float.Title_M'))
-              .fontWeight(FontWeight.Bold)
-              .fontColor($r('sys.color.font_primary'))
-            Text('L3')
-              .fontSize($r('sys.float.Caption_M'))
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('app.color.brand_blue'))
-              .padding({ left: 7, right: 7, top: 2, bottom: 2 })
-              .backgroundColor(0xFFEAF1FF)
-              .borderRadius(6)
-          }
-          .alignItems(VerticalAlign.Center)
-
-          Text('阳光护士（2024）')
-            .fontSize($r('sys.float.Body_M'))
-            .fontColor($r('sys.color.font_secondary'))
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-
-      Divider()
-        .strokeWidth(0.5)
-        .color($r('sys.color.comp_divider'))
-
-      Row({ space: 9 }) {
-        SymbolGlyph($r('sys.symbol.person_2_fill'))
-          .fontSize(17)
-          .fontColor([$r('sys.color.icon_secondary')])
-        Text('康养中心 · 护理一组')
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_secondary'))
-      }
-      .width('100%')
+  private activateWithKeyboard(event: KeyEvent, action: () => void): void {
+    if (event.type === KeyType.Down &&
+      (event.keyCode === KeyCode.KEYCODE_ENTER || event.keyCode === KeyCode.KEYCODE_SPACE)) {
+      action();
     }
-    .width('100%')
-    .padding(18)
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   @Builder
-  private shiftCard() {
-    Column({ space: 14 }) {
+  private identityOverview() {
+    Row({ space: 14 }) {
+      Stack({ alignContent: Alignment.Center }) {
+        Row()
+          .width(62)
+          .height(62)
+          .borderRadius(31)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+        Text('LT')
+          .fontSize(22)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.brand_blue'))
+      }
+
+      Column({ space: 4 }) {
+        Row({ space: 8 }) {
+          Text('刘婷')
+            .fontSize($r('sys.float.Title_M'))
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('sys.color.font_primary'))
+          Text('L3')
+            .fontSize($r('sys.float.Caption_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.brand_blue'))
+            .padding({ left: 7, right: 7, top: 2, bottom: 2 })
+            .backgroundColor(0xFFEAF1FF)
+            .borderRadius(6)
+        }
+        .alignItems(VerticalAlign.Center)
+
+        Text('阳光护士（2024）')
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text('康养中心 · 护理一组')
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_tertiary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+    }
+    .layoutWeight(1)
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  private shiftOverview() {
+    Column({ space: 8 }) {
       Row() {
         Text('当前班次')
-          .fontSize($r('sys.float.Body_L'))
+          .fontSize($r('sys.float.Body_M'))
           .fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.font_primary'))
         Blank()
@@ -203,44 +202,30 @@ export struct WideMinePage {
           .fontSize($r('sys.float.Caption_M'))
           .fontWeight(FontWeight.Medium)
           .fontColor($r('app.color.status_normal'))
-          .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-          .backgroundColor($r('app.color.status_normal_bg'))
-          .borderRadius(6)
       }
       .width('100%')
 
-      Row({ space: 10 }) {
-        SymbolGlyph($r('sys.symbol.calendar_badge_clock'))
-          .fontSize(20)
-          .fontColor([$r('app.color.brand_blue')])
-        Column({ space: 4 }) {
-          Text('早班 · 07:30 - 16:00')
-            .fontSize($r('sys.float.Body_M'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-          Text('护理一组 · 负责 28 位长者')
-            .fontSize($r('sys.float.Body_S'))
-            .fontColor($r('sys.color.font_secondary'))
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
-      }
-      .width('100%')
+      Text('早班 · 07:30 - 16:00')
+        .fontSize($r('sys.float.Body_L'))
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
 
       Stack({ alignContent: Alignment.Start }) {
         Row()
           .width('100%')
-          .height(6)
+          .height(5)
           .borderRadius(3)
           .backgroundColor($r('sys.color.comp_background_secondary'))
         Row()
           .width('62%')
-          .height(6)
+          .height(5)
           .borderRadius(3)
           .backgroundColor($r('app.color.brand_blue'))
       }
       .width('100%')
-      .height(6)
+      .height(5)
 
       Row() {
         Text('已完成 5 小时 16 分')
@@ -253,122 +238,135 @@ export struct WideMinePage {
       }
       .width('100%')
     }
-    .width('100%')
-    .padding(18)
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .layoutWeight(1)
+    .justifyContent(FlexAlign.Center)
   }
 
   @Builder
-  private statItem(value: string, label: string) {
-    Column({ space: 4 }) {
+  private summaryStat(value: string, label: string) {
+    Column({ space: 2 }) {
       Text(value)
-        .fontSize(21)
+        .fontSize(20)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('sys.color.font_primary'))
       Text(label)
-        .fontSize($r('sys.float.Body_S'))
+        .fontSize($r('sys.float.Caption_M'))
         .fontColor($r('sys.color.font_secondary'))
+        .maxLines(1)
     }
     .layoutWeight(1)
-    .height(66)
+    .height(48)
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
   }
 
   @Builder
-  private statsCard() {
-    Column({ space: 0 }) {
+  private workOverview() {
+    Column({ space: 4 }) {
       Text('本月工作')
-        .fontSize($r('sys.float.Body_L'))
+        .fontSize($r('sys.float.Body_M'))
         .fontWeight(FontWeight.Medium)
         .fontColor($r('sys.color.font_primary'))
         .width('100%')
-        .padding({ left: 18, right: 18, top: 16, bottom: 8 })
 
       Row({ space: 0 }) {
-        this.statItem('28', '负责长者')
+        this.summaryStat('28', '负责长者')
         Divider()
           .vertical(true)
-          .height(40)
+          .height(30)
           .strokeWidth(0.5)
           .color($r('sys.color.comp_divider'))
-        this.statItem('92%', '班次完成')
+        this.summaryStat('92%', '班次完成')
       }
       .width('100%')
 
       Divider()
         .strokeWidth(0.5)
         .color($r('sys.color.comp_divider'))
-        .margin({ left: 18, right: 18 })
 
       Row({ space: 0 }) {
-        this.statItem('4.9', '服务评分')
+        this.summaryStat('4.9', '服务评分')
         Divider()
           .vertical(true)
-          .height(40)
+          .height(30)
           .strokeWidth(0.5)
           .color($r('sys.color.comp_divider'))
-        this.statItem('12h', '培训时长')
+        this.summaryStat('12h', '培训时长')
       }
       .width('100%')
     }
+    .layoutWeight(1.15)
+    .justifyContent(FlexAlign.Center)
+  }
+
+  @Builder
+  private overviewCard() {
+    Row({ space: 20 }) {
+      this.identityOverview()
+
+      Divider()
+        .vertical(true)
+        .height(104)
+        .strokeWidth(0.5)
+        .color($r('sys.color.comp_divider'))
+
+      this.shiftOverview()
+
+      Divider()
+        .vertical(true)
+        .height(104)
+        .strokeWidth(0.5)
+        .color($r('sys.color.comp_divider'))
+
+      this.workOverview()
+    }
     .width('100%')
+    .height(158)
+    .padding({ left: 20, right: 20 })
+    .alignItems(VerticalAlign.Center)
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(16)
     .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   @Builder
-  private profilePane() {
-    Scroll() {
-      Column({ space: 14 }) {
-        this.identityCard()
-        this.shiftCard()
-        this.statsCard()
-      }
-      .width('100%')
-      .padding({ left: 18, right: 18, top: 18, bottom: 24 })
-    }
-    .width(348)
-    .height('100%')
-    .scrollBar(BarState.Auto)
-    .edgeEffect(EdgeEffect.Spring)
-    .backgroundColor($r('sys.color.background_secondary'))
-    .border({ width: { right: 0.5 }, color: { right: $r('sys.color.comp_divider') } })
-  }
-
-  @Builder
   private quickActionItem(item: WideMineQuickAction) {
-    Column({ space: 9 }) {
+    Row({ space: 12 }) {
       Row() {
         SymbolGlyph(item.icon)
-          .fontSize(24)
+          .fontSize(22)
           .fontColor([$r('app.color.brand_blue')])
       }
-      .width(46)
-      .height(46)
-      .borderRadius(12)
+      .width(40)
+      .height(40)
+      .borderRadius(10)
       .justifyContent(FlexAlign.Center)
-      .backgroundColor(0xFFEAF1FF)
+      .backgroundColor($r('sys.color.comp_background_secondary'))
 
-      Text(item.label)
-        .fontSize($r('sys.float.Body_M'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-      Text(item.description)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_tertiary'))
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      Column({ space: 3 }) {
+        Text(item.label)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+          .maxLines(1)
+        Text(item.description)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_tertiary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      SymbolGlyph($r('sys.symbol.chevron_right'))
+        .fontSize(14)
+        .fontColor([$r('sys.color.icon_tertiary')])
     }
     .layoutWeight(1)
-    .height(128)
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Center)
-    .backgroundColor(this.quickActionBackground(item.id))
+    .height(72)
+    .padding({ left: 12, right: 12 })
     .borderRadius(10)
+    .backgroundColor(this.quickActionBackground(item.id))
     .focusable(true)
     .focusOnTouch(true)
     .focusBox({
@@ -391,19 +389,19 @@ export struct WideMinePage {
 
   @Builder
   private quickActionsCard() {
-    Column({ space: 4 }) {
+    Column({ space: 2 }) {
       Row() {
         Text('常用功能')
           .fontSize($r('sys.float.Title_M'))
           .fontWeight(FontWeight.Bold)
           .fontColor($r('sys.color.font_primary'))
         Blank()
-        Text('四项')
+        Text('工作入口')
           .fontSize($r('sys.float.Body_S'))
           .fontColor($r('sys.color.font_tertiary'))
       }
       .width('100%')
-      .padding({ left: 18, right: 18, top: 16, bottom: 4 })
+      .padding({ left: 18, right: 18, top: 15, bottom: 4 })
 
       Row({ space: 4 }) {
         ForEach(this.quickActions(), (item: WideMineQuickAction) => {
@@ -411,7 +409,7 @@ export struct WideMinePage {
         }, (item: WideMineQuickAction) => item.id)
       }
       .width('100%')
-      .padding({ left: 8, right: 8, bottom: 8 })
+      .padding({ left: 6, right: 6, bottom: 8 })
     }
     .width('100%')
     .backgroundColor($r('sys.color.comp_background_primary'))
@@ -422,15 +420,15 @@ export struct WideMinePage {
   @Builder
   private settingRow(item: WideMineSettingItem, isLast: boolean) {
     Column({ space: 0 }) {
-      Row({ space: 13 }) {
+      Row({ space: 12 }) {
         Row() {
           SymbolGlyph(item.icon)
-            .fontSize(20)
-            .fontColor([$r('sys.color.font_primary')])
+            .fontSize(19)
+            .fontColor([$r('sys.color.icon_primary')])
         }
-        .width(36)
-        .height(36)
-        .borderRadius(10)
+        .width(34)
+        .height(34)
+        .borderRadius(9)
         .justifyContent(FlexAlign.Center)
         .backgroundColor($r('sys.color.comp_background_secondary'))
 
@@ -446,7 +444,7 @@ export struct WideMinePage {
         }
 
         SymbolGlyph($r('sys.symbol.chevron_right'))
-          .fontSize(16)
+          .fontSize(15)
           .fontColor([$r('sys.color.icon_tertiary')])
       }
       .width('100%')
@@ -457,7 +455,7 @@ export struct WideMinePage {
         Divider()
           .strokeWidth(0.5)
           .color($r('sys.color.comp_divider'))
-          .margin({ left: 64, right: 16 })
+          .margin({ left: 62, right: 16 })
       }
     }
     .width('100%')
@@ -480,56 +478,51 @@ export struct WideMinePage {
         this.focusedSettingId = '';
       }
     })
+    .onKeyEvent((event: KeyEvent) => {
+      this.activateWithKeyboard(event, () => this.openSetting(item.id));
+    })
     .onClick(() => {
       this.openSetting(item.id);
     })
   }
 
   @Builder
-  private settingsCard() {
+  private logoutRow() {
     Column({ space: 0 }) {
-      ForEach(this.settingItems(), (item: WideMineSettingItem, index: number) => {
-        this.settingRow(item, index === this.settingItems().length - 1)
-      }, (item: WideMineSettingItem) => item.id)
-    }
-    .width('100%')
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-    .clip(true)
-  }
+      Divider()
+        .strokeWidth(0.5)
+        .color($r('sys.color.comp_divider'))
+        .margin({ left: 62, right: 16 })
 
-  @Builder
-  private logoutCard() {
-    Row({ space: 13 }) {
-      Row() {
-        SymbolGlyph($r('sys.symbol.xmark'))
-          .fontSize(20)
-          .fontColor([$r('app.color.status_danger')])
+      Row({ space: 12 }) {
+        Row() {
+          SymbolGlyph($r('sys.symbol.xmark'))
+            .fontSize(19)
+            .fontColor([$r('app.color.status_danger')])
+        }
+        .width(34)
+        .height(34)
+        .borderRadius(9)
+        .justifyContent(FlexAlign.Center)
+        .backgroundColor($r('app.color.status_danger_bg'))
+
+        Text('退出登录')
+          .fontSize($r('sys.float.Body_L'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.status_danger'))
+          .layoutWeight(1)
       }
-      .width(36)
-      .height(36)
-      .borderRadius(10)
-      .justifyContent(FlexAlign.Center)
-      .backgroundColor($r('app.color.status_danger_bg'))
-
-      Text('退出登录')
-        .fontSize($r('sys.float.Body_L'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('app.color.status_danger'))
-        .layoutWeight(1)
+      .width('100%')
+      .height(58)
+      .padding({ left: 16, right: 16 })
     }
     .width('100%')
-    .height(58)
-    .padding({ left: 16, right: 16 })
     .backgroundColor(this.hoveredLogout || this.focusedLogout ? $r('sys.color.interactive_hover') :
-      $r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+      $r('sys.color.ohos_id_color_background_transparent'))
     .focusable(true)
     .focusOnTouch(true)
     .focusBox({
-      margin: LengthMetrics.vp(2),
+      margin: LengthMetrics.vp(-2),
       strokeWidth: LengthMetrics.vp(2),
       strokeColor: ColorMetrics.numeric(0xFF1D63ED)
     })
@@ -542,56 +535,71 @@ export struct WideMinePage {
     .onBlur(() => {
       this.focusedLogout = false;
     })
+    .onKeyEvent((event: KeyEvent) => {
+      this.activateWithKeyboard(event, () => this.onLogout());
+    })
     .onClick(() => {
       this.onLogout();
     })
   }
 
   @Builder
-  private workspacePane() {
-    Scroll() {
-      Row() {
-        Column({ space: 14 }) {
-          this.quickActionsCard()
-
-          Text('账号与应用')
-            .fontSize($r('sys.float.Title_M'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-            .width('100%')
-            .padding({ left: 2, top: 4, bottom: 2 })
-
-          this.settingsCard()
-          this.logoutCard()
-
-          Text('康小伴 AI · 护工工作台')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_tertiary'))
-            .width('100%')
-            .textAlign(TextAlign.Center)
-            .padding({ top: 6 })
-        }
-        .width('100%')
-        .constraintSize({ maxWidth: 920 })
+  private settingGroup(title: string, description: string, items: WideMineSettingItem[], showLogout: boolean) {
+    Column({ space: 0 }) {
+      Column({ space: 3 }) {
+        Text(title)
+          .fontSize($r('sys.float.Title_M'))
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('sys.color.font_primary'))
+        Text(description)
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_tertiary'))
       }
       .width('100%')
+      .height(62)
+      .padding({ left: 18, right: 18 })
       .justifyContent(FlexAlign.Center)
-      .padding({ left: 28, right: 28, top: 18, bottom: 28 })
+      .alignItems(HorizontalAlign.Start)
+
+      Divider()
+        .strokeWidth(0.5)
+        .color($r('sys.color.comp_divider'))
+
+      ForEach(items, (item: WideMineSettingItem, index: number) => {
+        this.settingRow(item, index === items.length - 1)
+      }, (item: WideMineSettingItem) => item.id)
+
+      if (showLogout) {
+        this.logoutRow()
+      }
     }
     .layoutWeight(1)
-    .height('100%')
-    .scrollBar(BarState.Auto)
-    .edgeEffect(EdgeEffect.Spring)
-    .backgroundColor($r('sys.color.background_secondary'))
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(16)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .clip(true)
   }
 
   build() {
-    Row({ space: 0 }) {
-      this.profilePane()
-      this.workspacePane()
+    Scroll() {
+      Column({ space: 14 }) {
+        this.overviewCard()
+        this.quickActionsCard()
+
+        Row({ space: 14 }) {
+          this.settingGroup('账号与权限', '安全、通知和登录设备', this.accountSettingItems(), false)
+          this.settingGroup('应用与支持', '偏好设置、产品信息和账号操作', this.applicationSettingItems(), true)
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Top)
+      }
+      .width('100%')
+      .padding({ left: 18, right: 18, top: 18, bottom: 24 })
     }
     .width('100%')
     .height('100%')
+    .scrollBar(BarState.Auto)
+    .edgeEffect(EdgeEffect.Spring)
     .backgroundColor($r('sys.color.background_secondary'))
   }
 }

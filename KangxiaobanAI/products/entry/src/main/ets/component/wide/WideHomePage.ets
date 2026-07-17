@@ -444,18 +444,6 @@ export struct WideHomePage {
   private clockCard() {
     Column({ space: 14 }) {
       Row({ space: 10 }) {
-        Row() {
-          SymbolGlyph($r('sys.symbol.calendar_badge_clock'))
-            .fontSize(20)
-            .fontColor([$r('app.color.brand_blue')])
-        }
-        .width(36)
-        .height(36)
-        .borderRadius(18)
-        .backgroundColor($r('sys.color.comp_background_emphasize'))
-        .justifyContent(FlexAlign.Center)
-        .alignItems(VerticalAlign.Center)
-
         Text('今日考勤')
           .fontSize($r('sys.float.Title_S'))
           .fontWeight(FontWeight.Medium)
@@ -532,18 +520,6 @@ export struct WideHomePage {
   private aiCard() {
     Column({ space: 10 }) {
       Row({ space: 10 }) {
-        Row() {
-          SymbolGlyph($r('sys.symbol.AI_message'))
-            .fontSize(20)
-            .fontColor([$r('app.color.brand_blue')])
-        }
-        .width(36)
-        .height(36)
-        .borderRadius(18)
-        .backgroundColor($r('sys.color.comp_background_emphasize'))
-        .justifyContent(FlexAlign.Center)
-        .alignItems(VerticalAlign.Center)
-
         Column({ space: 1 }) {
           Text('康小伴 AI')
             .fontSize($r('sys.float.Title_S'))
@@ -595,12 +571,6 @@ export struct WideHomePage {
   @Builder
   private aiReminderRow(item: WideAiReminder, isLast: boolean) {
     Row({ space: 12 }) {
-      Column()
-        .width(4)
-        .height(38)
-        .borderRadius(2)
-        .backgroundColor(this.statusColor(item.level))
-
       Column({ space: 3 }) {
         Text(item.title)
           .fontSize($r('sys.float.Body_L'))
@@ -897,17 +867,6 @@ export struct WideHomePage {
         }
         .alignItems(HorizontalAlign.Start)
 
-        Blank()
-
-        Text('2')
-          .fontSize($r('sys.float.Caption_M'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.text_on_brand'))
-          .width(24)
-          .height(24)
-          .textAlign(TextAlign.Center)
-          .backgroundColor($r('app.color.status_danger'))
-          .borderRadius(12)
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)
@@ -930,12 +889,6 @@ export struct WideHomePage {
   @Builder
   private focusRow(item: WideFocusItem, isLast: boolean) {
     Row({ space: 11 }) {
-      Column()
-        .width(4)
-        .height(54)
-        .borderRadius(2)
-        .backgroundColor(this.statusColor(item.level))
-
       Column({ space: 4 }) {
         Row({ space: 8 }) {
           Text(item.name)
