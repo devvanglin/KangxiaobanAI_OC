@@ -64,6 +64,7 @@ struct MainPage {
   private tabsBar: BottomTabBarStyle[] = TabsBarModel.getTabBarByPage(PageKeyEnum.ADAPTIVE_TAB) ?? [];
   private pageConfigs: TabPageConfig[] = TAB_PAGE_CONFIGS;
   @Local currentTabIndex: number = 0;
+  @Local primaryTabIndex: number = 0;
   @Local isSidebarCollapsed: boolean = false;
   @Local isAiChatShow: boolean = false;
 
@@ -81,10 +82,17 @@ struct MainPage {
     return this.pageConfigs[this.currentTabIndex]?.title ?? $r('app.string.tab_home');
   }
 
+  private updateTabSelection(index: number): void {
+    if (index === 0 || index === 1) {
+      this.primaryTabIndex = index;
+    }
+    this.currentTabIndex = index;
+  }
+
   private switchTab(index: number): void {
     if (this.isWideLayout()) {
       this.isAiChatShow = false;
-      this.currentTabIndex = index;
+      this.updateTabSelection(index);
     } else {
       this.controller.changeIndex(index);
     }
@@ -142,7 +150,7 @@ struct MainPage {
 
   private handleNavClick(item: WideNavItem): void {
     if (item.tabIndex !== undefined) {
-      this.currentTabIndex = item.tabIndex;
+      this.updateTabSelection(item.tabIndex);
     } else if (item.action) {
       item.action();
     }
@@ -173,6 +181,10 @@ struct MainPage {
   onBackPress(): boolean {
     if (this.isAiChatShow) {
       this.closeAiChat();
+      return true;
+    }
+    if (this.isWideLayout() && this.pathStack.size() === 0 && this.currentTabIndex !== 0) {
+      this.switchTab(0);
       return true;
     }
     return false;
@@ -577,7 +589,7 @@ struct MainPage {
     .barOverlap(true)
     .vertical(false)
     .onChange((index: number) => {
-      this.currentTabIndex = index;
+      this.updateTabSelection(index);
     })
     .barPosition(BarPosition.End)
     .barFloatingStyle({
@@ -603,7 +615,9 @@ struct MainPage {
   private wideShell() {
     WideCaregiverWorkspace({
       currentTabIndex: this.currentTabIndex,
+      primaryTabIndex: this.primaryTabIndex,
       statusBarHeight: this.globalInfoModel.statusBarHeight,
+      compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
       onSwitchTab: (index: number) => {
         this.switchTab(index);
       },
@@ -637,11 +651,6 @@ struct MainPage {
       geometryId: 'aiReminderCard',
       onClose: () => {
         this.closeAiChat();
-      },
-      onMenu: () => {
-        if (this.isWideLayout()) {
-          this.toggleSidebar();
-        }
       }
     })
   }

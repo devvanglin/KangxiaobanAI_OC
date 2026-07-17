@@ -135,7 +135,6 @@ class AiChatHistoryStore {
 export struct AiChatPage {
   @Param @Require geometryId: string;
   @Event onClose: () => void = () => {};
-  @Event onMenu: () => void = () => {};
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
   @Local historyStore: AiChatHistoryStore =
@@ -865,6 +864,16 @@ export struct AiChatPage {
     return `${greeting}，${CURRENT_USER_DISPLAY_NAME}`;
   }
 
+  private informationFeedCategory(title: string): string {
+    const separatorIndex: number = title.indexOf('：');
+    return separatorIndex > 0 ? title.substring(0, separatorIndex) : '建议';
+  }
+
+  private informationFeedContent(title: string): string {
+    const separatorIndex: number = title.indexOf('：');
+    return separatorIndex > 0 ? title.substring(separatorIndex + 1) : title;
+  }
+
   @Builder
   private informationFeedItem(item: AiInformationFeedItem) {
     Button({ type: ButtonType.Capsule, stateEffect: true }) {
@@ -936,6 +945,109 @@ export struct AiChatPage {
     .width('100%')
     .constraintSize({ maxWidth: this.expandMaxWidth() })
     .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private wideInformationFeedItem(item: AiInformationFeedItem) {
+    Button({ stateEffect: true }) {
+      Column({ space: 3 }) {
+        Text(this.informationFeedCategory(item.title))
+          .fontSize($r('sys.float.Caption_S'))
+          .fontColor($r('sys.color.font_secondary'))
+          .fontWeight(FontWeight.Medium)
+          .width('100%')
+          .maxLines(1)
+
+        Text(this.informationFeedContent(item.title))
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_primary'))
+          .width('100%')
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+    }
+    .buttonStyle(ButtonStyleMode.NORMAL)
+    .layoutWeight(1)
+    .height(66)
+    .padding({ left: 14, right: 14, top: 9, bottom: 9 })
+    .borderRadius(14)
+    .backgroundColor($r('app.color.ai_feed_background'))
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .focusable(true)
+    .focusOnTouch(true)
+    .onClick(() => {
+      this.usePromptShortcut(item.prompt);
+    })
+  }
+
+  @Builder
+  private wideInformationFeedRow(items: AiInformationFeedItem[]) {
+    Row({ space: 12 }) {
+      ForEach(items, (item: AiInformationFeedItem) => {
+        this.wideInformationFeedItem(item)
+      }, (item: AiInformationFeedItem) => item.id)
+    }
+    .width('100%')
+  }
+
+  @Builder
+  private wideEmptyInformationHero() {
+    Column({ space: 26 }) {
+      Column({ space: 6 }) {
+        Text(this.emptyGreetingText())
+          .fontSize($r('sys.float.Title_L'))
+          .fontColor($r('sys.color.font_primary'))
+          .fontWeight(FontWeight.Bold)
+          .width('100%')
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+        Text('让我们开始当前的工作吧')
+          .fontSize($r('sys.float.Body_L'))
+          .fontColor($r('sys.color.font_secondary'))
+          .width('100%')
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+
+      Column({ space: 12 }) {
+        Text('快捷开始')
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor($r('sys.color.font_secondary'))
+          .fontWeight(FontWeight.Medium)
+          .width('100%')
+
+        this.wideInformationFeedRow(AI_INFORMATION_FEED_ROWS[0])
+        this.wideInformationFeedRow(AI_INFORMATION_FEED_ROWS[1])
+        this.wideInformationFeedRow(AI_INFORMATION_FEED_ROWS[2])
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+    }
+    .width('100%')
+    .constraintSize({ maxWidth: this.expandMaxWidth() })
+    .padding({ left: 36, right: 36 })
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private wideEmptyConversationPage() {
+    Column() {
+      this.wideEmptyInformationHero()
+
+      Blank()
+        .layoutWeight(1)
+
+      this.inputArea(true)
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ top: 34 })
+    .alignItems(HorizontalAlign.Center)
   }
 
   @Builder
@@ -1058,7 +1170,7 @@ export struct AiChatPage {
   @Builder
   private newConversationButton() {
     Row() {
-      Text('新建会话')
+      Text('新对话')
         .fontSize($r('sys.float.Body_S'))
         .fontColor($r('sys.color.font_primary'))
         .fontWeight(FontWeight.Medium)
@@ -1158,18 +1270,16 @@ export struct AiChatPage {
   private historyDrawer() {
     Column({ space: 10 }) {
       if (this.isWideLayout()) {
-        Column({ space: 3 }) {
-          Text('康小伴 AI')
-            .fontSize($r('sys.float.Title_M'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
+        Row() {
           Text('对话记录')
-            .fontSize($r('sys.float.Body_S'))
-            .fontColor($r('sys.color.font_secondary'))
+            .fontSize($r('sys.float.Title_S'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
         }
         .width('100%')
-        .padding({ left: 4, right: 4, bottom: 6 })
-        .alignItems(HorizontalAlign.Start)
+        .height(68)
+        .padding({ left: 4, right: 4 })
+        .alignItems(VerticalAlign.Center)
       }
 
       this.newConversationButton()
@@ -1200,7 +1310,8 @@ export struct AiChatPage {
     .padding({
       left: 14,
       right: 14,
-      top: this.isWideLayout() ? 18 : this.globalInfoModel.statusBarHeight + 10,
+      top: this.isWideLayout() ? this.globalInfoModel.statusBarHeight :
+        this.globalInfoModel.statusBarHeight + 10,
       bottom: this.isWideLayout() ? Math.max(18, this.globalInfoModel.naviIndicatorHeight + 8) :
         this.globalInfoModel.naviIndicatorHeight + 8
     })
@@ -1299,41 +1410,23 @@ export struct AiChatPage {
     .onClick(action)
   }
 
+  private wideTitleBarTitleText(): string {
+    const activeSession: ChatSession | undefined = this.findSession(this.historyStore.activeSessionId);
+    return activeSession?.title ?? AI_BRAND_NAME;
+  }
+
   @Builder
   private wideTitleBar() {
     Row({ space: 10 }) {
-      Column({ space: 3 }) {
-        Text(this.titleBarTitleText())
-          .fontSize($r('sys.float.Title_M'))
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text('康小伴 AI · 智慧照护助手')
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_secondary'))
-          .maxLines(1)
-      }
+      Text(this.wideTitleBarTitleText())
+        .fontSize($r('sys.float.Title_S'))
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
       .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
 
-      Button({ type: ButtonType.Capsule, stateEffect: true }) {
-        Row({ space: 6 }) {
-          SymbolGlyph($r('sys.symbol.square_and_pencil'))
-            .fontSize(17)
-            .fontColor([$r('app.color.brand_blue')])
-          Text('新建对话')
-            .fontSize($r('sys.float.Body_M'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.brand_blue'))
-        }
-      }
-      .buttonStyle(ButtonStyleMode.NORMAL)
-      .height(40)
-      .padding({ left: 14, right: 14 })
-      .backgroundColor($r('sys.color.comp_background_primary'))
-      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-      .onClick(() => {
+      this.wideHeaderIcon($r('sys.symbol.square_and_pencil'), '新建对话', () => {
         this.startNewConversation();
       })
 
@@ -1342,8 +1435,8 @@ export struct AiChatPage {
       })
     }
     .width('100%')
-    .height(68)
-    .padding({ left: 24, right: 24 })
+    .height(68 + this.globalInfoModel.statusBarHeight)
+    .padding({ left: 24, right: 24, top: this.globalInfoModel.statusBarHeight })
     .alignItems(VerticalAlign.Center)
     .backgroundColor($r('sys.color.background_primary'))
     .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
@@ -1353,7 +1446,7 @@ export struct AiChatPage {
   private wideConversationContent() {
     Column() {
       if (this.messages.length === 0) {
-        this.emptyConversationPage()
+        this.wideEmptyConversationPage()
       } else {
         this.messageList()
         this.inputArea(true)
@@ -1390,7 +1483,6 @@ export struct AiChatPage {
     }
     .width('100%')
     .height('100%')
-    .padding({ top: this.globalInfoModel.statusBarHeight })
     .backgroundColor($r('sys.color.background_secondary'))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
