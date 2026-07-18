@@ -14,13 +14,9 @@
  */
 
 import { LengthMetrics } from '@kit.ArkUI';
+import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule';
 
 type WideStatus = 'danger' | 'warning' | 'normal' | 'brand' | 'neutral';
-
-interface WideWorkTab {
-  label: string;
-  count: number;
-}
 
 interface WideWorkItem {
   id: string;
@@ -63,7 +59,6 @@ export struct WideHomePage {
   @Local clockInTime: Date | null = null;
   @Local clockOutTime: Date | null = null;
   @Local activeWorkIndex: number = 0;
-  @Local hoveredWorkTabIndex: number = -1;
   @Local hoveredWorkId: string = '';
   @Local selectedWorkId: string = '';
   @Local hoveredFocusId: string = '';
@@ -96,14 +91,12 @@ export struct WideHomePage {
     }
   }
 
-  private workTabs(): WideWorkTab[] {
-    return [
-      { label: '待办', count: 3 },
-      { label: '用药', count: 4 },
-      { label: '记录', count: 4 },
-      { label: '家属', count: 4 }
-    ];
-  }
+  private workTabItems: WideSlidingCapsuleItem[] = [
+    { title: '待办', badgeText: '3', index: 0 },
+    { title: '用药', badgeText: '4', index: 1 },
+    { title: '记录', badgeText: '4', index: 2 },
+    { title: '家属', badgeText: '4', index: 3 }
+  ];
 
   private todoItems(): WideWorkItem[] {
     return [
@@ -337,19 +330,6 @@ export struct WideHomePage {
     return $r('sys.color.comp_background_secondary');
   }
 
-  private workSymbol(index: number): Resource {
-    if (index === 1) {
-      return $r('sys.symbol.heart_fill');
-    }
-    if (index === 2) {
-      return $r('sys.symbol.doc_text');
-    }
-    if (index === 3) {
-      return $r('sys.symbol.phone_fill');
-    }
-    return $r('sys.symbol.calendar_badge_clock');
-  }
-
   private currentTimeText(): string {
     const hour: string = this.currentTime.getHours().toString().padStart(2, '0');
     const minute: string = this.currentTime.getMinutes().toString().padStart(2, '0');
@@ -432,7 +412,7 @@ export struct WideHomePage {
 
   private focusRowBackground(item: WideFocusItem): ResourceColor {
     if (this.selectedFocusId === item.id) {
-      return this.statusBackground(item.level);
+      return $r('sys.color.comp_background_secondary');
     }
     if (this.hoveredFocusId === item.id) {
       return $r('sys.color.interactive_hover');
@@ -508,7 +488,7 @@ export struct WideHomePage {
       .alignItems(VerticalAlign.Center)
     }
     .width('36%')
-    .height(208)
+    .height(170)
     .constraintSize({ minWidth: 280, maxWidth: 400 })
     .padding(20)
     .backgroundColor($r('sys.color.comp_background_primary'))
@@ -520,16 +500,10 @@ export struct WideHomePage {
   private aiCard() {
     Column({ space: 10 }) {
       Row({ space: 10 }) {
-        Column({ space: 1 }) {
-          Text('康小伴 AI')
-            .fontSize($r('sys.float.Title_S'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-          Text('已为你整理 2 条智能提醒')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_secondary'))
-        }
-        .alignItems(HorizontalAlign.Start)
+        Text('康小伴 AI')
+          .fontSize($r('sys.float.Title_S'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
 
         Blank()
 
@@ -554,7 +528,7 @@ export struct WideHomePage {
       .width('100%')
     }
     .layoutWeight(1)
-    .height(208)
+    .height(170)
     .padding({ left: 20, right: 20, top: 18, bottom: 14 })
     .backgroundColor(this.isAiCardHovered ? $r('sys.color.interactive_hover') :
       $r('sys.color.comp_background_primary'))
@@ -596,7 +570,7 @@ export struct WideHomePage {
         .borderRadius(8)
     }
     .width('100%')
-    .height(60)
+    .height(52)
     .padding({ left: 4, right: 4 })
     .alignItems(VerticalAlign.Center)
     .border({
@@ -609,16 +583,10 @@ export struct WideHomePage {
   private workCard() {
     Column({ space: 16 }) {
       Row() {
-        Column({ space: 3 }) {
-          Text('今日工作')
-            .fontSize($r('sys.float.Title_S'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-          Text('按工作类型快速查看和处理')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_secondary'))
-        }
-        .alignItems(HorizontalAlign.Start)
+        Text('今日工作')
+          .fontSize($r('sys.float.Title_S'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
 
         Blank()
 
@@ -629,16 +597,16 @@ export struct WideHomePage {
       .width('100%')
       .alignItems(VerticalAlign.Center)
 
-      Row({ space: 4 }) {
-        ForEach(this.workTabs(), (tab: WideWorkTab, index: number) => {
-          this.workTab(tab, index)
-        }, (tab: WideWorkTab, index: number) => `wide-work-tab-${index}`)
-      }
-      .width('100%')
-      .height(44)
-      .padding(4)
-      .borderRadius(12)
-      .backgroundColor($r('sys.color.comp_background_secondary'))
+      WideSlidingCapsule({
+        items: this.workTabItems,
+        selectedIndex: this.activeWorkIndex,
+        itemWidth: 180,
+        fillWidth: true,
+        onSelect: (index: number) => {
+          this.activeWorkIndex = index;
+          this.selectedWorkId = '';
+        }
+      })
 
       Column({ space: 0 }) {
         ForEach(this.currentWorkItems(), (item: WideWorkItem, index: number) => {
@@ -656,59 +624,8 @@ export struct WideHomePage {
   }
 
   @Builder
-  private workTab(tab: WideWorkTab, index: number) {
-    Row({ space: 6 }) {
-      Text(tab.label)
-        .fontSize($r('sys.float.Body_M'))
-        .fontWeight(this.activeWorkIndex === index ? FontWeight.Medium : FontWeight.Regular)
-        .fontColor(this.activeWorkIndex === index ? $r('app.color.text_on_brand') :
-          $r('sys.color.font_primary'))
-
-      Text(`${tab.count}`)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor(this.activeWorkIndex === index ? $r('app.color.brand_blue') :
-          $r('sys.color.font_secondary'))
-        .width(22)
-        .height(22)
-        .textAlign(TextAlign.Center)
-        .backgroundColor(this.activeWorkIndex === index ? $r('app.color.text_on_brand') :
-          $r('sys.color.comp_background_primary'))
-        .borderRadius(11)
-    }
-    .layoutWeight(1)
-    .height(36)
-    .borderRadius(9)
-    .justifyContent(FlexAlign.Center)
-    .alignItems(VerticalAlign.Center)
-    .backgroundColor(this.activeWorkIndex === index ? $r('app.color.brand_blue') :
-      (this.hoveredWorkTabIndex === index ? $r('sys.color.interactive_hover') : Color.Transparent))
-    .opacity(this.activeWorkIndex === index && this.hoveredWorkTabIndex === index ? 0.88 : 1)
-    .keyboardFocusStyle()
-    .onHover((isHover: boolean) => {
-      this.hoveredWorkTabIndex = isHover ? index : -1;
-    })
-    .onClick(() => {
-      this.activeWorkIndex = index;
-      this.selectedWorkId = '';
-    })
-  }
-
-  @Builder
   private workRow(item: WideWorkItem, isLast: boolean) {
     Row({ space: 12 }) {
-      Row() {
-        SymbolGlyph(this.workSymbol(this.activeWorkIndex))
-          .fontSize(18)
-          .fontColor([this.statusColor(item.level)])
-      }
-      .width(38)
-      .height(38)
-      .borderRadius(10)
-      .backgroundColor(this.statusBackground(item.level))
-      .justifyContent(FlexAlign.Center)
-      .alignItems(VerticalAlign.Center)
-
       Column({ space: 4 }) {
         Text(item.title)
           .fontSize($r('sys.float.Body_L'))
@@ -769,16 +686,10 @@ export struct WideHomePage {
   private overviewCard() {
     Column({ space: 14 }) {
       Row() {
-        Column({ space: 3 }) {
-          Text('今日概览')
-            .fontSize($r('sys.float.Title_S'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-          Text('工作进度实时汇总')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_secondary'))
-        }
-        .alignItems(HorizontalAlign.Start)
+        Text('今日概览')
+          .fontSize($r('sys.float.Title_S'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
 
         Blank()
 
@@ -857,17 +768,10 @@ export struct WideHomePage {
   private focusCard() {
     Column({ space: 10 }) {
       Row() {
-        Column({ space: 3 }) {
-          Text('重点关注')
-            .fontSize($r('sys.float.Title_S'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-          Text('优先处理需要人工介入的事项')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_secondary'))
-        }
-        .alignItems(HorizontalAlign.Start)
-
+        Text('重点关注')
+          .fontSize($r('sys.float.Title_S'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)

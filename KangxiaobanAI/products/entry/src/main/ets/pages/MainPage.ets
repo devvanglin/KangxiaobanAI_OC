@@ -210,7 +210,6 @@ struct MainPage {
       {
         label: '系统',
         items: [
-          { label: $r('app.string.tab_mine'), symbol: $r('sys.symbol.gearshape'), tabIndex: 3 },
           { label: '帮助', symbol: $r('sys.symbol.questionmark_circle') },
         ]
       },

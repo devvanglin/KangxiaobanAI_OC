@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import { CapsuleSegmentButtonV2, LengthMetrics, SegmentButtonV2Items } from '@kit.ArkUI';
+import { LengthMetrics } from '@kit.ArkUI';
 import {
   MedicationProgress,
   ResidentData,
@@ -21,11 +21,7 @@ import {
   StatusLevel,
   VitalSign
 } from '../../model/DetailTypes';
-import {
-  RESIDENT_SUMMARY_DETAIL_HEIGHT,
-  RESIDENT_SUMMARY_DETAIL_NO_ALLERGY_HEIGHT,
-  ResidentSummaryCard
-} from '../ResidentSummaryCard';
+import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule';
 
 type ResidentFilter = 'all' | 'warning' | 'danger';
 type ResidentDetailTab = 'overview' | 'vitals' | 'care' | 'devices';
@@ -58,13 +54,12 @@ interface RiskRow {
 
 @ComponentV2
 export struct WideResidentPage {
-  @Local residentSearch: string = '';
   @Local residentFilterIndex: number = 0;
-  @Local residentFilterItems: SegmentButtonV2Items = new SegmentButtonV2Items([
-    { text: '全部 5' },
-    { text: '关注 2' },
-    { text: '危险 1' }
-  ]);
+  private residentFilterItems: WideSlidingCapsuleItem[] = [
+    { title: '全部 5', index: 0 },
+    { title: '关注 2', index: 1 },
+    { title: '危险 1', index: 2 }
+  ];
   @Local selectedResidentId: string = 'r1';
   @Local selectedTab: ResidentDetailTab = 'overview';
   @Local hoveredResidentId: string = '';
@@ -161,14 +156,9 @@ export struct WideResidentPage {
   }
 
   private filteredResidents(): ResidentData[] {
-    const keyword: string = this.residentSearch.trim();
     const activeFilter: ResidentFilter = this.activeResidentFilter();
-    return this.allResidents().filter((item: ResidentData) => {
-      const matchesKeyword: boolean = keyword === '' ||
-        item.name.includes(keyword) || item.room.includes(keyword) || item.bed.includes(keyword);
-      const matchesFilter: boolean = activeFilter === 'all' || item.level === activeFilter;
-      return matchesKeyword && matchesFilter;
-    });
+    return this.allResidents().filter((item: ResidentData) =>
+      activeFilter === 'all' || item.level === activeFilter);
   }
 
   private activeResidentFilter(): ResidentFilter {
@@ -218,6 +208,44 @@ export struct WideResidentPage {
       return $r('app.color.status_warning_bg');
     }
     return $r('app.color.status_normal_bg');
+  }
+
+  private heartRateLevel(vital: VitalSign): StatusLevel {
+    if (vital.heartRate < 50 || vital.heartRate > 110) {
+      return 'danger';
+    }
+    if (vital.heartRate < 60 || vital.heartRate > 100) {
+      return 'warning';
+    }
+    return 'normal';
+  }
+
+  private bloodPressureLevel(vital: VitalSign): StatusLevel {
+    if (vital.systolic >= 140 || vital.diastolic >= 90) {
+      return 'danger';
+    }
+    if (vital.systolic >= 130 || vital.diastolic >= 80) {
+      return 'warning';
+    }
+    return 'normal';
+  }
+
+  private oxygenLevel(vital: VitalSign): StatusLevel {
+    if (vital.oxygen < 95) {
+      return 'danger';
+    }
+    if (vital.oxygen < 97) {
+      return 'warning';
+    }
+    return 'normal';
+  }
+
+  private medicationLevel(progress: MedicationProgress): StatusLevel {
+    return progress.total > 0 && progress.done >= progress.total ? 'normal' : 'warning';
+  }
+
+  private metricStateText(level: StatusLevel, warningText: string): string {
+    return level === 'normal' ? '正常' : warningText;
   }
 
   private residentRowBackground(residentId: string): ResourceColor {
@@ -307,32 +335,7 @@ export struct WideResidentPage {
   @Builder
   private masterPane() {
     Column({ space: 0 }) {
-      Column({ space: 12 }) {
-        Row() {
-          Text('5 位长者 · 3 项需要关注')
-            .fontSize($r('sys.float.Body_S'))
-            .fontColor($r('sys.color.font_secondary'))
-            .layoutWeight(1)
-
-          Text('护理区 A')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_secondary'))
-        }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
-
-        Search({ value: this.residentSearch, placeholder: '搜索姓名、房间或床位' })
-          .width('100%')
-          .height(40)
-          .fontColor($r('sys.color.font_primary'))
-          .placeholderColor($r('sys.color.font_tertiary'))
-          .backgroundColor($r('sys.color.comp_background_tertiary'))
-          .borderRadius(10)
-          .focusBox({ margin: LengthMetrics.vp(1), strokeWidth: LengthMetrics.vp(2) })
-          .onChange((value: string) => {
-            this.residentSearch = value;
-          })
-
+      Column() {
         this.filterBar()
       }
       .width('100%')
@@ -388,15 +391,14 @@ export struct WideResidentPage {
 
   @Builder
   private filterBar() {
-    CapsuleSegmentButtonV2({
+    WideSlidingCapsule({
       items: this.residentFilterItems,
       selectedIndex: this.residentFilterIndex,
-      onItemClicked: (index: number) => {
+      itemWidth: (360 - 32 - 6 - 8) / 3,
+      onSelect: (index: number) => {
         this.residentFilterIndex = index;
       }
     })
-    .width('100%')
-    .height(36)
   }
 
   @Builder
@@ -466,24 +468,12 @@ export struct WideResidentPage {
   @Builder
   private detailPane() {
     Column({ space: 0 }) {
-      this.detailHeader(this.selectedResident())
-      this.detailTabBar()
-
       Scroll() {
         Column({ space: 16 }) {
-          Column() {
-            ResidentSummaryCard({
-              resident: this.selectedResident(),
-              vitalSign: this.residentVitalSign(this.selectedResident()),
-              medicationProgress: this.residentMedicationProgress(this.selectedResident()),
-              mode: 'detail'
-            })
-          }
-          .width('100%')
-          .height(this.selectedResident().allergies.length > 0 ?
-            RESIDENT_SUMMARY_DETAIL_HEIGHT : RESIDENT_SUMMARY_DETAIL_NO_ALLERGY_HEIGHT)
+          this.residentProfileSurface(this.selectedResident())
 
           if (this.selectedTab === 'overview') {
+            this.healthOverviewCard(this.selectedResident())
             this.overviewContent(this.selectedResident())
           } else if (this.selectedTab === 'vitals') {
             this.vitalTrendContent(this.selectedResident())
@@ -499,6 +489,7 @@ export struct WideResidentPage {
       }
       .width('100%')
       .layoutWeight(1)
+      .align(Alignment.Top)
       .scrollBar(BarState.Auto)
       .edgeEffect(EdgeEffect.Spring)
     }
@@ -508,79 +499,133 @@ export struct WideResidentPage {
   }
 
   @Builder
-  private detailHeader(resident: ResidentData) {
-    Row({ space: 14 }) {
-      Text(resident.avatarText ?? resident.name.slice(0, 1))
-        .fontSize($r('sys.float.Title_M'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('app.color.brand_blue'))
-        .width(48)
-        .height(48)
-        .textAlign(TextAlign.Center)
-        .backgroundColor('rgba(29,99,237,0.12)')
-        .borderRadius(24)
+  private residentProfileSurface(resident: ResidentData) {
+    Column({ space: 0 }) {
+      Row({ space: 18 }) {
+        Text(resident.avatarText ?? resident.name.slice(0, 1))
+          .fontSize($r('sys.float.Title_L'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.brand_blue'))
+          .width(56)
+          .height(56)
+          .textAlign(TextAlign.Center)
+          .backgroundColor('rgba(29,99,237,0.10)')
+          .borderRadius(28)
 
-      Column({ space: 4 }) {
-        Row({ space: 10 }) {
-          Text(resident.name)
-            .fontSize($r('sys.float.Title_L'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
+        Column({ space: 7 }) {
+          Row({ space: 10 }) {
+            Text(resident.name)
+              .fontSize(22)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('sys.color.font_primary'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+            Text(this.statusText(resident.level))
+              .fontSize($r('sys.float.Caption_M'))
+              .fontWeight(FontWeight.Medium)
+              .fontColor(this.statusColor(resident.level))
+              .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+              .backgroundColor(this.statusBackground(resident.level))
+              .borderRadius(5)
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
+
+          Text(`${resident.age}岁 · ${resident.gender === 'male' ? '男' : '女'} · ${resident.status}`)
+            .width('100%')
+            .fontSize($r('sys.float.Body_S'))
+            .fontColor($r('sys.color.font_secondary'))
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-          Text(this.statusText(resident.level))
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor(this.statusColor(resident.level))
-            .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-            .backgroundColor(this.statusBackground(resident.level))
-            .borderRadius(5)
         }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        Row({ space: 12 }) {
+          this.profileMetaItem('房间床位', `${resident.room} · ${resident.bed}`)
+          Divider()
+            .vertical(true)
+            .height(34)
+            .strokeWidth(0.5)
+            .color($r('sys.color.comp_divider'))
+          this.profileMetaItem('护理等级', resident.careLevel)
+          Divider()
+            .vertical(true)
+            .height(34)
+            .strokeWidth(0.5)
+            .color($r('sys.color.comp_divider'))
+          this.profileMetaItem('责任护工', '刘婷')
+        }
+        .width('43%')
         .alignItems(VerticalAlign.Center)
-
-        Text(`${resident.room} ${resident.bed} · ${resident.careLevel} · 责任护工 刘婷`)
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_secondary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
+      .width('100%')
+      .padding({ left: 20, right: 20, top: 18, bottom: 16 })
+      .alignItems(VerticalAlign.Center)
 
-      Column({ space: 3 }) {
-        Text('最近更新')
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor($r('sys.color.font_tertiary'))
-        Text(this.residentVitalSign(resident).measuredAt)
-          .fontSize($r('sys.float.Body_M'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-      }
-      .alignItems(HorizontalAlign.End)
+      Divider()
+        .strokeWidth(0.5)
+        .color($r('sys.color.comp_divider'))
+        .margin({ left: 20, right: 20 })
+
+      this.detailTabBar()
     }
     .width('100%')
-    .height(80)
-    .padding({ left: 24, right: 24 })
     .backgroundColor($r('sys.color.comp_background_primary'))
-    .border({ width: { bottom: 0.5 }, color: $r('sys.color.comp_divider') })
-    .alignItems(VerticalAlign.Center)
+    .borderRadius(16)
+    .clip(true)
+  }
+
+  @Builder
+  private profileMetaItem(label: string, value: string) {
+    Column({ space: 5 }) {
+      Text(label)
+        .width('100%')
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor($r('sys.color.font_tertiary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      Text(value)
+        .width('100%')
+        .fontSize($r('sys.float.Body_M'))
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .layoutWeight(1)
+    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
   private detailTabBar() {
-    Row({ space: 4 }) {
+    Row({ space: 0 }) {
       Repeat(this.tabOptions())
         .each((repeatItem: RepeatItem<ResidentTabOption>) => {
-          Button(repeatItem.item.label, { type: ButtonType.Normal, stateEffect: true })
-            .height(38)
-            .padding({ left: 18, right: 18 })
-            .fontSize($r('sys.float.Body_M'))
-            .fontWeight(this.selectedTab === repeatItem.item.value ? FontWeight.Medium : FontWeight.Regular)
-            .fontColor(this.selectedTab === repeatItem.item.value ?
-              $r('app.color.brand_blue') : $r('sys.color.font_secondary'))
-            .backgroundColor(this.selectedTab === repeatItem.item.value ?
-              'rgba(29,99,237,0.10)' : Color.Transparent)
-            .borderRadius(7)
+          Button({ type: ButtonType.Normal, stateEffect: true }) {
+            Column({ space: 8 }) {
+              Text(repeatItem.item.label)
+                .fontSize($r('sys.float.Body_M'))
+                .fontWeight(this.selectedTab === repeatItem.item.value ?
+                  FontWeight.Medium : FontWeight.Regular)
+                .fontColor(this.selectedTab === repeatItem.item.value ?
+                  $r('app.color.brand_blue') : $r('sys.color.font_secondary'))
+
+              Divider()
+                .width(28)
+                .strokeWidth(this.selectedTab === repeatItem.item.value ? 2 : 0)
+                .color(this.selectedTab === repeatItem.item.value ?
+                  $r('app.color.brand_blue') : Color.Transparent)
+            }
+            .width('100%')
+            .height('100%')
+            .justifyContent(FlexAlign.Center)
+          }
+            .width(112)
+            .height(54)
+            .backgroundColor(Color.Transparent)
+            .borderRadius(8)
             .focusBox({ margin: LengthMetrics.vp(2), strokeWidth: LengthMetrics.vp(2) })
             .onClick(() => {
               this.selectedTab = repeatItem.item.value;
@@ -590,10 +635,218 @@ export struct WideResidentPage {
     }
     .width('100%')
     .height(54)
-    .padding({ left: 20, right: 20 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .border({ width: { bottom: 0.5 }, color: $r('sys.color.comp_divider') })
+    .padding({ left: 12, right: 12 })
     .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  private healthOverviewCard(resident: ResidentData) {
+    Column({ space: 0 }) {
+      Row() {
+        Column({ space: 3 }) {
+          Text('健康概览')
+            .fontSize($r('sys.float.Title_S'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+          Text('核心体征与今日照护进度')
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('sys.color.font_secondary'))
+        }
+        .alignItems(HorizontalAlign.Start)
+
+        Blank()
+
+        Row({ space: 12 }) {
+          if (resident.allergies.length > 0) {
+            Row({ space: 5 }) {
+              SymbolGlyph($r('sys.symbol.exclamationmark_triangle_fill'))
+                .fontSize(13)
+                .fontColor([$r('app.color.status_danger')])
+              Text(`${resident.allergies.join('、')}过敏`)
+                .fontSize($r('sys.float.Caption_M'))
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('app.color.status_danger'))
+            }
+            .padding({ left: 9, right: 9, top: 5, bottom: 5 })
+            .backgroundColor($r('app.color.status_danger_bg'))
+            .borderRadius(12)
+          }
+
+          Text(`最近测量 ${this.residentVitalSign(resident).measuredAt}`)
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('sys.color.font_tertiary'))
+        }
+        .alignItems(VerticalAlign.Center)
+      }
+      .width('100%')
+      .padding({ left: 20, right: 20, top: 18, bottom: 12 })
+      .alignItems(VerticalAlign.Center)
+
+      Row({ space: 0 }) {
+        this.primaryVitalMetric(
+          '血压',
+          `${this.residentVitalSign(resident).systolic}/${this.residentVitalSign(resident).diastolic}`,
+          'mmHg',
+          this.metricStateText(this.bloodPressureLevel(this.residentVitalSign(resident)), '偏高'),
+          this.bloodPressureLevel(this.residentVitalSign(resident)),
+          1.35
+        )
+        Divider()
+          .vertical(true)
+          .height(58)
+          .strokeWidth(0.5)
+          .color($r('sys.color.comp_divider'))
+        this.primaryVitalMetric(
+          '心率',
+          `${this.residentVitalSign(resident).heartRate}`,
+          'bpm',
+          this.metricStateText(this.heartRateLevel(this.residentVitalSign(resident)), '需关注'),
+          this.heartRateLevel(this.residentVitalSign(resident)),
+          1
+        )
+        Divider()
+          .vertical(true)
+          .height(58)
+          .strokeWidth(0.5)
+          .color($r('sys.color.comp_divider'))
+        this.primaryVitalMetric(
+          '血氧',
+          `${this.residentVitalSign(resident).oxygen}`,
+          '%',
+          this.metricStateText(this.oxygenLevel(this.residentVitalSign(resident)), '需关注'),
+          this.oxygenLevel(this.residentVitalSign(resident)),
+          1
+        )
+        Divider()
+          .vertical(true)
+          .height(58)
+          .strokeWidth(0.5)
+          .color($r('sys.color.comp_divider'))
+        this.primaryVitalMetric(
+          '今日用药',
+          `${this.residentMedicationProgress(resident).done}/${this.residentMedicationProgress(resident).total}`,
+          '次',
+          this.residentMedicationProgress(resident).done >= this.residentMedicationProgress(resident).total ?
+            '已完成' :
+            `待完成 ${this.residentMedicationProgress(resident).total -
+              this.residentMedicationProgress(resident).done} 次`,
+          this.medicationLevel(this.residentMedicationProgress(resident)),
+          1
+        )
+      }
+      .width('100%')
+      .height(94)
+      .padding({ left: 10, right: 10 })
+      .alignItems(VerticalAlign.Center)
+
+      Row({ space: 0 }) {
+        this.secondaryVitalMetric('体温', `${this.residentVitalSign(resident).temperature}`, '℃')
+        Divider()
+          .vertical(true)
+          .height(36)
+          .strokeWidth(0.5)
+          .color($r('sys.color.comp_divider'))
+        this.secondaryVitalMetric('呼吸', `${this.residentVitalSign(resident).respiratory}`, '次/分')
+        Divider()
+          .vertical(true)
+          .height(36)
+          .strokeWidth(0.5)
+          .color($r('sys.color.comp_divider'))
+        this.secondaryVitalMetric('今日步数', `${this.residentVitalSign(resident).steps}`, '步')
+        Divider()
+          .vertical(true)
+          .height(36)
+          .strokeWidth(0.5)
+          .color($r('sys.color.comp_divider'))
+        this.secondaryVitalMetric('昨夜睡眠', `${this.residentVitalSign(resident).sleepHours}`, '小时')
+      }
+      .width('calc(100% - 40vp)')
+      .height(66)
+      .margin({ left: 20, right: 20, bottom: 18 })
+      .backgroundColor($r('sys.color.comp_background_secondary'))
+      .borderRadius(10)
+      .alignItems(VerticalAlign.Center)
+    }
+    .width('100%')
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(16)
+    .clip(true)
+  }
+
+  @Builder
+  private primaryVitalMetric(
+    label: string,
+    value: string,
+    unit: string,
+    state: string,
+    level: StatusLevel,
+    weight: number
+  ) {
+    Column({ space: 7 }) {
+      Text(label)
+        .width('100%')
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor($r('sys.color.font_secondary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+      Row({ space: 4 }) {
+        Text(value)
+          .fontSize(24)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(unit)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_tertiary'))
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Bottom)
+
+      Row({ space: 6 }) {
+        Circle({ width: 6, height: 6 })
+          .fill(this.statusColor(level))
+        Text(state)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor(this.statusColor(level))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+    }
+    .layoutWeight(weight)
+    .padding({ left: 14, right: 14 })
+    .alignItems(HorizontalAlign.Start)
+    .justifyContent(FlexAlign.Center)
+  }
+
+  @Builder
+  private secondaryVitalMetric(label: string, value: string, unit: string) {
+    Column({ space: 5 }) {
+      Text(label)
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor($r('sys.color.font_secondary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      Row({ space: 4 }) {
+        Text(value)
+          .fontSize($r('sys.float.Title_S'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(unit)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_tertiary'))
+      }
+      .alignItems(VerticalAlign.Bottom)
+    }
+    .layoutWeight(1)
+    .padding({ left: 12, right: 12 })
+    .alignItems(HorizontalAlign.Start)
+    .justifyContent(FlexAlign.Center)
   }
 
   @Builder

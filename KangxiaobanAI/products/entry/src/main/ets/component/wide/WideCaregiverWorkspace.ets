@@ -13,17 +13,12 @@
  * limitations under the License.
  */
 
+import { SymbolGlyphModifier } from '@kit.ArkUI';
 import { KeyCode } from '@kit.InputKit';
 import { WideHomePage } from './WideHomePage';
 import { WideMessagePage } from './WideMessagePage';
-import { WideMinePage } from './WideMinePage';
 import { WideResidentPage } from './WideResidentPage';
-
-interface WorkspacePrimaryNavItem {
-  title: string;
-  symbol: Resource;
-  index: number;
-}
+import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule';
 
 @ComponentV2
 export struct WideCaregiverWorkspace {
@@ -36,27 +31,29 @@ export struct WideCaregiverWorkspace {
   @Event onOpenAbout: () => void = () => {};
   @Event onOpenGeneral: () => void = () => {};
   @Event onLogout: () => void = () => {};
-  @Local hoveredNavIndex: number = -1;
   @Local focusedTarget: string = '';
+  @Local generalSettingsIcon: SymbolGlyphModifier = new SymbolGlyphModifier($r('sys.symbol.gearshape'))
+    .fontSize(18)
+    .fontColor([$r('sys.color.icon_primary')]);
+  @Local aboutIcon: SymbolGlyphModifier = new SymbolGlyphModifier($r('sys.symbol.info_circle'))
+    .fontSize(18)
+    .fontColor([$r('sys.color.icon_primary')]);
+  @Local logoutIcon: SymbolGlyphModifier = new SymbolGlyphModifier($r('sys.symbol.xmark'))
+    .fontSize(18)
+    .fontColor([$r('app.color.status_danger')]);
 
-  private primaryNavItems: WorkspacePrimaryNavItem[] = [
+  private primaryNavItems: WideSlidingCapsuleItem[] = [
     { title: '首页', symbol: $r('sys.symbol.house_fill'), index: 0 },
     { title: '长者', symbol: $r('sys.symbol.person_2_fill'), index: 1 }
   ];
 
-  private pageTitle(): string {
-    const titles: string[] = ['工作台', '长者管理', '消息中心', '我的'];
-    return titles[this.currentTabIndex] ?? titles[0];
+  private activeTabIndex(): number {
+    return this.currentTabIndex >= 0 && this.currentTabIndex <= 2 ? this.currentTabIndex : 0;
   }
 
-  private pageSubtitle(): string {
-    const subtitles: string[] = [
-      '半山敬老院 · 白班 08:00–18:00',
-      '半山敬老院 · 在院长者与照护档案',
-      '半山敬老院 · 提醒、通知和工作沟通',
-      '刘婷 · 护工'
-    ];
-    return subtitles[this.currentTabIndex] ?? subtitles[0];
+  private pageTitle(): string {
+    const titles: string[] = ['工作台', '长者管理', '消息中心'];
+    return titles[this.activeTabIndex()] ?? titles[0];
   }
 
   private activateWithKeyboard(event: KeyEvent, action: () => void): void {
@@ -78,20 +75,12 @@ export struct WideCaregiverWorkspace {
     return this.compactWidth ? 150 : 230;
   }
 
-  private primaryNavigationWidth(): number {
-    return this.compactWidth ? 176 : 196;
-  }
-
   private primaryNavItemWidth(): number {
     return this.compactWidth ? 83 : 93;
   }
 
-  private primarySelectionVisible(): boolean {
-    return this.currentTabIndex === 0 || this.currentTabIndex === 1;
-  }
-
-  private primarySelectionOffset(): number {
-    return this.primaryTabIndex === 1 ? this.primaryNavItemWidth() + 4 : 0;
+  private primaryCapsuleIndex(): number {
+    return this.activeTabIndex() === 0 || this.activeTabIndex() === 1 ? this.primaryTabIndex : -1;
   }
 
   private searchAreaWidth(): number {
@@ -103,69 +92,15 @@ export struct WideCaregiverWorkspace {
   }
 
   @Builder
-  private primaryNavItem(item: WorkspacePrimaryNavItem) {
-    Row({ space: 7 }) {
-      SymbolGlyph(item.symbol)
-        .fontSize(17)
-        .fontColor([this.currentTabIndex === item.index ? $r('app.color.brand_blue') :
-          $r('sys.color.icon_secondary')])
-      Text(item.title)
-        .fontSize($r('sys.float.Body_M'))
-        .fontWeight(this.currentTabIndex === item.index ? FontWeight.Medium : FontWeight.Regular)
-        .fontColor(this.currentTabIndex === item.index ? $r('app.color.brand_blue') :
-          $r('sys.color.font_primary'))
-    }
-    .width(this.primaryNavItemWidth())
-    .height(38)
-    .padding({ left: 12, right: 12 })
-    .borderRadius(19)
-    .backgroundColor(this.currentTabIndex !== item.index && this.hoveredNavIndex === item.index ?
-      $r('sys.color.interactive_hover') : Color.Transparent)
-    .border({
-      width: this.focusedTarget === `primary-nav-${item.index}` ? 2 : 0,
-      color: $r('app.color.brand_blue')
-    })
-    .justifyContent(FlexAlign.Center)
-    .alignItems(VerticalAlign.Center)
-    .focusable(true)
-    .focusOnTouch(true)
-    .accessibilityText(item.title)
-    .accessibilityRole(AccessibilityRoleType.BUTTON)
-    .accessibilitySelected(this.currentTabIndex === item.index)
-    .animation({ duration: 180, curve: Curve.EaseOut })
-    .onFocus(() => this.focusedTarget = `primary-nav-${item.index}`)
-    .onBlur(() => this.focusedTarget = '')
-    .onHover((isHover: boolean) => this.hoveredNavIndex = isHover ? item.index : -1)
-    .onKeyEvent((event: KeyEvent) => {
-      this.activateWithKeyboard(event, () => this.onSwitchTab(item.index));
-    })
-    .onClick(() => this.onSwitchTab(item.index))
-  }
-
-  @Builder
   private primaryNavigation() {
-    Stack({ alignContent: Alignment.Start }) {
-      Row()
-        .width(this.primaryNavItemWidth())
-        .height(38)
-        .borderRadius(19)
-        .backgroundColor($r('sys.color.comp_background_primary'))
-        .shadow({ radius: 6, color: 'rgba(0,0,0,0.05)', offsetY: 1 })
-        .translate({ x: this.primarySelectionOffset() })
-        .opacity(this.primarySelectionVisible() ? 1 : 0)
-        .animation({ duration: 260, curve: Curve.Friction })
-
-      Row({ space: 4 }) {
-        ForEach(this.primaryNavItems, (item: WorkspacePrimaryNavItem) => {
-          this.primaryNavItem(item)
-        }, (item: WorkspacePrimaryNavItem) => item.index.toString())
+    WideSlidingCapsule({
+      items: this.primaryNavItems,
+      selectedIndex: this.primaryCapsuleIndex(),
+      itemWidth: this.primaryNavItemWidth(),
+      onSelect: (index: number) => {
+        this.onSwitchTab(index);
       }
-    }
-    .width(this.primaryNavigationWidth())
-    .height(44)
-    .padding(3)
-    .borderRadius(22)
-    .backgroundColor($r('sys.color.comp_background_secondary'))
+    })
   }
 
   @Builder
@@ -219,51 +154,225 @@ export struct WideCaregiverWorkspace {
   }
 
   @Builder
+  private profileMetric(value: string, label: string) {
+    Column({ space: 2 }) {
+      Text(value)
+        .fontSize(20)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+      Text(label)
+        .fontSize(12)
+        .fontColor($r('sys.color.font_secondary'))
+        .maxLines(1)
+    }
+    .layoutWeight(1)
+    .height(48)
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+  }
+
+  @Builder
+  private profileMenuHeader() {
+    Column({ space: 14 }) {
+      Row({ space: 12 }) {
+        Stack({ alignContent: Alignment.Center }) {
+          Row()
+            .width(46)
+            .height(46)
+            .borderRadius(23)
+            .backgroundColor($r('app.color.ai_feed_background'))
+          Text('LT')
+            .fontSize(15)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.brand_blue'))
+        }
+
+        Column({ space: 3 }) {
+          Row({ space: 7 }) {
+            Text('刘婷')
+              .fontSize(17)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('sys.color.font_primary'))
+            Text('L3')
+              .fontSize(10)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_secondary'))
+              .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+              .borderRadius(6)
+              .backgroundColor($r('sys.color.comp_background_secondary'))
+          }
+          .alignItems(VerticalAlign.Center)
+
+          Text('阳光护士（2024） · 护工')
+            .fontSize(12)
+            .fontColor($r('sys.color.font_secondary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        Row({ space: 5 }) {
+          Row()
+            .width(7)
+            .height(7)
+            .borderRadius(4)
+            .backgroundColor($r('app.color.status_normal'))
+          Text('在岗')
+            .fontSize(12)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.status_normal'))
+        }
+        .alignItems(VerticalAlign.Center)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      Column({ space: 8 }) {
+        Row() {
+          Text('当前班次')
+            .fontSize(12)
+            .fontColor($r('sys.color.font_secondary'))
+          Blank()
+          Text('早班 · 07:30–16:00')
+            .fontSize(14)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+
+        Stack({ alignContent: Alignment.Start }) {
+          Row()
+            .width('100%')
+            .height(5)
+            .borderRadius(3)
+            .backgroundColor($r('sys.color.comp_background_secondary'))
+          Row()
+            .width('62%')
+            .height(5)
+            .borderRadius(3)
+            .backgroundColor($r('app.color.brand_blue'))
+        }
+        .width('100%')
+        .height(5)
+
+        Row() {
+          Text('已完成 5 小时 16 分')
+            .fontSize(11)
+            .fontColor($r('sys.color.font_tertiary'))
+          Blank()
+          Text('剩余 3 小时 14 分')
+            .fontSize(11)
+            .fontColor($r('sys.color.font_tertiary'))
+        }
+        .width('100%')
+      }
+      .width('100%')
+      .padding(12)
+      .borderRadius(12)
+      .backgroundColor($r('sys.color.comp_background_secondary'))
+
+      Row() {
+        this.profileMetric('28', '负责长者')
+        Divider()
+          .vertical(true)
+          .height(32)
+          .strokeWidth(0.5)
+          .color($r('sys.color.comp_divider'))
+        this.profileMetric('92%', '班次完成')
+      }
+      .width('100%')
+      .height(48)
+    }
+    .width('100%')
+    .padding({ left: 12, right: 12, top: 12, bottom: 8 })
+  }
+
+  @Builder
+  private profileMenu() {
+    Menu() {
+      MenuItemGroup({ header: this.profileMenuHeader }) {
+        MenuItem({
+          symbolStartIcon: this.generalSettingsIcon,
+          content: '通用设置'
+        })
+          .height(46)
+          .contentFont({ size: 14, weight: FontWeight.Medium })
+          .onClick(() => this.onOpenGeneral())
+
+        MenuItem({
+          symbolStartIcon: this.aboutIcon,
+          content: '关于我们'
+        })
+          .height(46)
+          .contentFont({ size: 14, weight: FontWeight.Medium })
+          .onClick(() => this.onOpenAbout())
+      }
+
+      MenuItemGroup() {
+        MenuItem({
+          symbolStartIcon: this.logoutIcon,
+          content: '退出登录'
+        })
+          .height(46)
+          .contentFont({ size: 14, weight: FontWeight.Medium })
+          .contentFontColor($r('app.color.status_danger'))
+          .onClick(() => this.onLogout())
+      }
+    }
+    .width(320)
+    .radius(16)
+  }
+
+  @Builder
   private profileAction() {
     Stack({ alignContent: Alignment.Center }) {
       Row()
         .width(40)
         .height(40)
         .borderRadius(20)
-        .backgroundColor(this.currentTabIndex === 3 ? $r('app.color.ai_feed_background') :
+        .backgroundColor(this.focusedTarget === 'profile-action' ? $r('sys.color.interactive_hover') :
           $r('sys.color.comp_background_primary'))
         .border({
-          width: this.focusedTarget === 'profile-action' ? 2 : this.currentTabIndex === 3 ? 1 : 0,
+          width: this.focusedTarget === 'profile-action' ? 2 : 0,
           color: $r('app.color.brand_blue')
         })
       Text('LT')
         .fontSize(13)
         .fontWeight(FontWeight.Medium)
-        .fontColor(this.currentTabIndex === 3 ? $r('app.color.brand_blue') :
+        .fontColor(this.focusedTarget === 'profile-action' ? $r('app.color.brand_blue') :
           $r('sys.color.font_primary'))
     }
     .width(40)
     .height(40)
-    .accessibilityText('我的')
+    .accessibilityText('账户菜单，左键或右键打开')
+    .accessibilityRole(AccessibilityRoleType.BUTTON)
     .focusable(true)
     .focusOnTouch(true)
     .onFocus(() => this.focusedTarget = 'profile-action')
     .onBlur(() => this.focusedTarget = '')
     .onHover((isHover: boolean) => this.focusedTarget = isHover ? 'profile-action' : '')
-    .onKeyEvent((event: KeyEvent) => {
-      this.activateWithKeyboard(event, () => this.onSwitchTab(3));
+    .bindMenu(this.profileMenu, {
+      placement: Placement.BottomRight,
+      enableArrow: true,
+      offset: { x: 12, y: 0 }
     })
-    .onClick(() => this.onSwitchTab(3))
+    .bindContextMenu(this.profileMenu, ResponseType.RightClick, {
+      placement: Placement.BottomRight,
+      enableArrow: true,
+      offset: { x: 12, y: 0 }
+    })
   }
 
   @Builder
   private commandBar() {
     Row({ space: this.commandBarGap() }) {
-      Column({ space: 3 }) {
+      Column() {
         Text(this.pageTitle())
           .fontSize(22)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('sys.color.font_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(this.pageSubtitle())
-          .fontSize(12)
-          .fontColor($r('sys.color.font_secondary'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
@@ -293,7 +402,7 @@ export struct WideCaregiverWorkspace {
         .backgroundColor($r('sys.color.comp_background_secondary'))
 
         this.commandBarAction('message-action', '消息', $r('sys.symbol.message_on_message_fill'), '3', false,
-          this.currentTabIndex === 2, () => this.onSwitchTab(2))
+          this.activeTabIndex() === 2, () => this.onSwitchTab(2))
         this.commandBarAction('notification-action', '通知', $r('sys.symbol.bell'), '', true,
           false, () => this.onSwitchTab(2))
         this.profileAction()
@@ -316,20 +425,14 @@ export struct WideCaregiverWorkspace {
 
   @Builder
   private currentPage() {
-    if (this.currentTabIndex === 0) {
+    if (this.activeTabIndex() === 0) {
       WideHomePage({
         onOpenAiChat: () => this.onOpenAiChat()
       })
-    } else if (this.currentTabIndex === 1) {
+    } else if (this.activeTabIndex() === 1) {
       WideResidentPage()
-    } else if (this.currentTabIndex === 2) {
-      WideMessagePage()
     } else {
-      WideMinePage({
-        onOpenAbout: () => this.onOpenAbout(),
-        onOpenGeneral: () => this.onOpenGeneral(),
-        onLogout: () => this.onLogout()
-      })
+      WideMessagePage()
     }
   }
 
