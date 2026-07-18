@@ -25,6 +25,7 @@ export struct WideCaregiverWorkspace {
   @Param @Require currentTabIndex: number;
   @Param @Require primaryTabIndex: number;
   @Param statusBarHeight: number = 0;
+  @Param viewportHeight: number = 0;
   @Param compactWidth: boolean = false;
   @Event onSwitchTab: (index: number) => void = (_index: number) => {};
   @Event onOpenAiChat: () => void = () => {};
@@ -88,7 +89,7 @@ export struct WideCaregiverWorkspace {
   }
 
   private commandActionAreaWidth(): number {
-    return this.searchAreaWidth() + 144;
+    return this.searchAreaWidth() + 96;
   }
 
   @Builder
@@ -401,8 +402,6 @@ export struct WideCaregiverWorkspace {
         .borderRadius(20)
         .backgroundColor($r('sys.color.comp_background_secondary'))
 
-        this.commandBarAction('message-action', '消息', $r('sys.symbol.message_on_message_fill'), '3', false,
-          this.activeTabIndex() === 2, () => this.onSwitchTab(2))
         this.commandBarAction('notification-action', '通知', $r('sys.symbol.bell'), '', true,
           false, () => this.onSwitchTab(2))
         this.profileAction()
@@ -427,6 +426,7 @@ export struct WideCaregiverWorkspace {
   private currentPage() {
     if (this.activeTabIndex() === 0) {
       WideHomePage({
+        viewportHeight: this.viewportHeight,
         onOpenAiChat: () => this.onOpenAiChat()
       })
     } else if (this.activeTabIndex() === 1) {

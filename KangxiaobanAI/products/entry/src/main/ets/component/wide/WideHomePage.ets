@@ -14,7 +14,6 @@
  */
 
 import { LengthMetrics } from '@kit.ArkUI';
-import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule';
 
 type WideStatus = 'danger' | 'warning' | 'normal' | 'brand' | 'neutral';
 
@@ -27,17 +26,16 @@ interface WideWorkItem {
   level: WideStatus;
 }
 
+interface WideWorkSection {
+  id: string;
+  title: string;
+  items: WideWorkItem[];
+}
+
 interface WideAiReminder {
   id: string;
   title: string;
   subtitle: string;
-  level: WideStatus;
-}
-
-interface WideOverviewItem {
-  label: string;
-  value: string;
-  unit: string;
   level: WideStatus;
 }
 
@@ -52,13 +50,13 @@ interface WideFocusItem {
 
 @ComponentV2
 export struct WideHomePage {
+  @Param viewportHeight: number = 0;
   @Event onOpenAiChat: () => void = () => {};
   @Local currentTime: Date = new Date();
   @Local isClockedIn: boolean = false;
   @Local isClockedOut: boolean = false;
   @Local clockInTime: Date | null = null;
   @Local clockOutTime: Date | null = null;
-  @Local activeWorkIndex: number = 0;
   @Local hoveredWorkId: string = '';
   @Local selectedWorkId: string = '';
   @Local hoveredFocusId: string = '';
@@ -80,7 +78,10 @@ export struct WideHomePage {
 
   aboutToAppear(): void {
     this.timerId = setInterval(() => {
-      this.currentTime = new Date();
+      const now: Date = new Date();
+      if (Math.floor(now.getTime() / 60000) !== Math.floor(this.currentTime.getTime() / 60000)) {
+        this.currentTime = now;
+      }
     }, 1000);
   }
 
@@ -90,13 +91,6 @@ export struct WideHomePage {
       this.timerId = -1;
     }
   }
-
-  private workTabItems: WideSlidingCapsuleItem[] = [
-    { title: '待办', badgeText: '3', index: 0 },
-    { title: '用药', badgeText: '4', index: 1 },
-    { title: '记录', badgeText: '4', index: 2 },
-    { title: '家属', badgeText: '4', index: 3 }
-  ];
 
   private todoItems(): WideWorkItem[] {
     return [
@@ -238,17 +232,18 @@ export struct WideHomePage {
     ];
   }
 
-  private currentWorkItems(): WideWorkItem[] {
-    if (this.activeWorkIndex === 1) {
-      return this.medicationItems();
-    }
-    if (this.activeWorkIndex === 2) {
-      return this.recordItems();
-    }
-    if (this.activeWorkIndex === 3) {
-      return this.familyItems();
-    }
-    return this.todoItems();
+  private workSections(): WideWorkSection[] {
+    return [
+      { id: 'todo', title: '待办', items: this.todoItems() },
+      { id: 'medication', title: '用药', items: this.medicationItems() },
+      { id: 'record', title: '记录', items: this.recordItems() },
+      { id: 'family', title: '家属', items: this.familyItems() }
+    ];
+  }
+
+  private totalWorkCount(): number {
+    return this.todoItems().length + this.medicationItems().length + this.recordItems().length +
+      this.familyItems().length;
   }
 
   private aiReminders(): WideAiReminder[] {
@@ -265,15 +260,6 @@ export struct WideHomePage {
         subtitle: '305-2 李秀英 · 进度稳定，继续保持',
         level: 'normal'
       }
-    ];
-  }
-
-  private overviewItems(): WideOverviewItem[] {
-    return [
-      { label: '待办任务', value: '3', unit: '项', level: 'danger' },
-      { label: '进行中', value: '3', unit: '项', level: 'warning' },
-      { label: '已完成', value: '1', unit: '项', level: 'normal' },
-      { label: '用药进度', value: '3/4', unit: '人', level: 'brand' }
     ];
   }
 
@@ -325,7 +311,7 @@ export struct WideHomePage {
       return $r('app.color.status_normal_bg');
     }
     if (level === 'brand') {
-      return $r('sys.color.comp_background_emphasize');
+      return $r('sys.color.comp_background_secondary');
     }
     return $r('sys.color.comp_background_secondary');
   }
@@ -341,6 +327,34 @@ export struct WideHomePage {
     return `${this.currentTime.getMonth() + 1}月${this.currentTime.getDate()}日 ${weekNames[this.currentTime.getDay()]}`;
   }
 
+  private attendanceHeight(): number {
+    return 112;
+  }
+
+  private aiPanelHeight(): number {
+    return 176;
+  }
+
+  private workAreaHeight(): number {
+    if (this.viewportHeight <= 0) {
+      return 620;
+    }
+    return Math.max(520, this.viewportHeight - 48 - this.attendanceHeight() - 16);
+  }
+
+  private workRowHeight(): number {
+    return Math.max(76, Math.min(132, Math.floor((this.workAreaHeight() - 120) / 4)));
+  }
+
+  private focusPanelHeight(): number {
+    return Math.max(328, this.workAreaHeight() - this.aiPanelHeight() - 16);
+  }
+
+  private focusRowHeight(): number {
+    const visibleCount: number = Math.min(2, Math.max(1, this.focusItems().length));
+    return Math.max(118, Math.min(190, Math.floor((this.focusPanelHeight() - 68) / visibleCount)));
+  }
+
   private shortTime(date: Date): string {
     const hour: string = date.getHours().toString().padStart(2, '0');
     const minute: string = date.getMinutes().toString().padStart(2, '0');
@@ -349,7 +363,7 @@ export struct WideHomePage {
 
   private clockStatusText(): string {
     if (!this.isClockedIn) {
-      return '今日未打卡 · 白班 08:00-18:00';
+      return '今日尚未打卡';
     }
     if (this.isClockedOut && this.clockInTime && this.clockOutTime) {
       return `${this.shortTime(this.clockInTime)} 上班 · ${this.shortTime(this.clockOutTime)} 下班`;
@@ -402,7 +416,7 @@ export struct WideHomePage {
 
   private workRowBackground(item: WideWorkItem): ResourceColor {
     if (this.selectedWorkId === item.id) {
-      return $r('sys.color.comp_background_emphasize');
+      return $r('sys.color.comp_background_secondary');
     }
     if (this.hoveredWorkId === item.id) {
       return $r('sys.color.interactive_hover');
@@ -422,78 +436,92 @@ export struct WideHomePage {
 
   @Builder
   private clockCard() {
-    Column({ space: 14 }) {
-      Row({ space: 10 }) {
+    Row({ space: 0 }) {
+      Column({ space: 5 }) {
         Text('今日考勤')
           .fontSize($r('sys.float.Title_S'))
           .fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.font_primary'))
-
-        Blank()
-
         Text(this.dateText())
           .fontSize($r('sys.float.Caption_M'))
           .fontColor($r('sys.color.font_secondary'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
+      .width(220)
+      .alignItems(HorizontalAlign.Start)
 
-      Row({ space: 16 }) {
-        Text(this.currentTimeText())
-          .fontSize(42)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-          .letterSpacing(0)
-          .maxLines(1)
+      Divider()
+        .vertical(true)
+        .height(52)
+        .strokeWidth(0.5)
+        .color($r('sys.color.comp_divider'))
 
-        Blank()
+      Text(this.currentTimeText())
+        .width(180)
+        .fontSize(40)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .letterSpacing(0)
+        .textAlign(TextAlign.Center)
+        .maxLines(1)
 
-        Button(this.clockButtonLabel())
-          .height(42)
-          .padding({ left: 20, right: 20 })
-          .borderRadius(21)
-          .fontSize($r('sys.float.Body_M'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.clockButtonTextColor())
-          .backgroundColor(this.clockButtonColor())
-          .opacity(this.isClockButtonHovered && !this.isClockedOut ? 0.86 : 1)
-          .enabled(!this.isClockedOut)
-          .keyboardFocusStyle()
-          .onHover((isHover: boolean) => {
-            this.isClockButtonHovered = isHover;
-          })
-          .onClick(() => {
-            this.handleClockAction();
-          })
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
+      Divider()
+        .vertical(true)
+        .height(52)
+        .strokeWidth(0.5)
+        .color($r('sys.color.comp_divider'))
 
-      Row({ space: 7 }) {
-        Column()
-          .width(7)
-          .height(7)
-          .borderRadius(4)
-          .backgroundColor(this.clockStatusColor())
-
-        Text(this.clockStatusText())
-          .fontSize($r('sys.float.Body_M'))
+      Column({ space: 7 }) {
+        Text('考勤状态')
+          .fontSize($r('sys.float.Caption_M'))
           .fontColor($r('sys.color.font_secondary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Row({ space: 8 }) {
+          Column()
+            .width(7)
+            .height(7)
+            .borderRadius(4)
+            .backgroundColor(this.clockStatusColor())
+          Text(this.clockStatusText())
+            .fontSize($r('sys.float.Body_L'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
       }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
+      .layoutWeight(1)
+      .padding({ left: 24, right: 24 })
+      .alignItems(HorizontalAlign.Start)
+
+      Button(this.clockButtonLabel())
+        .width(112)
+        .height(42)
+        .margin({ left: 24 })
+        .borderRadius(21)
+        .fontSize($r('sys.float.Body_M'))
+        .fontWeight(FontWeight.Medium)
+        .fontColor(this.clockButtonTextColor())
+        .backgroundColor(this.clockButtonColor())
+        .opacity(this.isClockButtonHovered && !this.isClockedOut ? 0.86 : 1)
+        .enabled(!this.isClockedOut)
+        .keyboardFocusStyle()
+        .onHover((isHover: boolean) => {
+          this.isClockButtonHovered = isHover;
+        })
+        .onClick(() => {
+          this.handleClockAction();
+        })
     }
-    .width('36%')
-    .height(170)
-    .constraintSize({ minWidth: 280, maxWidth: 400 })
-    .padding(20)
+    .width('100%')
+    .height(this.attendanceHeight())
+    .padding({ left: 24, right: 24, top: 16, bottom: 16 })
     .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .alignItems(HorizontalAlign.Start)
+    .borderRadius(12)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .alignItems(VerticalAlign.Center)
   }
 
   @Builder
@@ -520,19 +548,28 @@ export struct WideHomePage {
       .width('100%')
       .alignItems(VerticalAlign.Center)
 
-      Column({ space: 0 }) {
-        ForEach(this.aiReminders(), (item: WideAiReminder, index: number) => {
-          this.aiReminderRow(item, index === this.aiReminders().length - 1)
-        }, (item: WideAiReminder) => item.id)
+      List({ space: 0 }) {
+        Repeat(this.aiReminders()).each((repeatItem: RepeatItem<WideAiReminder>) => {
+          ListItem() {
+            this.aiReminderRow(repeatItem.item, repeatItem.index === this.aiReminders().length - 1)
+          }
+        }).virtualScroll().key((item: WideAiReminder) => item.id)
       }
       .width('100%')
+      .layoutWeight(1)
+      .cachedCount(2)
+      .clip(true)
+      .scrollBar(BarState.Auto)
+      .edgeEffect(EdgeEffect.None)
+      .nestedScroll({ scrollForward: NestedScrollMode.SELF_FIRST, scrollBackward: NestedScrollMode.SELF_FIRST })
     }
-    .layoutWeight(1)
-    .height(170)
-    .padding({ left: 20, right: 20, top: 18, bottom: 14 })
+    .width('100%')
+    .height(this.aiPanelHeight())
+    .padding({ left: 18, right: 18, top: 16, bottom: 14 })
     .backgroundColor(this.isAiCardHovered ? $r('sys.color.interactive_hover') :
       $r('sys.color.comp_background_primary'))
-    .borderRadius(16)
+    .borderRadius(12)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
     .geometryTransition('aiReminderCard', { follow: true })
     .keyboardFocusStyle()
     .onHover((isHover: boolean) => {
@@ -581,7 +618,7 @@ export struct WideHomePage {
 
   @Builder
   private workCard() {
-    Column({ space: 16 }) {
+    Column({ space: 12 }) {
       Row() {
         Text('今日工作')
           .fontSize($r('sys.float.Title_S'))
@@ -590,80 +627,128 @@ export struct WideHomePage {
 
         Blank()
 
-        Text(`${this.currentWorkItems().length} 项`)
+        Text(`共 ${this.totalWorkCount()} 项`)
           .fontSize($r('sys.float.Body_M'))
           .fontColor($r('sys.color.font_secondary'))
       }
       .width('100%')
+      .height(32)
       .alignItems(VerticalAlign.Center)
 
-      WideSlidingCapsule({
-        items: this.workTabItems,
-        selectedIndex: this.activeWorkIndex,
-        itemWidth: 180,
-        fillWidth: true,
-        onSelect: (index: number) => {
-          this.activeWorkIndex = index;
-          this.selectedWorkId = '';
-        }
-      })
-
-      Column({ space: 0 }) {
-        ForEach(this.currentWorkItems(), (item: WideWorkItem, index: number) => {
-          this.workRow(item, index === this.currentWorkItems().length - 1)
-        }, (item: WideWorkItem) => item.id)
+      Row({ space: 0 }) {
+        ForEach(this.workSections(), (section: WideWorkSection, index: number) => {
+          this.workSection(section, index === this.workSections().length - 1)
+        }, (section: WideWorkSection) => section.id)
       }
       .width('100%')
+      .layoutWeight(1)
+      .alignItems(VerticalAlign.Top)
     }
     .layoutWeight(1)
-    .height(536)
-    .padding(20)
+    .height(this.workAreaHeight())
+    .padding(18)
     .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
+    .borderRadius(12)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
     .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
-  private workRow(item: WideWorkItem, isLast: boolean) {
-    Row({ space: 12 }) {
-      Column({ space: 4 }) {
-        Text(item.title)
+  private workSection(section: WideWorkSection, isLast: boolean) {
+    Column({ space: 0 }) {
+      Row() {
+        Text(section.title)
           .fontSize($r('sys.float.Body_L'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+
+        Blank()
+
+        Text(section.items.length.toString())
+          .fontSize($r('sys.float.Caption_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_secondary'))
+          .width(24)
+          .height(24)
+          .textAlign(TextAlign.Center)
+          .backgroundColor($r('sys.color.comp_background_primary'))
+          .borderRadius(12)
+      }
+      .width('100%')
+      .height(40)
+      .padding({ left: 12, right: 12 })
+      .backgroundColor($r('sys.color.comp_background_secondary'))
+      .alignItems(VerticalAlign.Center)
+
+      List({ space: 0 }) {
+        Repeat(section.items).each((repeatItem: RepeatItem<WideWorkItem>) => {
+          ListItem() {
+            this.workSectionRow(repeatItem.item, repeatItem.index === section.items.length - 1)
+          }
+        }).virtualScroll().key((item: WideWorkItem) => item.id)
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .cachedCount(2)
+      .clip(true)
+      .scrollBar(BarState.Auto)
+      .edgeEffect(EdgeEffect.None)
+      .nestedScroll({ scrollForward: NestedScrollMode.SELF_FIRST, scrollBackward: NestedScrollMode.SELF_FIRST })
+    }
+    .layoutWeight(1)
+    .height('100%')
+    .border({
+      width: { right: isLast ? 0 : 0.5 },
+      color: { right: $r('sys.color.comp_divider') }
+    })
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private workSectionRow(item: WideWorkItem, isLast: boolean) {
+    Column({ space: 5 }) {
+      Row({ space: 8 }) {
+        Text(item.title)
+          .layoutWeight(1)
+          .fontSize($r('sys.float.Body_M'))
           .fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.font_primary'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(item.subtitle)
-          .fontSize($r('sys.float.Body_M'))
-          .fontColor($r('sys.color.font_secondary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-      }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
 
-      Column({ space: 5 }) {
         Text(item.time)
           .fontSize($r('sys.float.Caption_M'))
           .fontColor($r('sys.color.font_tertiary'))
+          .maxLines(1)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      Row({ space: 8 }) {
+        Text(item.subtitle)
+          .layoutWeight(1)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+
         Text(item.status)
           .fontSize($r('sys.float.Caption_M'))
           .fontColor(this.statusColor(item.level))
-          .padding({ left: 8, right: 8, top: 2, bottom: 2 })
+          .padding({ left: 7, right: 7, top: 2, bottom: 2 })
           .backgroundColor(this.statusBackground(item.level))
           .borderRadius(8)
+          .maxLines(1)
       }
-      .alignItems(HorizontalAlign.End)
-
-      SymbolGlyph($r('sys.symbol.chevron_right'))
-        .fontSize(15)
-        .fontColor([$r('sys.color.icon_fourth')])
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
     }
     .width('100%')
-    .height(82)
-    .padding({ left: 10, right: 10 })
-    .borderRadius(10)
-    .alignItems(VerticalAlign.Center)
+    .height(this.workRowHeight())
+    .padding({ left: 12, right: 12, top: 10, bottom: 10 })
+    .borderRadius(8)
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Start)
     .backgroundColor(this.workRowBackground(item))
     .border({
       width: { bottom: isLast ? 0 : 0.5 },
@@ -683,88 +768,6 @@ export struct WideHomePage {
   }
 
   @Builder
-  private overviewCard() {
-    Column({ space: 14 }) {
-      Row() {
-        Text('今日概览')
-          .fontSize($r('sys.float.Title_S'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-
-        Blank()
-
-        Text('7 项已处理')
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor($r('app.color.status_normal'))
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-
-      Column({ space: 0 }) {
-        Row({ space: 0 }) {
-          this.overviewMetric(this.overviewItems()[0])
-          Divider()
-            .vertical(true)
-            .height(48)
-            .strokeWidth(0.5)
-            .color($r('sys.color.comp_divider'))
-          this.overviewMetric(this.overviewItems()[1])
-        }
-        .width('100%')
-        .height(60)
-
-        Divider()
-          .strokeWidth(0.5)
-          .color($r('sys.color.comp_divider'))
-
-        Row({ space: 0 }) {
-          this.overviewMetric(this.overviewItems()[2])
-          Divider()
-            .vertical(true)
-            .height(48)
-            .strokeWidth(0.5)
-            .color($r('sys.color.comp_divider'))
-          this.overviewMetric(this.overviewItems()[3])
-        }
-        .width('100%')
-        .height(60)
-      }
-      .width('100%')
-    }
-    .width('100%')
-    .height(214)
-    .padding(20)
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  private overviewMetric(item: WideOverviewItem) {
-    Column({ space: 4 }) {
-      Text(item.label)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_secondary'))
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-      Row({ space: 4 }) {
-        Text(item.value)
-          .fontSize($r('sys.float.Title_M'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.statusColor(item.level))
-        Text(item.unit)
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor($r('sys.color.font_tertiary'))
-      }
-      .alignItems(VerticalAlign.Bottom)
-    }
-    .layoutWeight(1)
-    .padding({ left: 8, right: 8 })
-    .alignItems(HorizontalAlign.Start)
-    .justifyContent(FlexAlign.Center)
-  }
-
-  @Builder
   private focusCard() {
     Column({ space: 10 }) {
       Row() {
@@ -776,18 +779,27 @@ export struct WideHomePage {
       .width('100%')
       .alignItems(VerticalAlign.Center)
 
-      Column({ space: 0 }) {
-        ForEach(this.focusItems(), (item: WideFocusItem, index: number) => {
-          this.focusRow(item, index === this.focusItems().length - 1)
-        }, (item: WideFocusItem) => item.id)
+      List({ space: 0 }) {
+        Repeat(this.focusItems()).each((repeatItem: RepeatItem<WideFocusItem>) => {
+          ListItem() {
+            this.focusRow(repeatItem.item, repeatItem.index === this.focusItems().length - 1)
+          }
+        }).virtualScroll().key((item: WideFocusItem) => item.id)
       }
       .width('100%')
+      .layoutWeight(1)
+      .cachedCount(2)
+      .clip(true)
+      .scrollBar(BarState.Auto)
+      .edgeEffect(EdgeEffect.None)
+      .nestedScroll({ scrollForward: NestedScrollMode.SELF_FIRST, scrollBackward: NestedScrollMode.SELF_FIRST })
     }
     .width('100%')
-    .height(306)
-    .padding(20)
+    .height(this.focusPanelHeight())
+    .padding(18)
     .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
+    .borderRadius(12)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
     .alignItems(HorizontalAlign.Start)
   }
 
@@ -813,7 +825,7 @@ export struct WideHomePage {
         Text(item.detail)
           .fontSize($r('sys.float.Caption_M'))
           .fontColor($r('sys.color.font_secondary'))
-          .maxLines(1)
+          .maxLines(2)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
       .layoutWeight(1)
@@ -824,9 +836,9 @@ export struct WideHomePage {
         .fontColor([$r('sys.color.icon_fourth')])
     }
     .width('100%')
-    .height(106)
-    .padding({ left: 8, right: 8 })
-    .borderRadius(10)
+    .height(this.focusRowHeight())
+    .padding({ left: 10, right: 8, top: 14, bottom: 14 })
+    .borderRadius(8)
     .alignItems(VerticalAlign.Center)
     .backgroundColor(this.focusRowBackground(item))
     .border({
@@ -849,30 +861,26 @@ export struct WideHomePage {
   build() {
     Scroll() {
       Row() {
-        Column({ space: 20 }) {
-          Row({ space: 20 }) {
-            this.clockCard()
-            this.aiCard()
-          }
-          .width('100%')
-          .alignItems(VerticalAlign.Top)
+        Column({ space: 16 }) {
+          this.clockCard()
 
-          Row({ space: 20 }) {
+          Row({ space: 16 }) {
             this.workCard()
 
             Column({ space: 16 }) {
-              this.overviewCard()
+              this.aiCard()
               this.focusCard()
             }
-            .width('34%')
-            .constraintSize({ minWidth: 280, maxWidth: 380 })
+            .width(340)
+            .height(this.workAreaHeight())
           }
           .width('100%')
+          .height(this.workAreaHeight())
           .alignItems(VerticalAlign.Top)
         }
         .width('100%')
-        .constraintSize({ maxWidth: 1440 })
-        .padding({ left: 24, right: 24, top: 24, bottom: 32 })
+        .constraintSize({ maxWidth: 1560 })
+        .padding({ left: 24, right: 24, top: 24, bottom: 24 })
       }
       .width('100%')
       .justifyContent(FlexAlign.Center)
