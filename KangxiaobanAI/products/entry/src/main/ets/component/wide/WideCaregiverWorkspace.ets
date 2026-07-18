@@ -25,7 +25,6 @@ export struct WideCaregiverWorkspace {
   @Param @Require currentTabIndex: number;
   @Param @Require primaryTabIndex: number;
   @Param statusBarHeight: number = 0;
-  @Param viewportHeight: number = 0;
   @Param compactWidth: boolean = false;
   @Event onSwitchTab: (index: number) => void = (_index: number) => {};
   @Event onOpenAiChat: () => void = () => {};
@@ -426,8 +425,8 @@ export struct WideCaregiverWorkspace {
   private currentPage() {
     if (this.activeTabIndex() === 0) {
       WideHomePage({
-        viewportHeight: this.viewportHeight,
-        onOpenAiChat: () => this.onOpenAiChat()
+        onOpenAiChat: () => this.onOpenAiChat(),
+        onOpenResident: () => this.onSwitchTab(1)
       })
     } else if (this.activeTabIndex() === 1) {
       WideResidentPage()

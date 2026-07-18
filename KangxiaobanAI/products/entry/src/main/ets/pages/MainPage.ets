@@ -616,8 +616,6 @@ struct MainPage {
       currentTabIndex: this.currentTabIndex,
       primaryTabIndex: this.primaryTabIndex,
       statusBarHeight: this.globalInfoModel.statusBarHeight,
-      viewportHeight: Math.max(0, this.globalInfoModel.deviceHeight - this.globalInfoModel.statusBarHeight -
-        this.globalInfoModel.naviIndicatorHeight - 68),
       compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
       onSwitchTab: (index: number) => {
         this.switchTab(index);
