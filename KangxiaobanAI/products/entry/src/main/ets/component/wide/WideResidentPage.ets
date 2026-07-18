@@ -26,11 +26,6 @@ import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule
 type ResidentFilter = 'all' | 'warning' | 'danger';
 type ResidentDetailTab = 'overview' | 'vitals' | 'care' | 'devices';
 
-interface ResidentTabOption {
-  value: ResidentDetailTab;
-  label: string;
-}
-
 interface VitalTrendRow {
   time: string;
   heartRate: number;
@@ -59,6 +54,12 @@ export struct WideResidentPage {
     { title: '全部 5', index: 0 },
     { title: '关注 2', index: 1 },
     { title: '危险 1', index: 2 }
+  ];
+  private detailTabItems: WideSlidingCapsuleItem[] = [
+    { title: '概览', index: 0 },
+    { title: '体征趋势', index: 1 },
+    { title: '护理记录', index: 2 },
+    { title: '设备', index: 3 }
   ];
   @Local selectedResidentId: string = 'r1';
   @Local selectedTab: ResidentDetailTab = 'overview';
@@ -171,13 +172,29 @@ export struct WideResidentPage {
     return 'all';
   }
 
-  private tabOptions(): ResidentTabOption[] {
-    return [
-      { value: 'overview', label: '概览' },
-      { value: 'vitals', label: '体征趋势' },
-      { value: 'care', label: '护理记录' },
-      { value: 'devices', label: '设备' }
-    ];
+  private selectedDetailTabIndex(): number {
+    if (this.selectedTab === 'vitals') {
+      return 1;
+    }
+    if (this.selectedTab === 'care') {
+      return 2;
+    }
+    if (this.selectedTab === 'devices') {
+      return 3;
+    }
+    return 0;
+  }
+
+  private selectDetailTab(index: number): void {
+    if (index === 1) {
+      this.selectedTab = 'vitals';
+    } else if (index === 2) {
+      this.selectedTab = 'care';
+    } else if (index === 3) {
+      this.selectedTab = 'devices';
+    } else {
+      this.selectedTab = 'overview';
+    }
   }
 
   private statusText(level: StatusLevel): string {
@@ -600,59 +617,29 @@ export struct WideResidentPage {
 
   @Builder
   private detailTabBar() {
-    Row({ space: 0 }) {
-      Repeat(this.tabOptions())
-        .each((repeatItem: RepeatItem<ResidentTabOption>) => {
-          Button({ type: ButtonType.Normal, stateEffect: true }) {
-            Column({ space: 8 }) {
-              Text(repeatItem.item.label)
-                .fontSize($r('sys.float.Body_M'))
-                .fontWeight(this.selectedTab === repeatItem.item.value ?
-                  FontWeight.Medium : FontWeight.Regular)
-                .fontColor(this.selectedTab === repeatItem.item.value ?
-                  $r('app.color.brand_blue') : $r('sys.color.font_secondary'))
-
-              Divider()
-                .width(28)
-                .strokeWidth(this.selectedTab === repeatItem.item.value ? 2 : 0)
-                .color(this.selectedTab === repeatItem.item.value ?
-                  $r('app.color.brand_blue') : Color.Transparent)
-            }
-            .width('100%')
-            .height('100%')
-            .justifyContent(FlexAlign.Center)
-          }
-            .width(112)
-            .height(54)
-            .backgroundColor(Color.Transparent)
-            .borderRadius(8)
-            .focusBox({ margin: LengthMetrics.vp(2), strokeWidth: LengthMetrics.vp(2) })
-            .onClick(() => {
-              this.selectedTab = repeatItem.item.value;
-            })
-        })
-        .key((item: ResidentTabOption) => item.value)
+    Row() {
+      WideSlidingCapsule({
+        items: this.detailTabItems,
+        selectedIndex: this.selectedDetailTabIndex(),
+        itemWidth: 104,
+        onSelect: (index: number) => {
+          this.selectDetailTab(index);
+        }
+      })
     }
     .width('100%')
-    .height(54)
-    .padding({ left: 12, right: 12 })
+    .padding({ left: 20, right: 20, top: 10, bottom: 10 })
     .alignItems(VerticalAlign.Center)
   }
 
   @Builder
   private healthOverviewCard(resident: ResidentData) {
-    Column({ space: 0 }) {
+    Column({ space: 14 }) {
       Row() {
-        Column({ space: 3 }) {
-          Text('健康概览')
-            .fontSize($r('sys.float.Title_S'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-          Text('核心体征与今日照护进度')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_secondary'))
-        }
-        .alignItems(HorizontalAlign.Start)
+        Text('健康概览')
+          .fontSize($r('sys.float.Title_S'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
 
         Blank()
 
@@ -672,102 +659,104 @@ export struct WideResidentPage {
             .borderRadius(12)
           }
 
-          Text(`最近测量 ${this.residentVitalSign(resident).measuredAt}`)
+          Text(`${this.residentVitalSign(resident).measuredAt} 更新`)
             .fontSize($r('sys.float.Caption_M'))
             .fontColor($r('sys.color.font_tertiary'))
         }
         .alignItems(VerticalAlign.Center)
       }
       .width('100%')
-      .padding({ left: 20, right: 20, top: 18, bottom: 12 })
       .alignItems(VerticalAlign.Center)
 
-      Row({ space: 0 }) {
-        this.primaryVitalMetric(
-          '血压',
-          `${this.residentVitalSign(resident).systolic}/${this.residentVitalSign(resident).diastolic}`,
-          'mmHg',
-          this.metricStateText(this.bloodPressureLevel(this.residentVitalSign(resident)), '偏高'),
-          this.bloodPressureLevel(this.residentVitalSign(resident)),
-          1.35
-        )
+      Column({ space: 0 }) {
+        Row({ space: 0 }) {
+          this.primaryVitalMetric(
+            '血压',
+            `${this.residentVitalSign(resident).systolic}/${this.residentVitalSign(resident).diastolic}`,
+            'mmHg',
+            this.metricStateText(this.bloodPressureLevel(this.residentVitalSign(resident)), '偏高'),
+            this.bloodPressureLevel(this.residentVitalSign(resident))
+          )
+          Divider()
+            .vertical(true)
+            .height(52)
+            .strokeWidth(0.5)
+            .color($r('sys.color.comp_divider'))
+          this.primaryVitalMetric(
+            '心率',
+            `${this.residentVitalSign(resident).heartRate}`,
+            'bpm',
+            this.metricStateText(this.heartRateLevel(this.residentVitalSign(resident)), '需关注'),
+            this.heartRateLevel(this.residentVitalSign(resident))
+          )
+          Divider()
+            .vertical(true)
+            .height(52)
+            .strokeWidth(0.5)
+            .color($r('sys.color.comp_divider'))
+          this.primaryVitalMetric(
+            '血氧',
+            `${this.residentVitalSign(resident).oxygen}`,
+            '%',
+            this.metricStateText(this.oxygenLevel(this.residentVitalSign(resident)), '需关注'),
+            this.oxygenLevel(this.residentVitalSign(resident))
+          )
+          Divider()
+            .vertical(true)
+            .height(52)
+            .strokeWidth(0.5)
+            .color($r('sys.color.comp_divider'))
+          this.primaryVitalMetric(
+            '今日用药',
+            `${this.residentMedicationProgress(resident).done}/${this.residentMedicationProgress(resident).total}`,
+            '次',
+            this.residentMedicationProgress(resident).done >= this.residentMedicationProgress(resident).total ?
+              '已完成' :
+              `待完成 ${this.residentMedicationProgress(resident).total -
+                this.residentMedicationProgress(resident).done} 次`,
+            this.medicationLevel(this.residentMedicationProgress(resident))
+          )
+        }
+        .width('100%')
+        .height(82)
+        .alignItems(VerticalAlign.Center)
+
         Divider()
-          .vertical(true)
-          .height(58)
           .strokeWidth(0.5)
           .color($r('sys.color.comp_divider'))
-        this.primaryVitalMetric(
-          '心率',
-          `${this.residentVitalSign(resident).heartRate}`,
-          'bpm',
-          this.metricStateText(this.heartRateLevel(this.residentVitalSign(resident)), '需关注'),
-          this.heartRateLevel(this.residentVitalSign(resident)),
-          1
-        )
-        Divider()
-          .vertical(true)
-          .height(58)
-          .strokeWidth(0.5)
-          .color($r('sys.color.comp_divider'))
-        this.primaryVitalMetric(
-          '血氧',
-          `${this.residentVitalSign(resident).oxygen}`,
-          '%',
-          this.metricStateText(this.oxygenLevel(this.residentVitalSign(resident)), '需关注'),
-          this.oxygenLevel(this.residentVitalSign(resident)),
-          1
-        )
-        Divider()
-          .vertical(true)
-          .height(58)
-          .strokeWidth(0.5)
-          .color($r('sys.color.comp_divider'))
-        this.primaryVitalMetric(
-          '今日用药',
-          `${this.residentMedicationProgress(resident).done}/${this.residentMedicationProgress(resident).total}`,
-          '次',
-          this.residentMedicationProgress(resident).done >= this.residentMedicationProgress(resident).total ?
-            '已完成' :
-            `待完成 ${this.residentMedicationProgress(resident).total -
-              this.residentMedicationProgress(resident).done} 次`,
-          this.medicationLevel(this.residentMedicationProgress(resident)),
-          1
-        )
+
+        Row({ space: 0 }) {
+          this.secondaryVitalMetric('体温', `${this.residentVitalSign(resident).temperature}`, '℃')
+          Divider()
+            .vertical(true)
+            .height(32)
+            .strokeWidth(0.5)
+            .color($r('sys.color.comp_divider'))
+          this.secondaryVitalMetric('呼吸', `${this.residentVitalSign(resident).respiratory}`, '次/分')
+          Divider()
+            .vertical(true)
+            .height(32)
+            .strokeWidth(0.5)
+            .color($r('sys.color.comp_divider'))
+          this.secondaryVitalMetric('今日步数', `${this.residentVitalSign(resident).steps}`, '步')
+          Divider()
+            .vertical(true)
+            .height(32)
+            .strokeWidth(0.5)
+            .color($r('sys.color.comp_divider'))
+          this.secondaryVitalMetric('昨夜睡眠', `${this.residentVitalSign(resident).sleepHours}`, '小时')
+        }
+        .width('100%')
+        .height(56)
+        .alignItems(VerticalAlign.Center)
       }
       .width('100%')
-      .height(94)
-      .padding({ left: 10, right: 10 })
-      .alignItems(VerticalAlign.Center)
-
-      Row({ space: 0 }) {
-        this.secondaryVitalMetric('体温', `${this.residentVitalSign(resident).temperature}`, '℃')
-        Divider()
-          .vertical(true)
-          .height(36)
-          .strokeWidth(0.5)
-          .color($r('sys.color.comp_divider'))
-        this.secondaryVitalMetric('呼吸', `${this.residentVitalSign(resident).respiratory}`, '次/分')
-        Divider()
-          .vertical(true)
-          .height(36)
-          .strokeWidth(0.5)
-          .color($r('sys.color.comp_divider'))
-        this.secondaryVitalMetric('今日步数', `${this.residentVitalSign(resident).steps}`, '步')
-        Divider()
-          .vertical(true)
-          .height(36)
-          .strokeWidth(0.5)
-          .color($r('sys.color.comp_divider'))
-        this.secondaryVitalMetric('昨夜睡眠', `${this.residentVitalSign(resident).sleepHours}`, '小时')
-      }
-      .width('calc(100% - 40vp)')
-      .height(66)
-      .margin({ left: 20, right: 20, bottom: 18 })
       .backgroundColor($r('sys.color.comp_background_secondary'))
-      .borderRadius(10)
-      .alignItems(VerticalAlign.Center)
+      .borderRadius(12)
+      .clip(true)
     }
     .width('100%')
+    .padding(20)
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(16)
     .clip(true)
@@ -779,12 +768,12 @@ export struct WideResidentPage {
     value: string,
     unit: string,
     state: string,
-    level: StatusLevel,
-    weight: number
+    level: StatusLevel
   ) {
-    Column({ space: 7 }) {
+    Column({ space: 5 }) {
       Text(label)
         .width('100%')
+        .textAlign(TextAlign.Center)
         .fontSize($r('sys.float.Caption_M'))
         .fontColor($r('sys.color.font_secondary'))
         .maxLines(1)
@@ -792,7 +781,7 @@ export struct WideResidentPage {
 
       Row({ space: 4 }) {
         Text(value)
-          .fontSize(24)
+          .fontSize(22)
           .fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.font_primary'))
           .maxLines(1)
@@ -802,6 +791,7 @@ export struct WideResidentPage {
           .fontColor($r('sys.color.font_tertiary'))
       }
       .width('100%')
+      .justifyContent(FlexAlign.Center)
       .alignItems(VerticalAlign.Bottom)
 
       Row({ space: 6 }) {
@@ -814,11 +804,13 @@ export struct WideResidentPage {
           .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
       .width('100%')
+      .justifyContent(FlexAlign.Center)
       .alignItems(VerticalAlign.Center)
     }
-    .layoutWeight(weight)
+    .layoutWeight(1)
+    .height('100%')
     .padding({ left: 14, right: 14 })
-    .alignItems(HorizontalAlign.Start)
+    .alignItems(HorizontalAlign.Center)
     .justifyContent(FlexAlign.Center)
   }
 
@@ -826,6 +818,8 @@ export struct WideResidentPage {
   private secondaryVitalMetric(label: string, value: string, unit: string) {
     Column({ space: 5 }) {
       Text(label)
+        .width('100%')
+        .textAlign(TextAlign.Center)
         .fontSize($r('sys.float.Caption_M'))
         .fontColor($r('sys.color.font_secondary'))
         .maxLines(1)
@@ -841,11 +835,14 @@ export struct WideResidentPage {
           .fontSize($r('sys.float.Caption_M'))
           .fontColor($r('sys.color.font_tertiary'))
       }
+      .width('100%')
+      .justifyContent(FlexAlign.Center)
       .alignItems(VerticalAlign.Bottom)
     }
     .layoutWeight(1)
-    .padding({ left: 12, right: 12 })
-    .alignItems(HorizontalAlign.Start)
+    .height('100%')
+    .padding({ left: 10, right: 10 })
+    .alignItems(HorizontalAlign.Center)
     .justifyContent(FlexAlign.Center)
   }
 
