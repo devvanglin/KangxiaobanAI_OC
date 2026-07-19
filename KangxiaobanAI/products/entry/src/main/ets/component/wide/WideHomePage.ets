@@ -210,12 +210,6 @@ export struct WideHomePage {
     }
   }
 
-  private currentTimeText(): string {
-    const hour: string = this.currentTime.getHours().toString().padStart(2, '0');
-    const minute: string = this.currentTime.getMinutes().toString().padStart(2, '0');
-    return `${hour}:${minute}`;
-  }
-
   private dateText(): string {
     const weekNames: string[] = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
     return `${this.currentTime.getMonth() + 1}月${this.currentTime.getDate()}日 ${weekNames[this.currentTime.getDay()]}`;
@@ -499,76 +493,6 @@ export struct WideHomePage {
   }
 
   @Builder
-  private compactWorkHeader() {
-    Row({ space: 16 }) {
-      Column({ space: 3 }) {
-        Text('今日工作')
-          .fontSize($r('sys.float.Title_S'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-        Text(`${this.dateText()} · 共 ${this.taskData.length} 项`)
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor($r('sys.color.font_secondary'))
-      }
-      .alignItems(HorizontalAlign.Start)
-
-      Blank()
-
-      Text(this.currentTimeText())
-        .fontSize(28)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .letterSpacing(0)
-
-      Column()
-        .width(1)
-        .height(28)
-        .backgroundColor($r('sys.color.comp_divider'))
-
-      Row({ space: 8 }) {
-        Column()
-          .width(7)
-          .height(7)
-          .borderRadius(4)
-          .backgroundColor(this.clockStatusColor())
-        Text(this.clockStatusText())
-          .fontSize($r('sys.float.Body_M'))
-          .fontColor($r('sys.color.font_secondary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-      }
-      .constraintSize({ minWidth: 180, maxWidth: 260 })
-      .alignItems(VerticalAlign.Center)
-
-      Button(this.clockButtonLabel())
-        .width(108)
-        .height(36)
-        .borderRadius(18)
-        .fontSize($r('sys.float.Body_M'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor(this.isClockedOut ? $r('sys.color.font_tertiary') : $r('app.color.text_on_brand'))
-        .backgroundColor(this.isClockedOut ? $r('sys.color.comp_background_secondary') :
-          this.isClockedIn ? $r('app.color.status_danger') : $r('app.color.brand_blue'))
-        .opacity(this.isClockButtonHovered && !this.isClockedOut ? 0.86 : 1)
-        .enabled(!this.isClockedOut)
-        .keyboardFocusStyle()
-        .onHover((isHover: boolean) => {
-          this.isClockButtonHovered = isHover;
-        })
-        .onClick(() => {
-          this.handleClockAction();
-        })
-    }
-    .width('100%')
-    .height(64)
-    .padding({ left: 18, right: 18 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(8)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-    .alignItems(VerticalAlign.Center)
-  }
-
-  @Builder
   private taskViewPane() {
     Column({ space: 0 }) {
       Row() {
@@ -578,8 +502,8 @@ export struct WideHomePage {
           .fontColor($r('sys.color.font_primary'))
       }
       .width('100%')
-      .height(58)
-      .padding({ left: 16, right: 16 })
+      .height(60)
+      .padding({ left: 18, right: 18 })
       .alignItems(VerticalAlign.Center)
 
       List({ space: 2 }) {
@@ -601,14 +525,17 @@ export struct WideHomePage {
           .fontColor($r('sys.color.font_secondary'))
       }
       .width('100%')
-      .height(44)
-      .padding({ left: 16, right: 16 })
+      .height(48)
+      .padding({ left: 18, right: 18 })
       .border({ width: { top: 0.5 }, color: { top: $r('sys.color.comp_divider') } })
       .alignItems(VerticalAlign.Center)
     }
-    .width(208)
+    .width(224)
     .height('100%')
     .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(14)
+    .clip(true)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   @Builder
@@ -636,11 +563,11 @@ export struct WideHomePage {
       .padding({ left: 12, right: 12 })
       .alignItems(VerticalAlign.Center)
     }
-    .width('calc(100% - 16vp)')
+    .width('calc(100% - 20vp)')
     .height(46)
-    .margin({ left: 8, right: 8 })
+    .margin({ left: 10, right: 10 })
     .backgroundColor(this.viewRowBackground(item.id))
-    .borderRadius(7)
+    .borderRadius(10)
     .keyboardFocusStyle()
     .accessibilitySelected(this.activeView === item.id)
     .onHover((isHover: boolean) => {
@@ -655,17 +582,63 @@ export struct WideHomePage {
   private taskQueuePane() {
     Column({ space: 0 }) {
       Row({ space: 10 }) {
-        Text(this.activeViewLabel())
-          .fontSize($r('sys.float.Title_S'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-        Text(`${this.visibleTasks().length} 项`)
+        Column({ space: 3 }) {
+          Row({ space: 10 }) {
+            Text(this.activeViewLabel())
+              .fontSize($r('sys.float.Title_S'))
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+            Text(`${this.visibleTasks().length} 项`)
+              .fontSize($r('sys.float.Body_M'))
+              .fontColor($r('sys.color.font_secondary'))
+          }
+          Text(`${this.dateText()} · 共 ${this.taskData.length} 项护理工作`)
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('sys.color.font_secondary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .alignItems(HorizontalAlign.Start)
+
+        Blank()
+
+        Row({ space: 8 }) {
+          Column()
+            .width(7)
+            .height(7)
+            .borderRadius(4)
+            .backgroundColor(this.clockStatusColor())
+          Text(this.clockStatusText())
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('sys.color.font_secondary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .constraintSize({ minWidth: 132, maxWidth: 190 })
+        .alignItems(VerticalAlign.Center)
+
+        Button(this.clockButtonLabel())
+          .width(104)
+          .height(36)
+          .borderRadius(18)
           .fontSize($r('sys.float.Body_M'))
-          .fontColor($r('sys.color.font_secondary'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor(this.isClockedOut ? $r('sys.color.font_tertiary') : $r('app.color.text_on_brand'))
+          .backgroundColor(this.isClockedOut ? $r('sys.color.comp_background_secondary') :
+            $r('app.color.brand_blue'))
+          .opacity(this.isClockButtonHovered && !this.isClockedOut ? 0.86 : 1)
+          .enabled(!this.isClockedOut)
+          .keyboardFocusStyle()
+          .onHover((isHover: boolean) => {
+            this.isClockButtonHovered = isHover;
+          })
+          .onClick(() => {
+            this.handleClockAction();
+          })
       }
       .width('100%')
-      .height(58)
-      .padding({ left: 16, right: 16 })
+      .height(72)
+      .padding({ left: 20, right: 16 })
       .alignItems(VerticalAlign.Center)
 
       this.taskTableHeader()
@@ -684,24 +657,16 @@ export struct WideHomePage {
         .justifyContent(FlexAlign.Center)
         .alignItems(HorizontalAlign.Center)
       } else {
-        List({ space: 0 }) {
+        List({ space: 4 }) {
           Repeat(this.visibleTasks()).each((repeatItem: RepeatItem<WideClinicalTask>) => {
             ListItem() {
-              Column({ space: 0 }) {
-                this.taskQueueRow(repeatItem.item)
-                if (repeatItem.index !== this.visibleTasks().length - 1) {
-                  Divider()
-                    .strokeWidth(0.5)
-                    .color($r('sys.color.comp_divider'))
-                    .margin({ left: 16, right: 12 })
-                }
-              }
-              .width('100%')
+              this.taskQueueRow(repeatItem.item)
             }
           }).virtualScroll().key((task: WideClinicalTask) => task.id)
         }
         .width('100%')
         .layoutWeight(1)
+        .padding({ top: 6, bottom: 8 })
         .cachedCount(8)
         .scrollBar(BarState.Auto)
         .edgeEffect(EdgeEffect.None)
@@ -710,6 +675,9 @@ export struct WideHomePage {
     .layoutWeight(1)
     .height('100%')
     .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(14)
+    .clip(true)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   @Builder
@@ -745,10 +713,12 @@ export struct WideHomePage {
         .fontSize($r('sys.float.Caption_M'))
         .fontColor($r('sys.color.font_secondary'))
     }
-    .width('100%')
+    .width('calc(100% - 16vp)')
     .height(40)
-    .padding({ left: 16, right: 16 })
+    .margin({ left: 8, right: 8 })
+    .padding({ left: 12, right: 12 })
     .backgroundColor($r('sys.color.comp_background_secondary'))
+    .borderRadius(10)
     .alignItems(VerticalAlign.Center)
   }
 
@@ -835,17 +805,15 @@ export struct WideHomePage {
       }
       .width('100%')
       .height('100%')
-      .padding({ left: 16, right: 16 })
+      .padding({ left: 12, right: 12 })
       .alignItems(VerticalAlign.Center)
     }
-    .width('100%')
+    .width('calc(100% - 16vp)')
     .height(68)
+    .margin({ left: 8, right: 8 })
     .backgroundColor(this.taskRowBackground(task.id))
-    .border({
-      width: { left: task.level === 'danger' ? 3 : 0 },
-      color: { left: $r('app.color.status_danger') }
-    })
-    .borderRadius(0)
+    .borderRadius(10)
+    .hoverEffect(HoverEffect.None)
     .keyboardFocusStyle()
     .accessibilitySelected(this.selectedTaskId === task.id)
     .onHover((isHover: boolean) => {
@@ -891,6 +859,9 @@ export struct WideHomePage {
     .width(400)
     .height('100%')
     .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(14)
+    .clip(true)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   @Builder
@@ -1092,7 +1063,7 @@ export struct WideHomePage {
           .padding(10)
           .fontSize($r('sys.float.Body_M'))
           .backgroundColor($r('sys.color.comp_background_secondary'))
-          .borderRadius(6)
+          .borderRadius(12)
           .maxLength(200)
           .onChange((value: string) => {
             this.updateTaskNote(task.id, value);
@@ -1144,8 +1115,7 @@ export struct WideHomePage {
     .padding(12)
     .backgroundColor(this.isAiSuggestionHovered ? $r('sys.color.interactive_hover') :
       $r('sys.color.comp_background_secondary'))
-    .borderRadius(6)
-    .geometryTransition('aiReminderCard', { follow: true })
+    .borderRadius(12)
     .keyboardFocusStyle()
     .onHover((isHover: boolean) => {
       this.isAiSuggestionHovered = isHover;
@@ -1206,20 +1176,10 @@ export struct WideHomePage {
 
   @Builder
   private desktopWorkSurface() {
-    Row({ space: 0 }) {
+    Row({ space: 12 }) {
       this.taskViewPane()
 
-      Column()
-        .width(1)
-        .height('100%')
-        .backgroundColor($r('sys.color.comp_divider'))
-
       this.taskQueuePane()
-
-      Column()
-        .width(1)
-        .height('100%')
-        .backgroundColor($r('sys.color.comp_divider'))
 
       ForEach([this.selectedTask()], (task: WideClinicalTask) => {
         this.taskInspectorPane(task)
@@ -1227,15 +1187,11 @@ export struct WideHomePage {
     }
     .width('100%')
     .layoutWeight(1)
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(8)
-    .clip(true)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .alignItems(VerticalAlign.Top)
   }
 
   build() {
-    Column({ space: 12 }) {
-      this.compactWorkHeader()
+    Column() {
       this.desktopWorkSurface()
     }
     .width('100%')
