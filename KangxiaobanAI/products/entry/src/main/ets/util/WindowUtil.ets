@@ -53,6 +53,22 @@ export class WindowUtil {
     });
   }
 
+  public static setSystemBarForDarkBackground(isDarkBackground: boolean): void {
+    if (!WindowUtil.windowClass) {
+      return;
+    }
+    WindowUtil.windowClass.setSpecificSystemBarEnabled('status', !isDarkBackground, false)
+      .catch((err: BusinessError) => {
+        Logger.error(TAG, `set status bar visibility failed. code: ${err.code}, message: ${err.message}`);
+      });
+    WindowUtil.windowClass.setWindowSystemBarProperties({
+      statusBarContentColor: isDarkBackground ? '#ffffff' : '#000000',
+      navigationBarContentColor: isDarkBackground ? '#ffffff' : '#000000'
+    }).catch((err: BusinessError) => {
+      Logger.error(TAG, `set system bar content failed. code: ${err.code}, message: ${err.message}`);
+    });
+  }
+
   private static getDeviceSize(): void {
     // Get device height.
     try {

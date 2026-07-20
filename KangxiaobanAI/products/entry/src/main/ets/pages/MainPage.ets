@@ -30,6 +30,7 @@ import {
 } from '@kit.UIDesignKit';
 import { TabPageView } from '../component/TabPageView';
 import { WideCaregiverWorkspace } from '../component/wide/WideCaregiverWorkspace';
+import { WideDoctorWorkspace } from '../component/wide/WideDoctorWorkspace';
 import { AiChatPage } from '../pages/AiChatPage';
 import { MineDetailPage } from '../pages/MineDetailPage';
 import { StorageKey } from '../common/CommonConstants';
@@ -59,7 +60,7 @@ interface WideNavGroup {
 struct MainPage {
   @Provider('mainPageStack') pathStack: NavPathStack = new NavPathStack();
   @Local globalInfoModel: GlobalInfoModel =
-    AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
+    AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO, () => new GlobalInfoModel()) ?? new GlobalInfoModel();
   private controller: HdsTabsController = new HdsTabsController();
   private tabsBar: BottomTabBarStyle[] = TabsBarModel.getTabBarByPage(PageKeyEnum.ADAPTIVE_TAB) ?? [];
   private pageConfigs: TabPageConfig[] = TAB_PAGE_CONFIGS;
@@ -99,7 +100,8 @@ struct MainPage {
   }
 
   private isRoleAdapted(): boolean {
-    return this.globalInfoModel.role === '护工';
+    return this.globalInfoModel.role === '护工' ||
+      (this.globalInfoModel.role === '医师' && this.isWideLayout());
   }
 
   @Builder
@@ -612,27 +614,43 @@ struct MainPage {
 
   @Builder
   private wideShell() {
-    WideCaregiverWorkspace({
-      currentTabIndex: this.currentTabIndex,
-      primaryTabIndex: this.primaryTabIndex,
-      statusBarHeight: this.globalInfoModel.statusBarHeight,
-      compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
-      onSwitchTab: (index: number) => {
-        this.switchTab(index);
-      },
-      onOpenAiChat: () => {
-        this.openAiChat();
-      },
-      onOpenAbout: () => {
-        this.pathStack.pushPath({ name: 'AboutPage' });
-      },
-      onOpenGeneral: () => {
-        this.pathStack.pushPath({ name: 'GeneralSettingsPage' });
-      },
-      onLogout: () => {
-        this.handleLogout();
-      }
-    })
+    if (this.globalInfoModel.role === '医师') {
+      WideDoctorWorkspace({
+        statusBarHeight: this.globalInfoModel.statusBarHeight,
+        compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
+        onOpenAbout: () => {
+          this.pathStack.pushPath({ name: 'AboutPage' });
+        },
+        onOpenGeneral: () => {
+          this.pathStack.pushPath({ name: 'GeneralSettingsPage' });
+        },
+        onLogout: () => {
+          this.handleLogout();
+        }
+      })
+    } else {
+      WideCaregiverWorkspace({
+        currentTabIndex: this.currentTabIndex,
+        primaryTabIndex: this.primaryTabIndex,
+        statusBarHeight: this.globalInfoModel.statusBarHeight,
+        compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
+        onSwitchTab: (index: number) => {
+          this.switchTab(index);
+        },
+        onOpenAiChat: () => {
+          this.openAiChat();
+        },
+        onOpenAbout: () => {
+          this.pathStack.pushPath({ name: 'AboutPage' });
+        },
+        onOpenGeneral: () => {
+          this.pathStack.pushPath({ name: 'GeneralSettingsPage' });
+        },
+        onLogout: () => {
+          this.handleLogout();
+        }
+      })
+    }
   }
 
   @Builder

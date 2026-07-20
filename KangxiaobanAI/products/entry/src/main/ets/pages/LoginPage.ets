@@ -32,7 +32,7 @@ struct LoginPage {
   @Local selectedRole: string = '护工';
   @Local isRoleMenuOpen: boolean = false;
   @Local globalInfoModel: GlobalInfoModel =
-    AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
+    AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO, () => new GlobalInfoModel()) ?? new GlobalInfoModel();
 
   @Monitor('globalInfoModel.keyboardHeight')
   onKeyboardHeightChange(): void {
@@ -62,6 +62,7 @@ struct LoginPage {
     this.isLoading = true;
     setTimeout(async () => {
       this.isLoading = false;
+      this.globalInfoModel.role = this.selectedRole;
       try {
         await router.replaceUrl({ url: 'pages/MainPage' });
       } catch (err) {

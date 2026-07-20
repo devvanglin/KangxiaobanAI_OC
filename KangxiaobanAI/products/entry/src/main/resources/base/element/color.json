@@ -13,6 +13,21 @@
     { "name": "event_care", "value": "#0F766E" },
     { "name": "event_family", "value": "#B7791F" },
     { "name": "ai_feed_background", "value": "#F4F4F4" },
-    { "name": "text_on_brand", "value": "#FFFFFF" }
+    { "name": "text_on_brand", "value": "#FFFFFF" },
+    { "name": "doctor_workspace_background", "value": "#F5F6F7" },
+    { "name": "doctor_workspace_surface", "value": "#FFFFFF" },
+    { "name": "doctor_workspace_surface_raised", "value": "#FFFFFF" },
+    { "name": "doctor_workspace_surface_hover", "value": "#E9EBEE" },
+    { "name": "doctor_workspace_border", "value": "#D5D8DD" },
+    { "name": "doctor_workspace_border_soft", "value": "#E3E5E8" },
+    { "name": "doctor_workspace_text_primary", "value": "#17181A" },
+    { "name": "doctor_workspace_text_secondary", "value": "#565A61" },
+    { "name": "doctor_workspace_text_tertiary", "value": "#6F747C" },
+    { "name": "doctor_workspace_accent", "value": "#B45309" },
+    { "name": "doctor_workspace_accent_soft", "value": "#FFF0E4" },
+    { "name": "doctor_workspace_success", "value": "#117A57" },
+    { "name": "doctor_workspace_warning", "value": "#A05A00" },
+    { "name": "doctor_workspace_danger", "value": "#C42D43" },
+    { "name": "doctor_workspace_focus", "value": "#1D63ED" }
   ]
 }
