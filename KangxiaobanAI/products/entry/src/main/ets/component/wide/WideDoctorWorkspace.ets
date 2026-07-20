@@ -59,6 +59,10 @@ export struct WideDoctorWorkspace {
   @Local hoveredTarget: string = '';
   @Local searchText: string = '';
   @Local aiQuestion: string = '';
+  @Local submittedAiQuestion: string = '请汇总 3A-12 长者近期风险变化，并指出评估还缺少哪些信息。';
+  @Local aiAnswerText: string =
+    '当前可见证据显示：血氧较个人基线下降，活动后恢复变慢；护理记录提示进食量下降、夜间睡眠中断。';
+  @Local followUpRowIds: string[] = [];
   @Local generalSettingsIcon: SymbolGlyphModifier =
     new SymbolGlyphModifier($r('sys.symbol.gearshape'))
       .fontSize(18)
@@ -76,35 +80,39 @@ export struct WideDoctorWorkspace {
 
   private homeNavItem: DoctorNavItem = {
     id: 'workspace',
-    label: '医师工作台',
-    symbol: $r('sys.symbol.stethoscope'),
+    label: '养护总览',
+    symbol: $r('sys.symbol.house_fill'),
     badge: '8'
   };
 
   private navGroups: DoctorNavGroup[] = [
     {
-      label: '患者',
+      label: '长者',
       items: [
-        { id: 'patients', label: '我的患者', symbol: $r('sys.symbol.person_2_fill') },
-        { id: 'focus', label: '重点关注', symbol: $r('sys.symbol.waveform_path_ecg_heart_fill'), badge: '4' }
+        { id: 'patients', label: '长者档案', symbol: $r('sys.symbol.person_2_fill') },
+        { id: 'focus', label: '风险关注', symbol: $r('sys.symbol.waveform_path_ecg_heart_fill'), badge: '4' }
       ]
     },
     {
-      label: '临床工作',
+      label: '评估与计划',
       items: [
-        { id: 'rounds', label: '今日查房', symbol: $r('sys.symbol.calendar_badge_clock'), badge: '22' },
-        { id: 'judgment', label: '待医生判断', symbol: $r('sys.symbol.waveform_path_ecg_magnifyingglass'), badge: '8' },
-        { id: 'orders', label: '医嘱签署', symbol: $r('sys.symbol.cross_text_clipboard'), badge: '5' },
-        { id: 'results', label: '结果复核', symbol: $r('sys.symbol.cross_vial'), badge: '6' },
-        { id: 'consultation', label: '会诊沟通', symbol: $r('sys.symbol.message_on_message_fill'), badge: '3' }
+        { id: 'judgment', label: '综合评估', symbol: $r('sys.symbol.waveform_path_ecg_magnifyingglass'), badge: '8' },
+        { id: 'rounds', label: '今日养护巡查', symbol: $r('sys.symbol.calendar_badge_clock'), badge: '22' },
+        { id: 'orders', label: '用药安全', symbol: $r('sys.symbol.cross_text_clipboard'), badge: '5' }
       ]
     },
     {
-      label: '数据与智能',
+      label: '协同与连续照护',
       items: [
-        { id: 'analysis', label: '临床分析', symbol: $r('sys.symbol.waveform_path_ecg_square') },
-        { id: 'observation', label: '智能观察', symbol: $r('sys.symbol.cross_shield_badge_trend'), badge: '2' },
-        { id: 'ai', label: '康小伴 AI', symbol: $r('sys.symbol.AI_message') }
+        { id: 'results', label: '异常处置与转介', symbol: $r('sys.symbol.cross_vial'), badge: '6' },
+        { id: 'consultation', label: '多专业协同', symbol: $r('sys.symbol.message_on_message_fill'), badge: '3' }
+      ]
+    },
+    {
+      label: '数据支持',
+      items: [
+        { id: 'analysis', label: '养护质量', symbol: $r('sys.symbol.waveform_path_ecg_square') },
+        { id: 'ai', label: '养护助手', symbol: $r('sys.symbol.AI_message') }
       ]
     }
   ];
@@ -116,36 +124,36 @@ export struct WideDoctorWorkspace {
   ];
 
   private judgmentQueue: DoctorQueueItem[] = [
-    { id: 'judge-01', patient: '刘*', bed: '3A-12', reason: '血氧连续 20 分钟低于 92%', meta: '等待 38 分钟', status: '紧急', tone: 'danger' },
-    { id: 'judge-02', patient: '王*', bed: '3A-08', reason: '静息心率较基线升高 28%', meta: '等待 24 分钟', status: '关注', tone: 'warning' },
-    { id: 'judge-03', patient: '陈*', bed: '5A-03', reason: '餐后血糖 14.2 mmol/L', meta: '等待 16 分钟', status: '待判断', tone: 'neutral' },
-    { id: 'judge-04', patient: '赵*', bed: '2B-11', reason: '夜间体温升高至 38.3℃', meta: '等待 9 分钟', status: '待判断', tone: 'neutral' },
-    { id: 'judge-05', patient: '何*', bed: '5A-05', reason: '血压较个人基线持续升高', meta: '等待 6 分钟', status: '待判断', tone: 'neutral' }
+    { id: 'judge-01', patient: '刘*', bed: '3A-12', reason: '夜间血氧连续低于个人基线', meta: '等待 38 分钟', status: '优先跟进', tone: 'danger' },
+    { id: 'judge-02', patient: '王*', bed: '3A-08', reason: '静息心率较基线升高 28%', meta: '等待 24 分钟', status: '重点关注', tone: 'warning' },
+    { id: 'judge-03', patient: '陈*', bed: '5A-03', reason: '餐后血糖与饮食记录不匹配', meta: '等待 16 分钟', status: '待评估', tone: 'neutral' },
+    { id: 'judge-04', patient: '赵*', bed: '2B-11', reason: '夜间体温异常，需要补充观察', meta: '等待 9 分钟', status: '待评估', tone: 'neutral' },
+    { id: 'judge-05', patient: '何*', bed: '5A-05', reason: '血压较个人基线持续升高', meta: '等待 6 分钟', status: '待评估', tone: 'neutral' }
   ];
 
   private roundsQueue: DoctorQueueItem[] = [
-    { id: 'round-01', patient: '周*', bed: '2B-06', reason: '术后第 2 天 · 重点查看伤口', meta: '10:40', status: '即将开始', tone: 'warning' },
-    { id: 'round-02', patient: '李*', bed: '2B-09', reason: '呼吸训练与疼痛评估', meta: '11:00', status: '待查房', tone: 'neutral' },
-    { id: 'round-03', patient: '孙*', bed: '3A-02', reason: '抗感染疗效复评', meta: '11:20', status: '待查房', tone: 'neutral' },
-    { id: 'round-04', patient: '何*', bed: '5A-05', reason: '血糖方案调整后复评', meta: '11:40', status: '待查房', tone: 'neutral' },
-    { id: 'round-05', patient: '赵*', bed: '2B-11', reason: '夜间发热病程复核', meta: '12:00', status: '待查房', tone: 'neutral' }
+    { id: 'round-01', patient: '周*', bed: '2B-06', reason: '伤口、活动耐力与营养风险评估', meta: '10:40', status: '即将开始', tone: 'warning' },
+    { id: 'round-02', patient: '李*', bed: '2B-09', reason: '呼吸训练效果与疼痛变化', meta: '11:00', status: '待巡查', tone: 'neutral' },
+    { id: 'round-03', patient: '孙*', bed: '3A-02', reason: '慢病方案与功能状态复评', meta: '11:20', status: '待巡查', tone: 'neutral' },
+    { id: 'round-04', patient: '何*', bed: '5A-05', reason: '血糖方案调整后的饮食与活动复评', meta: '11:40', status: '待巡查', tone: 'neutral' },
+    { id: 'round-05', patient: '赵*', bed: '2B-11', reason: '夜间异常与睡眠情况复盘', meta: '12:00', status: '待巡查', tone: 'neutral' }
   ];
 
   private reviewQueue: DoctorQueueItem[] = [
-    { id: 'review-01', patient: '刘*', bed: '3A-12', reason: '抗感染医嘱草稿', meta: '10:18', status: '待签署', tone: 'warning' },
-    { id: 'review-02', patient: '陈*', bed: '5A-03', reason: '糖化血红蛋白异常结果', meta: '10:05', status: '待复核', tone: 'danger' },
-    { id: 'review-03', patient: '周*', bed: '2B-06', reason: '术后影像报告', meta: '09:56', status: '待复核', tone: 'neutral' },
-    { id: 'review-04', patient: '王*', bed: '3A-08', reason: '心内科会诊回复', meta: '09:42', status: '待确认', tone: 'neutral' },
-    { id: 'review-05', patient: '李*', bed: '2B-09', reason: '镇痛方案调整草稿', meta: '09:30', status: '待签署', tone: 'neutral' }
+    { id: 'review-01', patient: '刘*', bed: '3A-12', reason: '用药方案与相互作用复核', meta: '10:18', status: '待确认', tone: 'warning' },
+    { id: 'review-02', patient: '陈*', bed: '5A-03', reason: '血糖趋势与饮食记录复核', meta: '10:05', status: '待复核', tone: 'danger' },
+    { id: 'review-03', patient: '周*', bed: '2B-06', reason: '康复与功能评估记录回传', meta: '09:56', status: '待复核', tone: 'neutral' },
+    { id: 'review-04', patient: '王*', bed: '3A-08', reason: '护理团队协同意见', meta: '09:42', status: '待协同', tone: 'neutral' },
+    { id: 'review-05', patient: '李*', bed: '2B-09', reason: '镇痛与睡眠方案复核', meta: '09:30', status: '待确认', tone: 'neutral' }
   ];
 
   private moduleRows: DoctorModuleRow[] = [
-    { id: 'case-01', patient: '刘*', bed: '3A-12', item: '血氧下降，需结合肺部感染病程判断', source: '床旁设备 + 护理记录', updatedAt: '10:32', status: '紧急', tone: 'danger' },
-    { id: 'case-02', patient: '王*', bed: '3A-08', item: '静息心率较个人基线上升', source: '床旁设备', updatedAt: '10:28', status: '关注', tone: 'warning' },
-    { id: 'case-03', patient: '陈*', bed: '5A-03', item: '餐后血糖异常，等待医生复核', source: '血糖仪', updatedAt: '10:21', status: '待处理', tone: 'neutral' },
-    { id: 'case-04', patient: '赵*', bed: '2B-11', item: '夜间发热记录需要补充判断', source: '体温单', updatedAt: '10:12', status: '待处理', tone: 'neutral' },
-    { id: 'case-05', patient: '周*', bed: '2B-06', item: '术后影像报告已回传', source: '影像科', updatedAt: '09:56', status: '待复核', tone: 'neutral' },
-    { id: 'case-06', patient: '何*', bed: '5A-05', item: '调整方案后血糖趋势趋稳', source: '血糖仪 + 医嘱', updatedAt: '09:36', status: '已更新', tone: 'normal' }
+    { id: 'case-01', patient: '刘*', bed: '3A-12', item: '血氧下降，需结合呼吸状态与护理观察复核', source: '床旁设备 + 护理记录', updatedAt: '10:32', status: '优先跟进', tone: 'danger' },
+    { id: 'case-02', patient: '王*', bed: '3A-08', item: '静息心率较个人基线上升，建议复测并观察活动耐力', source: '床旁设备 + 巡查记录', updatedAt: '10:28', status: '重点关注', tone: 'warning' },
+    { id: 'case-03', patient: '陈*', bed: '5A-03', item: '餐后血糖异常，等待用药与饮食方案复核', source: '血糖仪 + 膳食记录', updatedAt: '10:21', status: '待处理', tone: 'neutral' },
+    { id: 'case-04', patient: '赵*', bed: '2B-11', item: '夜间体温异常，需要补充睡眠与感染风险观察', source: '体温单 + 护理记录', updatedAt: '10:12', status: '待处理', tone: 'neutral' },
+    { id: 'case-05', patient: '周*', bed: '2B-06', item: '功能评估记录已回传，等待更新养护计划', source: '康复记录', updatedAt: '09:56', status: '待复核', tone: 'neutral' },
+    { id: 'case-06', patient: '何*', bed: '5A-05', item: '调整方案后血糖趋势趋稳，继续观察依从性', source: '血糖仪 + 用药记录', updatedAt: '09:36', status: '已更新', tone: 'normal' }
   ];
 
   private riskTrendValues: number[] = [28, 42, 36, 55, 48, 68, 52, 74, 62, 84, 58, 72, 46, 64, 54, 76];
@@ -163,7 +171,7 @@ export struct WideDoctorWorkspace {
     if (this.isSidebarCollapsed) {
       return 72;
     }
-    return this.compactWidth ? 224 : 248;
+    return this.compactWidth ? 236 : 264;
   }
 
   private mainPadding(): number {
@@ -207,34 +215,104 @@ export struct WideDoctorWorkspace {
         }
       }
     }
-    return '医师工作台';
+    return '养护总览';
   }
 
   private currentSubtitle(): string {
     if (this.selectedNavId === 'patients' || this.selectedNavId === 'focus') {
-      return '按授权范围查看患者摘要、风险与近期记录';
+      return '按授权范围查看长者档案、照护等级与近期健康记录';
     }
     if (this.selectedNavId === 'rounds') {
-      return '按计划时间与临床优先级组织今日查房';
+      return '按养护计划安排今日巡查、功能观察与异常跟进';
+    }
+    if (this.selectedNavId === 'judgment') {
+      return '结合 ADL、认知、营养、慢病与安全风险完成综合评估';
     }
     if (this.selectedNavId === 'orders') {
-      return '草稿、签署与执行回执分层展示，所有操作保留审计记录';
+      return '复核用药、照护方案与执行反馈，保留确认记录';
     }
     if (this.selectedNavId === 'results') {
-      return '聚合检验、影像与设备异常结果，等待医生复核';
+      return '汇总异常线索、处置记录与转介进度，保障连续照护';
     }
     if (this.selectedNavId === 'consultation') {
-      return '集中处理会诊回复、医护沟通与患者上下文';
+      return '集中处理护理、康复、营养与家属沟通协同';
     }
-    if (this.selectedNavId === 'analysis' || this.selectedNavId === 'observation') {
-      return '趋势只用于发现问题，不替代患者级临床判断';
+    if (this.selectedNavId === 'analysis') {
+      return '关注功能维持、评估完成、用药核对与风险闭环质量';
     }
-    return '按风险、等待时长与业务截止时间排序';
+    return '按风险、等待时长与养护计划节点排序';
+  }
+
+  private queueAsModuleRows(queue: DoctorQueueItem[], source: string, prefix: string): DoctorModuleRow[] {
+    return queue.map((item: DoctorQueueItem): DoctorModuleRow => ({
+      id: `${prefix}-${item.id}`,
+      patient: item.patient,
+      bed: item.bed,
+      item: item.reason,
+      source: source,
+      updatedAt: item.meta,
+      status: item.status,
+      tone: item.tone
+    }));
+  }
+
+  private rowsForCurrentModule(): DoctorModuleRow[] {
+    let rows: DoctorModuleRow[] = this.moduleRows;
+    if (this.selectedNavId === 'judgment') {
+      rows = this.queueAsModuleRows(this.judgmentQueue, '综合评估 + 护理观察', 'judgment');
+    } else if (this.selectedNavId === 'rounds') {
+      rows = this.queueAsModuleRows(this.roundsQueue, '养护巡查计划', 'rounds');
+    } else if (this.selectedNavId === 'orders') {
+      rows = this.queueAsModuleRows(this.reviewQueue, '用药与协同记录', 'orders');
+    } else if (this.selectedNavId === 'focus') {
+      rows = rows.filter((row: DoctorModuleRow) => row.tone === 'danger' || row.tone === 'warning');
+    } else if (this.selectedNavId === 'results') {
+      rows = rows.filter((row: DoctorModuleRow) => row.id === 'case-02' || row.id === 'case-04' || row.id === 'case-05');
+    } else if (this.selectedNavId === 'consultation') {
+      rows = rows.filter((row: DoctorModuleRow) => row.id === 'case-04' || row.id === 'case-05');
+    }
+    if (this.moduleFilterIndex === 1) {
+      return rows.filter((row: DoctorModuleRow) => row.status !== '已更新');
+    }
+    if (this.moduleFilterIndex === 2) {
+      return rows.filter((row: DoctorModuleRow) => row.status === '已更新');
+    }
+    return rows;
   }
 
   private selectedModuleRow(): DoctorModuleRow {
-    return this.moduleRows.find((row: DoctorModuleRow) => row.id === this.selectedModuleRowId) ??
-      this.moduleRows[0];
+    const visibleRows: DoctorModuleRow[] = this.rowsForCurrentModule();
+    return visibleRows.find((row: DoctorModuleRow) => row.id === this.selectedModuleRowId) ??
+      visibleRows[0] ?? this.moduleRows[0];
+  }
+
+  private openQueueItem(item: DoctorQueueItem, target: string): void {
+    this.selectedModuleRowId = `${target}-${item.id}`;
+    this.moduleFilterIndex = 0;
+    this.selectedNavId = target;
+  }
+
+  private isFollowedUp(rowId: string): boolean {
+    return this.followUpRowIds.indexOf(rowId) >= 0;
+  }
+
+  private toggleFollowUp(rowId: string): void {
+    if (this.isFollowedUp(rowId)) {
+      this.followUpRowIds = this.followUpRowIds.filter((id: string) => id !== rowId);
+      return;
+    }
+    this.followUpRowIds = [...this.followUpRowIds, rowId];
+  }
+
+  private submitAiQuestion(): void {
+    const question: string = this.aiQuestion.trim();
+    if (question.length === 0) {
+      return;
+    }
+    this.submittedAiQuestion = question;
+    this.aiAnswerText =
+      '已按当前本地演示数据整理养护线索。请补充最新综合评估、用药依从性与护理观察，并由医师确认后再更新养护计划。';
+    this.aiQuestion = '';
   }
 
   private activateWithKeyboard(event: KeyEvent, action: () => void): void {
@@ -273,44 +351,6 @@ export struct WideDoctorWorkspace {
         // 侧栏尺寸切换期间滚动节点可能仍在重建，下一次布局会自然回到顶部。
       }
     }, 80);
-  }
-
-  @Builder
-  private brandMark() {
-    Stack({ alignContent: Alignment.Center }) {
-      Row()
-        .width(30)
-        .height(30)
-        .borderRadius(10)
-        .backgroundColor($r('app.color.doctor_workspace_accent_soft'))
-      SymbolGlyph($r('sys.symbol.cross_case_fill'))
-        .fontSize(17)
-        .fontColor([$r('app.color.doctor_workspace_accent')])
-    }
-    .width(30)
-    .height(30)
-  }
-
-  @Builder
-  private sidebarHeader() {
-    Row({ space: 12 }) {
-      this.brandMark()
-      if (!this.isSidebarCollapsed) {
-        Text('康小伴 AI')
-          .fontSize(17)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.doctor_workspace_text_primary'))
-          .maxLines(1)
-      }
-    }
-    .width('100%')
-    .height(56)
-    .padding({ left: this.isSidebarCollapsed ? 21 : 20, right: 16 })
-    .alignItems(VerticalAlign.Center)
-    .border({
-      width: { bottom: 0.5 },
-      color: { bottom: $r('app.color.doctor_workspace_border_soft') }
-    })
   }
 
   @Builder
@@ -426,9 +466,13 @@ export struct WideDoctorWorkspace {
       $r('app.color.doctor_workspace_surface_hover') : Color.Transparent)
     .justifyContent(this.isSidebarCollapsed ? FlexAlign.Center : FlexAlign.Start)
     .alignItems(VerticalAlign.Center)
-    .accessibilityText(`最近查看，${patient.bed} ${patient.displayName}`)
+    .accessibilityText(`最近查看长者，${patient.bed} ${patient.displayName}`)
+    .accessibilityRole(AccessibilityRoleType.BUTTON)
     .focusable(true)
     .focusOnTouch(true)
+    .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => {
+      this.selectedNavId = 'patients';
+    }))
     .onHover((isHover: boolean) => this.hoveredTarget = isHover ? patient.id : '')
     .onClick(() => {
       this.selectedNavId = 'patients';
@@ -527,7 +571,7 @@ export struct WideDoctorWorkspace {
       Column({ space: 3 }) {
         this.sidebarNavItem(this.homeNavItem)
         if (!this.isSidebarCollapsed) {
-          this.sidebarGroupTitle('最近查看')
+          this.sidebarGroupTitle('最近查看长者')
           ForEach(this.recentPatients, (patient: DoctorRecentPatient) => {
             this.recentPatientItem(patient)
           }, (patient: DoctorRecentPatient) => patient.id)
@@ -565,10 +609,10 @@ export struct WideDoctorWorkspace {
             .borderRadius(4)
             .backgroundColor($r('app.color.doctor_workspace_success'))
           Column({ space: 1 }) {
-            Text('临床数据已同步')
+            Text('演示数据 · 本地')
               .fontSize(11)
               .fontColor($r('app.color.doctor_workspace_text_secondary'))
-            Text('最后更新 10:32')
+            Text('样例时间 10:32')
               .fontSize(9)
               .fontColor($r('app.color.doctor_workspace_text_tertiary'))
           }
@@ -592,12 +636,11 @@ export struct WideDoctorWorkspace {
   @Builder
   private sidebar() {
     Column() {
-      this.sidebarHeader()
       Column() {
         this.quickSearch()
       }
       .width('100%')
-      .padding({ left: 16, right: 16, top: 16, bottom: 14 })
+      .padding({ left: 16, right: 16, top: 14, bottom: 10 })
       .alignItems(HorizontalAlign.Center)
       this.sidebarNavigation()
       this.sidebarFooter()
@@ -633,7 +676,7 @@ export struct WideDoctorWorkspace {
           .fontSize(16)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.doctor_workspace_text_primary'))
-        Text('呼吸内科 · 主治医师')
+        Text('养老医师 · 养护评估')
           .fontSize(12)
           .fontColor($r('app.color.doctor_workspace_text_secondary'))
       }
@@ -684,7 +727,7 @@ export struct WideDoctorWorkspace {
     }
     .width(36)
     .height(36)
-    .accessibilityText('医生账户菜单')
+    .accessibilityText('医师账户菜单')
     .accessibilityRole(AccessibilityRoleType.BUTTON)
     .focusable(true)
     .focusOnTouch(true)
@@ -731,7 +774,7 @@ export struct WideDoctorWorkspace {
     Row({ space: 4 }) {
       Blank()
         .layoutWeight(1)
-      this.topTextAction('doctor-ai-top', '康小伴 AI', $r('sys.symbol.AI_message'), () => {
+      this.topTextAction('doctor-ai-top', '养护助手', $r('sys.symbol.AI_message'), () => {
         this.selectedNavId = 'ai';
       })
       this.topTextAction('doctor-help', '支持', $r('sys.symbol.questionmark_circle'), () => {
@@ -758,7 +801,7 @@ export struct WideDoctorWorkspace {
         .height(7)
         .borderRadius(4)
         .backgroundColor($r('app.color.doctor_workspace_success'))
-      Text('康小伴 AI · 临床工作站')
+      Text('康小伴 · 养老养护工作台')
         .fontSize(13)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('app.color.doctor_workspace_text_primary'))
@@ -796,7 +839,7 @@ export struct WideDoctorWorkspace {
   @Builder
   private heroSearch() {
     Stack({ alignContent: Alignment.End }) {
-      Search({ value: this.searchText, placeholder: '搜索患者、床位、医嘱或检查结果' })
+      Search({ value: this.searchText, placeholder: '搜索长者、房间/床位、评估记录或用药计划' })
         .id('doctor-global-search')
         .width('100%')
         .height(56)
@@ -913,10 +956,10 @@ export struct WideDoctorWorkspace {
     .focusOnTouch(true)
     .onHover((isHover: boolean) => this.hoveredTarget = isHover ? item.id : '')
     .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => {
-      this.selectedNavId = target;
+      this.openQueueItem(item, target);
     }))
     .onClick(() => {
-      this.selectedNavId = target;
+      this.openQueueItem(item, target);
     })
   }
 
@@ -934,7 +977,7 @@ export struct WideDoctorWorkspace {
   @Builder
   private analyticsHeader() {
     Row({ space: 8 }) {
-      Text('Analytics')
+      Text('养护数据')
         .fontSize(22)
         .fontWeight(FontWeight.Bold)
         .fontColor($r('app.color.doctor_workspace_text_primary'))
@@ -1023,6 +1066,7 @@ export struct WideDoctorWorkspace {
     value: string,
     unit: string,
     trend: string,
+    trendColor: ResourceColor,
     values: number[],
     accent: ResourceColor
   ) {
@@ -1033,7 +1077,7 @@ export struct WideDoctorWorkspace {
             .fontSize(13)
             .fontWeight(FontWeight.Medium)
             .fontColor($r('app.color.doctor_workspace_text_secondary'))
-          Text('数据截至 10:32 · 样本 12')
+          Text('本地演示 · 12 位长者')
             .fontSize(9)
             .fontColor($r('app.color.doctor_workspace_text_tertiary'))
         }
@@ -1056,7 +1100,7 @@ export struct WideDoctorWorkspace {
         Text(trend)
           .fontSize(11)
           .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.doctor_workspace_success'))
+          .fontColor(trendColor)
           .margin({ top: 11 })
       }
       .width('100%')
@@ -1076,10 +1120,10 @@ export struct WideDoctorWorkspace {
   private dashboard() {
     Scroll() {
       Column() {
-        Column({ space: 24 }) {
+        Column({ space: 18 }) {
           this.heroPill()
-          Text('今天先处理什么？')
-            .fontSize(this.compactWidth ? 34 : 40)
+          Text('今天先关注哪些长者？')
+            .fontSize(this.compactWidth ? 30 : 34)
             .fontWeight(FontWeight.Bold)
             .fontColor($r('app.color.doctor_workspace_text_primary'))
             .maxLines(1)
@@ -1087,11 +1131,11 @@ export struct WideDoctorWorkspace {
         }
         .width('100%')
         .alignItems(HorizontalAlign.Center)
-        .margin({ top: this.compactWidth ? 78 : 128 })
+        .margin({ top: this.compactWidth ? 52 : 76 })
         GridRow({ columns: 12, gutter: { x: 24, y: 24 } }) {
           GridCol({ span: this.compactWidth ? 6 : 4 }) {
             this.queueColumn(
-              '待医生判断',
+              '待评估与风险',
               '8',
               this.judgmentQueue,
               $r('sys.symbol.waveform_path_ecg_magnifyingglass'),
@@ -1100,7 +1144,7 @@ export struct WideDoctorWorkspace {
           }
           GridCol({ span: this.compactWidth ? 6 : 4 }) {
             this.queueColumn(
-              '今日查房',
+              '今日巡查与计划',
               '22',
               this.roundsQueue,
               $r('sys.symbol.calendar_badge_clock'),
@@ -1109,7 +1153,7 @@ export struct WideDoctorWorkspace {
           }
           GridCol({ span: this.compactWidth ? 12 : 4 }) {
             this.queueColumn(
-              '待签署与复核',
+              '待复核与协同',
               '11',
               this.reviewQueue,
               $r('sys.symbol.cross_text_clipboard'),
@@ -1124,20 +1168,22 @@ export struct WideDoctorWorkspace {
           GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
             GridCol({ span: 6 }) {
               this.analyticsCard(
-                '重点患者风险趋势',
+                '重点长者风险趋势',
                 '12',
-                '位重点患者',
+                '位重点长者',
                 '较昨日 +2',
+                $r('app.color.doctor_workspace_warning'),
                 this.riskTrendValues,
                 $r('app.color.doctor_workspace_focus')
               )
             }
             GridCol({ span: 6 }) {
               this.analyticsCard(
-                '临床闭环概览',
+                '照护计划闭环',
                 '86%',
                 '今日完成率',
                 '较昨日 +6.4%',
+                $r('app.color.doctor_workspace_success'),
                 this.closureTrendValues,
                 $r('app.color.doctor_workspace_success')
               )
@@ -1196,12 +1242,12 @@ export struct WideDoctorWorkspace {
   @Builder
   private moduleTableHeader() {
     Row({ space: 12 }) {
-      Text('患者 / 床位')
+        Text('长者 / 房间·床位')
         .fontSize(10)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('app.color.doctor_workspace_text_tertiary'))
         .width(112)
-      Text('事项')
+        Text('养护 / 评估事项')
         .fontSize(10)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('app.color.doctor_workspace_text_tertiary'))
@@ -1280,6 +1326,26 @@ export struct WideDoctorWorkspace {
   }
 
   @Builder
+  private moduleEmptyState() {
+    Column({ space: 8 }) {
+      SymbolGlyph($r('sys.symbol.doc_text'))
+        .fontSize(28)
+        .fontColor([$r('app.color.doctor_workspace_text_tertiary')])
+      Text('暂无符合条件的养护事项')
+        .fontSize(13)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.doctor_workspace_text_primary'))
+      Text('可切换筛选条件查看其它记录')
+        .fontSize(10)
+        .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+    }
+    .width('100%')
+    .height(180)
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+  }
+
+  @Builder
   private moduleListPanel() {
     Column() {
       Row({ space: 4 }) {
@@ -1288,7 +1354,7 @@ export struct WideDoctorWorkspace {
         this.moduleFilter('已完成', 2)
         Blank()
           .layoutWeight(1)
-        Text('共 28 项 · 最近更新 10:32')
+        Text(`共 ${this.rowsForCurrentModule().length} 项 · 本地演示数据`)
           .fontSize(10)
           .fontColor($r('app.color.doctor_workspace_text_tertiary'))
       }
@@ -1297,9 +1363,13 @@ export struct WideDoctorWorkspace {
       .padding({ left: 12, right: 14 })
       .alignItems(VerticalAlign.Center)
       this.moduleTableHeader()
-      ForEach(this.moduleRows, (row: DoctorModuleRow) => {
-        this.moduleTableRow(row)
-      }, (row: DoctorModuleRow) => row.id)
+      if (this.rowsForCurrentModule().length === 0) {
+        this.moduleEmptyState()
+      } else {
+        ForEach(this.rowsForCurrentModule(), (row: DoctorModuleRow) => {
+          this.moduleTableRow(row)
+        }, (row: DoctorModuleRow) => row.id)
+      }
     }
     .width('100%')
     .borderRadius(16)
@@ -1343,7 +1413,7 @@ export struct WideDoctorWorkspace {
             .fontSize(18)
             .fontWeight(FontWeight.Bold)
             .fontColor($r('app.color.doctor_workspace_text_primary'))
-          Text('男 · 72 岁 · 呼吸内科')
+          Text('男 · 72 岁 · 重点养护 · 需关注慢病趋势')
             .fontSize(10)
             .fontColor($r('app.color.doctor_workspace_text_secondary'))
         }
@@ -1354,7 +1424,7 @@ export struct WideDoctorWorkspace {
       .width('100%')
       .alignItems(VerticalAlign.Center)
       Column({ space: 8 }) {
-        Text('当前事项')
+        Text('当前养护关注')
           .fontSize(10)
           .fontColor($r('app.color.doctor_workspace_text_tertiary'))
           .width('100%')
@@ -1374,7 +1444,7 @@ export struct WideDoctorWorkspace {
       .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
       .alignItems(HorizontalAlign.Start)
       Column({ space: 8 }) {
-        Text('近期关键数据')
+        Text('近期健康指标')
           .fontSize(12)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.doctor_workspace_text_primary'))
@@ -1397,7 +1467,7 @@ export struct WideDoctorWorkspace {
           this.statusTag('待确认', 'warning')
         }
         .width('100%')
-        Text('建议结合最近一次血气结果与肺部听诊记录复核。当前缺少 10:00 后的血气数据。')
+        Text('建议结合近两次生命体征、护理观察与活动耐力记录复核。当前仍缺少最新功能评估信息。')
           .fontSize(11)
           .fontColor($r('app.color.doctor_workspace_text_secondary'))
           .lineHeight(18)
@@ -1408,20 +1478,25 @@ export struct WideDoctorWorkspace {
       .borderRadius(13)
       .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
       Row({ space: 10 }) {
-        Button('查看患者详情')
+        Button('查看长者档案')
           .layoutWeight(1)
           .height(38)
           .borderRadius(10)
           .fontSize(11)
           .fontColor($r('app.color.doctor_workspace_background'))
           .backgroundColor($r('app.color.doctor_workspace_text_primary'))
-        Button('加入待复核')
+          .onClick(() => {
+            this.selectedNavId = 'patients';
+            this.moduleFilterIndex = 0;
+          })
+        Button(this.isFollowedUp(row.id) ? '已加入养护跟进' : '加入养护跟进')
           .layoutWeight(1)
           .height(38)
           .borderRadius(10)
           .fontSize(11)
           .fontColor($r('app.color.doctor_workspace_text_primary'))
           .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
+          .onClick(() => this.toggleFollowUp(row.id))
       }
       .width('100%')
     }
@@ -1454,11 +1529,13 @@ export struct WideDoctorWorkspace {
         .width('100%')
         .alignItems(VerticalAlign.Center)
         GridRow({ columns: 12, gutter: { x: 14, y: 14 } }) {
-          GridCol({ span: this.compactWidth ? 12 : 8 }) {
+          GridCol({ span: this.compactWidth || this.rowsForCurrentModule().length === 0 ? 12 : 8 }) {
             this.moduleListPanel()
           }
-          GridCol({ span: this.compactWidth ? 12 : 4 }) {
-            this.patientDetailPanel(this.selectedModuleRow())
+          if (this.rowsForCurrentModule().length > 0) {
+            GridCol({ span: this.compactWidth ? 12 : 4 }) {
+              this.patientDetailPanel(this.selectedModuleRow())
+            }
           }
         }
         .width('100%')
@@ -1505,24 +1582,24 @@ export struct WideDoctorWorkspace {
       Column({ space: 18 }) {
         Row() {
           Column({ space: 4 }) {
-            Text('康小伴 AI 临床助手')
+            Text('康小伴 AI 养护评估助手')
               .fontSize(this.compactWidth ? 24 : 28)
               .fontWeight(FontWeight.Bold)
               .fontColor($r('app.color.doctor_workspace_text_primary'))
-            Text('基于当前授权数据提供辅助信息，最终判断与签署始终由医生完成')
+            Text('整理养护证据与风险线索，方案由医师确认并与护理团队协同')
               .fontSize(11)
               .fontColor($r('app.color.doctor_workspace_text_secondary'))
           }
           .layoutWeight(1)
           .alignItems(HorizontalAlign.Start)
-          this.statusTag('独立医师会话', 'normal')
+          this.statusTag('养护评估会话', 'normal')
         }
         .width('100%')
         Row({ space: 8 }) {
-          this.suggestedQuestion('汇总 3A 病区今天的异常趋势')
-          this.suggestedQuestion('整理 3A-12 患者待复核证据')
+          this.suggestedQuestion('汇总 3A 养护区今日风险趋势')
+          this.suggestedQuestion('整理 3A-12 长者养护证据')
           if (!this.compactWidth) {
-            this.suggestedQuestion('生成查房记录草稿')
+            this.suggestedQuestion('生成养护巡查记录草稿')
           }
         }
         .width('100%')
@@ -1539,7 +1616,7 @@ export struct WideDoctorWorkspace {
                 .fontWeight(FontWeight.Bold)
                 .fontColor($r('app.color.doctor_workspace_text_primary'))
             }
-            Text('请汇总 3A-12 患者血氧下降的关键证据，并指出还缺少哪些信息。')
+            Text(this.submittedAiQuestion)
               .fontSize(13)
               .fontColor($r('app.color.doctor_workspace_text_primary'))
               .lineHeight(21)
@@ -1563,15 +1640,15 @@ export struct WideDoctorWorkspace {
             }
             Column({ space: 12 }) {
               Row() {
-                Text('康小伴 AI')
+                Text('康小伴 AI · 养护提示')
                   .fontSize(12)
                   .fontWeight(FontWeight.Medium)
                   .fontColor($r('app.color.doctor_workspace_text_primary'))
                 Blank()
-                this.statusTag('待医生确认', 'warning')
+                this.statusTag('待医师确认', 'warning')
               }
               .width('100%')
-              Text('当前可见证据显示：血氧从个人基线 95% 降至 91%，并持续约 20 分钟；同期呼吸频率由 19 次/分升至 24 次/分。护理记录提示咳痰增加。')
+              Text(this.aiAnswerText)
                 .fontSize(13)
                 .fontColor($r('app.color.doctor_workspace_text_primary'))
                 .lineHeight(22)
@@ -1584,7 +1661,7 @@ export struct WideDoctorWorkspace {
                 Text('• 床旁设备：SpO₂ 91%，10:11–10:31')
                   .fontSize(11)
                   .fontColor($r('app.color.doctor_workspace_text_secondary'))
-                Text('• 护理记录：10:18 记录咳痰增加')
+                Text('• 护理记录：10:18 记录进食量下降')
                   .fontSize(11)
                   .fontColor($r('app.color.doctor_workspace_text_secondary'))
               }
@@ -1593,7 +1670,7 @@ export struct WideDoctorWorkspace {
               .borderRadius(12)
               .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
               .alignItems(HorizontalAlign.Start)
-              Text('缺失信息：10:00 后血气结果、最新肺部听诊记录。信息补齐前不建议形成确定性结论。')
+              Text('待补信息：最新 ADL/营养评估、用药依从性与护理观察。信息补齐前不形成确定性结论。')
                 .fontSize(11)
                 .fontColor($r('app.color.doctor_workspace_warning'))
                 .lineHeight(18)
@@ -1612,7 +1689,7 @@ export struct WideDoctorWorkspace {
         .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
         Row({ space: 10 }) {
           TextArea({
-            placeholder: '询问患者情况、结果趋势或生成待复核草稿…',
+            placeholder: '询问长者养护情况、评估趋势或生成待确认记录…',
             text: this.aiQuestion
           })
             .layoutWeight(1)
@@ -1635,6 +1712,7 @@ export struct WideDoctorWorkspace {
           .backgroundColor($r('app.color.doctor_workspace_text_primary'))
           .enabled(this.aiQuestion.trim().length > 0)
           .opacity(this.aiQuestion.trim().length > 0 ? 1 : 0.42)
+          .onClick(() => this.submitAiQuestion())
         }
         .width('100%')
         .padding({ left: 15, right: 11, top: 8, bottom: 8 })
