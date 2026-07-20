@@ -31,6 +31,7 @@ import {
 import { TabPageView } from '../component/TabPageView';
 import { WideCaregiverWorkspace } from '../component/wide/WideCaregiverWorkspace';
 import { WideDoctorWorkspace } from '../component/wide/WideDoctorWorkspace';
+import { WideAdminWorkspace } from '../component/wide/WideAdminWorkspace';
 import { AiChatPage } from '../pages/AiChatPage';
 import { MineDetailPage } from '../pages/MineDetailPage';
 import { StorageKey } from '../common/CommonConstants';
@@ -101,7 +102,7 @@ struct MainPage {
 
   private isRoleAdapted(): boolean {
     return this.globalInfoModel.role === '护工' ||
-      (this.globalInfoModel.role === '医师' && this.isWideLayout());
+      ((this.globalInfoModel.role === '医师' || this.globalInfoModel.role === '管理') && this.isWideLayout());
   }
 
   @Builder
@@ -614,7 +615,21 @@ struct MainPage {
 
   @Builder
   private wideShell() {
-    if (this.globalInfoModel.role === '医师') {
+    if (this.globalInfoModel.role === '管理') {
+      WideAdminWorkspace({
+        statusBarHeight: this.globalInfoModel.statusBarHeight,
+        compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
+        onOpenAbout: () => {
+          this.pathStack.pushPath({ name: 'AboutPage' });
+        },
+        onOpenGeneral: () => {
+          this.pathStack.pushPath({ name: 'GeneralSettingsPage' });
+        },
+        onLogout: () => {
+          this.handleLogout();
+        }
+      })
+    } else if (this.globalInfoModel.role === '医师') {
       WideDoctorWorkspace({
         statusBarHeight: this.globalInfoModel.statusBarHeight,
         compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
