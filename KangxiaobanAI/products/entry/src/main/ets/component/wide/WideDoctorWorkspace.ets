@@ -4,6 +4,7 @@
 import { ColorMetrics, LengthMetrics, SymbolGlyphModifier } from '@kit.ArkUI';
 import { KeyCode } from '@kit.InputKit';
 import { WindowUtil } from '../../util/WindowUtil';
+import { WideDoctorAdmission } from './WideDoctorAdmission';
 
 interface DoctorNavItem {
   id: string;
@@ -89,6 +90,7 @@ export struct WideDoctorWorkspace {
     {
       label: '长者',
       items: [
+        { id: 'admission', label: '入住办理', symbol: $r('sys.symbol.person_badge_plus') },
         { id: 'patients', label: '长者档案', symbol: $r('sys.symbol.person_2_fill') },
         { id: 'focus', label: '风险关注', symbol: $r('sys.symbol.waveform_path_ecg_heart_fill'), badge: '4' }
       ]
@@ -1739,6 +1741,14 @@ export struct WideDoctorWorkspace {
       this.dashboard()
     } else if (this.selectedNavId === 'ai') {
       this.aiWorkspace()
+    } else if (this.selectedNavId === 'admission') {
+      WideDoctorAdmission({
+        compactWidth: this.compactWidth,
+        onExit: () => {
+          this.selectedNavId = 'patients';
+          this.moduleFilterIndex = 0;
+        }
+      })
     } else {
       this.moduleWorkspace()
     }

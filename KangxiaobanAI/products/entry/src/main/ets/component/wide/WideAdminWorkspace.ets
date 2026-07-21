@@ -39,18 +39,18 @@ export struct WideAdminWorkspace {
   @Local resolvedIds: string[] = [];
 
   private navItems: AdminNavItem[] = [
-    { id: 'overview', label: '运营总览', symbol: $r('sys.symbol.square_grid_2x2_fill') },
+    { id: 'overview', label: '运营总览', symbol: $r('sys.symbol.square_grid_2x2') },
     { id: 'residents', label: '长者与床位', symbol: $r('sys.symbol.person_2_fill'), badge: '3' },
-    { id: 'staff', label: '人员与排班', symbol: $r('sys.symbol.person_crop_rectangle_stack_fill'), badge: '2' },
-    { id: 'quality', label: '养护质量', symbol: $r('sys.symbol.checkmark_seal_fill') },
+    { id: 'staff', label: '人员与排班', symbol: $r('sys.symbol.person_crop_circle_fill'), badge: '2' },
+    { id: 'quality', label: '养护质量', symbol: $r('sys.symbol.checkmark_shield_fill') },
     { id: 'risk', label: '风险事件', symbol: $r('sys.symbol.exclamationmark_triangle_fill'), badge: '5' },
-    { id: 'assets', label: '设备与物资', symbol: $r('sys.symbol.shippingbox_fill'), badge: '4' },
-    { id: 'reports', label: '运营报表', symbol: $r('sys.symbol.chart_bar_xaxis') }
+    { id: 'assets', label: '设备与物资', symbol: $r('sys.symbol.archivebox_fill'), badge: '4' },
+    { id: 'reports', label: '运营报表', symbol: $r('sys.symbol.waveform_path_ecg_square') }
   ];
 
   private metrics: AdminMetric[] = [
     { label: '在院长者', value: '128', note: '床位使用率 91.4%', symbol: $r('sys.symbol.person_2_fill'), tone: 'focus' },
-    { label: '今日在岗', value: '46', note: '2 个班次待补位', symbol: $r('sys.symbol.person_crop_rectangle_stack_fill'), tone: 'warning' },
+    { label: '今日在岗', value: '46', note: '2 个班次待补位', symbol: $r('sys.symbol.person_crop_circle_fill'), tone: 'warning' },
     { label: '计划完成率', value: '93.6%', note: '较昨日 +2.1%', symbol: $r('sys.symbol.checkmark_circle_fill'), tone: 'success' },
     { label: '待闭环风险', value: '5', note: '1 项需要优先跟进', symbol: $r('sys.symbol.exclamationmark_triangle_fill'), tone: 'danger' }
   ];
@@ -132,7 +132,7 @@ export struct WideAdminWorkspace {
   private sidebar() {
     Column() {
       Row({ space: 10 }) {
-        SymbolGlyph($r('sys.symbol.building_2_fill'))
+        SymbolGlyph($r('sys.symbol.building_fill'))
           .fontSize(20)
           .fontColor([$r('app.color.doctor_workspace_accent')])
         if (!this.isSidebarCollapsed) {
@@ -169,7 +169,7 @@ export struct WideAdminWorkspace {
             .backgroundColor(Color.Transparent).onClick(() => this.onLogout())
         }
         Button() {
-          SymbolGlyph(this.isSidebarCollapsed ? $r('sys.symbol.sidebar_left') : $r('sys.symbol.sidebar_right'))
+          SymbolGlyph(this.isSidebarCollapsed ? $r('sys.symbol.open_sidebar') : $r('sys.symbol.close_sidebar'))
             .fontSize(18).fontColor([$r('app.color.doctor_workspace_text_secondary')])
         }
         .width('100%').height(38).borderRadius(10)
@@ -320,7 +320,7 @@ export struct WideAdminWorkspace {
   private modulePlaceholder() {
     Column({ space: 14 }) {
       SymbolGlyph(this.navItems.find((item: AdminNavItem) => item.id === this.selectedNavId)?.symbol ??
-        $r('sys.symbol.square_grid_2x2_fill'))
+        $r('sys.symbol.square_grid_2x2'))
         .fontSize(42).fontColor([$r('app.color.doctor_workspace_accent')])
       Text(this.title()).fontSize(26).fontWeight(FontWeight.Bold)
         .fontColor($r('app.color.doctor_workspace_text_primary'))
@@ -336,7 +336,11 @@ export struct WideAdminWorkspace {
   build() {
     Row() {
       this.sidebar()
-      if (this.selectedNavId === 'overview') this.dashboard() else this.modulePlaceholder()
+      if (this.selectedNavId === 'overview') {
+        this.dashboard()
+      } else {
+        this.modulePlaceholder()
+      }
     }
     .width('100%').height('100%')
     .backgroundColor($r('app.color.doctor_workspace_background'))
