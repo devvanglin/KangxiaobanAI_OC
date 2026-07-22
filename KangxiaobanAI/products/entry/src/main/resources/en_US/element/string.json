@@ -623,6 +623,102 @@
     {
       "name": "check_in_ready_3_tag",
       "value": "Notify"
+    },
+    {
+      "name": "doctor_admission_workspace_subtitle",
+      "value": "Review intake details, complete ability and safety screening, select a care plan, and record informed consent"
+    },
+    {
+      "name": "doctor_admission_leave_title",
+      "value": "Leave admission intake?"
+    },
+    {
+      "name": "doctor_admission_leave_message",
+      "value": "This admission intake is stored only on this page. Continuing will discard it."
+    },
+    {
+      "name": "doctor_admission_leave_stay",
+      "value": "Keep editing"
+    },
+    {
+      "name": "doctor_admission_leave_discard",
+      "value": "Discard and continue"
+    },
+    {
+      "name": "doctor_admission_validation_name",
+      "value": "Enter the resident's name"
+    },
+    {
+      "name": "doctor_admission_validation_age",
+      "value": "Age must be an integer from 1 to 120"
+    },
+    {
+      "name": "doctor_admission_validation_room_bed",
+      "value": "Enter the room and bed"
+    },
+    {
+      "name": "doctor_admission_validation_contact",
+      "value": "Enter the resident or representative contact"
+    },
+    {
+      "name": "doctor_admission_validation_phone",
+      "value": "Enter a valid contact number (country code allowed)"
+    },
+    {
+      "name": "doctor_admission_validation_required",
+      "value": "Complete the required fields to continue"
+    },
+    {
+      "name": "doctor_admission_contact_label",
+      "value": "Resident or representative contact"
+    },
+    {
+      "name": "doctor_admission_phone_placeholder",
+      "value": "Contact phone number"
+    },
+    {
+      "name": "doctor_admission_validation_plan",
+      "value": "Select a care plan to continue"
+    },
+    {
+      "name": "doctor_admission_validation_confirmations",
+      "value": "Complete all three confirmations to generate a local draft"
+    },
+    {
+      "name": "doctor_admission_risk_measure_placeholder",
+      "value": "Record concrete prevention or response measures and execution requirements"
+    },
+    {
+      "name": "doctor_admission_risk_measure_required",
+      "value": "Add measures, an owner, and a due or review point; high risks also need escalation or referral details"
+    },
+    {
+      "name": "doctor_admission_risk_high_escalation",
+      "value": "High risk also requires immediate safeguards and escalation or referral details"
+    },
+    {
+      "name": "doctor_admission_risk_owner_label",
+      "value": "Owner"
+    },
+    {
+      "name": "doctor_admission_risk_owner_placeholder",
+      "value": "Role or staff name"
+    },
+    {
+      "name": "doctor_admission_risk_review_label",
+      "value": "Due / review point"
+    },
+    {
+      "name": "doctor_admission_risk_review_placeholder",
+      "value": "e.g. today 18:00 / weekly review"
+    },
+    {
+      "name": "doctor_admission_risk_escalation_label",
+      "value": "Immediate safeguards / escalation"
+    },
+    {
+      "name": "doctor_admission_risk_escalation_placeholder",
+      "value": "Immediate safeguards and reporting or referral plan"
     }
   ]
 }

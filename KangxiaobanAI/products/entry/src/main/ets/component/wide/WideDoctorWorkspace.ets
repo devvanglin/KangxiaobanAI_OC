@@ -49,7 +49,9 @@ interface DoctorModuleRow {
 @ComponentV2
 export struct WideDoctorWorkspace {
   @Param statusBarHeight: number = 0;
+  @Param naviIndicatorHeight: number = 0;
   @Param compactWidth: boolean = false;
+  @Param admissionCompactWidth: boolean = false;
   @Event onOpenAbout: () => void = () => {};
   @Event onOpenGeneral: () => void = () => {};
   @Event onLogout: () => void = () => {};
@@ -57,6 +59,7 @@ export struct WideDoctorWorkspace {
   @Local selectedModuleRowId: string = 'case-01';
   @Local moduleFilterIndex: number = 0;
   @Local isSidebarCollapsed: boolean = false;
+  @Local admissionDraftDirty: boolean = false;
   @Local hoveredTarget: string = '';
   @Local searchText: string = '';
   @Local aiQuestion: string = '';
@@ -220,7 +223,10 @@ export struct WideDoctorWorkspace {
     return '养护总览';
   }
 
-  private currentSubtitle(): string {
+  private currentSubtitle(): ResourceStr {
+    if (this.selectedNavId === 'admission') {
+      return $r('app.string.doctor_admission_workspace_subtitle');
+    }
     if (this.selectedNavId === 'patients' || this.selectedNavId === 'focus') {
       return '按授权范围查看长者档案、照护等级与近期健康记录';
     }
@@ -289,9 +295,55 @@ export struct WideDoctorWorkspace {
   }
 
   private openQueueItem(item: DoctorQueueItem, target: string): void {
-    this.selectedModuleRowId = `${target}-${item.id}`;
-    this.moduleFilterIndex = 0;
-    this.selectedNavId = target;
+    this.runAfterAdmissionGuard(() => {
+      this.selectedModuleRowId = `${target}-${item.id}`;
+      this.moduleFilterIndex = 0;
+      this.selectedNavId = target;
+    });
+  }
+
+  private navigateTo(target: string): void {
+    if (target === this.selectedNavId) {
+      return;
+    }
+    this.runAfterAdmissionGuard(() => {
+      this.selectedNavId = target;
+    });
+  }
+
+  private runAfterAdmissionGuard(action: () => void): void {
+    if (this.selectedNavId !== 'admission' || !this.admissionDraftDirty) {
+      action();
+      return;
+    }
+    try {
+      this.getUIContext().showAlertDialog({
+        title: $r('app.string.doctor_admission_leave_title'),
+        message: $r('app.string.doctor_admission_leave_message'),
+        autoCancel: true,
+        alignment: DialogAlignment.Center,
+        buttonDirection: DialogButtonDirection.HORIZONTAL,
+        buttons: [
+          {
+            value: $r('app.string.doctor_admission_leave_stay'),
+            action: () => {
+            }
+          },
+          {
+            value: $r('app.string.doctor_admission_leave_discard'),
+            fontColor: $r('app.color.doctor_workspace_danger'),
+            action: () => {
+              // Unmount the admission branch before external navigation so its local draft is actually discarded.
+              this.admissionDraftDirty = false;
+              this.selectedNavId = 'workspace';
+              action();
+            }
+          }
+        ]
+      });
+    } catch (_error) {
+      // 对话框不可用时不执行外部跳转，避免静默丢失入住草稿。
+    }
   }
 
   private isFollowedUp(rowId: string): boolean {
@@ -320,22 +372,12 @@ export struct WideDoctorWorkspace {
   private activateWithKeyboard(event: KeyEvent, action: () => void): void {
     if (event.type === KeyType.Down &&
       (event.keyCode === KeyCode.KEYCODE_ENTER || event.keyCode === KeyCode.KEYCODE_SPACE)) {
+      event.stopPropagation();
       action();
     }
   }
 
-  private openGlobalSearch(): void {
-    if (this.selectedNavId !== 'workspace') {
-      this.selectedNavId = 'workspace';
-      setTimeout(() => {
-        try {
-          this.focusController.requestFocus('doctor-global-search');
-        } catch (_error) {
-          // 页面切换未完成时保留工作台，不影响其它交互。
-        }
-      }, 120);
-      return;
-    }
+  private focusGlobalSearch(): void {
     try {
       this.focusController.requestFocus('doctor-global-search');
     } catch (_error) {
@@ -343,9 +385,22 @@ export struct WideDoctorWorkspace {
     }
   }
 
+  private openGlobalSearch(): void {
+    if (this.selectedNavId !== 'workspace') {
+      this.runAfterAdmissionGuard(() => {
+        this.selectedNavId = 'workspace';
+        setTimeout(() => this.focusGlobalSearch(), 120);
+      });
+      return;
+    }
+    this.focusGlobalSearch();
+  }
+
   private toggleSidebar(): void {
-    this.isSidebarCollapsed = !this.isSidebarCollapsed;
     this.hoveredTarget = '';
+    this.getUIContext().animateTo({ duration: 240, curve: Curve.Friction }, () => {
+      this.isSidebarCollapsed = !this.isSidebarCollapsed;
+    });
     setTimeout(() => {
       try {
         this.sidebarScroller.scrollEdge(Edge.Top);
@@ -473,11 +528,11 @@ export struct WideDoctorWorkspace {
     .focusable(true)
     .focusOnTouch(true)
     .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => {
-      this.selectedNavId = 'patients';
+      this.navigateTo('patients');
     }))
     .onHover((isHover: boolean) => this.hoveredTarget = isHover ? patient.id : '')
     .onClick(() => {
-      this.selectedNavId = 'patients';
+      this.navigateTo('patients');
     })
   }
 
@@ -542,10 +597,10 @@ export struct WideDoctorWorkspace {
     })
     .onHover((isHover: boolean) => this.hoveredTarget = isHover ? item.id : '')
     .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => {
-      this.selectedNavId = item.id;
+      this.navigateTo(item.id);
     }))
     .onClick(() => {
-      this.selectedNavId = item.id;
+      this.navigateTo(item.id);
     })
   }
 
@@ -655,7 +710,6 @@ export struct WideDoctorWorkspace {
       width: { right: 0.5 },
       color: { right: $r('app.color.doctor_workspace_border_soft') }
     })
-    .animation({ duration: 240, curve: Curve.Friction })
     .clip(true)
   }
 
@@ -696,16 +750,16 @@ export struct WideDoctorWorkspace {
       MenuItemGroup({ header: this.profileMenuHeader }) {
         MenuItem({ symbolStartIcon: this.generalSettingsIcon, content: '通用设置' })
           .height(46)
-          .onClick(() => this.onOpenGeneral())
+          .onClick(() => this.runAfterAdmissionGuard(this.onOpenGeneral))
         MenuItem({ symbolStartIcon: this.aboutIcon, content: '关于我们' })
           .height(46)
-          .onClick(() => this.onOpenAbout())
+          .onClick(() => this.runAfterAdmissionGuard(this.onOpenAbout))
       }
       MenuItemGroup() {
         MenuItem({ symbolStartIcon: this.logoutIcon, content: '退出登录' })
           .height(46)
           .contentFontColor($r('app.color.doctor_workspace_danger'))
-          .onClick(() => this.onLogout())
+          .onClick(() => this.runAfterAdmissionGuard(this.onLogout))
       }
     }
     .width(292)
@@ -777,10 +831,10 @@ export struct WideDoctorWorkspace {
       Blank()
         .layoutWeight(1)
       this.topTextAction('doctor-ai-top', '养护助手', $r('sys.symbol.AI_message'), () => {
-        this.selectedNavId = 'ai';
+        this.navigateTo('ai');
       })
       this.topTextAction('doctor-help', '支持', $r('sys.symbol.questionmark_circle'), () => {
-        this.onOpenAbout();
+        this.runAfterAdmissionGuard(this.onOpenAbout);
       })
       this.profileAction()
     }
@@ -819,7 +873,7 @@ export struct WideDoctorWorkspace {
     .focusable(true)
     .focusOnTouch(true)
     .onClick(() => {
-      this.selectedNavId = 'ai';
+      this.navigateTo('ai');
     })
   }
 
@@ -904,7 +958,7 @@ export struct WideDoctorWorkspace {
     .alignItems(VerticalAlign.Center)
     .focusable(true)
     .onClick(() => {
-      this.selectedNavId = target;
+      this.navigateTo(target);
     })
   }
 
@@ -1488,7 +1542,7 @@ export struct WideDoctorWorkspace {
           .fontColor($r('app.color.doctor_workspace_background'))
           .backgroundColor($r('app.color.doctor_workspace_text_primary'))
           .onClick(() => {
-            this.selectedNavId = 'patients';
+            this.navigateTo('patients');
             this.moduleFilterIndex = 0;
           })
         Button(this.isFollowedUp(row.id) ? '已加入养护跟进' : '加入养护跟进')
@@ -1743,10 +1797,14 @@ export struct WideDoctorWorkspace {
       this.aiWorkspace()
     } else if (this.selectedNavId === 'admission') {
       WideDoctorAdmission({
-        compactWidth: this.compactWidth,
+        compactWidth: this.admissionCompactWidth,
+        naviIndicatorHeight: this.naviIndicatorHeight,
+        onDirtyChange: (dirty: boolean) => {
+          this.admissionDraftDirty = dirty;
+        },
         onExit: () => {
-          this.selectedNavId = 'patients';
-          this.moduleFilterIndex = 0;
+          this.admissionDraftDirty = false;
+          this.selectedNavId = 'workspace';
         }
       })
     } else {

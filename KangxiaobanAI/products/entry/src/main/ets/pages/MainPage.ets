@@ -632,7 +632,9 @@ struct MainPage {
     } else if (this.globalInfoModel.role === '医师') {
       WideDoctorWorkspace({
         statusBarHeight: this.globalInfoModel.statusBarHeight,
+        naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
         compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
+        admissionCompactWidth: this.globalInfoModel.widthBreakpoint !== WidthBreakpoint.WIDTH_XL,
         onOpenAbout: () => {
           this.pathStack.pushPath({ name: 'AboutPage' });
         },

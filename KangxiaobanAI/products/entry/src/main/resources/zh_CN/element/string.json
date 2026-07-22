@@ -623,6 +623,102 @@
     {
       "name": "check_in_ready_3_tag",
       "value": "\u6c9f\u901a"
+    },
+    {
+      "name": "doctor_admission_workspace_subtitle",
+      "value": "\u6838\u9a8c\u5165\u4f4f\u8d44\u6599\uff0c\u5b8c\u6210\u80fd\u529b\u4e0e\u5b89\u5168\u98ce\u9669\u521d\u7b5b\uff0c\u9009\u62e9\u7167\u62a4\u8ba1\u5212\u5e76\u8bb0\u5f55\u77e5\u60c5\u786e\u8ba4"
+    },
+    {
+      "name": "doctor_admission_leave_title",
+      "value": "\u79bb\u5f00\u5165\u4f4f\u529e\u7406\uff1f"
+    },
+    {
+      "name": "doctor_admission_leave_message",
+      "value": "\u5f53\u524d\u5165\u4f4f\u529e\u7406\u5185\u5bb9\u4ec5\u4fdd\u5b58\u5728\u672c\u9875\uff0c\u7ee7\u7eed\u540e\u5c06\u88ab\u653e\u5f03\u3002"
+    },
+    {
+      "name": "doctor_admission_leave_stay",
+      "value": "\u7ee7\u7eed\u586b\u5199"
+    },
+    {
+      "name": "doctor_admission_leave_discard",
+      "value": "\u653e\u5f03\u5e76\u7ee7\u7eed"
+    },
+    {
+      "name": "doctor_admission_validation_name",
+      "value": "\u8bf7\u5148\u586b\u5199\u957f\u8005\u59d3\u540d"
+    },
+    {
+      "name": "doctor_admission_validation_age",
+      "value": "\u5e74\u9f84\u9700\u586b\u5199 1\u2013120 \u7684\u6574\u6570"
+    },
+    {
+      "name": "doctor_admission_validation_room_bed",
+      "value": "\u8bf7\u586b\u5199\u623f\u95f4\u548c\u5e8a\u4f4d"
+    },
+    {
+      "name": "doctor_admission_validation_contact",
+      "value": "\u8bf7\u586b\u5199\u957f\u8005\u6216\u4ee3\u7406\u8054\u7cfb\u4eba"
+    },
+    {
+      "name": "doctor_admission_validation_phone",
+      "value": "\u8bf7\u8f93\u5165\u6709\u6548\u8054\u7cfb\u7535\u8bdd\uff08\u53ef\u542b\u56fd\u5bb6\u533a\u53f7\uff09"
+    },
+    {
+      "name": "doctor_admission_validation_required",
+      "value": "\u8bf7\u8865\u9f50\u5fc5\u586b\u8d44\u6599\u540e\u7ee7\u7eed"
+    },
+    {
+      "name": "doctor_admission_contact_label",
+      "value": "\u957f\u8005\u6216\u4ee3\u7406\u8054\u7cfb\u4eba"
+    },
+    {
+      "name": "doctor_admission_phone_placeholder",
+      "value": "\u8054\u7cfb\u4eba\u624b\u673a\u53f7"
+    },
+    {
+      "name": "doctor_admission_validation_plan",
+      "value": "\u8bf7\u9009\u62e9\u4e00\u9879\u7167\u62a4\u8ba1\u5212\u540e\u7ee7\u7eed"
+    },
+    {
+      "name": "doctor_admission_validation_confirmations",
+      "value": "\u5b8c\u6210\u4ee5\u4e0a\u4e09\u9879\u786e\u8ba4\u540e\u624d\u80fd\u751f\u6210\u672c\u5730\u8349\u7a3f"
+    },
+    {
+      "name": "doctor_admission_risk_measure_placeholder",
+      "value": "\u8bb0\u5f55\u5177\u4f53\u9884\u9632/\u5904\u7f6e\u63aa\u65bd\u3001\u89c2\u5bdf\u91cd\u70b9\u548c\u6267\u884c\u8981\u6c42"
+    },
+    {
+      "name": "doctor_admission_risk_measure_required",
+      "value": "\u975e\u6b63\u5e38\u98ce\u9669\u9700\u8865\u5145\u63aa\u65bd\u3001\u8d23\u4efb\u4eba\u548c\u65f6\u9650/\u590d\u6838\u8282\u70b9\uff1b\u9ad8\u98ce\u9669\u8fd8\u9700\u586b\u5199\u5347\u7ea7\u6216\u8f6c\u4ecb\u5b89\u6392"
+    },
+    {
+      "name": "doctor_admission_risk_high_escalation",
+      "value": "\u9ad8\u98ce\u9669\u8fd8\u9700\u8bb0\u5f55\u5373\u65f6\u4fdd\u62a4\u4ee5\u53ca\u5347\u7ea7\u6216\u8f6c\u4ecb\u5b89\u6392"
+    },
+    {
+      "name": "doctor_admission_risk_owner_label",
+      "value": "\u8d23\u4efb\u4eba"
+    },
+    {
+      "name": "doctor_admission_risk_owner_placeholder",
+      "value": "\u586b\u5199\u8d1f\u8d23\u5c97\u4f4d\u6216\u59d3\u540d"
+    },
+    {
+      "name": "doctor_admission_risk_review_label",
+      "value": "\u65f6\u9650 / \u590d\u6838\u8282\u70b9"
+    },
+    {
+      "name": "doctor_admission_risk_review_placeholder",
+      "value": "\u5982\uff1a\u4eca\u65e5 18:00 / \u6bcf\u5468\u590d\u6838"
+    },
+    {
+      "name": "doctor_admission_risk_escalation_label",
+      "value": "\u5373\u65f6\u4fdd\u62a4 / \u5347\u7ea7\u6216\u8f6c\u4ecb"
+    },
+    {
+      "name": "doctor_admission_risk_escalation_placeholder",
+      "value": "\u586b\u5199\u7acb\u5373\u4fdd\u62a4\u63aa\u65bd\u53ca\u4e0a\u62a5/\u8f6c\u4ecb\u5b89\u6392"
     }
   ]
 }
