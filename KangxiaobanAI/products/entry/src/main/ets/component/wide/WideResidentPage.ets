@@ -398,7 +398,7 @@ export struct WideResidentPage {
       }
       .width('100%')
       .height('100%')
-      .padding({ left: 16, right: 16, top: 16, bottom: 16 + this.naviIndicatorHeight })
+      .padding({ left: 16, right: 16, top: 16, bottom: 16 })
       .backgroundColor($r('sys.color.background_secondary'))
     } else {
       Row({ space: 20 }) {
@@ -407,7 +407,7 @@ export struct WideResidentPage {
       }
       .width('100%')
       .height('100%')
-      .padding({ left: 24, right: 24, top: 20, bottom: 24 + this.naviIndicatorHeight })
+      .padding({ left: 24, right: 24, top: 20, bottom: 24 })
       .backgroundColor($r('sys.color.background_secondary'))
       .alignItems(VerticalAlign.Top)
     }
@@ -457,7 +457,7 @@ export struct WideResidentPage {
       }
       .width('100%')
       .layoutWeight(1)
-      .padding({ left: 12, right: 12, top: 4, bottom: 10 })
+      .padding({ left: 12, right: 12, top: 4, bottom: 10 + this.naviIndicatorHeight })
       .scrollBar(BarState.Auto)
       .edgeEffect(EdgeEffect.Spring)
     }
@@ -633,7 +633,7 @@ export struct WideResidentPage {
         }
         .width('100%')
         .constraintSize({ maxWidth: 1120 })
-        .padding({ bottom: 8 })
+        .padding({ bottom: 8 + this.naviIndicatorHeight })
       }
       .width('100%')
       .layoutWeight(1)

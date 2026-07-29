@@ -145,7 +145,12 @@ export struct HealthExpandPage {
               }
               .width('100%')
               .constraintSize({ maxWidth: 960 })
-              .padding({ left: 16, right: 24, top: 64, bottom: 16 })
+              .padding({
+                left: 16,
+                right: 24,
+                top: this.globalInfoModel.statusBarHeight + 64,
+                bottom: 16 + this.globalInfoModel.naviIndicatorHeight
+              })
             }
             .width('100%')
             .justifyContent(FlexAlign.Center)
@@ -154,25 +159,27 @@ export struct HealthExpandPage {
           .edgeEffect(EdgeEffect.Spring)
           .width('100%')
           .height('100%')
-          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
 
           AlphabetIndexer({ arrayValue: this.alphabets(), selected: this.selectedIndex })
             .width(24)
             .autoCollapse(true)
             .usingPopup(true)
-            .margin({ bottom: 16 })
+            .margin({ bottom: 16 + this.globalInfoModel.naviIndicatorHeight })
             .onSelect((index: number) => {
               this.onIndexerSelected(index);
             })
         }
         .width('100%')
         .height('100%')
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       }
       .backgroundColor($r('sys.color.background_secondary'))
-      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+      .ignoreLayoutSafeArea(
+        [LayoutSafeAreaType.SYSTEM],
+        [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM]
+      )
       .hideBackButton(true)
       .titleBar({
+        avoidLayoutSafeArea: true,
         enableComponentSafeArea: false,
         style: this.titleBarStyle(),
         content: this.titleBarContent()
@@ -181,8 +188,6 @@ export struct HealthExpandPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('sys.color.background_secondary'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-    .padding({ top: this.globalInfoModel.statusBarHeight })
     .geometryTransition('healthCard')
     .transition(TransitionEffect.OPACITY)
   }

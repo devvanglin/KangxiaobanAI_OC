@@ -28,6 +28,7 @@ interface AdminEvent {
 @ComponentV2
 export struct WideAdminWorkspace {
   @Param statusBarHeight: number = 0;
+  @Param naviIndicatorHeight: number = 0;
   @Param compactWidth: boolean = false;
   @Event onOpenAbout: () => void = () => {};
   @Event onOpenGeneral: () => void = () => {};
@@ -175,7 +176,9 @@ export struct WideAdminWorkspace {
         .width('100%').height(38).borderRadius(10)
         .backgroundColor($r('app.color.doctor_workspace_surface_hover'))
         .onClick(() => this.isSidebarCollapsed = !this.isSidebarCollapsed)
-      }.width('100%').padding(10)
+      }
+      .width('100%')
+      .padding({ left: 10, right: 10, top: 10, bottom: 10 + this.naviIndicatorHeight })
     }
     .width(this.sidebarWidth())
     .height('100%')
@@ -312,7 +315,7 @@ export struct WideAdminWorkspace {
         }.width('100%')
       }
       .width('100%').padding({ left: this.compactWidth ? 20 : 28, right: this.compactWidth ? 20 : 28,
-        top: this.statusBarHeight + 28, bottom: 36 }).alignItems(HorizontalAlign.Start)
+        top: this.statusBarHeight + 28, bottom: 36 + this.naviIndicatorHeight }).alignItems(HorizontalAlign.Start)
     }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
   }
 

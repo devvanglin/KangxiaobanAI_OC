@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
+import { AbilityConstant, Configuration, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
 import Logger from '../util/Logger';
 import { WindowUtil } from '../util/WindowUtil';
@@ -32,6 +32,11 @@ export default class KanxiaobanAbility extends UIAbility {
 
   onDestroy(): void {
     Logger.info(TAG, 'Ability onDestroy');
+  }
+
+  onConfigurationUpdate(newConfig: Configuration): void {
+    Logger.info(TAG, `Ability configuration updated. colorMode: ${newConfig.colorMode}`);
+    WindowUtil.refreshSystemBarAppearance();
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {

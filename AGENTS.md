@@ -228,11 +228,12 @@ The role/layout matrix is fixed by current behavior:
 
 Phone tabs are home, resident, message/task area, and mine. They all instantiate `TabPageView` with a different
 `currentTabIndex` and config. Wide caregiver layout has no structural sidebar. Its `68vp + statusBarHeight` command bar
-keeps the brand/current page on the left and groups a sliding home/resident/message capsule, AI, and avatar-only account
-entry on the right. The message capsule shows the live local unread count as a small top-right corner badge reported by
+keeps only the current page title on the left, with no brand mark or brand name, and groups a sliding
+home/resident/message capsule, AI, and avatar-only account entry on the right. The message capsule shows the live local
+unread count as a small top-right corner badge reported by
 `WideMessagePage`; there is no separate bell or shift-status control in the command bar. The top account avatar uses a
 brand-color fill for contrast, while its menu header contains identity text only and no avatar, clock-in state, shift
-progress, or task metrics. Below 1180vp the brand and AI actions reduce their text density while the business content also
+progress, or task metrics. Below 1180vp the AI action reduces its text density while the business content also
 switches to its compact layout. Home, resident, and message roots stay mounted and switch visibility to retain local UI
 state.
 The home root is an on-shift workbench with shift status, advisory AI priorities, task summaries, a compact task queue,
@@ -426,7 +427,7 @@ Current production source is under `KangxiaobanAI/products/entry/src/main/ets`.
 
 | Path | Ownership and verified responsibility |
 |---|---|
-| `entryability/EntryAbility.ets` | UIAbility lifecycle, LoginPage loading, WindowUtil initialization |
+| `entryability/EntryAbility.ets` | UIAbility lifecycle, LoginPage loading, WindowUtil initialization, configuration-driven system-bar refresh |
 | `pages/LoginPage.ets` | mock login, role selector, keyboard-offset form, auth-shell routing |
 | `pages/MainPage.ets` | root HDS navigation, phone/wide selection, role selection, window-immersive ownership, AI overlay, local destinations |
 | `component/TabPageView.ets` | all four phone tab feature roots, most phone mock data and sheets/covers |
@@ -522,6 +523,13 @@ form affected by a layout change.
 shell when it disappears. Child covers such as `AiChatPage` must not independently reset that window state. Never apply
 `naviIndicatorHeight` as padding to an entire persistent page viewport: let the visual canvas extend behind the system
 area and consume the inset only in scroll-content endings, fixed action bars, composers, or other interactive owners.
+The authenticated shell's `HdsNavigation.ignoreLayoutSafeArea` is the single root layout-expansion owner for ordinary
+shell content; wide workspaces must not layer another full-window expansion on top of it. A full-window overlay may own
+one outermost `ignoreLayoutSafeArea`, but its descendants must not repeat it. Keep both the status bar and navigation
+indicator visible in immersive mode. Dark surfaces change system-bar content color only and must not hide a system bar.
+Logout owners await the non-full-screen transition before routing to `LoginPage`, and `LoginPage` asserts that state on
+appearance. A system color-mode configuration update must refresh status/navigation content colors without changing the
+current full-screen ownership.
 
 ### 8.3 Shared-element identities
 

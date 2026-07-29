@@ -3,7 +3,6 @@
 
 import { ColorMetrics, LengthMetrics, SymbolGlyphModifier } from '@kit.ArkUI';
 import { KeyCode } from '@kit.InputKit';
-import { WindowUtil } from '../../util/WindowUtil';
 import { WideDoctorAdmission } from './WideDoctorAdmission';
 
 interface DoctorNavItem {
@@ -163,14 +162,6 @@ export struct WideDoctorWorkspace {
 
   private riskTrendValues: number[] = [28, 42, 36, 55, 48, 68, 52, 74, 62, 84, 58, 72, 46, 64, 54, 76];
   private closureTrendValues: number[] = [36, 44, 52, 48, 60, 66, 62, 72, 68, 80, 76, 86, 82, 88, 84, 92];
-
-  aboutToAppear(): void {
-    WindowUtil.setSystemBarForDarkBackground(true);
-  }
-
-  aboutToDisappear(): void {
-    WindowUtil.setSystemBarForDarkBackground(false);
-  }
 
   private sidebarWidth(): number {
     return this.compactWidth ? 236 : 264;
@@ -542,7 +533,7 @@ export struct WideDoctorWorkspace {
         }, (group: DoctorNavGroup, index: number) => `${group.label}-${index}`)
       }
       .width('100%')
-      .padding({ left: 10, right: 10, top: 14, bottom: 12 })
+      .padding({ left: 10, right: 10, top: 14, bottom: 12 + this.naviIndicatorHeight })
       .alignItems(HorizontalAlign.Start)
     }
     .layoutWeight(1)
@@ -1116,7 +1107,11 @@ export struct WideDoctorWorkspace {
       }
       .width('100%')
       .constraintSize({ maxWidth: 1088 })
-      .padding({ left: this.mainPadding(), right: this.mainPadding(), bottom: 72 })
+      .padding({
+        left: this.mainPadding(),
+        right: this.mainPadding(),
+        bottom: 72 + this.naviIndicatorHeight
+      })
       .alignItems(HorizontalAlign.Center)
     }
     .width('100%')
@@ -1460,7 +1455,12 @@ export struct WideDoctorWorkspace {
       }
       .width('100%')
       .constraintSize({ maxWidth: 1400 })
-      .padding({ left: this.mainPadding(), right: this.mainPadding(), top: 24, bottom: 36 })
+      .padding({
+        left: this.mainPadding(),
+        right: this.mainPadding(),
+        top: 24,
+        bottom: 36 + this.naviIndicatorHeight
+      })
       .alignItems(HorizontalAlign.Center)
     }
     .width('100%')
@@ -1633,7 +1633,12 @@ export struct WideDoctorWorkspace {
       }
       .width('100%')
       .constraintSize({ maxWidth: 1088 })
-      .padding({ left: this.mainPadding(), right: this.mainPadding(), top: 24, bottom: 36 })
+      .padding({
+        left: this.mainPadding(),
+        right: this.mainPadding(),
+        top: 24,
+        bottom: 36 + this.naviIndicatorHeight
+      })
       .alignItems(HorizontalAlign.Center)
     }
     .width('100%')

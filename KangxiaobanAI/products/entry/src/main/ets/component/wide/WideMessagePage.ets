@@ -732,7 +732,7 @@ export struct WideMessagePage {
     }
     .width(this.compactWidth ? '100%' : 400)
     .height('100%')
-    .padding({ left: 14, right: 14, top: 16, bottom: 16 })
+    .padding({ left: 14, right: 14, top: 16, bottom: 16 + this.naviIndicatorHeight })
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(this.compactWidth ? 0 : 20)
     .clip(true)
@@ -1060,7 +1060,7 @@ export struct WideMessagePage {
       .animation({ duration: 180, curve: Curve.EaseOut })
     }
     .width('100%')
-    .padding({ left: 24, right: 24, top: 10, bottom: 12 })
+    .padding({ left: 24, right: 24, top: 10, bottom: 12 + this.naviIndicatorHeight })
     .backgroundColor($r('sys.color.comp_background_primary'))
     .border({ width: { top: 0.5 }, color: { top: $r('sys.color.comp_divider') } })
     .alignItems(HorizontalAlign.Center)
@@ -1077,7 +1077,8 @@ export struct WideMessagePage {
         .fontColor($r('sys.color.font_secondary'))
     }
     .width('100%')
-    .height(64)
+    .height(64 + this.naviIndicatorHeight)
+    .padding({ bottom: this.naviIndicatorHeight })
     .backgroundColor($r('sys.color.comp_background_primary'))
     .border({ width: { top: 0.5 }, color: { top: $r('sys.color.comp_divider') } })
     .justifyContent(FlexAlign.Center)
@@ -1137,7 +1138,6 @@ export struct WideMessagePage {
       }
       .width('100%')
       .height('100%')
-      .padding({ bottom: this.naviIndicatorHeight })
       .backgroundColor($r('sys.color.background_secondary'))
     } else {
       Row({ space: 16 }) {
@@ -1146,7 +1146,7 @@ export struct WideMessagePage {
       }
       .width('100%')
       .height('100%')
-      .padding({ left: 24, right: 24, top: 20, bottom: 24 + this.naviIndicatorHeight })
+      .padding({ left: 24, right: 24, top: 20, bottom: 24 })
       .backgroundColor($r('sys.color.background_secondary'))
     }
   }

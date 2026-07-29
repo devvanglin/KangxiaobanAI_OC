@@ -17,6 +17,7 @@ import { AppStorageV2, router } from '@kit.ArkUI';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { StorageKey } from '../common/CommonConstants';
 import Logger from '../util/Logger';
+import { WindowUtil } from '../util/WindowUtil';
 
 const TAG: string = '[LoginPage]';
 
@@ -33,6 +34,10 @@ struct LoginPage {
   @Local isRoleMenuOpen: boolean = false;
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO, () => new GlobalInfoModel()) ?? new GlobalInfoModel();
+
+  aboutToAppear(): void {
+    WindowUtil.setImmersiveMode(false);
+  }
 
   @Monitor('globalInfoModel.keyboardHeight')
   onKeyboardHeightChange(): void {
@@ -297,11 +302,10 @@ struct LoginPage {
     .width('100%')
     .height('100%')
     .padding({
-      top: this.globalInfoModel.statusBarHeight,
       left: this.isWideLayout() ? 0 : 28,
       right: this.isWideLayout() ? 0 : 28
     })
     .alignItems(HorizontalAlign.Center)
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
+    .backgroundColor($r('sys.color.background_primary'))
   }
 }

@@ -150,8 +150,10 @@ struct MainPage {
 
   private async handleLogout(): Promise<void> {
     try {
+      await WindowUtil.setImmersiveMode(false);
       await router.replaceUrl({ url: 'pages/LoginPage' });
     } catch (error) {
+      await WindowUtil.setImmersiveMode(true);
       Logger.error(TAG, `logout failed: ${JSON.stringify(error)}`);
     }
   }
@@ -645,6 +647,7 @@ struct MainPage {
     if (this.globalInfoModel.role === '管理') {
       WideAdminWorkspace({
         statusBarHeight: this.globalInfoModel.statusBarHeight,
+        naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
         compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
         onOpenAbout: () => {
           this.pathStack.pushPath({ name: 'AboutPage' });
@@ -758,6 +761,7 @@ struct MainPage {
         .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
         .width('100%')
         .height('100%')
+        .backgroundColor($r('sys.color.background_secondary'))
       } else {
         this.roleWipPanel()
       }
@@ -768,6 +772,6 @@ struct MainPage {
     }
     .width('100%')
     .height('100%')
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .backgroundColor($r('sys.color.background_secondary'))
   }
 }

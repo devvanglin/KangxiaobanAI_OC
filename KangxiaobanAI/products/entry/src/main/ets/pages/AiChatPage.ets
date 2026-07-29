@@ -1388,7 +1388,6 @@ export struct AiChatPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('sys.color.background_primary'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 
   @Builder
@@ -1481,7 +1480,6 @@ export struct AiChatPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('sys.color.background_secondary'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 
   @Builder
@@ -1496,7 +1494,6 @@ export struct AiChatPage {
         .width('100%')
         .height('100%')
         .backgroundColor($r('sys.color.background_primary'))
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
         .hideBackButton(false)
         .titleMode(HdsNavDestinationTitleMode.MINI)
         .titleBar({
@@ -1506,10 +1503,6 @@ export struct AiChatPage {
           content: this.titleBarContent()
         })
         .bindToScrollable([this.listScroller])
-        .ignoreLayoutSafeArea(
-          [LayoutSafeAreaType.SYSTEM],
-          [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM]
-        )
 
         if (this.historyDrawerOpen) {
           this.drawerMask()
@@ -1532,7 +1525,6 @@ export struct AiChatPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('sys.color.background_primary'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 
   build() {
@@ -1546,6 +1538,10 @@ export struct AiChatPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('sys.color.background_primary'))
+    .ignoreLayoutSafeArea(
+      [LayoutSafeAreaType.SYSTEM],
+      [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM]
+    )
     .geometryTransition(this.geometryId)
     .transition(TransitionEffect.OPACITY)
   }

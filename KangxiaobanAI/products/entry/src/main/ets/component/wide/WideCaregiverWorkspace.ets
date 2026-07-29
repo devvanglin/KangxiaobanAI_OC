@@ -77,7 +77,7 @@ export struct WideCaregiverWorkspace {
   }
 
   private pageTitle(): string {
-    const titles: string[] = ['工作台', '长者管理', '消息中心'];
+    const titles: string[] = ['首页', '长者管理', '消息中心'];
     return titles[this.activeTabIndex()] ?? titles[0];
   }
 
@@ -171,27 +171,7 @@ export struct WideCaregiverWorkspace {
 
   @Builder
   private commandBarIdentity() {
-    Row({ space: 12 }) {
-      Row() {
-        SymbolGlyph($r('sys.symbol.heart_fill'))
-          .fontSize(20)
-          .fontColor([$r('app.color.text_on_brand')])
-      }
-      .width(36)
-      .height(36)
-      .borderRadius(12)
-      .backgroundColor($r('app.color.brand_blue'))
-      .justifyContent(FlexAlign.Center)
-      .alignItems(VerticalAlign.Center)
-
-      if (!this.compactWidth) {
-        Text($r('app.string.caregiver_workspace_brand'))
-          .fontSize($r('sys.float.Subtitle_L'))
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
-          .maxLines(1)
-      }
-
+    Row() {
       Text(this.pageTitle())
         .fontSize(this.compactWidth ? 19 : 22)
         .fontWeight(FontWeight.Bold)
@@ -447,6 +427,5 @@ export struct WideCaregiverWorkspace {
     .width('100%')
     .height('100%')
     .backgroundColor($r('sys.color.background_secondary'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
   }
 }

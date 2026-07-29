@@ -14,6 +14,7 @@
  */
 
 import { AppStorageV2, UIContext, window } from '@kit.ArkUI';
+import { common, ConfigurationConstant } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { CommonConstants, StorageKey } from '../common/CommonConstants';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
@@ -24,6 +25,9 @@ const TAG: string = '[WindowUtil]';
 export class WindowUtil {
   private static windowClass?: window.Window;
   private static uiContext: UIContext;
+  private static windowUpdateTask: Promise<void> = Promise.resolve();
+  private static requestedImmersiveMode?: boolean;
+  private static darkSystemBarBackground: boolean = false;
 
   public static initialize(windowStage: window.WindowStage) {
     try {
@@ -31,6 +35,9 @@ export class WindowUtil {
       const uiContext: UIContext = WindowUtil.windowClass.getUIContext();
       WindowUtil.uiContext = uiContext;
       AppStorageV2.connect(UIContext, StorageKey.UI_CONTEXT, () => uiContext);
+      WindowUtil.windowUpdateTask = Promise.resolve();
+      WindowUtil.requestedImmersiveMode = undefined;
+      WindowUtil.darkSystemBarBackground = false;
       WindowUtil.setImmersiveMode(false);
       WindowUtil.registerBreakpoint(WindowUtil.windowClass);
     } catch (err) {
@@ -38,35 +45,91 @@ export class WindowUtil {
     }
   }
 
-  public static setImmersiveMode(enable: boolean): void {
-    if (!WindowUtil.windowClass) {
-      return;
+  public static setImmersiveMode(enable: boolean): Promise<void> {
+    const windowClass: window.Window | undefined = WindowUtil.windowClass;
+    if (!windowClass) {
+      return Promise.resolve();
     }
-    WindowUtil.windowClass.setWindowLayoutFullScreen(enable).catch((err: BusinessError) => {
-      Logger.error(TAG, `setWindowLayoutFullScreen failed. code: ${err.code}, message: ${err.message}`);
+    if (WindowUtil.requestedImmersiveMode === enable) {
+      return WindowUtil.windowUpdateTask;
+    }
+    WindowUtil.requestedImmersiveMode = enable;
+    WindowUtil.windowUpdateTask = WindowUtil.windowUpdateTask.then(async () => {
+      if (windowClass !== WindowUtil.windowClass) {
+        return;
+      }
+      await windowClass.setWindowLayoutFullScreen(enable);
+      await WindowUtil.applySystemBarAppearance(windowClass);
+    }).catch((err: Error) => {
+      if (WindowUtil.requestedImmersiveMode === enable) {
+        WindowUtil.requestedImmersiveMode = undefined;
+      }
+      Logger.error(TAG, `set immersive mode failed. message: ${err.message}`);
     });
-    WindowUtil.windowClass.setWindowSystemBarProperties({
-      statusBarColor: '#00000000',
-      navigationBarColor: '#00000000'
-    }).catch((err: BusinessError) => {
-      Logger.error(TAG, `setWindowSystemBarProperties failed. code: ${err.code}, message: ${err.message}`);
-    });
+    return WindowUtil.windowUpdateTask;
   }
 
   public static setSystemBarForDarkBackground(isDarkBackground: boolean): void {
-    if (!WindowUtil.windowClass) {
+    const windowClass: window.Window | undefined = WindowUtil.windowClass;
+    if (!windowClass) {
       return;
     }
-    WindowUtil.windowClass.setSpecificSystemBarEnabled('status', !isDarkBackground, false)
-      .catch((err: BusinessError) => {
-        Logger.error(TAG, `set status bar visibility failed. code: ${err.code}, message: ${err.message}`);
-      });
-    WindowUtil.windowClass.setWindowSystemBarProperties({
-      statusBarContentColor: isDarkBackground ? '#ffffff' : '#000000',
-      navigationBarContentColor: isDarkBackground ? '#ffffff' : '#000000'
-    }).catch((err: BusinessError) => {
-      Logger.error(TAG, `set system bar content failed. code: ${err.code}, message: ${err.message}`);
+    WindowUtil.darkSystemBarBackground = isDarkBackground;
+    WindowUtil.windowUpdateTask = WindowUtil.windowUpdateTask.then(async () => {
+      if (windowClass !== WindowUtil.windowClass) {
+        return;
+      }
+      await WindowUtil.applySystemBarAppearance(windowClass);
+    }).catch((err: Error) => {
+      Logger.error(TAG, `set system bar appearance failed. message: ${err.message}`);
     });
+  }
+
+  public static refreshSystemBarAppearance(): void {
+    const windowClass: window.Window | undefined = WindowUtil.windowClass;
+    if (!windowClass) {
+      return;
+    }
+    WindowUtil.windowUpdateTask = WindowUtil.windowUpdateTask.then(async () => {
+      if (windowClass !== WindowUtil.windowClass) {
+        return;
+      }
+      await WindowUtil.applySystemBarAppearance(windowClass);
+    }).catch((err: Error) => {
+      Logger.error(TAG, `refresh system bar appearance failed. message: ${err.message}`);
+    });
+  }
+
+  private static async applySystemBarAppearance(windowClass: window.Window): Promise<void> {
+    const contentColor: string = WindowUtil.darkSystemBarBackground || WindowUtil.isSystemDarkMode() ?
+      '#ffffff' : '#000000';
+    try {
+      await Promise.all([
+        windowClass.setSpecificSystemBarEnabled('status', true, false),
+        windowClass.setSpecificSystemBarEnabled('navigationIndicator', true, false),
+        windowClass.setWindowSystemBarProperties({
+          statusBarColor: '#00000000',
+          navigationBarColor: '#00000000',
+          statusBarContentColor: contentColor,
+          navigationBarContentColor: contentColor
+        })
+      ]);
+    } catch (error) {
+      const err: BusinessError = error as BusinessError;
+      throw new Error(`code: ${err.code}, message: ${err.message}`);
+    }
+  }
+
+  private static isSystemDarkMode(): boolean {
+    try {
+      const hostContext: common.UIAbilityContext | undefined =
+        WindowUtil.uiContext.getHostContext() as common.UIAbilityContext | undefined;
+      return hostContext?.config.colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
+    } catch (error) {
+      const err: BusinessError = error as BusinessError;
+      Logger.error(TAG, `get color mode failed. code: ${err.code}, message: ${err.message}`);
+      return false;
+    }
   }
 
   private static getDeviceSize(): void {

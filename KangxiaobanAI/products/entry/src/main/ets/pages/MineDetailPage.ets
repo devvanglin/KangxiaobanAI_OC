@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import { SymbolGlyphModifier } from '@kit.ArkUI';
+import { AppStorageV2, SymbolGlyphModifier } from '@kit.ArkUI';
 import { bundleManager } from '@kit.AbilityKit';
 import type { BusinessError } from '@kit.BasicServicesKit';
 import {
@@ -31,6 +31,8 @@ import {
 } from '@kit.UIDesignKit';
 import Logger from '../util/Logger';
 import { PreferenceManager } from '../util/PreferenceManager';
+import { GlobalInfoModel } from '../model/GlobalInfoModel';
+import { StorageKey } from '../common/CommonConstants';
 
 export type MineDetailType = 'about' | 'general';
 
@@ -58,6 +60,8 @@ struct SettingsGroupCard {
 @ComponentV2
 export struct MineDetailPage {
   @Param @Require pageType: MineDetailType;
+  @Local globalInfoModel: GlobalInfoModel =
+    AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO, () => new GlobalInfoModel()) ?? new GlobalInfoModel();
   @Local versionName: string = '1.0.0';
   @Local versionCode: number = 1000000;
   @Local reduceMotion: boolean = false;
@@ -455,7 +459,12 @@ export struct MineDetailPage {
           }
           .width('100%')
           .constraintSize({ maxWidth: 720 })
-          .padding({ left: 16, right: 16, top: 104, bottom: 40 })
+          .padding({
+            left: 16,
+            right: 16,
+            top: this.globalInfoModel.statusBarHeight + 56,
+            bottom: 40 + this.globalInfoModel.naviIndicatorHeight
+          })
         }
         .width('100%')
         .justifyContent(FlexAlign.Center)
