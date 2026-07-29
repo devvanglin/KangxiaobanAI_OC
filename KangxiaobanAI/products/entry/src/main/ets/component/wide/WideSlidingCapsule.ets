@@ -20,6 +20,9 @@ export interface WideSlidingCapsuleItem {
   index: number;
   symbol?: Resource;
   badgeText?: string;
+  badgeTextColor?: ResourceColor;
+  badgeBackgroundColor?: ResourceColor;
+  badgeAtCorner?: boolean;
 }
 
 @ComponentV2
@@ -70,6 +73,25 @@ export struct WideSlidingCapsule {
     return item.badgeText === undefined ? item.title : `${item.title} ${item.badgeText}`;
   }
 
+  private badgeTextColor(item: WideSlidingCapsuleItem): ResourceColor {
+    if (item.badgeTextColor !== undefined) {
+      return item.badgeTextColor;
+    }
+    return this.selectedIndex === item.index ? $r('app.color.brand_blue') : $r('sys.color.font_secondary');
+  }
+
+  private badgeBackgroundColor(item: WideSlidingCapsuleItem): ResourceColor {
+    if (item.badgeBackgroundColor !== undefined) {
+      return item.badgeBackgroundColor;
+    }
+    return this.selectedIndex === item.index ? $r('sys.color.comp_background_secondary') :
+      $r('sys.color.comp_background_primary');
+  }
+
+  private showInlineBadge(item: WideSlidingCapsuleItem): boolean {
+    return item.badgeText !== undefined && item.badgeAtCorner !== true;
+  }
+
   private activateWithKeyboard(event: KeyEvent, action: () => void): void {
     if (event.type === KeyType.Down &&
       (event.keyCode === KeyCode.KEYCODE_ENTER || event.keyCode === KeyCode.KEYCODE_SPACE)) {
@@ -79,39 +101,56 @@ export struct WideSlidingCapsule {
 
   @Builder
   private capsuleItem(item: WideSlidingCapsuleItem) {
-    Row({ space: item.symbol === undefined && item.badgeText === undefined ? 0 : 7 }) {
-      if (item.symbol !== undefined) {
-        SymbolGlyph(item.symbol)
-          .fontSize(17)
-          .fontColor([this.selectedIndex === item.index ? $r('app.color.brand_blue') :
-            $r('sys.color.icon_secondary')])
-      }
+    Stack({ alignContent: Alignment.TopEnd }) {
+      Row({ space: item.symbol === undefined && !this.showInlineBadge(item) ? 0 : 7 }) {
+        if (item.symbol !== undefined) {
+          SymbolGlyph(item.symbol)
+            .fontSize(17)
+            .fontColor([this.selectedIndex === item.index ? $r('app.color.brand_blue') :
+              $r('sys.color.icon_secondary')])
+        }
 
-      Text(item.title)
-        .fontSize($r('sys.float.Body_M'))
-        .fontWeight(this.selectedIndex === item.index ? FontWeight.Medium : FontWeight.Regular)
-        .fontColor(this.selectedIndex === item.index ? $r('app.color.brand_blue') :
-          $r('sys.color.font_primary'))
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-      if (item.badgeText !== undefined) {
-        Text(item.badgeText)
-          .fontSize($r('sys.float.Caption_M'))
-          .fontWeight(FontWeight.Medium)
+        Text(item.title)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(this.selectedIndex === item.index ? FontWeight.Medium : FontWeight.Regular)
           .fontColor(this.selectedIndex === item.index ? $r('app.color.brand_blue') :
-            $r('sys.color.font_secondary'))
-          .width(22)
-          .height(22)
+            $r('sys.color.font_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+        if (this.showInlineBadge(item)) {
+          Text(item.badgeText)
+            .fontSize($r('sys.float.Caption_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor(this.badgeTextColor(item))
+            .width(22)
+            .height(22)
+            .textAlign(TextAlign.Center)
+            .backgroundColor(this.badgeBackgroundColor(item))
+            .borderRadius(11)
+        }
+      }
+      .width('100%')
+      .height('100%')
+      .padding({ left: 12, right: 12 })
+      .justifyContent(FlexAlign.Center)
+      .alignItems(VerticalAlign.Center)
+
+      if (item.badgeText !== undefined && item.badgeAtCorner === true) {
+        Text(item.badgeText)
+          .fontSize(10)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(this.badgeTextColor(item))
+          .width(18)
+          .height(18)
           .textAlign(TextAlign.Center)
-          .backgroundColor(this.selectedIndex === item.index ? $r('sys.color.comp_background_secondary') :
-            $r('sys.color.comp_background_primary'))
-          .borderRadius(11)
+          .backgroundColor(this.badgeBackgroundColor(item))
+          .borderRadius(9)
+          .margin({ top: 1, right: 3 })
       }
     }
     .width(this.effectiveItemWidth())
     .height(38)
-    .padding({ left: 12, right: 12 })
     .borderRadius(19)
     .backgroundColor(this.selectedIndex !== item.index && this.hoveredIndex === item.index ?
       $r('sys.color.interactive_hover') : Color.Transparent)
@@ -119,8 +158,6 @@ export struct WideSlidingCapsule {
       width: this.focusedIndex === item.index ? 2 : 0,
       color: $r('app.color.brand_blue')
     })
-    .justifyContent(FlexAlign.Center)
-    .alignItems(VerticalAlign.Center)
     .focusable(true)
     .focusOnTouch(true)
     .accessibilityText(this.accessibilityLabel(item))

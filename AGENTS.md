@@ -102,17 +102,17 @@ user explicitly asks for cleanup. Never run destructive Git or recursive cleanup
 
 Security-sensitive build profiles currently exist in:
 
-- `KangxiaobanAI/build-profile.json5`
 - `MusicHome/build-profile.json5`
 - `NavigationSettings/build-profile.json5`
 - `Spatialization/build-profile.json5`
 - `HarmonyOSComponentUXExamples-dev/build-profile.json5`
 - `map-kit_-sample-code_-demo-arkts/build-profile.json5`
 
-Some contain local certificate paths and password fields; the Map sample may contain masked placeholders. Never print,
-copy, quote, summarize, or commit secret values. If remediation is requested, rotate exposed material, remove it from
-tracked history, and replace it with local/CI-injected signing configuration. Deleting only the current value is not a
-complete remediation.
+`KangxiaobanAI/build-profile.json5` currently has no `signingConfigs`; local or CI-injected configuration is required to
+produce a signed HAP. Some sample profiles contain local certificate paths and password fields; the Map sample may
+contain masked placeholders. Never print, copy, quote, summarize, or commit secret values. If remediation is requested,
+rotate exposed material, remove it from tracked history, and replace it with local/CI-injected signing configuration.
+Deleting only the current value is not a complete remediation.
 
 ## 4. Required discovery workflow
 
@@ -184,6 +184,7 @@ KanxiaobanAbility (class in EntryAbility.ets)
   -> 800 ms local timer
   -> GlobalInfoModel.role = selectedRole
   -> router.replaceUrl('pages/MainPage')
+  -> MainPage.aboutToAppear: enable full-screen window layout
   -> MainPage HdsNavigation/NavPathStack shell
 ```
 
@@ -226,19 +227,27 @@ The role/layout matrix is fixed by current behavior:
 | Any other string | WIP placeholder | WIP placeholder |
 
 Phone tabs are home, resident, message/task area, and mine. They all instantiate `TabPageView` with a different
-`currentTabIndex` and config. Wide caregiver layout uses a 224vp labeled navigation sidebar at 1180vp and above and an
-84vp icon sidebar below that threshold. Its home, resident, and message roots stay mounted and switch visibility to
-retain local UI state. The home root is an on-shift workbench with shift status, advisory AI priorities, task summaries,
-a compact task queue, and an on-demand detail pane. Resident and message roots use an open shared canvas with independent
-work surfaces: at 1180vp and above they retain side-by-side master/detail interaction; below 1180vp they use a full-width
-list followed by a full-width detail view with an explicit return action. Wide doctor layout is a separate local mock
-workspace. Its `admission` sidebar branch mounts `WideDoctorAdmission` directly inside the workspace shell;
+`currentTabIndex` and config. Wide caregiver layout has no structural sidebar. Its `68vp + statusBarHeight` command bar
+keeps the brand/current page on the left and groups a sliding home/resident/message capsule, AI, and avatar-only account
+entry on the right. The message capsule shows the live local unread count as a small top-right corner badge reported by
+`WideMessagePage`; there is no separate bell or shift-status control in the command bar. The top account avatar uses a
+brand-color fill for contrast, while its menu header contains identity text only and no avatar, clock-in state, shift
+progress, or task metrics. Below 1180vp the brand and AI actions reduce their text density while the business content also
+switches to its compact layout. Home, resident, and message roots stay mounted and switch visibility to retain local UI
+state.
+The home root is an on-shift workbench with shift status, advisory AI priorities, task summaries, a compact task queue,
+and an on-demand detail pane. Resident and message roots use an open shared canvas with independent work surfaces: at
+1180vp and above they retain side-by-side master/detail interaction; below 1180vp they use a full-width list followed by
+a full-width detail view with an explicit return action. Wide doctor layout is a separate local mock workspace. Its
+`admission` sidebar branch mounts `WideDoctorAdmission` directly inside the workspace shell;
 it is not a router or `NavPathStack` destination. Wide administrator layouts mount `WideAdminWorkspace` directly; only
 its operations overview has local demo content and the other management modules are placeholders.
 
 `HdsNavigation` uses an immersive/adaptive system material title bar, gradient-blur scroll effect, four bound Scrollers,
 hidden back button, a hidden title bar in wide layouts, and system-safe-area expansion. `HdsTabs` overlaps content,
-floats above the navigation indicator, and preloads all four tab items. Measure startup/memory before extending preload.
+floats above the navigation indicator, and preloads all four tab items. `MainPage` owns the full-screen window state while
+it is visible; the AI cover inherits that state rather than toggling the window independently. Measure startup/memory
+before extending preload.
 
 ### 5.5 Current route inventory
 
@@ -419,20 +428,20 @@ Current production source is under `KangxiaobanAI/products/entry/src/main/ets`.
 |---|---|
 | `entryability/EntryAbility.ets` | UIAbility lifecycle, LoginPage loading, WindowUtil initialization |
 | `pages/LoginPage.ets` | mock login, role selector, keyboard-offset form, auth-shell routing |
-| `pages/MainPage.ets` | root HDS navigation, phone/wide selection, role selection, AI overlay, local destinations |
+| `pages/MainPage.ets` | root HDS navigation, phone/wide selection, role selection, window-immersive ownership, AI overlay, local destinations |
 | `component/TabPageView.ets` | all four phone tab feature roots, most phone mock data and sheets/covers |
-| `pages/AiChatPage.ets` | local AI conversation UI, history, feedback/copy/edit, mock response timers |
+| `pages/AiChatPage.ets` | local AI conversation UI, history, feedback/copy/edit, mock response timers; inherits shell immersive state |
 | `pages/ResidentDetailPage.ets` | resident detail sections and local detail mock data |
 | `pages/HealthExpandPage.ets` | expanded health list and resident index UI |
 | `pages/MineDetailPage.ets` | about/general settings and Preferences-backed toggle values |
-| `component/wide/WideCaregiverWorkspace.ets` | responsive caregiver navigation shell, persistent wide feature roots, shift/account actions, settings/logout, and safe-area forwarding |
+| `component/wide/WideCaregiverWorkspace.ets` | responsive top command-bar shell, sliding primary navigation, live message badge, persistent wide feature roots, avatar account actions, local-back cleanup, and safe-area forwarding |
 | `component/wide/WideDoctorWorkspace.ets` | wide doctor shell, local modules/AI state, admission branch, dirty guard, and admission layout forwarding |
 | `component/wide/WideDoctorAdmission.ets` | local four-step admission draft, input validation, 15-item screening, risk-measure gate, advisory plan rule, three care plans, informed confirmations, responsive/accessibility rendering, and local preview/reset state |
 | `component/wide/WideAdminWorkspace.ets` | wide administrator shell; local operations overview and placeholder management modules |
 | `component/wide/WideHomePage.ets` | caregiver on-shift workbench, advisory AI priorities, task summaries/queue, resident rhythm, and local task detail/actions |
 | `component/wide/WideResidentPage.ets` | open-canvas responsive resident master/detail view; wide view uses independent list/detail work surfaces and widths below 1180vp switch between full-width list and detail |
-| `component/wide/WideMessagePage.ets` | open-canvas responsive conversation master/detail view with local replies/unread state; widths below 1180vp switch between full-width list and detail |
-| `component/wide/WideSlidingCapsule.ets` | reusable hover/focus segmented selection control |
+| `component/wide/WideMessagePage.ets` | open-canvas responsive conversation master/detail view with local replies/unread state and unread-count reporting; widths below 1180vp switch between full-width list and detail |
+| `component/wide/WideSlidingCapsule.ets` | reusable animated segmented selection control with hover/focus, symbols, inline/corner badges, and optional badge colors |
 | `component/ResidentSummaryCard.ets` | resident summary/details builder and vital status presentation |
 | `component/HealthListCard.ets` | health summary card |
 | `component/EventListCard.ets` | event summary card |
@@ -455,13 +464,13 @@ The largest current files are architectural warning points, not templates for fu
 - `WideDoctorWorkspace.ets`: about 1,686 lines;
 - `WideDoctorAdmission.ets`: about 1,793 lines;
 - `WideAdminWorkspace.ets`: about 348 lines;
-- `AiChatPage.ets`: about 1,555 lines;
-- `WideHomePage.ets`: about 1,419 lines;
-- `WideResidentPage.ets`: about 1,408 lines;
-- `WideMessagePage.ets`: about 1,140 lines;
-- `WideCaregiverWorkspace.ets`: about 898 lines;
+- `AiChatPage.ets`: about 1,552 lines;
+- `WideHomePage.ets`: about 1,420 lines;
+- `WideResidentPage.ets`: about 1,409 lines;
+- `WideMessagePage.ets`: about 1,153 lines;
+- `WideCaregiverWorkspace.ets`: about 452 lines;
 - `ResidentDetailPage.ets`: about 808 lines;
-- `MainPage.ets`: about 763 lines.
+- `MainPage.ets`: about 773 lines.
 
 Do not add a new feature root, large dataset, service call, and navigation flow to one of these files in the same change.
 Split by real feature/section ownership while preserving current behavior.
@@ -490,12 +499,13 @@ familiarity. Existing relevant components and options include:
 5. bind title effects to the actual active Scroller;
 6. avoid layering multiple translucent surfaces without a content/contrast reason.
 
-The wide caregiver shell uses one continuous `background_secondary` canvas across its root, sidebar, brand header,
-command bar, and content region. Do not reintroduce structural white sidebar/top-bar panels, frame borders, or shadows
+The wide caregiver shell uses one continuous `background_secondary` canvas across its root, top command bar, content
+region, and system-bottom area. Do not reintroduce a structural sidebar or white top-bar panel, frame borders, or shadows
 that form a separate dashboard shell. Reserve `comp_background_primary` for business surfaces and the active navigation
-target; use brand blue for interactive emphasis, and use red/orange/green only for risk or status meaning. The brand
-header and command bar share the same `68vp + statusBarHeight` vertical rhythm. Account actions belong at the sidebar
-footer, while detailed shift progress remains in the home workbench rather than being repeated around the shell.
+target; use brand blue for interactive emphasis, and use red/orange/green only for risk or status meaning. The command
+bar uses the `68vp + statusBarHeight` rhythm, keeps identity/title on the left, and places the animated primary capsule,
+AI, and avatar-only account action on the right. The message badge owns notification count; do not add a duplicate bell
+or shift chip. Detailed shift progress remains in the home workbench.
 
 ### 8.2 Safe areas and window classes
 
@@ -507,6 +517,11 @@ Immersive rendering has two separate responsibilities:
 Use live values from `GlobalInfoModel`. Do not infer status-bar height from a fixed number. Verify rotation, floating
 window resize, keyboard opening/closing, dark mode, large fonts, mouse/keyboard focus, and back gesture on every device
 form affected by a layout change.
+
+`MainPage` enables full-screen layout while the authenticated shell is visible and restores the non-full-screen login
+shell when it disappears. Child covers such as `AiChatPage` must not independently reset that window state. Never apply
+`naviIndicatorHeight` as padding to an entire persistent page viewport: let the visual canvas extend behind the system
+area and consume the inset only in scroll-content endings, fixed action bars, composers, or other interactive owners.
 
 ### 8.3 Shared-element identities
 
@@ -542,7 +557,7 @@ touch/focus target size, large-font behavior, and keyboard/mouse handling on 2-i
 - stores up to fifty local in-memory sessions through an `AppStorageV2` model;
 - restores/synchronizes active history;
 - supports new conversation, selection, feedback, copy, edit, and simple `**bold**` parsing;
-- manages list scrolling, focus, keyboard avoid mode, history drawer, and immersive mode;
+- manages list scrolling, focus, keyboard avoid mode, and history drawer while inheriting shell immersive mode;
 - returns a fixed `buildAnswerText` response after roughly 650 ms;
 - regenerates a fixed response after roughly 500 ms;
 - cancels response/scroll timers on disappearance;
@@ -610,7 +625,8 @@ Treat these as verified open risks, not necessarily part of every unrelated task
 
 ### P0/P1 security and product risks
 
-- Local signing material/password fields are tracked; values require rotation and history cleanup.
+- Local signing material/password fields existed in tracked history; values require rotation and history cleanup even
+  though the core product's current build profile no longer contains `signingConfigs`.
 - Authentication is simulated; there is no session, tenant, RBAC, or authorization check.
 - Sensitive care/health/location/device concepts have no production privacy, encryption, audit, retention, or tenant
   isolation layer.
@@ -649,21 +665,19 @@ directly affects the requested change.
 
 ## 12. Core application: verification baseline
 
-Recorded build evidence at the baseline date:
+Recorded build evidence at the baseline date and latest workspace verification:
 
-- a recent debug HAP build completed successfully;
-- the signed default HAP exists at
-  `KangxiaobanAI/products/entry/build/default/outputs/default/kanxiaoban-default-signed.hap`;
-- its existence proves only that specific local default build, not real-device behavior or backend correctness;
-- build logs include non-fatal/deprecation diagnostics and must be re-read after future builds.
-- The current admission/workspace edits pass `git diff --check` and the API 24 ArkTS compiler.
-- `assembleApp` for product `default`, build mode `debug`, completed successfully on 2026-07-22 with DevEco/Hvigor
-  6.1.1.125 after setting `DEVECO_SDK_HOME` to the SDK root (`.../DevEco Studio/sdk`). The signed HAP is produced at
-  `KangxiaobanAI/products/entry/build/default/outputs/default/kanxiaoban-default-signed.hap`.
+- `assembleHap` for module `kanxiaoban`, product `default`, build mode `debug`, completed successfully on 2026-07-29
+  with DevEco/Hvigor after setting `DEVECO_SDK_HOME` to the SDK root and using the bundled JBR;
+- the current build profile has no `signingConfigs`, so the generated artifact is
+  `KangxiaobanAI/products/entry/build/default/outputs/default/kanxiaoban-default-unsigned.hap`;
+- an unsigned artifact proves compilation/packaging only and is not release/install signing evidence;
+- the current top-command-bar, safe-area, and workspace edits pass `git diff --check` and the API 24 ArkTS compiler;
+- build logs retain non-fatal `router.replaceUrl` deprecation diagnostics and must be re-read after future builds.
 - A run without the SDK-root environment setting still fails before compilation with
   `00303168 Configuration Error: SDK component missing`; this is an environment setup issue, not current source
-  evidence. The build is `Build-verified` for this exact local product/mode, but remains `Device-verified` and
-  `Service-verified` only after real-device and backend checks.
+  evidence. The build is `Build-verified` for this exact local product/mode; it is not `Device-verified` or
+  `Service-verified` without real-device and backend checks.
 
 Do not commit `.hvigor`, `build`, `oh_modules`, IDE metadata, or generated cache files unless a task explicitly requires
 them. There is no root unified build wrapper or CI pipeline. Use the project's DevEco/Hvigor environment and report the

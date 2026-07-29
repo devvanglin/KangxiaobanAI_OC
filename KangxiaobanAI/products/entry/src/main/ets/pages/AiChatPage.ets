@@ -34,7 +34,6 @@ import {
 } from '@kit.UIDesignKit';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { StorageKey } from '../common/CommonConstants';
-import { WindowUtil } from '../util/WindowUtil';
 import { BreakpointUtil } from '../util/BreakpointSystem';
 import { AI_BRAND_NAME, AiTitleLabel } from '../component/AiTitleLabel';
 
@@ -340,7 +339,6 @@ export struct AiChatPage {
   }
 
   aboutToAppear(): void {
-    WindowUtil.setImmersiveMode(true);
     this.previousKeyboardAvoidMode = this.getUIContext().getKeyboardAvoidMode();
     this.restoreActiveSession();
   }
@@ -349,7 +347,6 @@ export struct AiChatPage {
     this.syncActiveSession(this.messages, false);
     this.getUIContext().setKeyboardAvoidMode(this.previousKeyboardAvoidMode);
     this.cancelPendingWork();
-    WindowUtil.setImmersiveMode(false);
   }
 
   private titleBarTitleText(): string {

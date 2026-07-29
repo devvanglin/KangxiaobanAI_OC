@@ -57,6 +57,7 @@ interface CareCheckpoint {
 @ComponentV2
 export struct WideHomePage {
   @Param compactWidth: boolean = false;
+  @Param naviIndicatorHeight: number = 0;
   @Param backRequestToken: number = 0;
   @Event onOpenAiChat: () => void = () => {};
   @Event onOpenResident: (residentId: string) => void = (_residentId: string) => {};
@@ -1356,8 +1357,8 @@ export struct WideHomePage {
           .onClick(() => this.handleTaskAction(task))
       }
       .width('100%')
-      .height(70)
-      .padding({ left: 18, right: 18 })
+      .height(70 + this.naviIndicatorHeight)
+      .padding({ left: 18, right: 18, bottom: this.naviIndicatorHeight })
       .border({ width: { top: 0.5 }, color: { top: $r('sys.color.comp_divider') } })
       .backgroundColor($r('sys.color.comp_background_primary'))
       .alignItems(VerticalAlign.Center)
@@ -1392,7 +1393,7 @@ export struct WideHomePage {
           left: this.compactWidth ? 16 : 24,
           right: this.compactWidth ? 16 : 24,
           top: this.compactWidth ? 16 : 20,
-          bottom: 28
+          bottom: 28 + this.naviIndicatorHeight
         })
         .alignItems(HorizontalAlign.Center)
       }

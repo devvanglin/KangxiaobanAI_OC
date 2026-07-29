@@ -40,6 +40,7 @@ import { PAGE_SCROLLER_MAP, PageKeyEnum, TabsBarModel } from '../model/TabsBarMo
 import { TAB_PAGE_CONFIGS, TabPageConfig } from '../model/TabPageModel';
 import Logger from '../util/Logger';
 import { BreakpointUtil } from '../util/BreakpointSystem';
+import { WindowUtil } from '../util/WindowUtil';
 
 const TAG: string = '[MainPage]';
 const CAREGIVER_FULL_WORKSPACE_MIN_WIDTH: number = 1180;
@@ -72,6 +73,15 @@ struct MainPage {
   @Local isAiChatShow: boolean = false;
   @Local caregiverHasLocalBackLayer: boolean = false;
   @Local caregiverBackRequestToken: number = 0;
+
+  aboutToAppear(): void {
+    WindowUtil.setImmersiveMode(true);
+  }
+
+  aboutToDisappear(): void {
+    this.caregiverHasLocalBackLayer = false;
+    WindowUtil.setImmersiveMode(false);
+  }
 
   @Styles
   pcIconNormalStyle() {

@@ -312,8 +312,10 @@ const DEMO_CHAT_RECORDS: WideChatRecord[] = [
 @ComponentV2
 export struct WideMessagePage {
   @Param compactWidth: boolean = false;
+  @Param naviIndicatorHeight: number = 0;
   @Param backRequestToken: number = 0;
   @Event onLocalDetailVisibilityChange: (visible: boolean) => void = (_visible: boolean) => {};
+  @Event onUnreadCountChange: (count: number) => void = (_count: number) => {};
   @Local searchText: string = '';
   @Local activeFilterIndex: number = 0;
   @Local selectedConversationId: string = 'family-zhou';
@@ -338,6 +340,11 @@ export struct WideMessagePage {
     }
   }
 
+  @Monitor('unreadConversationIds')
+  onUnreadConversationIdsChange(): void {
+    this.reportUnreadCount();
+  }
+
   @Styles
   keyboardFocusStyle() {
     .focusable(true)
@@ -351,6 +358,7 @@ export struct WideMessagePage {
   }
 
   aboutToAppear(): void {
+    this.reportUnreadCount();
     if (!this.compactWidth) {
       this.scheduleScrollToBottom();
     }
@@ -369,6 +377,10 @@ export struct WideMessagePage {
 
   private isUnread(conversationId: string): boolean {
     return this.unreadConversationIds.includes(conversationId);
+  }
+
+  private reportUnreadCount(): void {
+    this.onUnreadCountChange(this.unreadConversationIds.length);
   }
 
   private latestSentRecord(conversationId: string): WideChatRecord | undefined {
@@ -1125,6 +1137,7 @@ export struct WideMessagePage {
       }
       .width('100%')
       .height('100%')
+      .padding({ bottom: this.naviIndicatorHeight })
       .backgroundColor($r('sys.color.background_secondary'))
     } else {
       Row({ space: 16 }) {
@@ -1133,7 +1146,7 @@ export struct WideMessagePage {
       }
       .width('100%')
       .height('100%')
-      .padding({ left: 24, right: 24, top: 20, bottom: 24 })
+      .padding({ left: 24, right: 24, top: 20, bottom: 24 + this.naviIndicatorHeight })
       .backgroundColor($r('sys.color.background_secondary'))
     }
   }

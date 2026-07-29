@@ -51,6 +51,7 @@ interface RiskRow {
 @ComponentV2
 export struct WideResidentPage {
   @Param compactWidth: boolean = false;
+  @Param naviIndicatorHeight: number = 0;
   @Param backRequestToken: number = 0;
   @Param requestedResidentId: string = '';
   @Param residentSelectionRequestToken: number = 0;
@@ -397,7 +398,7 @@ export struct WideResidentPage {
       }
       .width('100%')
       .height('100%')
-      .padding(16)
+      .padding({ left: 16, right: 16, top: 16, bottom: 16 + this.naviIndicatorHeight })
       .backgroundColor($r('sys.color.background_secondary'))
     } else {
       Row({ space: 20 }) {
@@ -406,7 +407,7 @@ export struct WideResidentPage {
       }
       .width('100%')
       .height('100%')
-      .padding({ left: 24, right: 24, top: 20, bottom: 24 })
+      .padding({ left: 24, right: 24, top: 20, bottom: 24 + this.naviIndicatorHeight })
       .backgroundColor($r('sys.color.background_secondary'))
       .alignItems(VerticalAlign.Top)
     }
