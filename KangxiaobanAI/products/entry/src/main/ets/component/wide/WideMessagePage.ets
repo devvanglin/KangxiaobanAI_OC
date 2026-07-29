@@ -312,6 +312,9 @@ const DEMO_CHAT_RECORDS: WideChatRecord[] = [
 @ComponentV2
 export struct WideMessagePage {
   @Param compactWidth: boolean = false;
+  @Param topBarHeight: number = 0;
+  @Param @Require messageListScroller: Scroller;
+  @Param @Require chatScroller: Scroller;
   @Param naviIndicatorHeight: number = 0;
   @Param backRequestToken: number = 0;
   @Event onLocalDetailVisibilityChange: (visible: boolean) => void = (_visible: boolean) => {};
@@ -330,7 +333,6 @@ export struct WideMessagePage {
   @Local replyText: string = '';
   @Local sentRecords: WideChatRecord[] = [];
   @Local compactDetailVisible: boolean = false;
-  private chatScroller: Scroller = new Scroller();
   private scrollTimerId: number = -1;
 
   @Monitor('backRequestToken')
@@ -692,7 +694,7 @@ export struct WideMessagePage {
   @Builder
   private conversationList() {
     if (this.filteredConversations().length > 0) {
-      List({ space: 4 }) {
+      List({ scroller: this.messageListScroller, space: 4 }) {
         ForEach(this.filteredConversations(), (item: WideConversationData) => {
           ListItem() {
             this.conversationRow(item)
@@ -1138,6 +1140,7 @@ export struct WideMessagePage {
       }
       .width('100%')
       .height('100%')
+      .padding({ top: this.topBarHeight })
       .backgroundColor($r('sys.color.background_secondary'))
     } else {
       Row({ space: 16 }) {
@@ -1146,7 +1149,7 @@ export struct WideMessagePage {
       }
       .width('100%')
       .height('100%')
-      .padding({ left: 24, right: 24, top: 20, bottom: 24 })
+      .padding({ left: 24, right: 24, top: this.topBarHeight + 20, bottom: 24 })
       .backgroundColor($r('sys.color.background_secondary'))
     }
   }

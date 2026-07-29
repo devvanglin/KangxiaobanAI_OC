@@ -13,11 +13,12 @@
  * limitations under the License.
  */
 
-import { AppStorageV2, curves, router, SymbolGlyphModifier } from '@kit.ArkUI';
+import { AppStorageV2, curves, LengthMetrics, router, SymbolGlyphModifier } from '@kit.ArkUI';
 import {
   hdsMaterial,
   HdsListItemCard,
   HdsNavigation,
+  HdsNavigationTitleBarOptions,
   HdsNavigationTitleMode,
   HdsTabs,
   HdsTabsController,
@@ -27,9 +28,11 @@ import {
   SuffixArrow,
   SuffixText,
   TextStyleMode,
+  TitleBarStyleOptions,
 } from '@kit.UIDesignKit';
 import { TabPageView } from '../component/TabPageView';
 import { WideCaregiverWorkspace } from '../component/wide/WideCaregiverWorkspace';
+import { WideCaregiverTitleActions } from '../component/wide/WideCaregiverTitleActions';
 import { WideDoctorWorkspace } from '../component/wide/WideDoctorWorkspace';
 import { WideAdminWorkspace } from '../component/wide/WideAdminWorkspace';
 import { AiChatPage } from '../pages/AiChatPage';
@@ -44,6 +47,7 @@ import { WindowUtil } from '../util/WindowUtil';
 
 const TAG: string = '[MainPage]';
 const CAREGIVER_FULL_WORKSPACE_MIN_WIDTH: number = 1180;
+const WIDE_TITLE_BAR_HEIGHT: number = 56;
 
 interface WideNavItem {
   label: ResourceStr;
@@ -73,6 +77,12 @@ struct MainPage {
   @Local isAiChatShow: boolean = false;
   @Local caregiverHasLocalBackLayer: boolean = false;
   @Local caregiverBackRequestToken: number = 0;
+  @Local caregiverUnreadMessageCount: number = 3;
+  private wideHomeScroller: Scroller = new Scroller();
+  private wideResidentMasterScroller: Scroller = new Scroller();
+  private wideResidentDetailScroller: Scroller = new Scroller();
+  private wideMessageListScroller: Scroller = new Scroller();
+  private wideMessageChatScroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
     WindowUtil.setImmersiveMode(true);
@@ -95,6 +105,86 @@ struct MainPage {
 
   private getCurrentPageTitle(): ResourceStr {
     return this.pageConfigs[this.currentTabIndex]?.title ?? $r('app.string.tab_home');
+  }
+
+  private wideCaregiverActiveTabIndex(): number {
+    if (this.currentTabIndex >= 0 && this.currentTabIndex <= 2) {
+      return this.currentTabIndex;
+    }
+    return this.primaryTabIndex >= 0 && this.primaryTabIndex <= 1 ? this.primaryTabIndex : 0;
+  }
+
+  private wideCaregiverPageTitle(): string {
+    const titles: string[] = ['首页', '长者管理', '消息中心'];
+    return titles[this.wideCaregiverActiveTabIndex()] ?? titles[0];
+  }
+
+  private wideCaregiverTitleBarPadding(): number {
+    return this.useCompactCaregiverWorkspace() ? 16 : 24;
+  }
+
+  private wideCaregiverTopBarHeight(): number {
+    return WIDE_TITLE_BAR_HEIGHT + this.globalInfoModel.statusBarHeight;
+  }
+
+  private immersiveTitleBarStyle(): TitleBarStyleOptions {
+    return {
+      scrollEffectOpts: {
+        enableScrollEffect: true,
+        scrollEffectType: ScrollEffectType.GRADIENT_BLUR
+      },
+      systemMaterialEffect: {
+        materialType: hdsMaterial.MaterialType.IMMERSIVE,
+        materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+      }
+    };
+  }
+
+  private navigationTitleBarOptions(): HdsNavigationTitleBarOptions {
+    if (this.isCaregiverWideWorkspace()) {
+      const horizontalPadding: number = this.wideCaregiverTitleBarPadding();
+      return {
+        padding: {
+          start: LengthMetrics.vp(horizontalPadding),
+          end: LengthMetrics.vp(horizontalPadding)
+        },
+        avoidLayoutSafeArea: true,
+        enableComponentSafeArea: false,
+        content: {
+          title: {
+            mainTitle: this.wideCaregiverPageTitle()
+          },
+          menu: { value: [] },
+          stackBuilder: (): void => this.wideCaregiverTitleActions()
+        },
+        style: this.immersiveTitleBarStyle()
+      };
+    }
+    return {
+      content: {
+        title: {
+          mainTitle: this.getCurrentPageTitle(),
+        },
+        menu: { value: [] },
+      },
+      style: this.immersiveTitleBarStyle()
+    };
+  }
+
+  private navigationScrollers(): Scroller[] {
+    if (!this.isWideLayout()) {
+      return PAGE_SCROLLER_MAP.get(PageKeyEnum.ADAPTIVE_TAB) ?? [];
+    }
+    if (this.isCaregiverWideWorkspace()) {
+      return [
+        this.wideHomeScroller,
+        this.wideResidentMasterScroller,
+        this.wideResidentDetailScroller,
+        this.wideMessageListScroller,
+        this.wideMessageChatScroller
+      ];
+    }
+    return [];
   }
 
   private updateTabSelection(index: number): void {
@@ -643,6 +733,31 @@ struct MainPage {
   // ==================== 平板 / PC 共用工作台 ====================
 
   @Builder
+  private wideCaregiverTitleActions() {
+    WideCaregiverTitleActions({
+      currentTabIndex: this.currentTabIndex,
+      primaryTabIndex: this.primaryTabIndex,
+      unreadMessageCount: this.caregiverUnreadMessageCount,
+      compactWidth: this.useCompactCaregiverWorkspace(),
+      onSwitchTab: (index: number) => {
+        this.switchTab(index);
+      },
+      onOpenAiChat: () => {
+        this.openAiChat();
+      },
+      onOpenAbout: () => {
+        this.pathStack.pushPath({ name: 'AboutPage' });
+      },
+      onOpenGeneral: () => {
+        this.pathStack.pushPath({ name: 'GeneralSettingsPage' });
+      },
+      onLogout: () => {
+        this.handleLogout();
+      }
+    })
+  }
+
+  @Builder
   private wideShell() {
     if (this.globalInfoModel.role === '管理') {
       WideAdminWorkspace({
@@ -679,7 +794,12 @@ struct MainPage {
       WideCaregiverWorkspace({
         currentTabIndex: this.currentTabIndex,
         primaryTabIndex: this.primaryTabIndex,
-        statusBarHeight: this.globalInfoModel.statusBarHeight,
+        topBarHeight: this.wideCaregiverTopBarHeight(),
+        homeScroller: this.wideHomeScroller,
+        residentMasterScroller: this.wideResidentMasterScroller,
+        residentDetailScroller: this.wideResidentDetailScroller,
+        messageListScroller: this.wideMessageListScroller,
+        messageChatScroller: this.wideMessageChatScroller,
         naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
         compactWidth: this.useCompactCaregiverWorkspace(),
         backRequestToken: this.caregiverBackRequestToken,
@@ -689,17 +809,11 @@ struct MainPage {
         onLocalBackStateChange: (hasLocalLayer: boolean) => {
           this.caregiverHasLocalBackLayer = hasLocalLayer;
         },
+        onUnreadCountChange: (count: number) => {
+          this.caregiverUnreadMessageCount = count;
+        },
         onOpenAiChat: () => {
           this.openAiChat();
-        },
-        onOpenAbout: () => {
-          this.pathStack.pushPath({ name: 'AboutPage' });
-        },
-        onOpenGeneral: () => {
-          this.pathStack.pushPath({ name: 'GeneralSettingsPage' });
-        },
-        onLogout: () => {
-          this.handleLogout();
         }
       })
     }
@@ -736,27 +850,10 @@ struct MainPage {
         }
         .mode(NavigationMode.Stack)
         .navDestination(this.destinationBuilder)
-        .titleBar({
-          content: {
-            title: {
-              mainTitle: this.getCurrentPageTitle(),
-            },
-            menu: { value: [] },
-          },
-          style: {
-            scrollEffectOpts: {
-              enableScrollEffect: true,
-              scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
-            },
-            systemMaterialEffect: {
-              materialType: hdsMaterial.MaterialType.IMMERSIVE,
-              materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
-            },
-          },
-        })
-        .bindToScrollable(PAGE_SCROLLER_MAP.get(PageKeyEnum.ADAPTIVE_TAB) ?? [])
+        .titleBar(this.navigationTitleBarOptions())
+        .bindToScrollable(this.navigationScrollers())
         .hideBackButton(true)
-        .hideTitleBar(this.isWideLayout(), true)
+        .hideTitleBar(this.isWideLayout() && !this.isCaregiverWideWorkspace(), true)
         .titleMode(HdsNavigationTitleMode.MINI)
         .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
         .width('100%')

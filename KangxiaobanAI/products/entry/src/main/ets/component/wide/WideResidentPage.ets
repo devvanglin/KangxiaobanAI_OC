@@ -51,6 +51,9 @@ interface RiskRow {
 @ComponentV2
 export struct WideResidentPage {
   @Param compactWidth: boolean = false;
+  @Param topBarHeight: number = 0;
+  @Param @Require masterScroller: Scroller;
+  @Param @Require detailScroller: Scroller;
   @Param naviIndicatorHeight: number = 0;
   @Param backRequestToken: number = 0;
   @Param requestedResidentId: string = '';
@@ -398,7 +401,7 @@ export struct WideResidentPage {
       }
       .width('100%')
       .height('100%')
-      .padding({ left: 16, right: 16, top: 16, bottom: 16 })
+      .padding({ left: 16, right: 16, top: this.topBarHeight + 16, bottom: 16 })
       .backgroundColor($r('sys.color.background_secondary'))
     } else {
       Row({ space: 20 }) {
@@ -407,7 +410,7 @@ export struct WideResidentPage {
       }
       .width('100%')
       .height('100%')
-      .padding({ left: 24, right: 24, top: 20, bottom: 24 })
+      .padding({ left: 24, right: 24, top: this.topBarHeight + 20, bottom: 24 })
       .backgroundColor($r('sys.color.background_secondary'))
       .alignItems(VerticalAlign.Top)
     }
@@ -422,7 +425,7 @@ export struct WideResidentPage {
       .width('100%')
       .padding({ left: 16, right: 16, top: 16, bottom: 12 })
 
-      List({ space: 0 }) {
+      List({ scroller: this.masterScroller, space: 0 }) {
         if (this.filteredResidents().length === 0) {
           ListItem() {
             Column({ space: 8 }) {
@@ -616,7 +619,7 @@ export struct WideResidentPage {
         this.compactBackBar()
       }
 
-      Scroll() {
+      Scroll(this.detailScroller) {
         Column({ space: 16 }) {
           this.residentProfileSurface(resident)
 

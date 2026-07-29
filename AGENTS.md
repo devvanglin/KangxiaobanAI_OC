@@ -236,6 +236,12 @@ brand-color fill for contrast, while its menu header contains identity text only
 progress, or task metrics. Below 1180vp the AI action reduces its text density while the business content also
 switches to its compact layout. Home, resident, and message roots stay mounted and switch visibility to retain local UI
 state.
+The root `HdsNavigation` owns both the phone title bar and the wide caregiver title bar. Both use HDS
+`IMMERSIVE`/`ADAPTIVE` system material with a bound `GRADIENT_BLUR` scroll effect. The wide caregiver title actions are
+supplied through the HDS title bar `stackBuilder`, while the page title remains native HDS title content. The root title
+bar binds the real Home, resident master/detail, and message list/chat Scrollers. Wide scroll content uses a
+title-bar-aware initial inset and can then scroll behind the HDS material surface. Do not replace this with a custom
+blur Row, an opaque structural panel, or another nested navigation destination.
 The home root is an on-shift workbench with shift status, advisory AI priorities, task summaries, a compact task queue,
 and an on-demand detail pane. Resident and message roots use an open shared canvas with independent work surfaces: at
 1180vp and above they retain side-by-side master/detail interaction; below 1180vp they use a full-width list followed by

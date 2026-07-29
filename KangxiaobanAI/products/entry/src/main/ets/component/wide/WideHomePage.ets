@@ -57,6 +57,8 @@ interface CareCheckpoint {
 @ComponentV2
 export struct WideHomePage {
   @Param compactWidth: boolean = false;
+  @Param topBarHeight: number = 0;
+  @Param @Require pageScroller: Scroller;
   @Param naviIndicatorHeight: number = 0;
   @Param backRequestToken: number = 0;
   @Event onOpenAiChat: () => void = () => {};
@@ -81,7 +83,6 @@ export struct WideHomePage {
   @Local completedTaskIds: string[] = [];
   @Local noteDrafts: Map<string, string> = new Map<string, string>();
   @Local validationTaskId: string = '';
-  private pageScroller: Scroller = new Scroller();
   private timerId: number = -1;
 
   private taskData: CareTaskData[] = [
@@ -1365,6 +1366,7 @@ export struct WideHomePage {
     }
     .width(this.compactWidth ? '88%' : 456)
     .height('100%')
+    .padding({ top: this.topBarHeight })
     .backgroundColor($r('sys.color.comp_background_primary'))
     .shadow(ShadowStyle.OUTER_DEFAULT_MD)
     .transition(TransitionEffect.OPACITY.animation({ duration: 180, curve: Curve.EaseOut }))
@@ -1401,6 +1403,7 @@ export struct WideHomePage {
       .height('100%')
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
+      .contentStartOffset(this.topBarHeight)
       .backgroundColor($r('sys.color.background_secondary'))
 
       if (this.isTaskPanelOpen && this.selectedTask() !== undefined) {
