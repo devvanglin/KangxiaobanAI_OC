@@ -226,11 +226,15 @@ The role/layout matrix is fixed by current behavior:
 | Any other string | WIP placeholder | WIP placeholder |
 
 Phone tabs are home, resident, message/task area, and mine. They all instantiate `TabPageView` with a different
-`currentTabIndex` and config. Wide caregiver layout composes wide home/resident/message content. Wide doctor layout is
-a separate local mock workspace. Its `admission` sidebar branch mounts `WideDoctorAdmission` directly inside the
-workspace shell; it is not a router or `NavPathStack` destination. Wide administrator layouts mount
-`WideAdminWorkspace` directly; only its operations overview has local demo content and the other management modules are
-placeholders.
+`currentTabIndex` and config. Wide caregiver layout uses a 224vp labeled navigation sidebar at 1180vp and above and an
+84vp icon sidebar below that threshold. Its home, resident, and message roots stay mounted and switch visibility to
+retain local UI state. The home root is an on-shift workbench with shift status, advisory AI priorities, task summaries,
+a compact task queue, and an on-demand detail pane. Resident and message roots use an open shared canvas with independent
+work surfaces: at 1180vp and above they retain side-by-side master/detail interaction; below 1180vp they use a full-width
+list followed by a full-width detail view with an explicit return action. Wide doctor layout is a separate local mock
+workspace. Its `admission` sidebar branch mounts `WideDoctorAdmission` directly inside the workspace shell;
+it is not a router or `NavPathStack` destination. Wide administrator layouts mount `WideAdminWorkspace` directly; only
+its operations overview has local demo content and the other management modules are placeholders.
 
 `HdsNavigation` uses an immersive/adaptive system material title bar, gradient-blur scroll effect, four bound Scrollers,
 hidden back button, a hidden title bar in wide layouts, and system-safe-area expansion. `HdsTabs` overlaps content,
@@ -402,8 +406,9 @@ cover process termination, system back, a breakpoint transition that removes the
 success view is a local in-memory draft preview; it is not a submitted or persisted admission record.
 
 Responsive behavior is intentionally asymmetric: `MainPage` passes `admissionCompactWidth = true` for every non-XL
-wide breakpoint, so MD and LG use stacked/compact admission content while only XL uses the 3+9 step/content layout,
-two-column assessment cards, three-column risk/plan cards, and 5+7 confirmation split. The admission footer also adds
+wide breakpoint, so MD and LG use stacked/compact admission sections while XL enables two-column assessment cards,
+three-column risk/plan cards, and the 5+7 confirmation split. The standalone page introduction and vertical step rail
+are intentionally omitted; current-step context and previous/next actions stay in the fixed footer. The footer also adds
 the live navigation-indicator avoid height.
 
 ## 7. Core application: file ownership map
@@ -420,13 +425,13 @@ Current production source is under `KangxiaobanAI/products/entry/src/main/ets`.
 | `pages/ResidentDetailPage.ets` | resident detail sections and local detail mock data |
 | `pages/HealthExpandPage.ets` | expanded health list and resident index UI |
 | `pages/MineDetailPage.ets` | about/general settings and Preferences-backed toggle values |
-| `component/wide/WideCaregiverWorkspace.ets` | wide caregiver shell and settings/logout actions |
+| `component/wide/WideCaregiverWorkspace.ets` | responsive caregiver navigation shell, persistent wide feature roots, shift/account actions, settings/logout, and safe-area forwarding |
 | `component/wide/WideDoctorWorkspace.ets` | wide doctor shell, local modules/AI state, admission branch, dirty guard, and admission layout forwarding |
 | `component/wide/WideDoctorAdmission.ets` | local four-step admission draft, input validation, 15-item screening, risk-measure gate, advisory plan rule, three care plans, informed confirmations, responsive/accessibility rendering, and local preview/reset state |
 | `component/wide/WideAdminWorkspace.ets` | wide administrator shell; local operations overview and placeholder management modules |
-| `component/wide/WideHomePage.ets` | wide caregiver home and local task interactions |
-| `component/wide/WideResidentPage.ets` | wide resident list/detail split view |
-| `component/wide/WideMessagePage.ets` | wide conversation list/detail split view |
+| `component/wide/WideHomePage.ets` | caregiver on-shift workbench, advisory AI priorities, task summaries/queue, resident rhythm, and local task detail/actions |
+| `component/wide/WideResidentPage.ets` | open-canvas responsive resident master/detail view; wide view uses independent list/detail work surfaces and widths below 1180vp switch between full-width list and detail |
+| `component/wide/WideMessagePage.ets` | open-canvas responsive conversation master/detail view with local replies/unread state; widths below 1180vp switch between full-width list and detail |
 | `component/wide/WideSlidingCapsule.ets` | reusable hover/focus segmented selection control |
 | `component/ResidentSummaryCard.ets` | resident summary/details builder and vital status presentation |
 | `component/HealthListCard.ets` | health summary card |
@@ -447,15 +452,16 @@ Current production source is under `KangxiaobanAI/products/entry/src/main/ets`.
 The largest current files are architectural warning points, not templates for further growth:
 
 - `TabPageView.ets`: about 3,447 lines;
-- `WideDoctorWorkspace.ets`: about 1,834 lines;
-- `WideDoctorAdmission.ets`: about 1,801 lines;
+- `WideDoctorWorkspace.ets`: about 1,686 lines;
+- `WideDoctorAdmission.ets`: about 1,793 lines;
 - `WideAdminWorkspace.ets`: about 348 lines;
 - `AiChatPage.ets`: about 1,555 lines;
-- `WideResidentPage.ets`: about 1,272 lines;
-- `WideHomePage.ets`: about 1,202 lines;
-- `WideMessagePage.ets`: about 1,034 lines;
+- `WideHomePage.ets`: about 1,419 lines;
+- `WideResidentPage.ets`: about 1,408 lines;
+- `WideMessagePage.ets`: about 1,140 lines;
+- `WideCaregiverWorkspace.ets`: about 898 lines;
 - `ResidentDetailPage.ets`: about 808 lines;
-- `MainPage.ets`: about 741 lines.
+- `MainPage.ets`: about 763 lines.
 
 Do not add a new feature root, large dataset, service call, and navigation flow to one of these files in the same change.
 Split by real feature/section ownership while preserving current behavior.
@@ -483,6 +489,13 @@ familiarity. Existing relevant components and options include:
 4. keep contrast correct in dark and light modes;
 5. bind title effects to the actual active Scroller;
 6. avoid layering multiple translucent surfaces without a content/contrast reason.
+
+The wide caregiver shell uses one continuous `background_secondary` canvas across its root, sidebar, brand header,
+command bar, and content region. Do not reintroduce structural white sidebar/top-bar panels, frame borders, or shadows
+that form a separate dashboard shell. Reserve `comp_background_primary` for business surfaces and the active navigation
+target; use brand blue for interactive emphasis, and use red/orange/green only for risk or status meaning. The brand
+header and command bar share the same `68vp + statusBarHeight` vertical rhythm. Account actions belong at the sidebar
+footer, while detailed shift progress remains in the home workbench rather than being repeated around the shell.
 
 ### 8.2 Safe areas and window classes
 

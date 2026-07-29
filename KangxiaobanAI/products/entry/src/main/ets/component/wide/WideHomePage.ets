@@ -13,175 +13,160 @@
  * limitations under the License.
  */
 
-import { LengthMetrics } from '@kit.ArkUI';
+import { curves, LengthMetrics } from '@kit.ArkUI';
+import { KeyCode } from '@kit.InputKit';
+import { AiTitleLabel } from '../AiTitleLabel';
+import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule';
 
-type WideStatus = 'danger' | 'warning' | 'normal' | 'brand' | 'neutral';
-type WideTaskCategory = 'care' | 'medication' | 'record' | 'family';
-type WideTaskState = 'pending' | 'inProgress' | 'done';
-type WideTaskView = 'all' | 'priority' | 'care' | 'medication' | 'record' | 'family' | 'done';
+type CarePriority = 'danger' | 'warning' | 'normal';
+type CareTaskState = 'pending' | 'doing' | 'done';
+type CareTaskCategory = 'todo' | 'medication' | 'record' | 'family' | 'report';
+type CareWorkFilter = CareTaskCategory | 'priority' | 'completed';
 
-interface WideClinicalTask {
+interface CareTaskData {
   id: string;
-  category: WideTaskCategory;
+  category: CareTaskCategory;
   title: string;
+  residentId: string;
   resident: string;
-  location: string;
-  detail: string;
+  room: string;
+  summary: string;
   time: string;
   owner: string;
-  status: string;
-  state: WideTaskState;
-  level: WideStatus;
+  priority: CarePriority;
+  state: CareTaskState;
 }
 
-interface WideTaskViewItem {
-  id: WideTaskView;
-  label: string;
-  count: number;
+interface CareFocusResident {
+  id: string;
+  name: string;
+  room: string;
+  note: string;
+  updatedAt: string;
+  priority: CarePriority;
 }
 
-interface WideResidentContext {
-  age: string;
-  careLevel: string;
-  diagnosis: string;
-  risk: string;
-  vital: string;
-  lastRecord: string;
+interface CareCheckpoint {
+  id: string;
+  time: string;
+  title: string;
+  note: string;
+  completed: boolean;
 }
 
 @ComponentV2
 export struct WideHomePage {
+  @Param compactWidth: boolean = false;
+  @Param backRequestToken: number = 0;
   @Event onOpenAiChat: () => void = () => {};
-  @Event onOpenResident: () => void = () => {};
+  @Event onOpenResident: (residentId: string) => void = (_residentId: string) => {};
+  @Event onTaskPanelVisibilityChange: (visible: boolean) => void = (_visible: boolean) => {};
+  @Event onShiftStateChange: (clockedIn: boolean, clockedOut: boolean) => void =
+    (_clockedIn: boolean, _clockedOut: boolean) => {};
+  @Event onTaskProgressChange: (completed: number, total: number) => void =
+    (_completed: number, _total: number) => {};
   @Local currentTime: Date = new Date();
   @Local isClockedIn: boolean = false;
   @Local isClockedOut: boolean = false;
   @Local clockInTime: Date | null = null;
   @Local clockOutTime: Date | null = null;
-  @Local activeView: WideTaskView = 'all';
-  @Local selectedTaskId: string = 'todo-emotion';
+  @Local activeFilter: CareWorkFilter = 'todo';
+  @Local selectedTaskId: string = '';
+  @Local isTaskPanelOpen: boolean = false;
   @Local hoveredTaskId: string = '';
-  @Local hoveredView: WideTaskView | '' = '';
+  @Local hoveredResidentId: string = '';
+  @Local focusedTarget: string = '';
   @Local inProgressTaskIds: string[] = [];
   @Local completedTaskIds: string[] = [];
   @Local noteDrafts: Map<string, string> = new Map<string, string>();
   @Local validationTaskId: string = '';
-  @Local isClockButtonHovered: boolean = false;
-  @Local isAiSuggestionHovered: boolean = false;
+  private pageScroller: Scroller = new Scroller();
   private timerId: number = -1;
 
-  private taskData: WideClinicalTask[] = [
+  private taskData: CareTaskData[] = [
     {
-      id: 'todo-emotion', category: 'care', title: '情绪安抚与人工接手', resident: '肖爷爷',
-      location: '3F-302', detail: '活动量下降 41%，拒绝交流，需要熟悉护工优先接手', time: '现在',
-      owner: '刘婷', status: '待处理', state: 'pending', level: 'danger'
+      id: 'care-emotion', category: 'todo', title: '情绪安抚与人工接手', residentId: 'r1', resident: '肖爷爷',
+      room: '3F-302',
+      summary: '活动量下降 41%，拒绝交流，建议由熟悉的护理员优先接手', time: '现在', owner: '刘婷',
+      priority: 'danger', state: 'pending'
     },
     {
-      id: 'todo-assessment', category: 'care', title: '夜间不适评估', resident: '周奶奶',
-      location: '2F-215', detail: '夜间离床次数增加，午休前完成疼痛与睡眠评估', time: '09:46',
-      owner: '王倩', status: '待处理', state: 'pending', level: 'warning'
+      id: 'med-blood-pressure', category: 'medication', title: '晨间降压药复核', residentId: 'r5',
+      resident: '李秀英', room: '3F-305',
+      summary: '服药后复测血压并补充执行记录', time: '08:00', owner: '刘婷',
+      priority: 'warning', state: 'pending'
     },
     {
-      id: 'med-1', category: 'medication', title: '降压药 · 1片', resident: '李秀英',
-      location: '3F-305', detail: '服药后复测血压并补充用药记录', time: '08:00',
-      owner: '刘婷', status: '待服用', state: 'pending', level: 'warning'
+      id: 'care-night-review', category: 'todo', title: '夜间不适评估', residentId: 'r2', resident: '周奶奶',
+      room: '2F-215',
+      summary: '夜间离床次数增加，午休前完成疼痛和睡眠观察', time: '09:46', owner: '王倩',
+      priority: 'warning', state: 'pending'
     },
     {
-      id: 'med-2', category: 'medication', title: '钙片 · 2片', resident: '王德林',
-      location: '2F-201', detail: '早餐后服用，注意吞咽情况', time: '08:00',
-      owner: '刘婷', status: '待服用', state: 'pending', level: 'neutral'
+      id: 'report-device', category: 'report', title: '床旁呼叫设备离线', residentId: 'r3', resident: '林爷爷',
+      room: '3F-306',
+      summary: '设备离线 18 分钟，需现场确认并向值班负责人反馈', time: '10:12', owner: '刘婷',
+      priority: 'danger', state: 'pending'
     },
     {
-      id: 'todo-round', category: 'care', title: '半护理上午巡房', resident: '李奶奶',
-      location: '2F-208', detail: '检查房间安全、卧位与呼叫设备状态', time: '10:00',
-      owner: '刘婷', status: '待处理', state: 'pending', level: 'neutral'
+      id: 'record-vital', category: 'record', title: '上午体征记录', residentId: 'r1', resident: '肖爷爷',
+      room: '3F-302',
+      summary: '血压、心率和血氧已同步，等待护理观察补充', time: '10:24', owner: '王倩',
+      priority: 'normal', state: 'doing'
     },
     {
-      id: 'med-3', category: 'medication', title: '二甲双胍 · 0.5g', resident: '张明华',
-      location: '3F-302', detail: '午餐后服用，确认进食情况后执行', time: '12:00',
-      owner: '王倩', status: '待服用', state: 'pending', level: 'warning'
+      id: 'family-callback', category: 'family', title: '家属回访 · 张建国', residentId: 'r5', resident: '李秀英',
+      room: '3F-305',
+      summary: '沟通近期睡眠和康复训练情况，记录后续诉求', time: '14:30', owner: '刘婷',
+      priority: 'warning', state: 'pending'
     },
     {
-      id: 'family-1', category: 'family', title: '家属回访 · 张建国', resident: '李秀英',
-      location: '3F-305', detail: '沟通近期睡眠和康复训练情况', time: '今天',
-      owner: '刘婷', status: '待回访', state: 'pending', level: 'warning'
+      id: 'med-calcium', category: 'medication', title: '钙片 · 2片', residentId: 'r4', resident: '王德林',
+      room: '2F-201',
+      summary: '早餐后服用，执行时关注吞咽情况', time: '08:00', owner: '刘婷',
+      priority: 'normal', state: 'done'
     },
     {
-      id: 'family-2', category: 'family', title: '家属联系 · 李秀兰', resident: '王德林',
-      location: '2F-201', detail: '确认下周探视时间与陪诊安排', time: '今天',
-      owner: '刘婷', status: '待联系', state: 'pending', level: 'neutral'
+      id: 'record-turnover', category: 'record', title: '翻身护理记录', residentId: 'r2', resident: '周奶奶',
+      room: '2F-215',
+      summary: '翻身护理完成，皮肤状态无异常', time: '09:18', owner: '刘婷',
+      priority: 'normal', state: 'done'
     },
     {
-      id: 'family-3', category: 'family', title: '未接来电回拨 · 林涛', resident: '林爷爷',
-      location: '3F-306', detail: '家属来电未接通，需要尽快回拨确认事项', time: '09:12',
-      owner: '王倩', status: '未接通', state: 'pending', level: 'danger'
+      id: 'family-confirm', category: 'family', title: '疼痛评估安排确认', residentId: 'r2', resident: '周奶奶',
+      room: '2F-215',
+      summary: '安排已向家属说明并完成确认', time: '09:46', owner: '王倩',
+      priority: 'normal', state: 'done'
     },
     {
-      id: 'record-1', category: 'record', title: '体征测量', resident: '肖爷爷',
-      location: '3F-302', detail: '血压、心率和血氧数据已同步', time: '10:24',
-      owner: '王倩', status: '已记录', state: 'done', level: 'normal'
-    },
-    {
-      id: 'record-2', category: 'record', title: '翻身护理', resident: '周奶奶',
-      location: '2F-215', detail: '翻身护理完成，皮肤状态无异常', time: '09:46',
-      owner: '刘婷', status: '已记录', state: 'done', level: 'normal'
-    },
-    {
-      id: 'record-3', category: 'record', title: '用药执行', resident: '林爷爷',
-      location: '3F-306', detail: '晨间用药已执行并完成复核', time: '09:12',
-      owner: '王倩', status: '已记录', state: 'done', level: 'normal'
-    },
-    {
-      id: 'record-4', category: 'record', title: '夜间巡查', resident: '东区长者',
-      location: '2F 东区', detail: '36 位长者夜间安全巡查已完成', time: '06:30',
-      owner: '夜班组', status: '已记录', state: 'done', level: 'normal'
-    },
-    {
-      id: 'med-4', category: 'medication', title: '维生素 D · 1粒', resident: '肖爷爷',
-      location: '3F-302', detail: '药品和用药记录已完成双人核对', time: '07:00',
-      owner: '刘婷', status: '已完成', state: 'done', level: 'normal'
-    },
-    {
-      id: 'family-4', category: 'family', title: '家属沟通确认 · 周敏', resident: '周奶奶',
-      location: '2F-215', detail: '疼痛评估安排已向家属说明并确认', time: '09:46',
-      owner: '王倩', status: '已确认', state: 'done', level: 'normal'
+      id: 'report-handoff', category: 'report', title: '夜班异常交接', residentId: '', resident: '东区长者',
+      room: '2F 东区',
+      summary: '夜间巡查无新增高风险事件，交接摘要已整理', time: '07:20', owner: '夜班组',
+      priority: 'normal', state: 'done'
     }
   ];
 
-  private residentContextData: Record<string, WideResidentContext> = {
-    '肖爷爷': {
-      age: '82岁', careLevel: '一级护理', diagnosis: '高血压 · 2型糖尿病',
-      risk: '跌倒高风险 · 情绪关注', vital: '血压 138/85 · 心率 72', lastRecord: '10:24 体征测量已记录'
+  private focusResidents: CareFocusResident[] = [
+    {
+      id: 'r1', name: '肖爷爷', room: '3F-302', note: '活动量下降，情绪需要陪伴观察',
+      updatedAt: '10分钟前', priority: 'danger'
     },
-    '周奶奶': {
-      age: '78岁', careLevel: '二级护理', diagnosis: '冠心病 · 骨质疏松',
-      risk: '夜间离床增加', vital: '血压 125/80 · 心率 78', lastRecord: '09:46 翻身护理已记录'
+    {
+      id: 'r2', name: '周奶奶', room: '2F-215', note: '夜间离床增加，午休前复评',
+      updatedAt: '24分钟前', priority: 'warning'
     },
-    '李秀英': {
-      age: '81岁', careLevel: '二级护理', diagnosis: '高血压 · 术后康复',
-      risk: '用药后需复测血压', vital: '血压 136/82 · 心率 70', lastRecord: '08:30 早餐协助已完成'
-    },
-    '王德林': {
-      age: '79岁', careLevel: '三级护理', diagnosis: '骨质疏松',
-      risk: '吞咽情况需观察', vital: '血压 121/76 · 心率 68', lastRecord: '08:10 晨间护理已完成'
-    },
-    '李奶奶': {
-      age: '80岁', careLevel: '二级护理', diagnosis: '高血压',
-      risk: '房间安全常规检查', vital: '血压 128/79 · 心率 73', lastRecord: '08:20 起床护理已完成'
-    },
-    '张明华': {
-      age: '76岁', careLevel: '二级护理', diagnosis: '2型糖尿病 · 高血压',
-      risk: '用药前确认进食情况', vital: '餐前血糖 7.2 mmol/L', lastRecord: '10:15 血糖测量已记录'
-    },
-    '林爷爷': {
-      age: '85岁', careLevel: '一级护理', diagnosis: '脑梗后遗症 · 高血压',
-      risk: '活动量偏低 · 社交回避', vital: '血压 142/88 · 心率 70', lastRecord: '09:12 用药执行已记录'
-    },
-    '东区长者': {
-      age: '36位', careLevel: '分区管理', diagnosis: '夜间集中巡查',
-      risk: '无新增高风险事件', vital: '设备在线率 98%', lastRecord: '06:30 夜间巡查已记录'
+    {
+      id: 'r5', name: '李秀英', room: '3F-305', note: '用药后需要复测血压',
+      updatedAt: '38分钟前', priority: 'warning'
     }
-  };
+  ];
+
+  private checkpoints: CareCheckpoint[] = [
+    { id: 'checkpoint-handoff', time: '07:30', title: '早班交接', note: '重点风险已阅读', completed: true },
+    { id: 'checkpoint-medication', time: '08:00', title: '晨间用药', note: '剩余 1 项待复核', completed: false },
+    { id: 'checkpoint-round', time: '10:30', title: '东区巡房', note: '即将开始', completed: false },
+    { id: 'checkpoint-family', time: '14:30', title: '家属沟通', note: '2 项待联系', completed: false }
+  ];
 
   @Styles
   keyboardFocusStyle() {
@@ -194,7 +179,16 @@ export struct WideHomePage {
     })
   }
 
+  @Monitor('backRequestToken')
+  onBackRequestTokenChange(): void {
+    if (this.isTaskPanelOpen) {
+      this.closeTaskPanel();
+    }
+  }
+
   aboutToAppear(): void {
+    this.onShiftStateChange(this.isClockedIn, this.isClockedOut);
+    this.reportTaskProgress();
     this.timerId = setInterval(() => {
       const now: Date = new Date();
       if (Math.floor(now.getTime() / 60000) !== Math.floor(this.currentTime.getTime() / 60000)) {
@@ -210,31 +204,47 @@ export struct WideHomePage {
     }
   }
 
-  private dateText(): string {
-    const weekNames: string[] = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-    return `${this.currentTime.getMonth() + 1}月${this.currentTime.getDate()}日 ${weekNames[this.currentTime.getDay()]}`;
+  private activateWithKeyboard(event: KeyEvent, action: () => void): void {
+    if (event.type === KeyType.Down &&
+      (event.keyCode === KeyCode.KEYCODE_ENTER || event.keyCode === KeyCode.KEYCODE_SPACE)) {
+      action();
+    }
   }
 
-  private shortTime(date: Date): string {
-    return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+  private currentTimeText(): string {
+    const hour: string = this.currentTime.getHours().toString().padStart(2, '0');
+    const minute: string = this.currentTime.getMinutes().toString().padStart(2, '0');
+    return hour + ':' + minute;
+  }
+
+  private dateText(): string {
+    const weekNames: string[] = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    return (this.currentTime.getMonth() + 1) + '月' + this.currentTime.getDate() + '日 · ' +
+      weekNames[this.currentTime.getDay()];
+  }
+
+  private greetingText(): string {
+    const hour: number = this.currentTime.getHours();
+    if (hour < 11) {
+      return '早上好，刘婷';
+    }
+    if (hour < 14) {
+      return '中午好，刘婷';
+    }
+    if (hour < 18) {
+      return '下午好，刘婷';
+    }
+    return '晚上好，刘婷';
   }
 
   private clockStatusText(): string {
     if (!this.isClockedIn) {
-      return '今日尚未打卡';
+      return '尚未开始今日班次';
     }
     if (this.isClockedOut && this.clockInTime && this.clockOutTime) {
-      return `${this.shortTime(this.clockInTime)} 上班 · ${this.shortTime(this.clockOutTime)} 下班`;
+      return '今日班次已完成';
     }
-    if (this.clockInTime) {
-      return `${this.shortTime(this.clockInTime)} 已上班 · 工作中`;
-    }
-    return '';
-  }
-
-  private clockStatusColor(): ResourceColor {
-    return this.isClockedIn && !this.isClockedOut ? $r('app.color.status_normal') :
-      $r('sys.color.font_secondary');
+    return '东区照护组 · 工作中';
   }
 
   private clockButtonLabel(): string {
@@ -248,195 +258,164 @@ export struct WideHomePage {
     if (!this.isClockedIn) {
       this.isClockedIn = true;
       this.clockInTime = new Date();
+      this.onShiftStateChange(this.isClockedIn, this.isClockedOut);
       return;
     }
     if (!this.isClockedOut) {
       this.isClockedOut = true;
       this.clockOutTime = new Date();
+      this.onShiftStateChange(this.isClockedIn, this.isClockedOut);
     }
   }
 
-  private effectiveTaskState(task: WideClinicalTask): WideTaskState {
+  private effectiveTaskState(task: CareTaskData): CareTaskState {
     if (this.completedTaskIds.includes(task.id)) {
       return 'done';
     }
     if (this.inProgressTaskIds.includes(task.id)) {
-      return 'inProgress';
+      return 'doing';
     }
     return task.state;
   }
 
-  private tasksForView(view: WideTaskView): WideClinicalTask[] {
-    if (view === 'all') {
-      return this.taskData;
+  private tasksForFilter(filter: CareWorkFilter): CareTaskData[] {
+    if (filter === 'todo') {
+      return this.taskData.filter((task: CareTaskData) => this.effectiveTaskState(task) !== 'done');
     }
-    if (view === 'priority') {
-      return this.taskData.filter((task: WideClinicalTask) =>
-        this.effectiveTaskState(task) !== 'done' && (task.level === 'danger' || task.level === 'warning'));
+    if (filter === 'priority') {
+      return this.taskData.filter((task: CareTaskData) =>
+        this.effectiveTaskState(task) !== 'done' && task.priority === 'danger');
     }
-    if (view === 'done') {
-      return this.taskData.filter((task: WideClinicalTask) => this.effectiveTaskState(task) === 'done');
+    if (filter === 'completed') {
+      return this.taskData.filter((task: CareTaskData) => this.effectiveTaskState(task) === 'done');
     }
-    return this.taskData.filter((task: WideClinicalTask) => task.category === view);
+    return this.taskData.filter((task: CareTaskData) => task.category === filter);
   }
 
-  private visibleTasks(): WideClinicalTask[] {
-    return this.tasksForView(this.activeView);
+  private visibleTasks(): CareTaskData[] {
+    return this.tasksForFilter(this.activeFilter);
   }
 
-  private taskViewItems(): WideTaskViewItem[] {
+  private taskFilterItems(): WideSlidingCapsuleItem[] {
     return [
-      { id: 'all', label: '全部工作', count: this.tasksForView('all').length },
-      { id: 'priority', label: '优先处理', count: this.tasksForView('priority').length },
-      { id: 'care', label: '护理任务', count: this.tasksForView('care').length },
-      { id: 'medication', label: '用药执行', count: this.tasksForView('medication').length },
-      { id: 'record', label: '护理记录', count: this.tasksForView('record').length },
-      { id: 'family', label: '家属沟通', count: this.tasksForView('family').length },
-      { id: 'done', label: '已完成', count: this.tasksForView('done').length }
+      { title: '待办', index: 0, badgeText: this.tasksForFilter('todo').length.toString() },
+      { title: '优先', index: 1, badgeText: this.tasksForFilter('priority').length.toString() },
+      { title: '用药', index: 2, badgeText: this.tasksForFilter('medication').length.toString() },
+      { title: '记录', index: 3, badgeText: this.tasksForFilter('record').length.toString() },
+      { title: '家属', index: 4, badgeText: this.tasksForFilter('family').length.toString() },
+      { title: '上报', index: 5, badgeText: this.tasksForFilter('report').length.toString() },
+      { title: '完成', index: 6, badgeText: this.tasksForFilter('completed').length.toString() }
     ];
   }
 
-  private activeViewLabel(): string {
-    const active: WideTaskViewItem | undefined =
-      this.taskViewItems().find((item: WideTaskViewItem) => item.id === this.activeView);
-    return active?.label ?? '全部工作';
+  private filterIndex(): number {
+    const filters: CareWorkFilter[] = ['todo', 'priority', 'medication', 'record', 'family', 'report', 'completed'];
+    return filters.indexOf(this.activeFilter);
   }
 
-  private selectView(view: WideTaskView): void {
-    this.activeView = view;
-    const tasks: WideClinicalTask[] = this.tasksForView(view);
-    if (tasks.length > 0) {
-      this.selectedTaskId = tasks[0].id;
-    }
+  private selectFilter(index: number): void {
+    const filters: CareWorkFilter[] = ['todo', 'priority', 'medication', 'record', 'family', 'report', 'completed'];
+    this.activeFilter = filters[index] ?? 'todo';
   }
 
-  private selectedTask(): WideClinicalTask {
-    const selected: WideClinicalTask | undefined =
-      this.taskData.find((task: WideClinicalTask) => task.id === this.selectedTaskId);
-    return selected ?? this.taskData[0];
+  private pendingCount(): number {
+    return this.taskData.filter((task: CareTaskData) => this.effectiveTaskState(task) !== 'done').length;
   }
 
-  private categoryLabel(category: WideTaskCategory): string {
-    if (category === 'medication') {
-      return '用药';
-    }
-    if (category === 'record') {
-      return '记录';
-    }
-    if (category === 'family') {
-      return '家属';
-    }
-    return '护理';
+  private urgentCount(): number {
+    return this.tasksForFilter('priority').length;
   }
 
-  private priorityLabel(level: WideStatus): string {
-    if (level === 'danger') {
-      return '紧急';
+  private completedCount(): number {
+    return this.tasksForFilter('completed').length;
+  }
+
+  private progressPercent(): number {
+    return Math.round(this.completedCount() / this.taskData.length * 100);
+  }
+
+  private reportTaskProgress(): void {
+    this.onTaskProgressChange(this.completedCount(), this.taskData.length);
+  }
+
+  private selectedTask(): CareTaskData | undefined {
+    return this.taskData.find((task: CareTaskData) => task.id === this.selectedTaskId);
+  }
+
+  private priorityText(priority: CarePriority): string {
+    if (priority === 'danger') {
+      return '优先';
     }
-    if (level === 'warning') {
+    if (priority === 'warning') {
       return '关注';
     }
     return '常规';
   }
 
-  private statusColor(level: WideStatus): ResourceColor {
-    if (level === 'danger') {
+  private priorityColor(priority: CarePriority): ResourceColor {
+    if (priority === 'danger') {
       return $r('app.color.status_danger');
     }
-    if (level === 'warning') {
+    if (priority === 'warning') {
       return $r('app.color.status_warning');
     }
-    if (level === 'normal') {
-      return $r('app.color.status_normal');
-    }
-    if (level === 'brand') {
-      return $r('app.color.brand_blue');
-    }
-    return $r('sys.color.font_secondary');
+    return $r('app.color.status_normal');
   }
 
-  private taskStatusText(task: WideClinicalTask): string {
-    const state: WideTaskState = this.effectiveTaskState(task);
+  private priorityBackground(priority: CarePriority): ResourceColor {
+    if (priority === 'danger') {
+      return $r('app.color.status_danger_bg');
+    }
+    if (priority === 'warning') {
+      return $r('app.color.status_warning_bg');
+    }
+    return $r('app.color.status_normal_bg');
+  }
+
+  private taskStateText(task: CareTaskData): string {
+    const state: CareTaskState = this.effectiveTaskState(task);
     if (state === 'done') {
       return '已完成';
     }
-    if (state === 'inProgress') {
-      if (task.category === 'medication') {
-        return '执行中';
-      }
-      if (task.category === 'family') {
-        return '联系中';
-      }
-      return '处理中';
+    if (state === 'doing') {
+      return '进行中';
     }
-    return task.status;
+    return task.time === '现在' ? '立即处理' : '待处理';
   }
 
-  private taskStatusColor(task: WideClinicalTask): ResourceColor {
-    const state: WideTaskState = this.effectiveTaskState(task);
+  private taskStateColor(task: CareTaskData): ResourceColor {
+    const state: CareTaskState = this.effectiveTaskState(task);
     if (state === 'done') {
       return $r('app.color.status_normal');
     }
-    if (state === 'inProgress') {
+    if (state === 'doing') {
       return $r('app.color.brand_blue');
     }
-    return this.statusColor(task.level);
+    return this.priorityColor(task.priority);
   }
 
-  private taskRowBackground(taskId: string): ResourceColor {
-    if (this.selectedTaskId === taskId) {
-      return $r('sys.color.comp_background_secondary');
+  private openTask(taskId: string): void {
+    this.selectedTaskId = taskId;
+    this.validationTaskId = '';
+    if (this.isTaskPanelOpen) {
+      return;
     }
-    if (this.hoveredTaskId === taskId) {
-      return $r('sys.color.interactive_hover');
-    }
-    return Color.Transparent;
+    this.getUIContext().animateTo({
+      curve: curves.interpolatingSpring(0, 1, 328, 36)
+    }, () => {
+      this.isTaskPanelOpen = true;
+      this.onTaskPanelVisibilityChange(true);
+    });
   }
 
-  private viewRowBackground(view: WideTaskView): ResourceColor {
-    if (this.activeView === view) {
-      return $r('sys.color.comp_background_secondary');
+  private closeTaskPanel(): void {
+    if (!this.isTaskPanelOpen) {
+      return;
     }
-    if (this.hoveredView === view) {
-      return $r('sys.color.interactive_hover');
-    }
-    return Color.Transparent;
-  }
-
-  private residentContext(task: WideClinicalTask): WideResidentContext {
-    return this.residentContextData[task.resident] ?? {
-      age: '--', careLevel: '常规护理', diagnosis: '暂无诊断摘要',
-      risk: '暂无新增风险', vital: '暂无最新体征', lastRecord: '暂无相关记录'
-    };
-  }
-
-  private executionSteps(task: WideClinicalTask): string[] {
-    if (task.category === 'medication') {
-      return ['核对长者身份、医嘱和药品', '确认剂量、时间与给药方式', '执行后观察反应并留存记录'];
-    }
-    if (task.category === 'family') {
-      return ['确认联系人与本次沟通事项', '完成联系并记录关键信息', '需要时生成后续跟进任务'];
-    }
-    if (task.category === 'record') {
-      return ['核对记录对象和执行时间', '检查数据完整性与异常项', '提交记录并完成复核'];
-    }
-    return ['确认长者当前状态与环境安全', '按任务要求完成护理处置', '记录结果、异常和后续安排'];
-  }
-
-  private aiSuggestion(task: WideClinicalTask): string {
-    if (task.id === 'todo-emotion') {
-      return '建议由熟悉肖爷爷日常习惯的护工先进行短时陪伴，避免连续追问；若拒绝交流持续，请记录诱因并升级给责任护士。';
-    }
-    if (task.category === 'medication') {
-      return '执行前请结合医嘱、进食情况和最近体征人工确认；用药后按任务要求完成观察与复测。';
-    }
-    if (task.category === 'family') {
-      return '建议先查看最近护理记录，沟通时只反馈已确认信息，并在结束后补充家属诉求与后续责任人。';
-    }
-    if (task.category === 'record') {
-      return '该任务已完成，可重点检查时间、执行人和异常描述是否完整，避免记录缺项。';
-    }
-    return '建议先确认长者当前安全状态，再按护理要求执行；异常信息需人工判断并完整记录。';
+    this.getUIContext().animateTo({ duration: 180, curve: Curve.EaseOut }, () => {
+      this.isTaskPanelOpen = false;
+      this.onTaskPanelVisibilityChange(false);
+    });
   }
 
   private taskNote(taskId: string): string {
@@ -452,31 +431,24 @@ export struct WideHomePage {
     }
   }
 
-  private primaryActionLabel(task: WideClinicalTask): string {
-    const state: WideTaskState = this.effectiveTaskState(task);
+  private taskActionLabel(task: CareTaskData): string {
+    const state: CareTaskState = this.effectiveTaskState(task);
     if (state === 'done') {
       return '已完成';
     }
-    if (state === 'inProgress') {
-      return task.category === 'medication' ? '提交执行记录' : '完成并记录';
-    }
-    if (task.category === 'medication') {
-      return '进入执行';
-    }
-    if (task.category === 'family') {
-      return '开始联系';
+    if (state === 'doing') {
+      return '完成并记录';
     }
     return '开始处理';
   }
 
-  private handlePrimaryAction(task: WideClinicalTask): void {
-    const state: WideTaskState = this.effectiveTaskState(task);
+  private handleTaskAction(task: CareTaskData): void {
+    const state: CareTaskState = this.effectiveTaskState(task);
     if (state === 'done') {
       return;
     }
     if (state === 'pending') {
       this.inProgressTaskIds = [...this.inProgressTaskIds, task.id];
-      this.validationTaskId = '';
       return;
     }
     if (this.taskNote(task.id).trim().length === 0) {
@@ -486,717 +458,962 @@ export struct WideHomePage {
     this.completedTaskIds = [...this.completedTaskIds, task.id];
     this.inProgressTaskIds = this.inProgressTaskIds.filter((id: string) => id !== task.id);
     this.validationTaskId = '';
-    const remaining: WideClinicalTask[] = this.tasksForView(this.activeView);
-    if (!remaining.some((item: WideClinicalTask) => item.id === task.id) && remaining.length > 0) {
-      this.selectedTaskId = remaining[0].id;
+    this.reportTaskProgress();
+  }
+
+  private executionSteps(task: CareTaskData): string[] {
+    if (task.category === 'medication') {
+      return ['核对长者、医嘱和药品', '确认剂量、时间与进食情况', '执行后观察并补充记录'];
     }
+    if (task.category === 'family') {
+      return ['查看最近护理记录', '仅沟通已确认的信息', '记录诉求和后续责任人'];
+    }
+    if (task.category === 'report') {
+      return ['先确认现场安全状态', '记录事实、时间和已采取措施', '提交给对应负责人并跟进结果'];
+    }
+    return ['确认长者当前状态', '按护理要求完成处置', '记录结果和后续观察事项'];
   }
 
   @Builder
-  private taskViewPane() {
-    Column({ space: 0 }) {
+  private shiftCard() {
+    Column({ space: 16 }) {
       Row() {
-        Text('任务视图')
-          .fontSize($r('sys.float.Body_L'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-      }
-      .width('100%')
-      .height(60)
-      .padding({ left: 18, right: 18 })
-      .alignItems(VerticalAlign.Center)
-
-      List({ space: 2 }) {
-        Repeat(this.taskViewItems()).each((repeatItem: RepeatItem<WideTaskViewItem>) => {
-          ListItem() {
-            this.taskViewRow(repeatItem.item)
-          }
-        }).key((item: WideTaskViewItem) => item.id)
-      }
-      .width('100%')
-      .layoutWeight(1)
-      .padding({ top: 4, bottom: 8 })
-      .scrollBar(BarState.Auto)
-      .edgeEffect(EdgeEffect.None)
-
-      Row() {
-        Text(`当前 ${this.visibleTasks().length} 项`)
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor($r('sys.color.font_secondary'))
-      }
-      .width('100%')
-      .height(48)
-      .padding({ left: 18, right: 18 })
-      .border({ width: { top: 0.5 }, color: { top: $r('sys.color.comp_divider') } })
-      .alignItems(VerticalAlign.Center)
-    }
-    .width(224)
-    .height('100%')
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(14)
-    .clip(true)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-  }
-
-  @Builder
-  private taskViewRow(item: WideTaskViewItem) {
-    Button({ type: ButtonType.Normal, stateEffect: true }) {
-      Row({ space: 10 }) {
-        Text(item.label)
-          .layoutWeight(1)
-          .fontSize($r('sys.float.Body_M'))
-          .fontWeight(this.activeView === item.id ? FontWeight.Medium : FontWeight.Regular)
-          .fontColor(item.id === 'priority' && this.activeView !== item.id ? $r('app.color.status_danger') :
-            $r('sys.color.font_primary'))
-          .textAlign(TextAlign.Start)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-        Text(item.count.toString())
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor($r('sys.color.font_secondary'))
-          .width(28)
-          .textAlign(TextAlign.End)
-      }
-      .width('100%')
-      .height('100%')
-      .padding({ left: 12, right: 12 })
-      .alignItems(VerticalAlign.Center)
-    }
-    .width('calc(100% - 20vp)')
-    .height(46)
-    .margin({ left: 10, right: 10 })
-    .backgroundColor(this.viewRowBackground(item.id))
-    .borderRadius(10)
-    .keyboardFocusStyle()
-    .accessibilitySelected(this.activeView === item.id)
-    .onHover((isHover: boolean) => {
-      this.hoveredView = isHover ? item.id : '';
-    })
-    .onClick(() => {
-      this.selectView(item.id);
-    })
-  }
-
-  @Builder
-  private taskQueuePane() {
-    Column({ space: 0 }) {
-      Row({ space: 10 }) {
-        Column({ space: 3 }) {
-          Row({ space: 10 }) {
-            Text(this.activeViewLabel())
-              .fontSize($r('sys.float.Title_S'))
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_primary'))
-            Text(`${this.visibleTasks().length} 项`)
-              .fontSize($r('sys.float.Body_M'))
-              .fontColor($r('sys.color.font_secondary'))
-          }
-          Text(`${this.dateText()} · 共 ${this.taskData.length} 项护理工作`)
-            .fontSize($r('sys.float.Caption_M'))
+        Column({ space: 4 }) {
+          Text(this.greetingText())
+            .fontSize(this.compactWidth ? 22 : 24)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('sys.color.font_primary'))
+          Text('早班 · 东区照护组 · 负责 28 位长者')
+            .fontSize($r('sys.float.Body_M'))
             .fontColor($r('sys.color.font_secondary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
         }
+        .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
 
-        Blank()
-
-        Row({ space: 8 }) {
-          Column()
+        Row({ space: 6 }) {
+          Row()
             .width(7)
             .height(7)
             .borderRadius(4)
-            .backgroundColor(this.clockStatusColor())
+            .backgroundColor(this.isClockedIn && !this.isClockedOut ?
+              $r('app.color.status_normal') : $r('sys.color.icon_tertiary'))
           Text(this.clockStatusText())
             .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_secondary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .fontColor(this.isClockedIn && !this.isClockedOut ?
+              $r('app.color.status_normal') : $r('sys.color.font_secondary'))
         }
-        .constraintSize({ minWidth: 132, maxWidth: 190 })
         .alignItems(VerticalAlign.Center)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Top)
+
+      Row({ space: 16 }) {
+        Column({ space: 2 }) {
+          Text(this.currentTimeText())
+            .fontSize(this.compactWidth ? 42 : 48)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+          Text(this.dateText())
+            .fontSize($r('sys.float.Body_M'))
+            .fontColor($r('sys.color.font_tertiary'))
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
 
         Button(this.clockButtonLabel())
-          .width(104)
-          .height(36)
-          .borderRadius(18)
+          .height(44)
+          .padding({ left: 20, right: 20 })
+          .borderRadius(22)
           .fontSize($r('sys.float.Body_M'))
           .fontWeight(FontWeight.Medium)
           .fontColor(this.isClockedOut ? $r('sys.color.font_tertiary') : $r('app.color.text_on_brand'))
           .backgroundColor(this.isClockedOut ? $r('sys.color.comp_background_secondary') :
-            $r('app.color.brand_blue'))
-          .opacity(this.isClockButtonHovered && !this.isClockedOut ? 0.86 : 1)
+            (this.isClockedIn ? $r('app.color.status_danger') : $r('app.color.brand_blue')))
           .enabled(!this.isClockedOut)
           .keyboardFocusStyle()
-          .onHover((isHover: boolean) => {
-            this.isClockButtonHovered = isHover;
-          })
-          .onClick(() => {
-            this.handleClockAction();
-          })
+          .onClick(() => this.handleClockAction())
       }
       .width('100%')
-      .height(72)
-      .padding({ left: 20, right: 16 })
       .alignItems(VerticalAlign.Center)
 
-      this.taskTableHeader()
-
-      if (this.visibleTasks().length === 0) {
-        Column({ space: 8 }) {
-          SymbolGlyph($r('sys.symbol.doc_text'))
-            .fontSize(28)
-            .fontColor([$r('sys.color.icon_tertiary')])
-          Text('当前视图没有工作项')
-            .fontSize($r('sys.float.Body_M'))
-            .fontColor($r('sys.color.font_secondary'))
-        }
-        .width('100%')
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
-      } else {
-        List({ space: 4 }) {
-          Repeat(this.visibleTasks()).each((repeatItem: RepeatItem<WideClinicalTask>) => {
-            ListItem() {
-              this.taskQueueRow(repeatItem.item)
-            }
-          }).virtualScroll().key((task: WideClinicalTask) => task.id)
-        }
-        .width('100%')
-        .layoutWeight(1)
-        .padding({ top: 6, bottom: 8 })
-        .cachedCount(8)
-        .scrollBar(BarState.Auto)
-        .edgeEffect(EdgeEffect.None)
-      }
-    }
-    .layoutWeight(1)
-    .height('100%')
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(14)
-    .clip(true)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-  }
-
-  @Builder
-  private taskTableHeader() {
-    Row({ space: 0 }) {
-      Text('时间')
-        .width(58)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_secondary'))
-      Text('优先级')
-        .width(56)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_secondary'))
-      Text('长者 / 房间')
-        .width(132)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_secondary'))
-      Text('工作内容')
-        .layoutWeight(1)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_secondary'))
-      Text('状态')
-        .width(76)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_secondary'))
-      Text('责任人')
-        .width(64)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_secondary'))
-      Text('处理')
-        .width(52)
-        .textAlign(TextAlign.End)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_secondary'))
-    }
-    .width('calc(100% - 16vp)')
-    .height(40)
-    .margin({ left: 8, right: 8 })
-    .padding({ left: 12, right: 12 })
-    .backgroundColor($r('sys.color.comp_background_secondary'))
-    .borderRadius(10)
-    .alignItems(VerticalAlign.Center)
-  }
-
-  @Builder
-  private taskQueueRow(task: WideClinicalTask) {
-    Button({ type: ButtonType.Normal, stateEffect: true }) {
-      Row({ space: 0 }) {
-        Text(task.time)
-          .width(58)
-          .fontSize($r('sys.float.Body_M'))
-          .fontColor(task.time === '现在' ? $r('app.color.status_danger') : $r('sys.color.font_secondary'))
-          .maxLines(1)
-
-        Text(this.priorityLabel(task.level))
-          .width(56)
-          .fontSize($r('sys.float.Caption_M'))
-          .fontWeight(task.level === 'danger' ? FontWeight.Medium : FontWeight.Regular)
-          .fontColor(this.statusColor(task.level))
-          .maxLines(1)
-
-        Column({ space: 3 }) {
-          Text(task.resident)
-            .width('100%')
-            .fontSize($r('sys.float.Body_M'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text(task.location)
-            .width('100%')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_tertiary'))
-            .maxLines(1)
-        }
-        .width(132)
-        .alignItems(HorizontalAlign.Start)
-
-        Column({ space: 3 }) {
-          Text(task.title)
-            .width('100%')
-            .fontSize($r('sys.float.Body_M'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text(task.detail)
-            .width('100%')
+      Column({ space: 8 }) {
+        Row() {
+          Text('班次进度')
             .fontSize($r('sys.float.Caption_M'))
             .fontColor($r('sys.color.font_secondary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-        }
-        .layoutWeight(1)
-        .padding({ right: 10 })
-        .alignItems(HorizontalAlign.Start)
-
-        Text(this.taskStatusText(task))
-          .width(76)
-          .fontSize($r('sys.float.Caption_M'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.taskStatusColor(task))
-          .maxLines(1)
-
-        Text(task.owner)
-          .width(64)
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor($r('sys.color.font_secondary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-        Row({ space: 3 }) {
-          Text(this.effectiveTaskState(task) === 'done' ? '查看' : '处理')
+          Blank()
+          Text(this.completedCount() + ' / ' + this.taskData.length + ' 项完成')
             .fontSize($r('sys.float.Caption_M'))
-            .fontColor(this.effectiveTaskState(task) === 'done' ? $r('sys.color.font_secondary') :
-              $r('app.color.brand_blue'))
-          SymbolGlyph($r('sys.symbol.chevron_right'))
-            .fontSize(13)
-            .fontColor([this.effectiveTaskState(task) === 'done' ? $r('sys.color.icon_tertiary') :
-              $r('app.color.brand_blue')])
-        }
-        .width(52)
-        .justifyContent(FlexAlign.End)
-        .alignItems(VerticalAlign.Center)
-      }
-      .width('100%')
-      .height('100%')
-      .padding({ left: 12, right: 12 })
-      .alignItems(VerticalAlign.Center)
-    }
-    .width('calc(100% - 16vp)')
-    .height(68)
-    .margin({ left: 8, right: 8 })
-    .backgroundColor(this.taskRowBackground(task.id))
-    .borderRadius(10)
-    .hoverEffect(HoverEffect.None)
-    .keyboardFocusStyle()
-    .accessibilitySelected(this.selectedTaskId === task.id)
-    .onHover((isHover: boolean) => {
-      this.hoveredTaskId = isHover ? task.id : '';
-    })
-    .onClick(() => {
-      this.selectedTaskId = task.id;
-      this.validationTaskId = '';
-    })
-  }
-
-  @Builder
-  private taskInspectorPane(task: WideClinicalTask) {
-    Column({ space: 0 }) {
-      Scroll() {
-        Column({ space: 0 }) {
-          this.taskInspectorHeader(task)
-          Divider()
-            .strokeWidth(0.5)
-            .color($r('sys.color.comp_divider'))
-          this.residentContextSection(task)
-          Divider()
-            .strokeWidth(0.5)
-            .color($r('sys.color.comp_divider'))
-          this.executionSection(task)
-          Divider()
-            .strokeWidth(0.5)
-            .color($r('sys.color.comp_divider'))
-          this.noteSection(task)
-          this.aiSuggestionSection(task)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
         }
         .width('100%')
-        .padding({ bottom: 16 })
-      }
-      .width('100%')
-      .layoutWeight(1)
-      .align(Alignment.Top)
-      .scrollBar(BarState.Auto)
-      .edgeEffect(EdgeEffect.None)
 
-      this.inspectorActionBar(task)
-    }
-    .width(400)
-    .height('100%')
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(14)
-    .clip(true)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-  }
-
-  @Builder
-  private taskInspectorHeader(task: WideClinicalTask) {
-    Column({ space: 10 }) {
-      Row({ space: 8 }) {
-        Text(this.categoryLabel(task.category))
-          .fontSize($r('sys.float.Caption_M'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_secondary'))
-        Text(this.priorityLabel(task.level))
-          .fontSize($r('sys.float.Caption_M'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.statusColor(task.level))
-        Blank()
-        Text(this.taskStatusText(task))
-          .fontSize($r('sys.float.Caption_M'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.taskStatusColor(task))
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-
-      Text(task.title)
+        Stack({ alignContent: Alignment.Start }) {
+          Row()
+            .width('100%')
+            .height(6)
+            .borderRadius(3)
+            .backgroundColor($r('sys.color.comp_background_secondary'))
+          Row()
+            .width(this.progressPercent() + '%')
+            .height(6)
+            .borderRadius(3)
+            .backgroundColor($r('app.color.brand_blue'))
+        }
         .width('100%')
-        .fontSize(20)
-        .fontWeight(FontWeight.Bold)
-        .fontColor($r('sys.color.font_primary'))
-        .maxLines(2)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-      Text(task.detail)
-        .width('100%')
-        .fontSize($r('sys.float.Body_M'))
-        .fontColor($r('sys.color.font_secondary'))
-        .maxLines(3)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-      Row({ space: 20 }) {
-        Text(`时间 ${task.time}`)
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor($r('sys.color.font_tertiary'))
-        Text(`责任人 ${task.owner}`)
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor($r('sys.color.font_tertiary'))
+        .height(6)
       }
       .width('100%')
     }
     .width('100%')
-    .padding({ left: 20, right: 20, top: 18, bottom: 16 })
+    .constraintSize({ minHeight: 240 })
+    .padding(this.compactWidth ? 20 : 24)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(20)
     .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
-  private residentContextSection(task: WideClinicalTask) {
-    Column({ space: 14 }) {
-      Text('长者信息')
-        .fontSize($r('sys.float.Body_L'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
+  private aiFocusCard() {
+    Column({ space: 18 }) {
+      Row({ space: 10 }) {
+        Row() {
+          SymbolGlyph($r('sys.symbol.AI_message'))
+            .fontSize(20)
+            .fontColor([$r('app.color.brand_blue')])
+        }
+        .width(40)
+        .height(40)
+        .borderRadius(20)
+        .backgroundColor($r('app.color.ai_feed_background'))
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
 
-      Row({ space: 12 }) {
-        Text(task.resident.slice(0, 1))
-          .fontSize($r('sys.float.Subtitle_M'))
+        Column({ space: 3 }) {
+          AiTitleLabel({ text: '今日照护重点', compact: false })
+          Text('根据本地演示数据整理 · 需要人工确认')
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('sys.color.font_tertiary'))
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        Button({ type: ButtonType.Normal, stateEffect: true }) {
+          Row({ space: 6 }) {
+            Text('继续对话')
+              .fontSize($r('sys.float.Body_M'))
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('app.color.brand_blue'))
+            SymbolGlyph($r('sys.symbol.chevron_right'))
+              .fontSize(14)
+              .fontColor([$r('app.color.brand_blue')])
+          }
+        }
+        .height(38)
+        .padding({ left: 14, right: 12 })
+        .borderRadius(19)
+        .backgroundColor($r('sys.color.comp_background_secondary'))
+        .keyboardFocusStyle()
+        .onClick(() => this.onOpenAiChat())
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      Column({ space: 0 }) {
+        this.aiFocusRow('肖爷爷', '活动量下降且拒绝交流，建议 20 分钟内由熟悉人员接手', '立即关注', 'danger', false)
+        this.aiFocusRow('周奶奶', '夜间离床次数增加，午休前补充疼痛与睡眠观察', '午休前', 'warning', false)
+        this.aiFocusRow('东区设备', '1 台床旁呼叫设备离线，先现场确认再上报', '18 分钟', 'warning', true)
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .constraintSize({ minHeight: 240 })
+    .padding(this.compactWidth ? 20 : 24)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(20)
+    .geometryTransition('aiReminderCard', { follow: true })
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private aiFocusRow(name: string, detail: string, timeLabel: string, priority: CarePriority, isLast: boolean) {
+    Row({ space: 12 }) {
+      Row()
+        .width(4)
+        .height(38)
+        .borderRadius(2)
+        .backgroundColor(this.priorityColor(priority))
+
+      Column({ space: 4 }) {
+        Row({ space: 8 }) {
+          Text(name)
+            .fontSize($r('sys.float.Body_L'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+          Text(timeLabel)
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor(this.priorityColor(priority))
+        }
+        Text(detail)
+          .width('100%')
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+    }
+    .width('100%')
+    .padding({ top: 10, bottom: isLast ? 2 : 10 })
+    .border({
+      width: { bottom: isLast ? 0 : 0.5 },
+      color: { bottom: $r('sys.color.comp_divider') }
+    })
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  private metricCard(label: string, value: string, note: string, symbol: Resource,
+    valueColor: ResourceColor, targetFilter: CareWorkFilter) {
+    Row({ space: 14 }) {
+      Row() {
+        SymbolGlyph(symbol)
+          .fontSize(20)
+          .fontColor([valueColor])
+      }
+      .width(42)
+      .height(42)
+      .borderRadius(14)
+      .backgroundColor($r('sys.color.comp_background_secondary'))
+      .justifyContent(FlexAlign.Center)
+      .alignItems(VerticalAlign.Center)
+
+      Column({ space: 3 }) {
+        Row({ space: 7 }) {
+          Text(value)
+            .fontSize(24)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(valueColor)
+          Text(label)
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+        }
+        .alignItems(VerticalAlign.Bottom)
+        Text(note)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_tertiary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      SymbolGlyph($r('sys.symbol.chevron_right'))
+        .fontSize(13)
+        .fontColor([$r('sys.color.icon_tertiary')])
+    }
+    .width('100%')
+    .height(82)
+    .padding({ left: 16, right: 14 })
+    .borderRadius(16)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .keyboardFocusStyle()
+    .accessibilityText(label + '，' + value + '，' + note)
+    .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => {
+      this.activeFilter = targetFilter;
+      this.pageScroller.scrollEdge(Edge.Bottom);
+    }))
+    .onClick(() => {
+      this.activeFilter = targetFilter;
+      this.pageScroller.scrollEdge(Edge.Bottom);
+    })
+  }
+
+  @Builder
+  private metricsRow() {
+    GridRow({ columns: 12, gutter: { x: 12, y: 12 } }) {
+      GridCol({ span: this.compactWidth ? 6 : 3 }) {
+        this.metricCard('待处理', this.pendingCount().toString(), '按风险和时间排序',
+          $r('sys.symbol.calendar_badge_clock'), $r('app.color.brand_blue'), 'todo')
+      }
+      GridCol({ span: this.compactWidth ? 6 : 3 }) {
+        this.metricCard('优先事项', this.urgentCount().toString(), '需要尽快人工确认',
+          $r('sys.symbol.exclamationmark_triangle_fill'), $r('app.color.status_danger'), 'priority')
+      }
+      GridCol({ span: this.compactWidth ? 6 : 3 }) {
+        this.metricCard('用药任务', this.tasksForFilter('medication').length.toString(), '1 项等待复核',
+          $r('sys.symbol.doc_text'), $r('app.color.status_warning'), 'medication')
+      }
+      GridCol({ span: this.compactWidth ? 6 : 3 }) {
+        this.metricCard('班次完成', this.progressPercent() + '%', this.completedCount() + ' 项已留痕',
+          $r('sys.symbol.checkmark_circle_fill'), $r('app.color.status_normal'), 'completed')
+      }
+    }
+    .width('100%')
+  }
+
+  @Builder
+  private taskQueueCard() {
+    Column({ space: 0 }) {
+      Row() {
+        Column({ space: 3 }) {
+          Text('今日工作')
+            .fontSize(20)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('sys.color.font_primary'))
+          Text('沿用手机端入口，按当前班次优先级整理')
+            .fontSize($r('sys.float.Body_M'))
+            .fontColor($r('sys.color.font_secondary'))
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        Text(this.visibleTasks().length + ' 项')
+          .fontSize($r('sys.float.Caption_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_secondary'))
+          .padding({ left: 10, right: 10, top: 5, bottom: 5 })
+          .borderRadius(12)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+      }
+      .width('100%')
+      .padding({ left: 22, right: 22, top: 22, bottom: 16 })
+      .alignItems(VerticalAlign.Center)
+
+      Scroll() {
+        WideSlidingCapsule({
+          items: this.taskFilterItems(),
+          selectedIndex: this.filterIndex(),
+          itemWidth: this.compactWidth ? 76 : 88,
+          onSelect: (index: number) => this.selectFilter(index)
+        })
+      }
+      .width('100%')
+      .padding({ left: 22, right: 22, bottom: 14 })
+      .scrollable(ScrollDirection.Horizontal)
+      .scrollBar(BarState.Off)
+
+      if (this.visibleTasks().length === 0) {
+        Column({ space: 8 }) {
+          SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
+            .fontSize(34)
+            .fontColor([$r('app.color.status_normal')])
+          Text('当前分类暂无工作事项')
+            .fontSize($r('sys.float.Body_M'))
+            .fontColor($r('sys.color.font_secondary'))
+        }
+        .width('100%')
+        .height(220)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+      } else {
+        Column({ space: 4 }) {
+          ForEach(this.visibleTasks(), (task: CareTaskData) => {
+            this.taskQueueRow(task)
+          }, (task: CareTaskData) => task.id)
+        }
+        .width('100%')
+        .padding({ left: 10, right: 10, bottom: 12 })
+      }
+    }
+    .width('100%')
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(20)
+    .clip(true)
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private taskQueueRow(task: CareTaskData) {
+    Row({ space: 12 }) {
+      Column({ space: 3 }) {
+        Text(task.time)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(task.time === '现在' ? FontWeight.Bold : FontWeight.Medium)
+          .fontColor(task.time === '现在' ? $r('app.color.status_danger') : $r('sys.color.font_primary'))
+        Text(task.room)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_tertiary'))
+      }
+      .width(62)
+      .alignItems(HorizontalAlign.Start)
+
+      Row()
+        .width(4)
+        .height(42)
+        .borderRadius(2)
+        .backgroundColor(this.priorityColor(task.priority))
+
+      Column({ space: 5 }) {
+        Row({ space: 8 }) {
+          Text(task.title)
+            .fontSize($r('sys.float.Body_L'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text(task.resident)
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('sys.color.font_secondary'))
+            .maxLines(1)
+        }
+        .width('100%')
+        Text(task.summary)
+          .width('100%')
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      Column({ space: 5 }) {
+        Text(this.taskStateText(task))
+          .fontSize($r('sys.float.Caption_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor(this.taskStateColor(task))
+        Text(task.owner)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_tertiary'))
+      }
+      .alignItems(HorizontalAlign.End)
+
+      SymbolGlyph($r('sys.symbol.chevron_right'))
+        .fontSize(14)
+        .fontColor([$r('sys.color.icon_tertiary')])
+    }
+    .width('100%')
+    .height(78)
+    .padding({ left: 14, right: 14 })
+    .borderRadius(14)
+    .backgroundColor(this.hoveredTaskId === task.id ? $r('sys.color.interactive_hover') : Color.Transparent)
+    .keyboardFocusStyle()
+    .accessibilityText(task.time + '，' + task.resident + '，' + task.title + '，' + this.taskStateText(task))
+    .onFocus(() => this.focusedTarget = task.id)
+    .onBlur(() => this.focusedTarget = '')
+    .onHover((isHover: boolean) => this.hoveredTaskId = isHover ? task.id : '')
+    .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => this.openTask(task.id)))
+    .onClick(() => this.openTask(task.id))
+  }
+
+  @Builder
+  private focusResidentCard() {
+    Column({ space: 0 }) {
+      Row() {
+        Column({ space: 3 }) {
+          Text('重点长者')
+            .fontSize(20)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('sys.color.font_primary'))
+          Text('本班次需要持续观察')
+            .fontSize($r('sys.float.Body_M'))
+            .fontColor($r('sys.color.font_secondary'))
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        Button({ type: ButtonType.Normal, stateEffect: true }) {
+          Row({ space: 5 }) {
+            Text('全部长者')
+              .fontSize($r('sys.float.Body_M'))
+              .fontColor($r('app.color.brand_blue'))
+            SymbolGlyph($r('sys.symbol.chevron_right'))
+              .fontSize(13)
+              .fontColor([$r('app.color.brand_blue')])
+          }
+        }
+        .height(36)
+        .padding({ left: 12, right: 10 })
+        .borderRadius(18)
+        .backgroundColor($r('sys.color.comp_background_secondary'))
+        .keyboardFocusStyle()
+        .onClick(() => this.onOpenResident(''))
+      }
+      .width('100%')
+      .padding({ left: 20, right: 18, top: 20, bottom: 12 })
+      .alignItems(VerticalAlign.Center)
+
+      ForEach(this.focusResidents, (resident: CareFocusResident, index: number) => {
+        this.focusResidentRow(resident, index === this.focusResidents.length - 1)
+      }, (resident: CareFocusResident) => resident.id)
+    }
+    .width('100%')
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(20)
+    .clip(true)
+  }
+
+  @Builder
+  private focusResidentRow(resident: CareFocusResident, isLast: boolean) {
+    Row({ space: 12 }) {
+      Stack({ alignContent: Alignment.BottomEnd }) {
+        Text(resident.name.slice(0, 1))
+          .fontSize($r('sys.float.Body_L'))
           .fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.font_primary'))
           .width(42)
           .height(42)
           .textAlign(TextAlign.Center)
-          .backgroundColor($r('sys.color.comp_background_secondary'))
           .borderRadius(21)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+        Row()
+          .width(10)
+          .height(10)
+          .borderRadius(5)
+          .backgroundColor(this.priorityColor(resident.priority))
+      }
+      .width(42)
+      .height(42)
 
-        Column({ space: 4 }) {
-          Text(task.resident)
+      Column({ space: 4 }) {
+        Row({ space: 8 }) {
+          Text(resident.name)
             .fontSize($r('sys.float.Body_L'))
             .fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary'))
-          Text(`${task.location} · ${this.residentContext(task).age} · ${this.residentContext(task).careLevel}`)
+          Text(resident.room)
             .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('sys.color.font_tertiary'))
+        }
+        Text(resident.note)
+          .width('100%')
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      Text(resident.updatedAt)
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor($r('sys.color.font_tertiary'))
+    }
+    .width('calc(100% - 24vp)')
+    .height(72)
+    .margin({ left: 12, right: 12 })
+    .padding({ left: 8, right: 8 })
+    .border({
+      width: { bottom: isLast ? 0 : 0.5 },
+      color: { bottom: $r('sys.color.comp_divider') }
+    })
+    .backgroundColor(this.hoveredResidentId === resident.id ? $r('sys.color.interactive_hover') : Color.Transparent)
+    .borderRadius(12)
+    .keyboardFocusStyle()
+    .accessibilityText(resident.name + '，' + resident.room + '，' + resident.note)
+    .onHover((isHover: boolean) => this.hoveredResidentId = isHover ? resident.id : '')
+    .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => this.onOpenResident(resident.id)))
+    .onClick(() => this.onOpenResident(resident.id))
+  }
+
+  @Builder
+  private checkpointCard() {
+    Column({ space: 0 }) {
+      Row() {
+        Column({ space: 3 }) {
+          Text('今日护理节奏')
+            .fontSize(20)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('sys.color.font_primary'))
+          Text('按照班次节点安排，不替代人工判断')
+            .fontSize($r('sys.float.Body_M'))
             .fontColor($r('sys.color.font_secondary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
         }
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
       }
       .width('100%')
-      .alignItems(VerticalAlign.Center)
+      .padding({ left: 20, right: 20, top: 20, bottom: 12 })
 
-      Row({ space: 0 }) {
-        this.contextMetric('诊断摘要', this.residentContext(task).diagnosis)
-        Divider()
-          .vertical(true)
-          .height(44)
-          .strokeWidth(0.5)
-          .color($r('sys.color.comp_divider'))
-        this.contextMetric('关键风险', this.residentContext(task).risk)
-      }
-      .width('100%')
-
-      Row({ space: 0 }) {
-        this.contextMetric('最近体征', this.residentContext(task).vital)
-        Divider()
-          .vertical(true)
-          .height(44)
-          .strokeWidth(0.5)
-          .color($r('sys.color.comp_divider'))
-        this.contextMetric('最近记录', this.residentContext(task).lastRecord)
-      }
-      .width('100%')
+      ForEach(this.checkpoints, (checkpoint: CareCheckpoint, index: number) => {
+        this.checkpointRow(checkpoint, index === this.checkpoints.length - 1)
+      }, (checkpoint: CareCheckpoint) => checkpoint.id)
     }
     .width('100%')
-    .padding({ left: 20, right: 20, top: 16, bottom: 18 })
-    .alignItems(HorizontalAlign.Start)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(20)
+    .clip(true)
   }
 
   @Builder
-  private contextMetric(label: string, value: string) {
-    Column({ space: 4 }) {
-      Text(label)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_tertiary'))
-      Text(value)
-        .width('100%')
-        .fontSize($r('sys.float.Caption_M'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .maxLines(2)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-    }
-    .layoutWeight(1)
-    .padding({ left: 8, right: 8 })
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  private executionSection(task: WideClinicalTask) {
-    Column({ space: 8 }) {
-      Text('执行要点')
-        .fontSize($r('sys.float.Body_L'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-
-      ForEach(this.executionSteps(task), (step: string, index: number) => {
-        Row({ space: 10 }) {
-          Text((index + 1).toString())
-            .fontSize($r('sys.float.Caption_M'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_secondary'))
-            .width(22)
-            .height(22)
-            .textAlign(TextAlign.Center)
-            .backgroundColor($r('sys.color.comp_background_secondary'))
-            .borderRadius(11)
-          Text(step)
-            .layoutWeight(1)
-            .fontSize($r('sys.float.Body_M'))
-            .fontColor($r('sys.color.font_primary'))
-            .maxLines(2)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-        }
-        .width('100%')
-        .height(38)
-        .alignItems(VerticalAlign.Center)
-      }, (step: string, index: number) => `${task.id}-${index}-${step}`)
-    }
-    .width('100%')
-    .padding({ left: 20, right: 20, top: 16, bottom: 16 })
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  private noteSection(task: WideClinicalTask) {
-    Column({ space: 8 }) {
-      Text('处理记录')
-        .fontSize($r('sys.float.Body_L'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-
-      if (this.effectiveTaskState(task) === 'done') {
-        Row({ space: 8 }) {
-          SymbolGlyph($r('sys.symbol.doc_text'))
-            .fontSize(17)
-            .fontColor([$r('sys.color.icon_secondary')])
-          Text('记录已提交，可在长者档案中查看')
-            .fontSize($r('sys.float.Body_M'))
-            .fontColor($r('sys.color.font_secondary'))
-        }
-        .width('100%')
-        .height(40)
-        .alignItems(VerticalAlign.Center)
-      } else {
-        TextArea({
-          text: this.taskNote(task.id),
-          placeholder: '记录观察情况、处置结果或需要继续跟进的事项'
-        })
-          .width('100%')
-          .height(76)
-          .padding(10)
-          .fontSize($r('sys.float.Body_M'))
-          .backgroundColor($r('sys.color.comp_background_secondary'))
-          .borderRadius(12)
-          .maxLength(200)
-          .onChange((value: string) => {
-            this.updateTaskNote(task.id, value);
-          })
-
-        if (this.validationTaskId === task.id) {
-          Text('请先填写处理记录，再完成当前工作')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('app.color.status_danger'))
-        }
-      }
-    }
-    .width('100%')
-    .padding({ left: 20, right: 20, top: 16, bottom: 16 })
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  private aiSuggestionSection(task: WideClinicalTask) {
-    Column({ space: 8 }) {
-      Row({ space: 8 }) {
-        SymbolGlyph($r('sys.symbol.AI_message'))
-          .fontSize(18)
-          .fontColor([$r('sys.color.icon_secondary')])
-        Text('康小伴建议')
+  private checkpointRow(checkpoint: CareCheckpoint, isLast: boolean) {
+    Row({ space: 12 }) {
+      Column({ space: 2 }) {
+        Text(checkpoint.time)
           .fontSize($r('sys.float.Body_M'))
           .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-        Blank()
-        Text('继续对话')
+          .fontColor(checkpoint.completed ? $r('app.color.status_normal') : $r('sys.color.font_primary'))
+        Text(checkpoint.completed ? '完成' : '计划')
           .fontSize($r('sys.float.Caption_M'))
-          .fontColor($r('app.color.brand_blue'))
-        SymbolGlyph($r('sys.symbol.chevron_right'))
-          .fontSize(13)
-          .fontColor([$r('app.color.brand_blue')])
+          .fontColor($r('sys.color.font_tertiary'))
       }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
+      .width(54)
+      .alignItems(HorizontalAlign.Start)
 
-      Text(this.aiSuggestion(task))
-        .width('100%')
-        .fontSize($r('sys.float.Body_M'))
-        .fontColor($r('sys.color.font_secondary'))
-        .maxLines(4)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-    }
-    .width('calc(100% - 40vp)')
-    .margin({ left: 20, right: 20, top: 4, bottom: 8 })
-    .padding(12)
-    .backgroundColor(this.isAiSuggestionHovered ? $r('sys.color.interactive_hover') :
-      $r('sys.color.comp_background_secondary'))
-    .borderRadius(12)
-    .keyboardFocusStyle()
-    .onHover((isHover: boolean) => {
-      this.isAiSuggestionHovered = isHover;
-    })
-    .onClick(() => {
-      this.onOpenAiChat();
-    })
-  }
-
-  @Builder
-  private inspectorActionBar(task: WideClinicalTask) {
-    Row({ space: 10 }) {
-      Button({ type: ButtonType.Normal, stateEffect: true }) {
-        Row({ space: 7 }) {
-          SymbolGlyph($r('sys.symbol.person_crop_circle_fill'))
-            .fontSize(17)
-            .fontColor([$r('sys.color.icon_primary')])
-          Text('查看长者')
-            .fontSize($r('sys.float.Body_M'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
+      Stack({ alignContent: Alignment.Top }) {
+        if (!isLast) {
+          Row()
+            .width(1)
+            .height(54)
+            .backgroundColor($r('sys.color.comp_divider'))
+            .margin({ top: 12 })
         }
+        Row() {
+          if (checkpoint.completed) {
+            SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
+              .fontSize(16)
+              .fontColor([$r('app.color.status_normal')])
+          } else {
+            Row()
+              .width(10)
+              .height(10)
+              .borderRadius(5)
+              .backgroundColor($r('app.color.brand_blue'))
+          }
+        }
+        .width(18)
+        .height(18)
         .justifyContent(FlexAlign.Center)
         .alignItems(VerticalAlign.Center)
       }
-      .width(118)
-      .height(40)
-      .borderRadius(20)
-      .backgroundColor($r('sys.color.comp_background_secondary'))
-      .keyboardFocusStyle()
-      .onClick(() => {
-        this.onOpenResident();
-      })
+      .width(18)
+      .height(58)
 
-      Button(this.primaryActionLabel(task))
-        .layoutWeight(1)
-        .height(40)
-        .borderRadius(20)
-        .fontSize($r('sys.float.Body_M'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor(this.effectiveTaskState(task) === 'done' ? $r('sys.color.font_tertiary') :
-          $r('app.color.text_on_brand'))
-        .backgroundColor(this.effectiveTaskState(task) === 'done' ? $r('sys.color.comp_background_secondary') :
-          $r('app.color.brand_blue'))
-        .enabled(this.effectiveTaskState(task) !== 'done')
-        .keyboardFocusStyle()
-        .onClick(() => {
-          this.handlePrimaryAction(task);
-        })
+      Column({ space: 4 }) {
+        Text(checkpoint.title)
+          .fontSize($r('sys.float.Body_L'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+        Text(checkpoint.note)
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor($r('sys.color.font_secondary'))
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
-    .height(68)
-    .padding({ left: 16, right: 16 })
-    .border({ width: { top: 0.5 }, color: { top: $r('sys.color.comp_divider') } })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .alignItems(VerticalAlign.Center)
-  }
-
-  @Builder
-  private desktopWorkSurface() {
-    Row({ space: 12 }) {
-      this.taskViewPane()
-
-      this.taskQueuePane()
-
-      ForEach([this.selectedTask()], (task: WideClinicalTask) => {
-        this.taskInspectorPane(task)
-      }, (task: WideClinicalTask) => task.id)
-    }
-    .width('100%')
-    .layoutWeight(1)
+    .height(66)
+    .padding({ left: 20, right: 20 })
     .alignItems(VerticalAlign.Top)
   }
 
+  @Builder
+  private mainWorkArea() {
+    GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
+      GridCol({ span: this.compactWidth ? 12 : 8 }) {
+        this.taskQueueCard()
+      }
+      GridCol({ span: this.compactWidth ? 12 : 4 }) {
+        Column({ space: 16 }) {
+          this.focusResidentCard()
+          this.checkpointCard()
+        }
+        .width('100%')
+      }
+    }
+    .width('100%')
+  }
+
+  @Builder
+  private taskDetailPanel(task: CareTaskData) {
+    Column({ space: 0 }) {
+      Row({ space: 12 }) {
+        Column({ space: 4 }) {
+          Row({ space: 8 }) {
+            Text(this.priorityText(task.priority))
+              .fontSize($r('sys.float.Caption_M'))
+              .fontWeight(FontWeight.Medium)
+              .fontColor(this.priorityColor(task.priority))
+              .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+              .borderRadius(8)
+              .backgroundColor(this.priorityBackground(task.priority))
+            Text(this.taskStateText(task))
+              .fontSize($r('sys.float.Caption_M'))
+              .fontWeight(FontWeight.Medium)
+              .fontColor(this.taskStateColor(task))
+          }
+          Text(task.title)
+            .fontSize(22)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(2)
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        Button({ type: ButtonType.Circle, stateEffect: true }) {
+          SymbolGlyph($r('sys.symbol.xmark'))
+            .fontSize(18)
+            .fontColor([$r('sys.color.icon_primary')])
+        }
+        .width(40)
+        .height(40)
+        .backgroundColor($r('sys.color.comp_background_secondary'))
+        .keyboardFocusStyle()
+        .accessibilityText('关闭任务详情')
+        .onClick(() => this.closeTaskPanel())
+      }
+      .width('100%')
+      .padding({ left: 22, right: 18, top: 22, bottom: 18 })
+      .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
+      .alignItems(VerticalAlign.Top)
+
+      Scroll() {
+        Column({ space: 18 }) {
+          Column({ space: 10 }) {
+            Text(task.summary)
+              .width('100%')
+              .fontSize($r('sys.float.Body_L'))
+              .fontColor($r('sys.color.font_secondary'))
+            Row({ space: 10 }) {
+              Text(task.time)
+                .fontSize($r('sys.float.Body_M'))
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_primary'))
+              Text('责任人 ' + task.owner)
+                .fontSize($r('sys.float.Body_M'))
+                .fontColor($r('sys.color.font_tertiary'))
+            }
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Start)
+
+          Column({ space: 12 }) {
+            Text('关联长者')
+              .fontSize($r('sys.float.Body_L'))
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+
+            Row({ space: 12 }) {
+              Text(task.resident.slice(0, 1))
+                .width(44)
+                .height(44)
+                .borderRadius(22)
+                .textAlign(TextAlign.Center)
+                .fontSize($r('sys.float.Body_L'))
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_primary'))
+                .backgroundColor($r('sys.color.comp_background_secondary'))
+              Column({ space: 4 }) {
+                Text(task.resident)
+                  .fontSize($r('sys.float.Body_L'))
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('sys.color.font_primary'))
+                Text(task.room + ' · 最近护理记录已同步')
+                  .fontSize($r('sys.float.Body_M'))
+                  .fontColor($r('sys.color.font_secondary'))
+              }
+              .layoutWeight(1)
+              .alignItems(HorizontalAlign.Start)
+              SymbolGlyph($r('sys.symbol.chevron_right'))
+                .fontSize(14)
+                .fontColor([$r('sys.color.icon_tertiary')])
+            }
+            .width('100%')
+            .height(64)
+            .padding({ left: 10, right: 10 })
+            .borderRadius(14)
+            .backgroundColor($r('sys.color.comp_background_secondary'))
+            .keyboardFocusStyle()
+            .onClick(() => {
+              this.closeTaskPanel();
+              this.onOpenResident(task.residentId);
+            })
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Start)
+
+          Column({ space: 10 }) {
+            Text('执行要点')
+              .fontSize($r('sys.float.Body_L'))
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+            ForEach(this.executionSteps(task), (step: string, index: number) => {
+              Row({ space: 10 }) {
+                Text((index + 1).toString())
+                  .width(24)
+                  .height(24)
+                  .borderRadius(12)
+                  .textAlign(TextAlign.Center)
+                  .fontSize($r('sys.float.Caption_M'))
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('app.color.brand_blue'))
+                  .backgroundColor($r('sys.color.comp_background_secondary'))
+                Text(step)
+                  .layoutWeight(1)
+                  .fontSize($r('sys.float.Body_M'))
+                  .fontColor($r('sys.color.font_primary'))
+              }
+              .width('100%')
+              .alignItems(VerticalAlign.Center)
+            }, (step: string, index: number) => task.id + '-step-' + index)
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Start)
+
+          Column({ space: 8 }) {
+            Text('处理记录')
+              .fontSize($r('sys.float.Body_L'))
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+            if (this.effectiveTaskState(task) === 'done') {
+              Row({ space: 8 }) {
+                SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
+                  .fontSize(18)
+                  .fontColor([$r('app.color.status_normal')])
+                Text('记录已提交，可在长者档案中查看')
+                  .fontSize($r('sys.float.Body_M'))
+                  .fontColor($r('sys.color.font_secondary'))
+              }
+              .width('100%')
+              .height(48)
+              .alignItems(VerticalAlign.Center)
+            } else {
+              TextArea({
+                text: this.taskNote(task.id),
+                placeholder: '记录观察情况、处置结果或后续跟进事项'
+              })
+                .width('100%')
+                .height(104)
+                .padding(12)
+                .fontSize($r('sys.float.Body_M'))
+                .backgroundColor($r('sys.color.comp_background_secondary'))
+                .borderRadius(14)
+                .maxLength(200)
+                .onChange((value: string) => this.updateTaskNote(task.id, value))
+
+              if (this.validationTaskId === task.id) {
+                Text('请先填写处理记录，再完成当前工作')
+                  .fontSize($r('sys.float.Caption_M'))
+                  .fontColor($r('app.color.status_danger'))
+              }
+            }
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Start)
+
+          Column({ space: 8 }) {
+            Row({ space: 8 }) {
+              SymbolGlyph($r('sys.symbol.AI_message'))
+                .fontSize(18)
+                .fontColor([$r('app.color.brand_blue')])
+              Text('康小伴建议')
+                .fontSize($r('sys.float.Body_M'))
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_primary'))
+            }
+            Text('先确认长者当前安全状态，再按护理要求执行；异常信息需要人工判断并完整记录。')
+              .width('100%')
+              .fontSize($r('sys.float.Body_M'))
+              .fontColor($r('sys.color.font_secondary'))
+          }
+          .width('100%')
+          .padding(14)
+          .borderRadius(14)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .alignItems(HorizontalAlign.Start)
+        }
+        .width('100%')
+        .padding({ left: 22, right: 22, top: 20, bottom: 24 })
+        .alignItems(HorizontalAlign.Start)
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .scrollBar(BarState.Auto)
+      .edgeEffect(EdgeEffect.Spring)
+
+      Row({ space: 10 }) {
+        Button('查看长者')
+          .width(118)
+          .height(42)
+          .borderRadius(21)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .keyboardFocusStyle()
+          .onClick(() => {
+            this.closeTaskPanel();
+            this.onOpenResident(task.residentId);
+          })
+
+        Button(this.taskActionLabel(task))
+          .layoutWeight(1)
+          .height(42)
+          .borderRadius(21)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor(this.effectiveTaskState(task) === 'done' ? $r('sys.color.font_tertiary') :
+            $r('app.color.text_on_brand'))
+          .backgroundColor(this.effectiveTaskState(task) === 'done' ? $r('sys.color.comp_background_secondary') :
+            $r('app.color.brand_blue'))
+          .enabled(this.effectiveTaskState(task) !== 'done')
+          .keyboardFocusStyle()
+          .onClick(() => this.handleTaskAction(task))
+      }
+      .width('100%')
+      .height(70)
+      .padding({ left: 18, right: 18 })
+      .border({ width: { top: 0.5 }, color: { top: $r('sys.color.comp_divider') } })
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .alignItems(VerticalAlign.Center)
+    }
+    .width(this.compactWidth ? '88%' : 456)
+    .height('100%')
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .shadow(ShadowStyle.OUTER_DEFAULT_MD)
+    .transition(TransitionEffect.OPACITY.animation({ duration: 180, curve: Curve.EaseOut }))
+  }
+
   build() {
-    Column() {
-      this.desktopWorkSurface()
+    Stack({ alignContent: Alignment.TopEnd }) {
+      Scroll(this.pageScroller) {
+        Column({ space: 16 }) {
+          GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
+            GridCol({ span: this.compactWidth ? 12 : 4 }) {
+              this.shiftCard()
+            }
+            GridCol({ span: this.compactWidth ? 12 : 8 }) {
+              this.aiFocusCard()
+            }
+          }
+          .width('100%')
+
+          this.metricsRow()
+          this.mainWorkArea()
+        }
+        .width('100%')
+        .constraintSize({ maxWidth: 1440 })
+        .padding({
+          left: this.compactWidth ? 16 : 24,
+          right: this.compactWidth ? 16 : 24,
+          top: this.compactWidth ? 16 : 20,
+          bottom: 28
+        })
+        .alignItems(HorizontalAlign.Center)
+      }
+      .width('100%')
+      .height('100%')
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
+      .backgroundColor($r('sys.color.background_secondary'))
+
+      if (this.isTaskPanelOpen && this.selectedTask() !== undefined) {
+        Row()
+          .width('100%')
+          .height('100%')
+          .backgroundColor(Color.Transparent)
+          .onClick(() => this.closeTaskPanel())
+
+        this.taskDetailPanel(this.selectedTask()!)
+      }
     }
     .width('100%')
     .height('100%')
-    .padding({ left: 24, right: 24, top: 20, bottom: 24 })
     .backgroundColor($r('sys.color.background_secondary'))
   }
 }

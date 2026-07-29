@@ -14,6 +14,7 @@
  */
 
 import { LengthMetrics } from '@kit.ArkUI';
+import { KeyCode } from '@kit.InputKit';
 import {
   MedicationProgress,
   ResidentData,
@@ -49,6 +50,11 @@ interface RiskRow {
 
 @ComponentV2
 export struct WideResidentPage {
+  @Param compactWidth: boolean = false;
+  @Param backRequestToken: number = 0;
+  @Param requestedResidentId: string = '';
+  @Param residentSelectionRequestToken: number = 0;
+  @Event onLocalDetailVisibilityChange: (visible: boolean) => void = (_visible: boolean) => {};
   @Local residentFilterIndex: number = 0;
   private residentFilterItems: WideSlidingCapsuleItem[] = [
     { title: '全部 5', index: 0 },
@@ -64,6 +70,59 @@ export struct WideResidentPage {
   @Local selectedResidentId: string = 'r1';
   @Local selectedTab: ResidentDetailTab = 'overview';
   @Local hoveredResidentId: string = '';
+  @Local compactDetailVisible: boolean = false;
+
+  @Monitor('backRequestToken')
+  onBackRequestTokenChange(): void {
+    if (this.compactWidth && this.compactDetailVisible) {
+      this.showCompactList();
+    }
+  }
+
+  @Monitor('residentSelectionRequestToken', 'requestedResidentId')
+  onResidentSelectionRequestTokenChange(): void {
+    const requestedId: string = this.requestedResidentId.trim();
+    if (requestedId.length === 0) {
+      this.compactDetailVisible = false;
+      if (this.compactWidth) {
+        this.onLocalDetailVisibilityChange(false);
+      }
+      return;
+    }
+
+    const requestedResident: ResidentData | undefined =
+      this.allResidents().find((resident: ResidentData) => resident.id === requestedId);
+    if (!requestedResident) {
+      return;
+    }
+
+    this.selectedResidentId = requestedResident.id;
+    this.selectedTab = 'overview';
+    if (this.compactWidth) {
+      this.showCompactDetail();
+    } else {
+      this.compactDetailVisible = false;
+      this.onLocalDetailVisibilityChange(false);
+    }
+  }
+
+  private activateWithKeyboard(event: KeyEvent, action: () => void): void {
+    if (event.type === KeyType.Down &&
+      (event.keyCode === KeyCode.KEYCODE_ENTER || event.keyCode === KeyCode.KEYCODE_SPACE)) {
+      event.stopPropagation();
+      action();
+    }
+  }
+
+  private showCompactList(): void {
+    this.compactDetailVisible = false;
+    this.onLocalDetailVisibilityChange(false);
+  }
+
+  private showCompactDetail(): void {
+    this.compactDetailVisible = true;
+    this.onLocalDetailVisibilityChange(true);
+  }
 
   private allResidents(): ResidentData[] {
     return [
@@ -92,20 +151,20 @@ export struct WideResidentPage {
         deviceIds: ['d2', 'd6'], avatarText: '林'
       },
       {
-        id: 'r4', name: '王爷爷', age: 80, gender: 'male', room: '2F-201', bed: 'A床',
+        id: 'r4', name: '王德林', age: 79, gender: 'male', room: '2F-201', bed: 'A床',
         level: 'normal', status: '稳定观察',
         emergencyContact: '王女士（女）', emergencyPhone: '136****4404',
         admissionDate: '2023-01-10', careLevel: '三级护理',
-        diagnosis: ['高血压'], allergies: [],
+        diagnosis: ['骨质疏松'], allergies: [],
         deviceIds: ['d7'], avatarText: '王'
       },
       {
-        id: 'r5', name: '赵奶奶', age: 76, gender: 'female', room: '2F-208', bed: 'A床',
-        level: 'normal', status: '稳定观察',
-        emergencyContact: '赵先生（子）', emergencyPhone: '135****5505',
-        admissionDate: '2022-09-28', careLevel: '三级护理',
-        diagnosis: ['2型糖尿病'], allergies: ['坚果'],
-        deviceIds: ['d8'], avatarText: '赵'
+        id: 'r5', name: '李秀英', age: 81, gender: 'female', room: '3F-305', bed: 'B床',
+        level: 'normal', status: '术后康复稳定',
+        emergencyContact: '张先生（子）', emergencyPhone: '135****5505',
+        admissionDate: '2022-09-28', careLevel: '二级护理',
+        diagnosis: ['高血压', '术后康复'], allergies: [],
+        deviceIds: ['d8'], avatarText: '李'
       }
     ];
   }
@@ -148,12 +207,6 @@ export struct WideResidentPage {
       'r5': { done: 3, total: 3 }
     };
     return map[resident.id] ?? { done: 0, total: 0 };
-  }
-
-  private selectedResident(): ResidentData {
-    const resident: ResidentData | undefined =
-      this.allResidents().find((item: ResidentData) => item.id === this.selectedResidentId);
-    return resident ?? this.allResidents()[0];
   }
 
   private filteredResidents(): ResidentData[] {
@@ -334,19 +387,29 @@ export struct WideResidentPage {
   }
 
   build() {
-    Row() {
-      this.masterPane()
-
-      Column()
-        .width(1)
-        .height('100%')
-        .backgroundColor($r('sys.color.comp_divider'))
-
-      this.detailPane()
+    if (this.compactWidth) {
+      Row() {
+        if (this.compactDetailVisible) {
+          this.detailPane()
+        } else {
+          this.masterPane()
+        }
+      }
+      .width('100%')
+      .height('100%')
+      .padding(16)
+      .backgroundColor($r('sys.color.background_secondary'))
+    } else {
+      Row({ space: 20 }) {
+        this.masterPane()
+        this.detailPane()
+      }
+      .width('100%')
+      .height('100%')
+      .padding({ left: 24, right: 24, top: 20, bottom: 24 })
+      .backgroundColor($r('sys.color.background_secondary'))
+      .alignItems(VerticalAlign.Top)
     }
-    .width('100%')
-    .height('100%')
-    .backgroundColor($r('sys.color.background_secondary'))
   }
 
   @Builder
@@ -393,17 +456,16 @@ export struct WideResidentPage {
       }
       .width('100%')
       .layoutWeight(1)
-      .margin({ left: 12, right: 12, bottom: 14 })
-      .padding({ top: 4, bottom: 4 })
-      .backgroundColor($r('sys.color.comp_background_primary'))
-      .borderRadius(14)
-      .clip(true)
+      .padding({ left: 12, right: 12, top: 4, bottom: 10 })
       .scrollBar(BarState.Auto)
       .edgeEffect(EdgeEffect.Spring)
     }
-    .width(360)
+    .width(this.compactWidth ? '100%' : 360)
     .height('100%')
-    .backgroundColor($r('sys.color.background_secondary'))
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(16)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .clip(true)
   }
 
   @Builder
@@ -479,40 +541,108 @@ export struct WideResidentPage {
     .onClick(() => {
       this.selectedResidentId = resident.id;
       this.selectedTab = 'overview';
+      if (this.compactWidth) {
+        this.showCompactDetail();
+      }
     })
   }
 
   @Builder
+  private compactBackBar() {
+    Row() {
+      Button({ type: ButtonType.Normal, stateEffect: true }) {
+        Row({ space: 7 }) {
+          SymbolGlyph($r('sys.symbol.chevron_left'))
+            .fontSize(16)
+            .fontColor([$r('sys.color.icon_primary')])
+          Text('返回长者列表')
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+        }
+        .height('100%')
+        .alignItems(VerticalAlign.Center)
+      }
+      .height(40)
+      .padding({ left: 13, right: 15 })
+      .borderRadius(20)
+      .backgroundColor($r('sys.color.comp_background_secondary'))
+      .focusable(true)
+      .focusOnTouch(true)
+      .focusBox({ margin: LengthMetrics.vp(2), strokeWidth: LengthMetrics.vp(2) })
+      .accessibilityText('返回长者列表')
+      .accessibilityRole(AccessibilityRoleType.BUTTON)
+      .onKeyEvent((event: KeyEvent) => {
+        this.activateWithKeyboard(event, () => this.showCompactList());
+      })
+      .onClick(() => {
+        this.showCompactList();
+      })
+
+      Blank()
+
+      Text('长者详情')
+        .fontSize($r('sys.float.Body_M'))
+        .fontColor($r('sys.color.font_secondary'))
+        .maxLines(1)
+    }
+    .width('100%')
+    .height(52)
+    .padding({ right: 4, bottom: 12 })
+    .backgroundColor(Color.Transparent)
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
   private detailPane() {
+    if (this.selectedResidentId === 'r2') {
+      this.residentDetailPane(this.allResidents()[1])
+    } else if (this.selectedResidentId === 'r3') {
+      this.residentDetailPane(this.allResidents()[2])
+    } else if (this.selectedResidentId === 'r4') {
+      this.residentDetailPane(this.allResidents()[3])
+    } else if (this.selectedResidentId === 'r5') {
+      this.residentDetailPane(this.allResidents()[4])
+    } else {
+      this.residentDetailPane(this.allResidents()[0])
+    }
+  }
+
+  @Builder
+  private residentDetailPane(resident: ResidentData) {
     Column({ space: 0 }) {
+      if (this.compactWidth) {
+        this.compactBackBar()
+      }
+
       Scroll() {
         Column({ space: 16 }) {
-          this.residentProfileSurface(this.selectedResident())
+          this.residentProfileSurface(resident)
 
           if (this.selectedTab === 'overview') {
-            this.healthOverviewCard(this.selectedResident())
-            this.overviewContent(this.selectedResident())
+            this.healthOverviewCard(resident)
+            this.overviewContent(resident)
           } else if (this.selectedTab === 'vitals') {
-            this.vitalTrendContent(this.selectedResident())
+            this.vitalTrendContent(resident)
           } else if (this.selectedTab === 'care') {
-            this.careRecordContent(this.selectedResident())
+            this.careRecordContent(resident)
           } else {
-            this.deviceContent(this.selectedResident())
+            this.deviceContent(resident)
           }
         }
         .width('100%')
         .constraintSize({ maxWidth: 1120 })
-        .padding({ left: 24, right: 24, top: 20, bottom: 32 })
+        .padding({ bottom: 8 })
       }
       .width('100%')
       .layoutWeight(1)
-      .align(Alignment.Top)
+      .align(Alignment.TopStart)
       .scrollBar(BarState.Auto)
       .edgeEffect(EdgeEffect.Spring)
     }
     .layoutWeight(1)
     .height('100%')
-    .backgroundColor($r('sys.color.background_secondary'))
+    .backgroundColor(Color.Transparent)
   }
 
   @Builder
@@ -795,8 +925,11 @@ export struct WideResidentPage {
       .alignItems(VerticalAlign.Bottom)
 
       Row({ space: 6 }) {
-        Circle({ width: 6, height: 6 })
-          .fill(this.statusColor(level))
+        Row()
+          .width(6)
+          .height(6)
+          .borderRadius(3)
+          .backgroundColor(this.statusColor(level))
         Text(state)
           .fontSize($r('sys.float.Caption_M'))
           .fontColor(this.statusColor(level))
@@ -1105,8 +1238,11 @@ export struct WideResidentPage {
               .fontSize($r('sys.float.Body_S'))
               .fontColor($r('sys.color.font_tertiary'))
 
-            Circle({ width: 8, height: 8 })
-              .fill(this.statusColor(repeatItem.item.level))
+            Row()
+              .width(8)
+              .height(8)
+              .borderRadius(4)
+              .backgroundColor(this.statusColor(repeatItem.item.level))
 
             Column({ space: 4 }) {
               Row({ space: 8 }) {

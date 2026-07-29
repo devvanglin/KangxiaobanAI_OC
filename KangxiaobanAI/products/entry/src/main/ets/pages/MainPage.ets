@@ -42,6 +42,7 @@ import Logger from '../util/Logger';
 import { BreakpointUtil } from '../util/BreakpointSystem';
 
 const TAG: string = '[MainPage]';
+const CAREGIVER_FULL_WORKSPACE_MIN_WIDTH: number = 1180;
 
 interface WideNavItem {
   label: ResourceStr;
@@ -69,6 +70,8 @@ struct MainPage {
   @Local primaryTabIndex: number = 0;
   @Local isSidebarCollapsed: boolean = false;
   @Local isAiChatShow: boolean = false;
+  @Local caregiverHasLocalBackLayer: boolean = false;
+  @Local caregiverBackRequestToken: number = 0;
 
   @Styles
   pcIconNormalStyle() {
@@ -181,9 +184,23 @@ struct MainPage {
     })
   }
 
+  private isCaregiverWideWorkspace(): boolean {
+    return this.isWideLayout() && this.globalInfoModel.role !== '管理' && this.globalInfoModel.role !== '医师';
+  }
+
+  private useCompactCaregiverWorkspace(): boolean {
+    return BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint) ||
+      (this.globalInfoModel.deviceWidth > 0 &&
+        this.globalInfoModel.deviceWidth < CAREGIVER_FULL_WORKSPACE_MIN_WIDTH);
+  }
+
   onBackPress(): boolean {
     if (this.isAiChatShow) {
       this.closeAiChat();
+      return true;
+    }
+    if (this.isCaregiverWideWorkspace() && this.pathStack.size() === 0 && this.caregiverHasLocalBackLayer) {
+      this.caregiverBackRequestToken += 1;
       return true;
     }
     if (this.isWideLayout() && this.pathStack.size() === 0 && this.currentTabIndex !== 0) {
@@ -650,9 +667,14 @@ struct MainPage {
         currentTabIndex: this.currentTabIndex,
         primaryTabIndex: this.primaryTabIndex,
         statusBarHeight: this.globalInfoModel.statusBarHeight,
-        compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
+        naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
+        compactWidth: this.useCompactCaregiverWorkspace(),
+        backRequestToken: this.caregiverBackRequestToken,
         onSwitchTab: (index: number) => {
           this.switchTab(index);
+        },
+        onLocalBackStateChange: (hasLocalLayer: boolean) => {
+          this.caregiverHasLocalBackLayer = hasLocalLayer;
         },
         onOpenAiChat: () => {
           this.openAiChat();

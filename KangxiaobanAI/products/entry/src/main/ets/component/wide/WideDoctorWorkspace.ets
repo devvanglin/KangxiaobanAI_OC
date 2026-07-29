@@ -58,7 +58,6 @@ export struct WideDoctorWorkspace {
   @Local selectedNavId: string = 'workspace';
   @Local selectedModuleRowId: string = 'case-01';
   @Local moduleFilterIndex: number = 0;
-  @Local isSidebarCollapsed: boolean = false;
   @Local admissionDraftDirty: boolean = false;
   @Local hoveredTarget: string = '';
   @Local searchText: string = '';
@@ -67,6 +66,7 @@ export struct WideDoctorWorkspace {
   @Local aiAnswerText: string =
     '当前可见证据显示：血氧较个人基线下降，活动后恢复变慢；护理记录提示进食量下降、夜间睡眠中断。';
   @Local followUpRowIds: string[] = [];
+  @Local patientSearchQuery: string = '';
   @Local generalSettingsIcon: SymbolGlyphModifier =
     new SymbolGlyphModifier($r('sys.symbol.gearshape'))
       .fontSize(18)
@@ -173,9 +173,6 @@ export struct WideDoctorWorkspace {
   }
 
   private sidebarWidth(): number {
-    if (this.isSidebarCollapsed) {
-      return 72;
-    }
     return this.compactWidth ? 236 : 264;
   }
 
@@ -223,34 +220,6 @@ export struct WideDoctorWorkspace {
     return '养护总览';
   }
 
-  private currentSubtitle(): ResourceStr {
-    if (this.selectedNavId === 'admission') {
-      return $r('app.string.doctor_admission_workspace_subtitle');
-    }
-    if (this.selectedNavId === 'patients' || this.selectedNavId === 'focus') {
-      return '按授权范围查看长者档案、照护等级与近期健康记录';
-    }
-    if (this.selectedNavId === 'rounds') {
-      return '按养护计划安排今日巡查、功能观察与异常跟进';
-    }
-    if (this.selectedNavId === 'judgment') {
-      return '结合 ADL、认知、营养、慢病与安全风险完成综合评估';
-    }
-    if (this.selectedNavId === 'orders') {
-      return '复核用药、照护方案与执行反馈，保留确认记录';
-    }
-    if (this.selectedNavId === 'results') {
-      return '汇总异常线索、处置记录与转介进度，保障连续照护';
-    }
-    if (this.selectedNavId === 'consultation') {
-      return '集中处理护理、康复、营养与家属沟通协同';
-    }
-    if (this.selectedNavId === 'analysis') {
-      return '关注功能维持、评估完成、用药核对与风险闭环质量';
-    }
-    return '按风险、等待时长与养护计划节点排序';
-  }
-
   private queueAsModuleRows(queue: DoctorQueueItem[], source: string, prefix: string): DoctorModuleRow[] {
     return queue.map((item: DoctorQueueItem): DoctorModuleRow => ({
       id: `${prefix}-${item.id}`,
@@ -278,6 +247,11 @@ export struct WideDoctorWorkspace {
       rows = rows.filter((row: DoctorModuleRow) => row.id === 'case-02' || row.id === 'case-04' || row.id === 'case-05');
     } else if (this.selectedNavId === 'consultation') {
       rows = rows.filter((row: DoctorModuleRow) => row.id === 'case-04' || row.id === 'case-05');
+    } else if (this.selectedNavId === 'patients' && this.patientSearchQuery.length > 0) {
+      rows = rows.filter((row: DoctorModuleRow) => {
+        const searchText: string = `${row.patient} ${row.bed} ${row.item} ${row.source}`.toLowerCase();
+        return searchText.includes(this.patientSearchQuery);
+      });
     }
     if (this.moduleFilterIndex === 1) {
       return rows.filter((row: DoctorModuleRow) => row.status !== '已更新');
@@ -296,17 +270,35 @@ export struct WideDoctorWorkspace {
 
   private openQueueItem(item: DoctorQueueItem, target: string): void {
     this.runAfterAdmissionGuard(() => {
+      this.patientSearchQuery = '';
       this.selectedModuleRowId = `${target}-${item.id}`;
       this.moduleFilterIndex = 0;
       this.selectedNavId = target;
     });
   }
 
+  private openRecentPatient(patient: DoctorRecentPatient): void {
+    this.runAfterAdmissionGuard(() => {
+      const matchedRow: DoctorModuleRow | undefined =
+        this.moduleRows.find((row: DoctorModuleRow) => row.bed === patient.bed);
+      this.patientSearchQuery = '';
+      this.moduleFilterIndex = 0;
+      this.selectedModuleRowId = matchedRow?.id ?? this.moduleRows[0].id;
+      this.selectedNavId = 'patients';
+    });
+  }
+
   private navigateTo(target: string): void {
     if (target === this.selectedNavId) {
+      if (target === 'patients' && this.patientSearchQuery.length > 0) {
+        this.patientSearchQuery = '';
+        this.moduleFilterIndex = 0;
+        this.selectedModuleRowId = this.moduleRows[0].id;
+      }
       return;
     }
     this.runAfterAdmissionGuard(() => {
+      this.patientSearchQuery = '';
       this.selectedNavId = target;
     });
   }
@@ -388,6 +380,7 @@ export struct WideDoctorWorkspace {
   private openGlobalSearch(): void {
     if (this.selectedNavId !== 'workspace') {
       this.runAfterAdmissionGuard(() => {
+        this.patientSearchQuery = '';
         this.selectedNavId = 'workspace';
         setTimeout(() => this.focusGlobalSearch(), 120);
       });
@@ -396,101 +389,19 @@ export struct WideDoctorWorkspace {
     this.focusGlobalSearch();
   }
 
-  private toggleSidebar(): void {
-    this.hoveredTarget = '';
-    this.getUIContext().animateTo({ duration: 240, curve: Curve.Friction }, () => {
-      this.isSidebarCollapsed = !this.isSidebarCollapsed;
+  private submitGlobalSearch(): void {
+    const query: string = this.searchText.trim().toLowerCase();
+    if (query.length === 0) {
+      return;
+    }
+    const matchedRow: DoctorModuleRow | undefined = this.moduleRows.find((row: DoctorModuleRow) => {
+      const searchText: string = `${row.patient} ${row.bed} ${row.item} ${row.source}`.toLowerCase();
+      return searchText.includes(query);
     });
-    setTimeout(() => {
-      try {
-        this.sidebarScroller.scrollEdge(Edge.Top);
-      } catch (_error) {
-        // 侧栏尺寸切换期间滚动节点可能仍在重建，下一次布局会自然回到顶部。
-      }
-    }, 80);
-  }
-
-  @Builder
-  private sidebarToggleButton() {
-    Row({ space: 10 }) {
-      SymbolGlyph(this.isSidebarCollapsed ? $r('sys.symbol.open_sidebar') : $r('sys.symbol.close_sidebar'))
-        .fontSize(18)
-        .fontColor([$r('app.color.doctor_workspace_text_secondary')])
-      if (!this.isSidebarCollapsed) {
-        Text('收起侧栏')
-          .fontSize(12)
-          .fontColor($r('app.color.doctor_workspace_text_secondary'))
-      }
-    }
-    .width(this.isSidebarCollapsed ? 40 : '100%')
-    .height(40)
-    .padding({ left: this.isSidebarCollapsed ? 0 : 12, right: this.isSidebarCollapsed ? 0 : 12 })
-    .borderRadius(10)
-    .backgroundColor(this.hoveredTarget === 'sidebar-toggle' ?
-      $r('app.color.doctor_workspace_surface_hover') : Color.Transparent)
-    .justifyContent(this.isSidebarCollapsed ? FlexAlign.Center : FlexAlign.Start)
-    .alignItems(VerticalAlign.Center)
-    .accessibilityText(this.isSidebarCollapsed ? '展开侧栏' : '收起侧栏')
-    .accessibilityRole(AccessibilityRoleType.BUTTON)
-    .focusable(true)
-    .focusOnTouch(true)
-    .focusBox({
-      margin: LengthMetrics.vp(2),
-      strokeWidth: LengthMetrics.vp(2),
-      strokeColor: this.focusStrokeColor()
-    })
-    .bindTips(this.isSidebarCollapsed ? '展开侧栏' : '收起侧栏', {
-      appearingTime: 500,
-      disappearingTime: 100,
-      enableArrow: true,
-      showAtAnchor: TipsAnchorType.TARGET
-    })
-    .onHover((isHover: boolean) => this.hoveredTarget = isHover ? 'sidebar-toggle' : '')
-    .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => this.toggleSidebar()))
-    .onClick(() => this.toggleSidebar())
-  }
-
-  @Builder
-  private quickSearch() {
-    Row({ space: 10 }) {
-      SymbolGlyph($r('sys.symbol.magnifyingglass'))
-        .fontSize(17)
-        .fontColor([$r('app.color.doctor_workspace_text_secondary')])
-      if (!this.isSidebarCollapsed) {
-        Text('快捷搜索…')
-          .fontSize(14)
-          .fontColor($r('app.color.doctor_workspace_text_primary'))
-          .layoutWeight(1)
-          .maxLines(1)
-        Text('Ctrl K')
-          .fontSize(10)
-          .fontColor($r('app.color.doctor_workspace_text_tertiary'))
-      }
-    }
-    .width(this.isSidebarCollapsed ? 40 : '100%')
-    .height(40)
-    .padding({ left: this.isSidebarCollapsed ? 0 : 12, right: this.isSidebarCollapsed ? 0 : 12 })
-    .borderRadius(11)
-    .backgroundColor($r('app.color.doctor_workspace_surface'))
-    .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
-    .justifyContent(this.isSidebarCollapsed ? FlexAlign.Center : FlexAlign.Start)
-    .alignItems(VerticalAlign.Center)
-    .accessibilityText('快捷搜索，快捷键 Control K')
-    .focusable(true)
-    .focusOnTouch(true)
-    .focusBox({
-      margin: LengthMetrics.vp(2),
-      strokeWidth: LengthMetrics.vp(2),
-      strokeColor: this.focusStrokeColor()
-    })
-    .bindTips('快速搜索 · Ctrl K', {
-      appearingTime: 500,
-      disappearingTime: 100,
-      enableArrow: true,
-      showAtAnchor: TipsAnchorType.TARGET
-    })
-    .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => this.openGlobalSearch()))
-    .onClick(() => this.openGlobalSearch())
+    this.patientSearchQuery = query;
+    this.moduleFilterIndex = 0;
+    this.selectedModuleRowId = matchedRow?.id ?? '';
+    this.selectedNavId = 'patients';
   }
 
   @Builder
@@ -499,40 +410,38 @@ export struct WideDoctorWorkspace {
       SymbolGlyph($r('sys.symbol.person_crop_circle_fill'))
         .fontSize(18)
         .fontColor([$r('app.color.doctor_workspace_text_tertiary')])
-      if (!this.isSidebarCollapsed) {
-        Column({ space: 2 }) {
-          Text(`${patient.bed} · ${patient.displayName}`)
-            .fontSize(13)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.doctor_workspace_text_primary'))
-            .maxLines(1)
-          Text(`最近查看 · ${patient.visitedAt}`)
-            .fontSize(10)
-            .fontColor($r('app.color.doctor_workspace_text_tertiary'))
-            .maxLines(1)
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
+      Column({ space: 2 }) {
+        Text(`${patient.bed} · ${patient.displayName}`)
+          .fontSize(13)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.doctor_workspace_text_primary'))
+          .maxLines(1)
+        Text(`最近查看 · ${patient.visitedAt}`)
+          .fontSize(10)
+          .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+          .maxLines(1)
       }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
-    .height(this.isSidebarCollapsed ? 44 : 52)
-    .padding({ left: this.isSidebarCollapsed ? 0 : 12, right: this.isSidebarCollapsed ? 0 : 10 })
+    .height(48)
+    .padding({ left: 12, right: 10 })
     .borderRadius(10)
     .backgroundColor(this.hoveredTarget === patient.id ?
       $r('app.color.doctor_workspace_surface_hover') : Color.Transparent)
-    .justifyContent(this.isSidebarCollapsed ? FlexAlign.Center : FlexAlign.Start)
+    .justifyContent(FlexAlign.Start)
     .alignItems(VerticalAlign.Center)
     .accessibilityText(`最近查看长者，${patient.bed} ${patient.displayName}`)
     .accessibilityRole(AccessibilityRoleType.BUTTON)
     .focusable(true)
     .focusOnTouch(true)
     .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => {
-      this.navigateTo('patients');
+      this.openRecentPatient(patient);
     }))
     .onHover((isHover: boolean) => this.hoveredTarget = isHover ? patient.id : '')
     .onClick(() => {
-      this.navigateTo('patients');
+      this.openRecentPatient(patient);
     })
   }
 
@@ -544,40 +453,38 @@ export struct WideDoctorWorkspace {
         .fontColor([this.isActive(item.id) ?
           $r('app.color.doctor_workspace_text_primary') :
           $r('app.color.doctor_workspace_text_tertiary')])
-      if (!this.isSidebarCollapsed) {
-        Text(item.label)
-          .fontSize(13)
-          .fontWeight(this.isActive(item.id) ? FontWeight.Medium : FontWeight.Regular)
-          .fontColor(this.isActive(item.id) ?
-            $r('app.color.doctor_workspace_text_primary') :
-            $r('app.color.doctor_workspace_text_secondary'))
-          .layoutWeight(1)
-          .maxLines(1)
-        if (item.badge) {
-          Text(item.badge)
-            .fontSize(10)
-            .fontColor($r('app.color.doctor_workspace_text_secondary'))
-            .width(24)
-            .height(20)
-            .padding({ left: 6, right: 6 })
-            .textAlign(TextAlign.Center)
-            .borderRadius(10)
-            .backgroundColor($r('app.color.doctor_workspace_surface_hover'))
-        } else {
-          SymbolGlyph($r('sys.symbol.chevron_right'))
-            .fontSize(11)
-            .fontColor([$r('app.color.doctor_workspace_text_tertiary')])
-        }
+      Text(item.label)
+        .fontSize(13)
+        .fontWeight(this.isActive(item.id) ? FontWeight.Medium : FontWeight.Regular)
+        .fontColor(this.isActive(item.id) ?
+          $r('app.color.doctor_workspace_text_primary') :
+          $r('app.color.doctor_workspace_text_secondary'))
+        .layoutWeight(1)
+        .maxLines(1)
+      if (item.badge) {
+        Text(item.badge)
+          .fontSize(10)
+          .fontColor($r('app.color.doctor_workspace_text_secondary'))
+          .width(24)
+          .height(20)
+          .padding({ left: 6, right: 6 })
+          .textAlign(TextAlign.Center)
+          .borderRadius(10)
+          .backgroundColor($r('app.color.doctor_workspace_surface_hover'))
+      } else {
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(11)
+          .fontColor([$r('app.color.doctor_workspace_text_tertiary')])
       }
     }
-    .width(this.isSidebarCollapsed ? 40 : '100%')
-    .height(this.isSidebarCollapsed ? 40 : 44)
-    .padding({ left: this.isSidebarCollapsed ? 0 : 12, right: this.isSidebarCollapsed ? 0 : 10 })
+    .width('100%')
+    .height(40)
+    .padding({ left: 12, right: 10 })
     .borderRadius(10)
     .backgroundColor(this.isActive(item.id) ?
       $r('app.color.doctor_workspace_surface_raised') :
       (this.hoveredTarget === item.id ? $r('app.color.doctor_workspace_surface_hover') : Color.Transparent))
-    .justifyContent(this.isSidebarCollapsed ? FlexAlign.Center : FlexAlign.Start)
+    .justifyContent(FlexAlign.Start)
     .alignItems(VerticalAlign.Center)
     .accessibilityText(item.badge ? `${item.label}，${item.badge} 项` : item.label)
     .accessibilityRole(AccessibilityRoleType.BUTTON)
@@ -606,20 +513,12 @@ export struct WideDoctorWorkspace {
 
   @Builder
   private sidebarGroupTitle(label: string) {
-    if (this.isSidebarCollapsed) {
-      Divider()
-        .width(24)
-        .strokeWidth(0.5)
-        .color($r('app.color.doctor_workspace_border_soft'))
-        .margin({ top: 7, bottom: 7 })
-    } else {
-      Text(label)
-        .fontSize(11)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('app.color.doctor_workspace_text_tertiary'))
-        .width('100%')
-        .margin({ left: 10, top: 8, bottom: 5 })
-    }
+    Text(label)
+      .fontSize(11)
+      .fontWeight(FontWeight.Medium)
+      .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+      .width('100%')
+      .margin({ left: 2, top: 8, bottom: 5 })
   }
 
   @Builder
@@ -627,12 +526,10 @@ export struct WideDoctorWorkspace {
     Scroll(this.sidebarScroller) {
       Column({ space: 3 }) {
         this.sidebarNavItem(this.homeNavItem)
-        if (!this.isSidebarCollapsed) {
-          this.sidebarGroupTitle('最近查看长者')
-          ForEach(this.recentPatients, (patient: DoctorRecentPatient) => {
-            this.recentPatientItem(patient)
-          }, (patient: DoctorRecentPatient) => patient.id)
-        }
+        this.sidebarGroupTitle('最近查看长者')
+        ForEach(this.recentPatients, (patient: DoctorRecentPatient) => {
+          this.recentPatientItem(patient)
+        }, (patient: DoctorRecentPatient) => patient.id)
         ForEach(this.navGroups, (group: DoctorNavGroup, groupIndex: number) => {
           Column({ space: 3 }) {
             this.sidebarGroupTitle(group.label)
@@ -641,12 +538,12 @@ export struct WideDoctorWorkspace {
             }, (item: DoctorNavItem) => item.id)
           }
           .width('100%')
-          .alignItems(this.isSidebarCollapsed ? HorizontalAlign.Center : HorizontalAlign.Start)
+          .alignItems(HorizontalAlign.Start)
         }, (group: DoctorNavGroup, index: number) => `${group.label}-${index}`)
       }
       .width('100%')
-      .padding({ bottom: 12 })
-      .alignItems(this.isSidebarCollapsed ? HorizontalAlign.Center : HorizontalAlign.Start)
+      .padding({ left: 10, right: 10, top: 14, bottom: 12 })
+      .alignItems(HorizontalAlign.Start)
     }
     .layoutWeight(1)
     .width('100%')
@@ -656,51 +553,9 @@ export struct WideDoctorWorkspace {
   }
 
   @Builder
-  private sidebarFooter() {
-    Column({ space: 8 }) {
-      if (!this.isSidebarCollapsed) {
-        Row({ space: 8 }) {
-          Row()
-            .width(7)
-            .height(7)
-            .borderRadius(4)
-            .backgroundColor($r('app.color.doctor_workspace_success'))
-          Column({ space: 1 }) {
-            Text('演示数据 · 本地')
-              .fontSize(11)
-              .fontColor($r('app.color.doctor_workspace_text_secondary'))
-            Text('样例时间 10:32')
-              .fontSize(9)
-              .fontColor($r('app.color.doctor_workspace_text_tertiary'))
-          }
-          .alignItems(HorizontalAlign.Start)
-        }
-        .width('100%')
-        .padding({ left: 12 })
-        .alignItems(VerticalAlign.Center)
-      }
-      this.sidebarToggleButton()
-    }
-    .width('100%')
-    .padding({ left: 12, right: 12, top: 10, bottom: 12 })
-    .border({
-      width: { top: 0.5 },
-      color: { top: $r('app.color.doctor_workspace_border_soft') }
-    })
-    .alignItems(this.isSidebarCollapsed ? HorizontalAlign.Center : HorizontalAlign.Start)
-  }
-
-  @Builder
   private sidebar() {
     Column() {
-      Column() {
-        this.quickSearch()
-      }
-      .width('100%')
-      .padding({ left: 16, right: 16, top: 14, bottom: 10 })
-      .alignItems(HorizontalAlign.Center)
       this.sidebarNavigation()
-      this.sidebarFooter()
     }
     .width(this.sidebarWidth())
     .height('100%')
@@ -870,8 +725,10 @@ export struct WideDoctorWorkspace {
     .borderRadius(18)
     .backgroundColor($r('app.color.doctor_workspace_surface'))
     .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
+    .accessibilityRole(AccessibilityRoleType.BUTTON)
     .focusable(true)
     .focusOnTouch(true)
+    .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => this.navigateTo('ai')))
     .onClick(() => {
       this.navigateTo('ai');
     })
@@ -915,6 +772,10 @@ export struct WideDoctorWorkspace {
         .onChange((value: string) => {
           this.searchText = value;
         })
+        .onSubmit((value: string) => {
+          this.searchText = value;
+          this.submitGlobalSearch();
+        })
       if (!this.compactWidth) {
         Row({ space: 5 }) {
           this.shortcutKey('Ctrl')
@@ -949,14 +810,17 @@ export struct WideDoctorWorkspace {
         .backgroundColor($r('app.color.doctor_workspace_surface_hover'))
       Blank()
         .layoutWeight(1)
-      Text('···')
-        .fontSize(16)
-        .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+      SymbolGlyph($r('sys.symbol.chevron_right'))
+        .fontSize(12)
+        .fontColor([$r('app.color.doctor_workspace_text_tertiary')])
     }
     .width('100%')
     .height(36)
     .alignItems(VerticalAlign.Center)
+    .accessibilityRole(AccessibilityRoleType.BUTTON)
     .focusable(true)
+    .focusOnTouch(true)
+    .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => this.navigateTo(target)))
     .onClick(() => {
       this.navigateTo(target);
     })
@@ -1289,7 +1153,13 @@ export struct WideDoctorWorkspace {
       .borderRadius(10)
       .backgroundColor(this.moduleFilterIndex === index ?
         $r('app.color.doctor_workspace_surface_hover') : Color.Transparent)
+      .accessibilityRole(AccessibilityRoleType.BUTTON)
+      .accessibilitySelected(this.moduleFilterIndex === index)
       .focusable(true)
+      .focusOnTouch(true)
+      .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => {
+        this.moduleFilterIndex = index;
+      }))
       .onClick(() => {
         this.moduleFilterIndex = index;
       })
@@ -1569,18 +1439,10 @@ export struct WideDoctorWorkspace {
     Scroll() {
       Column({ space: 18 }) {
         Row() {
-          Column({ space: 4 }) {
-            Text(this.currentTitle())
-              .fontSize(this.compactWidth ? 24 : 28)
-              .fontWeight(FontWeight.Bold)
-              .fontColor($r('app.color.doctor_workspace_text_primary'))
-            Text(this.currentSubtitle())
-              .fontSize(11)
-              .fontColor($r('app.color.doctor_workspace_text_secondary'))
-          }
-          .layoutWeight(1)
-          .alignItems(HorizontalAlign.Start)
-          this.statusTag('实时数据 · 10:32', 'normal')
+          Text(this.currentTitle())
+            .fontSize(this.compactWidth ? 22 : 24)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.doctor_workspace_text_primary'))
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)
@@ -1637,18 +1499,10 @@ export struct WideDoctorWorkspace {
     Scroll() {
       Column({ space: 18 }) {
         Row() {
-          Column({ space: 4 }) {
-            Text('康小伴 AI 养护评估助手')
-              .fontSize(this.compactWidth ? 24 : 28)
-              .fontWeight(FontWeight.Bold)
-              .fontColor($r('app.color.doctor_workspace_text_primary'))
-            Text('整理养护证据与风险线索，方案由医师确认并与护理团队协同')
-              .fontSize(11)
-              .fontColor($r('app.color.doctor_workspace_text_secondary'))
-          }
-          .layoutWeight(1)
-          .alignItems(HorizontalAlign.Start)
-          this.statusTag('养护评估会话', 'normal')
+          Text('康小伴 AI 养护评估助手')
+            .fontSize(this.compactWidth ? 22 : 24)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.doctor_workspace_text_primary'))
         }
         .width('100%')
         Row({ space: 8 }) {

@@ -311,6 +311,9 @@ const DEMO_CHAT_RECORDS: WideChatRecord[] = [
 
 @ComponentV2
 export struct WideMessagePage {
+  @Param compactWidth: boolean = false;
+  @Param backRequestToken: number = 0;
+  @Event onLocalDetailVisibilityChange: (visible: boolean) => void = (_visible: boolean) => {};
   @Local searchText: string = '';
   @Local activeFilterIndex: number = 0;
   @Local selectedConversationId: string = 'family-zhou';
@@ -324,8 +327,16 @@ export struct WideMessagePage {
   @Local hoveredHeaderAction: string = '';
   @Local replyText: string = '';
   @Local sentRecords: WideChatRecord[] = [];
+  @Local compactDetailVisible: boolean = false;
   private chatScroller: Scroller = new Scroller();
   private scrollTimerId: number = -1;
+
+  @Monitor('backRequestToken')
+  onBackRequestTokenChange(): void {
+    if (this.compactWidth && this.compactDetailVisible) {
+      this.showCompactList();
+    }
+  }
 
   @Styles
   keyboardFocusStyle() {
@@ -340,7 +351,9 @@ export struct WideMessagePage {
   }
 
   aboutToAppear(): void {
-    this.scheduleScrollToBottom();
+    if (!this.compactWidth) {
+      this.scheduleScrollToBottom();
+    }
   }
 
   aboutToDisappear(): void {
@@ -447,7 +460,24 @@ export struct WideMessagePage {
     if (this.isUnread(item.id)) {
       this.unreadConversationIds = this.unreadConversationIds.filter((id: string) => id !== item.id);
     }
+    if (this.compactWidth) {
+      this.showCompactDetail();
+    }
     this.scheduleScrollToBottom();
+  }
+
+  private showCompactList(): void {
+    if (this.scrollTimerId !== -1) {
+      clearTimeout(this.scrollTimerId);
+      this.scrollTimerId = -1;
+    }
+    this.compactDetailVisible = false;
+    this.onLocalDetailVisibilityChange(false);
+  }
+
+  private showCompactDetail(): void {
+    this.compactDetailVisible = true;
+    this.onLocalDetailVisibilityChange(true);
   }
 
   private toggleReadState(): void {
@@ -688,12 +718,65 @@ export struct WideMessagePage {
       this.filterBar()
       this.conversationList()
     }
-    .width(400)
+    .width(this.compactWidth ? '100%' : 400)
     .height('100%')
     .padding({ left: 14, right: 14, top: 16, bottom: 16 })
     .backgroundColor($r('sys.color.comp_background_primary'))
-    .border({ width: { right: 0.5 }, color: { right: $r('sys.color.comp_divider') } })
+    .borderRadius(this.compactWidth ? 0 : 20)
+    .clip(true)
     .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private compactBackBar() {
+    Row() {
+      Button({ type: ButtonType.Normal, stateEffect: true }) {
+        Row({ space: 7 }) {
+          SymbolGlyph($r('sys.symbol.chevron_left'))
+            .fontSize(16)
+            .fontColor([$r('sys.color.icon_primary')])
+          Text('返回会话列表')
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+        }
+        .height('100%')
+        .alignItems(VerticalAlign.Center)
+      }
+      .height(40)
+      .padding({ left: 13, right: 15 })
+      .borderRadius(20)
+      .backgroundColor($r('sys.color.comp_background_secondary'))
+      .focusable(true)
+      .focusOnTouch(true)
+      .hoverEffect(HoverEffect.None)
+      .focusBox({
+        margin: LengthMetrics.vp(2),
+        strokeWidth: LengthMetrics.vp(2),
+        strokeColor: ColorMetrics.numeric(0xFF1D63ED)
+      })
+      .accessibilityText('返回会话列表')
+      .accessibilityRole(AccessibilityRoleType.BUTTON)
+      .onKeyEvent((event: KeyEvent) => {
+        this.activateWithKeyboard(event, () => this.showCompactList());
+      })
+      .onClick(() => {
+        this.showCompactList();
+      })
+
+      Blank()
+
+      Text('会话详情')
+        .fontSize($r('sys.float.Body_M'))
+        .fontColor($r('sys.color.font_secondary'))
+        .maxLines(1)
+    }
+    .width('100%')
+    .height(60)
+    .padding({ left: 16, right: 20 })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
+    .alignItems(VerticalAlign.Center)
   }
 
   @Builder
@@ -993,6 +1076,9 @@ export struct WideMessagePage {
   private detailPane() {
     if (this.selectedConversation()) {
       Column({ space: 0 }) {
+        if (this.compactWidth) {
+          this.compactBackBar()
+        }
         this.conversationHeader()
         this.chatHistory()
         if (this.selectedConversation()!.replyable) {
@@ -1003,7 +1089,10 @@ export struct WideMessagePage {
       }
       .layoutWeight(1)
       .height('100%')
-      .backgroundColor($r('sys.color.background_secondary'))
+      .backgroundColor(this.compactWidth ? $r('sys.color.background_secondary') :
+        $r('sys.color.comp_background_primary'))
+      .borderRadius(this.compactWidth ? 0 : 20)
+      .clip(true)
     } else {
       Column({ space: 12 }) {
         SymbolGlyph($r('sys.symbol.message_on_message_fill'))
@@ -1018,17 +1107,34 @@ export struct WideMessagePage {
       .height('100%')
       .justifyContent(FlexAlign.Center)
       .alignItems(HorizontalAlign.Center)
-      .backgroundColor($r('sys.color.background_secondary'))
+      .backgroundColor(this.compactWidth ? $r('sys.color.background_secondary') :
+        $r('sys.color.comp_background_primary'))
+      .borderRadius(this.compactWidth ? 0 : 20)
+      .clip(true)
     }
   }
 
   build() {
-    Row({ space: 0 }) {
-      this.listPane()
-      this.detailPane()
+    if (this.compactWidth) {
+      Row({ space: 0 }) {
+        if (this.compactDetailVisible) {
+          this.detailPane()
+        } else {
+          this.listPane()
+        }
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('sys.color.background_secondary'))
+    } else {
+      Row({ space: 16 }) {
+        this.listPane()
+        this.detailPane()
+      }
+      .width('100%')
+      .height('100%')
+      .padding({ left: 24, right: 24, top: 20, bottom: 24 })
+      .backgroundColor($r('sys.color.background_secondary'))
     }
-    .width('100%')
-    .height('100%')
-    .backgroundColor($r('sys.color.background_secondary'))
   }
 }

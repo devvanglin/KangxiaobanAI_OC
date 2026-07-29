@@ -4,14 +4,6 @@
 import { LengthMetrics } from '@kit.ArkUI';
 import { KeyCode } from '@kit.InputKit';
 
-/** 入住办理步骤 */
-interface AdmissionStep {
-  id: string;
-  label: string;
-  desc: string;
-  symbol: Resource;
-}
-
 /** 入住初筛单项选项 */
 interface AdmissionAssessmentOption {
   label: string;
@@ -99,12 +91,7 @@ export struct WideDoctorAdmission {
   private genderOptions: string[] = ['男', '女'];
   private sourceOptions: string[] = ['家庭送养', '医院转介', '社区转介', '机构调床'];
 
-  private steps: AdmissionStep[] = [
-    { id: 'basic', label: '核验基础资料', desc: '身份、床位与联系人', symbol: $r('sys.symbol.person_crop_circle_fill') },
-    { id: 'assess', label: '完成入住初筛', desc: '能力、健康与九类安全风险', symbol: $r('sys.symbol.waveform_path_ecg_magnifyingglass') },
-    { id: 'plan', label: '选择照护计划', desc: '明确基础服务与可选项目', symbol: $r('sys.symbol.doc_text') },
-    { id: 'confirm', label: '确认并生成草稿', desc: '完成复核、同意与费用告知', symbol: $r('sys.symbol.checkmark_circle_fill') }
-  ];
+  private steps: string[] = ['核验基础资料', '完成入住初筛', '选择照护计划', '确认并生成草稿'];
 
   private assessments: AdmissionAssessmentDimension[] = [
     {
@@ -635,107 +622,6 @@ export struct WideDoctorAdmission {
     this.dirty = false;
     this.onDirtyChange(false);
     this.contentScroller = new Scroller();
-  }
-
-  // ==================== 头部与步骤条 ====================
-
-  @Builder
-  private header() {
-    Flex({
-      direction: this.compactWidth ? FlexDirection.Column : FlexDirection.Row,
-      alignItems: this.compactWidth ? ItemAlign.Start : ItemAlign.Center
-    }) {
-      Column({ space: 4 }) {
-        Text('新长者入住办理')
-          .fontSize(this.compactWidth ? 24 : 28)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.doctor_workspace_text_primary'))
-        Text('核验资料、完成入住初筛并匹配照护计划，生成本地档案草稿')
-          .fontSize(11)
-          .fontColor($r('app.color.doctor_workspace_text_secondary'))
-      }
-      .layoutWeight(this.compactWidth ? 0 : 1)
-      .width(this.compactWidth ? '100%' : undefined)
-      .alignItems(HorizontalAlign.Start)
-      Row({ space: 6 }) {
-        SymbolGlyph($r('sys.symbol.info_circle'))
-          .fontSize(13)
-          .fontColor([$r('app.color.doctor_workspace_text_tertiary')])
-        Text('本地演示数据 · 尚未连接后台')
-          .fontSize(10)
-          .fontColor($r('app.color.doctor_workspace_text_tertiary'))
-      }
-      .padding({ left: 10, right: 10, top: 6, bottom: 6 })
-      .borderRadius(10)
-      .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
-      .margin({ top: this.compactWidth ? 10 : 0 })
-    }
-    .width('100%')
-  }
-
-  @Builder
-  private stepRail() {
-    Column({ space: 6 }) {
-      ForEach(this.steps, (step: AdmissionStep, index: number) => {
-        Row({ space: 12 }) {
-          Stack({ alignContent: Alignment.Center }) {
-            Row()
-              .width(34)
-              .height(34)
-              .borderRadius(17)
-              .backgroundColor(index <= this.currentStep ?
-                $r('app.color.doctor_workspace_text_primary') :
-                $r('app.color.doctor_workspace_surface_raised'))
-              .border({
-                width: 0.5,
-                color: index <= this.currentStep ?
-                  $r('app.color.doctor_workspace_text_primary') :
-                  $r('app.color.doctor_workspace_border')
-              })
-            if (index < this.currentStep) {
-              SymbolGlyph($r('sys.symbol.checkmark'))
-                .fontSize(15)
-                .fontColor([$r('app.color.doctor_workspace_background')])
-            } else {
-              Text(`${index + 1}`)
-                .fontSize(13)
-                .fontWeight(FontWeight.Bold)
-                .fontColor(index === this.currentStep ?
-                  $r('app.color.doctor_workspace_background') :
-                  $r('app.color.doctor_workspace_text_tertiary'))
-            }
-          }
-          Column({ space: 2 }) {
-            Text(step.label)
-              .fontSize(13)
-              .fontWeight(index === this.currentStep ? FontWeight.Bold : FontWeight.Medium)
-              .fontColor(index === this.currentStep ?
-                $r('app.color.doctor_workspace_text_primary') :
-                $r('app.color.doctor_workspace_text_secondary'))
-              .maxLines(1)
-            Text(step.desc)
-              .fontSize(10)
-              .fontColor($r('app.color.doctor_workspace_text_tertiary'))
-              .maxLines(1)
-          }
-          .layoutWeight(1)
-          .alignItems(HorizontalAlign.Start)
-        }
-        .width('100%')
-        .height(56)
-        .padding({ left: 12, right: 12 })
-        .borderRadius(12)
-        .backgroundColor(index === this.currentStep ?
-          $r('app.color.doctor_workspace_surface_raised') : Color.Transparent)
-        .alignItems(VerticalAlign.Center)
-      }, (step: AdmissionStep) => step.id)
-    }
-    .width('100%')
-    .padding(16)
-    .borderRadius(16)
-    .backgroundColor($r('app.color.doctor_workspace_surface'))
-    .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
-    .alignItems(HorizontalAlign.Start)
   }
 
   // ==================== 通用输入控件 ====================
@@ -1817,7 +1703,7 @@ export struct WideDoctorAdmission {
       alignItems: this.compactWidth ? ItemAlign.Start : ItemAlign.Center,
       justifyContent: FlexAlign.Center
     }) {
-      Text(`第 ${this.currentStep + 1} / ${this.steps.length} 步 · ${this.steps[this.currentStep].label}`)
+      Text(`第 ${this.currentStep + 1} / ${this.steps.length} 步 · ${this.steps[this.currentStep]}`)
         .fontSize(11)
         .fontColor($r('app.color.doctor_workspace_text_tertiary'))
         .layoutWeight(this.compactWidth ? 0 : 1)
@@ -1879,19 +1765,10 @@ export struct WideDoctorAdmission {
       } else {
         Scroll(this.contentScroller) {
           Column({ space: 18 }) {
-            this.header()
-            GridRow({ columns: 12, gutter: { x: 18, y: 18 } }) {
-              GridCol({ span: this.compactWidth ? 12 : 3 }) {
-                this.stepRail()
-              }
-              GridCol({ span: this.compactWidth ? 12 : 9 }) {
-                this.stepContent()
-              }
-            }
-            .width('100%')
+            this.stepContent()
           }
           .width('100%')
-          .constraintSize({ maxWidth: 1200 })
+          .constraintSize({ maxWidth: 1088 })
           .padding({ left: this.mainPadding(), right: this.mainPadding(), top: 24, bottom: 24 })
           .alignItems(HorizontalAlign.Center)
         }
