@@ -133,6 +133,7 @@ class AiChatHistoryStore {
 @ComponentV2
 export struct AiChatPage {
   @Param @Require geometryId: string;
+  @Param caregiverWideImmersive: boolean = false;
   @Event onClose: () => void = () => {};
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
@@ -145,6 +146,7 @@ export struct AiChatPage {
   @Local isGenerating: boolean = false;
   @Local historyDrawerOpen: boolean = false;
   private listScroller: ListScroller = new ListScroller();
+  private historyScroller: Scroller = new Scroller();
   private focusController = this.getUIContext().getFocusController();
   private previousKeyboardAvoidMode: KeyboardAvoidMode = KeyboardAvoidMode.OFFSET;
   private responseTimer: number = -1;
@@ -338,6 +340,10 @@ export struct AiChatPage {
     return BreakpointUtil.isWide(this.globalInfoModel.widthBreakpoint);
   }
 
+  private caregiverWideTitleBarOffset(): number {
+    return this.globalInfoModel.statusBarHeight + CONTENT_TOP_OFFSET;
+  }
+
   aboutToAppear(): void {
     this.previousKeyboardAvoidMode = this.getUIContext().getKeyboardAvoidMode();
     this.restoreActiveSession();
@@ -378,6 +384,40 @@ export struct AiChatPage {
         action: () => {
           this.openHistoryDrawer();
         }
+      },
+      menu: {
+        value: [
+          {
+            content: {
+              label: '新建对话',
+              icon: $r('sys.symbol.square_and_pencil'),
+              type: IconStyleMode.SMALL,
+              isEnabled: true,
+              action: () => {
+                this.startNewConversation();
+              }
+            }
+          },
+          {
+            content: {
+              label: '关闭',
+              icon: $r('sys.symbol.xmark'),
+              type: IconStyleMode.SMALL,
+              isEnabled: true,
+              action: () => {
+                this.closeChatPage();
+              }
+            }
+          }
+        ]
+      }
+    };
+  }
+
+  private caregiverWideTitleBarContent(): TitleBarContentOptions {
+    return {
+      title: {
+        mainTitle: this.wideTitleBarTitleText()
       },
       menu: {
         value: [
@@ -1043,7 +1083,9 @@ export struct AiChatPage {
     }
     .width('100%')
     .height('100%')
-    .padding({ top: 34 })
+    .padding({
+      top: this.caregiverWideImmersive ? this.caregiverWideTitleBarOffset() + 34 : 34
+    })
     .alignItems(HorizontalAlign.Center)
   }
 
@@ -1264,57 +1306,92 @@ export struct AiChatPage {
   }
 
   @Builder
-  private historyDrawer() {
-    Column({ space: 10 }) {
-      if (this.isWideLayout()) {
-        Row() {
-          Text('对话记录')
-            .fontSize($r('sys.float.Title_S'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-        }
-        .width('100%')
-        .height(68)
-        .padding({ left: 4, right: 4 })
-        .alignItems(VerticalAlign.Center)
-      }
-
-      this.newConversationButton()
-
-      Scroll() {
-        Column({ space: 1 }) {
-          if (this.historyStore.sessions.length === 0) {
-            this.emptyHistory()
-          } else {
-            ForEach(this.historyStore.sessions, (session: ChatSession, index: number) => {
-              if (this.shouldShowSessionGroup(index)) {
-                this.sessionGroupTitle(this.sessionGroupLabel(session.updatedAt))
-              }
-              this.historySessionItem(session)
-            }, (session: ChatSession) => `${session.id}-${session.updatedAt}`)
+  private historyItems() {
+    Column({ space: 1 }) {
+      if (this.historyStore.sessions.length === 0) {
+        this.emptyHistory()
+      } else {
+        ForEach(this.historyStore.sessions, (session: ChatSession, index: number) => {
+          if (this.shouldShowSessionGroup(index)) {
+            this.sessionGroupTitle(this.sessionGroupLabel(session.updatedAt))
           }
-        }
-        .width('100%')
+          this.historySessionItem(session)
+        }, (session: ChatSession) => `${session.id}-${session.updatedAt}`)
       }
-      .layoutWeight(1)
-      .align(Alignment.Top)
-      .scrollBar(BarState.Auto)
-      .edgeEffect(EdgeEffect.Spring)
-      .width('100%')
     }
     .width('100%')
-    .height('100%')
-    .padding({
-      left: 14,
-      right: 14,
-      top: this.isWideLayout() ? this.globalInfoModel.statusBarHeight :
-        this.globalInfoModel.statusBarHeight + 10,
-      bottom: this.isWideLayout() ? Math.max(18, this.globalInfoModel.naviIndicatorHeight + 8) :
-        this.globalInfoModel.naviIndicatorHeight + 8
-    })
-    .backgroundColor($r('sys.color.background_secondary'))
-    .shadow(this.isWideLayout() ? { radius: 0, color: Color.Transparent, offsetX: 0 } :
-      { radius: 18, color: 'rgba(0,0,0,0.12)', offsetX: 3 })
+  }
+
+  @Builder
+  private historyDrawer() {
+    if (this.caregiverWideImmersive && this.isWideLayout()) {
+      Scroll(this.historyScroller) {
+        Column({ space: 10 }) {
+          Row() {
+            Text('对话记录')
+              .fontSize($r('sys.float.Title_S'))
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+          }
+          .width('100%')
+          .height(42)
+          .padding({ left: 4, right: 4 })
+          .alignItems(VerticalAlign.Center)
+
+          this.newConversationButton()
+          this.historyItems()
+        }
+        .width('100%')
+        .padding({ left: 14, right: 14 })
+      }
+      .width('100%')
+      .height('100%')
+      .contentStartOffset(this.caregiverWideTitleBarOffset() + 10)
+      .contentEndOffset(Math.max(18, this.globalInfoModel.naviIndicatorHeight + 8))
+      .scrollBar(BarState.Auto)
+      .edgeEffect(EdgeEffect.Spring)
+      .align(Alignment.Top)
+      .backgroundColor($r('sys.color.background_secondary'))
+    } else {
+      Column({ space: 10 }) {
+        if (this.isWideLayout()) {
+          Row() {
+            Text('对话记录')
+              .fontSize($r('sys.float.Title_S'))
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+          }
+          .width('100%')
+          .height(68)
+          .padding({ left: 4, right: 4 })
+          .alignItems(VerticalAlign.Center)
+        }
+
+        this.newConversationButton()
+
+        Scroll() {
+          this.historyItems()
+        }
+        .layoutWeight(1)
+        .align(Alignment.Top)
+        .scrollBar(BarState.Auto)
+        .edgeEffect(EdgeEffect.Spring)
+        .width('100%')
+      }
+      .width('100%')
+      .height('100%')
+      .padding({
+        left: 14,
+        right: 14,
+        top: this.isWideLayout() ? this.globalInfoModel.statusBarHeight :
+          this.globalInfoModel.statusBarHeight + 10,
+        bottom: this.isWideLayout() ? Math.max(18, this.globalInfoModel.naviIndicatorHeight + 8) :
+          this.globalInfoModel.naviIndicatorHeight + 8
+      })
+      .backgroundColor($r('sys.color.background_secondary'))
+      .shadow(this.isWideLayout() ? { radius: 0, color: Color.Transparent, offsetX: 0 } :
+        { radius: 18, color: 'rgba(0,0,0,0.12)', offsetX: 3 })
+    }
   }
 
   @Builder
@@ -1368,9 +1445,12 @@ export struct AiChatPage {
     .width('100%')
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
-    .contentStartOffset(8)
+    .contentStartOffset(this.caregiverWideImmersive ? this.caregiverWideTitleBarOffset() + 8 : 8)
     .contentEndOffset(8)
-    .margin({ top: this.isWideLayout() ? 16 : this.globalInfoModel.statusBarHeight + CONTENT_TOP_OFFSET })
+    .margin({
+      top: this.caregiverWideImmersive ? 0 :
+        (this.isWideLayout() ? 16 : this.globalInfoModel.statusBarHeight + CONTENT_TOP_OFFSET)
+    })
     .clip(true)
     .layoutWeight(1)
   }
@@ -1454,7 +1534,7 @@ export struct AiChatPage {
   }
 
   @Builder
-  private wideLayout() {
+  private wideLayout(showLocalTitleBar: boolean) {
     Row({ space: 0 }) {
       Column() {
         this.historyDrawer()
@@ -1470,7 +1550,9 @@ export struct AiChatPage {
         .color($r('sys.color.comp_divider'))
 
       Column() {
-        this.wideTitleBar()
+        if (showLocalTitleBar) {
+          this.wideTitleBar()
+        }
         this.wideConversationContent()
       }
       .layoutWeight(1)
@@ -1480,6 +1562,35 @@ export struct AiChatPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('sys.color.background_secondary'))
+  }
+
+  @Builder
+  private caregiverWideImmersiveLayout() {
+    HdsNavDestination() {
+      this.wideLayout(false)
+    }
+    .width('100%')
+    .height('100%')
+    .hideBackButton(true)
+    .titleMode(HdsNavDestinationTitleMode.MINI)
+    .titleBar({
+      padding: {
+        start: LengthMetrics.vp(this.historyDrawerWidth() + 24),
+        end: LengthMetrics.vp(24)
+      },
+      avoidLayoutSafeArea: true,
+      enableComponentSafeArea: false,
+      style: this.titleBarStyle(),
+      content: this.caregiverWideTitleBarContent()
+    })
+    .bindToScrollable([this.historyScroller, this.listScroller])
+    .backgroundColor($r('sys.color.background_primary'))
+    .ignoreLayoutSafeArea(
+      [LayoutSafeAreaType.SYSTEM],
+      [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM]
+    )
+    .geometryTransition(this.geometryId)
+    .transition(TransitionEffect.OPACITY)
   }
 
   @Builder
@@ -1528,21 +1639,25 @@ export struct AiChatPage {
   }
 
   build() {
-    Stack() {
-      if (this.isWideLayout()) {
-        this.wideLayout()
-      } else {
-        this.phoneLayout()
+    if (this.caregiverWideImmersive && this.isWideLayout()) {
+      this.caregiverWideImmersiveLayout()
+    } else {
+      Stack() {
+        if (this.isWideLayout()) {
+          this.wideLayout(true)
+        } else {
+          this.phoneLayout()
+        }
       }
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('sys.color.background_primary'))
+      .ignoreLayoutSafeArea(
+        [LayoutSafeAreaType.SYSTEM],
+        [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM]
+      )
+      .geometryTransition(this.geometryId)
+      .transition(TransitionEffect.OPACITY)
     }
-    .width('100%')
-    .height('100%')
-    .backgroundColor($r('sys.color.background_primary'))
-    .ignoreLayoutSafeArea(
-      [LayoutSafeAreaType.SYSTEM],
-      [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM]
-    )
-    .geometryTransition(this.geometryId)
-    .transition(TransitionEffect.OPACITY)
   }
 }

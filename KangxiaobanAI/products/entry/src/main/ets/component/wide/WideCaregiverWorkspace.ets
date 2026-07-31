@@ -23,6 +23,7 @@ export struct WideCaregiverWorkspace {
   @Param @Require primaryTabIndex: number;
   @Param topBarHeight: number = 0;
   @Param @Require homeScroller: Scroller;
+  @Param @Require homeTaskDetailScroller: Scroller;
   @Param @Require residentMasterScroller: Scroller;
   @Param @Require residentDetailScroller: Scroller;
   @Param @Require messageListScroller: Scroller;
@@ -132,6 +133,7 @@ export struct WideCaregiverWorkspace {
           compactWidth: this.compactWidth,
           topBarHeight: this.topBarHeight,
           pageScroller: this.homeScroller,
+          taskDetailScroller: this.homeTaskDetailScroller,
           naviIndicatorHeight: this.naviIndicatorHeight,
           backRequestToken: this.homeBackRequestToken,
           onOpenAiChat: () => this.onOpenAiChat(),

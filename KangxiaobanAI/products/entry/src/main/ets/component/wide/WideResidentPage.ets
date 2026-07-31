@@ -59,6 +59,18 @@ export struct WideResidentPage {
   @Param requestedResidentId: string = '';
   @Param residentSelectionRequestToken: number = 0;
   @Event onLocalDetailVisibilityChange: (visible: boolean) => void = (_visible: boolean) => {};
+
+  private pageTopInset(): number {
+    return this.topBarHeight + (this.compactWidth ? 16 : 20);
+  }
+
+  private masterFilterHeight(): number {
+    return 72;
+  }
+
+  private compactBackBarHeight(): number {
+    return 52;
+  }
   @Local residentFilterIndex: number = 0;
   private residentFilterItems: WideSlidingCapsuleItem[] = [
     { title: '全部 5', index: 0 },
@@ -401,7 +413,7 @@ export struct WideResidentPage {
       }
       .width('100%')
       .height('100%')
-      .padding({ left: 16, right: 16, top: this.topBarHeight + 16, bottom: 16 })
+      .padding({ left: 16, right: 16, bottom: 16 })
       .backgroundColor($r('sys.color.background_secondary'))
     } else {
       Row({ space: 20 }) {
@@ -410,7 +422,7 @@ export struct WideResidentPage {
       }
       .width('100%')
       .height('100%')
-      .padding({ left: 24, right: 24, top: this.topBarHeight + 20, bottom: 24 })
+      .padding({ left: 24, right: 24, bottom: 24 })
       .backgroundColor($r('sys.color.background_secondary'))
       .alignItems(VerticalAlign.Top)
     }
@@ -418,12 +430,21 @@ export struct WideResidentPage {
 
   @Builder
   private masterPane() {
-    Column({ space: 0 }) {
+    Stack({ alignContent: Alignment.TopStart }) {
       Column() {
-        this.filterBar()
+        Row()
+          .width('100%')
+          .height(this.pageTopInset())
+
+        Column()
+          .width('100%')
+          .layoutWeight(1)
+          .backgroundColor($r('sys.color.comp_background_primary'))
+          .borderRadius(16)
+          .border({ width: 0.5, color: $r('sys.color.comp_divider') })
       }
       .width('100%')
-      .padding({ left: 16, right: 16, top: 16, bottom: 12 })
+      .height('100%')
 
       List({ scroller: this.masterScroller, space: 0 }) {
         if (this.filteredResidents().length === 0) {
@@ -459,17 +480,25 @@ export struct WideResidentPage {
         }
       }
       .width('100%')
-      .layoutWeight(1)
+      .height('100%')
       .padding({ left: 12, right: 12, top: 4, bottom: 10 + this.naviIndicatorHeight })
       .scrollBar(BarState.Auto)
       .edgeEffect(EdgeEffect.Spring)
+      .contentStartOffset(this.pageTopInset() + this.masterFilterHeight())
+
+      Column() {
+        this.filterBar()
+      }
+      .width('100%')
+      .height(this.masterFilterHeight())
+      .padding({ left: 16, right: 16, top: 16, bottom: 12 })
+      .margin({ top: this.pageTopInset() })
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius({ topLeft: 16, topRight: 16 })
     }
     .width(this.compactWidth ? '100%' : 360)
     .height('100%')
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-    .clip(true)
+    .backgroundColor(Color.Transparent)
   }
 
   @Builder
@@ -614,11 +643,7 @@ export struct WideResidentPage {
 
   @Builder
   private residentDetailPane(resident: ResidentData) {
-    Column({ space: 0 }) {
-      if (this.compactWidth) {
-        this.compactBackBar()
-      }
-
+    Stack({ alignContent: Alignment.TopStart }) {
       Scroll(this.detailScroller) {
         Column({ space: 16 }) {
           this.residentProfileSurface(resident)
@@ -639,10 +664,21 @@ export struct WideResidentPage {
         .padding({ bottom: 8 + this.naviIndicatorHeight })
       }
       .width('100%')
-      .layoutWeight(1)
+      .height('100%')
       .align(Alignment.TopStart)
       .scrollBar(BarState.Auto)
       .edgeEffect(EdgeEffect.Spring)
+      .contentStartOffset(this.pageTopInset() + (this.compactWidth ? this.compactBackBarHeight() : 0))
+
+      if (this.compactWidth) {
+        Column() {
+          this.compactBackBar()
+        }
+        .width('100%')
+        .height(this.compactBackBarHeight())
+        .margin({ top: this.pageTopInset() })
+        .backgroundColor($r('sys.color.background_secondary'))
+      }
     }
     .layoutWeight(1)
     .height('100%')

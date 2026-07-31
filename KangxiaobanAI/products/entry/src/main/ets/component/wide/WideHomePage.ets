@@ -59,6 +59,7 @@ export struct WideHomePage {
   @Param compactWidth: boolean = false;
   @Param topBarHeight: number = 0;
   @Param @Require pageScroller: Scroller;
+  @Param @Require taskDetailScroller: Scroller;
   @Param naviIndicatorHeight: number = 0;
   @Param backRequestToken: number = 0;
   @Event onOpenAiChat: () => void = () => {};
@@ -83,6 +84,7 @@ export struct WideHomePage {
   @Local completedTaskIds: string[] = [];
   @Local noteDrafts: Map<string, string> = new Map<string, string>();
   @Local validationTaskId: string = '';
+  @Local taskPanelHeaderHeight: number = 88;
   private timerId: number = -1;
 
   private taskData: CareTaskData[] = [
@@ -210,6 +212,18 @@ export struct WideHomePage {
     if (event.type === KeyType.Down &&
       (event.keyCode === KeyCode.KEYCODE_ENTER || event.keyCode === KeyCode.KEYCODE_SPACE)) {
       action();
+    }
+  }
+
+  private updateTaskPanelHeaderHeight(height: Length): void {
+    let nextHeight: number = 0;
+    if (typeof height === 'number') {
+      nextHeight = height;
+    } else if (typeof height === 'string') {
+      nextHeight = parseFloat(height);
+    }
+    if (nextHeight > 0 && Math.abs(nextHeight - this.taskPanelHeaderHeight) > 0.5) {
+      this.taskPanelHeaderHeight = nextHeight;
     }
   }
 
@@ -1122,7 +1136,7 @@ export struct WideHomePage {
 
   @Builder
   private taskDetailPanel(task: CareTaskData) {
-    Column({ space: 0 }) {
+    Stack({ alignContent: Alignment.TopStart }) {
       Row({ space: 12 }) {
         Column({ space: 4 }) {
           Row({ space: 8 }) {
@@ -1160,11 +1174,18 @@ export struct WideHomePage {
         .onClick(() => this.closeTaskPanel())
       }
       .width('100%')
+      .constraintSize({ minHeight: 88 })
       .padding({ left: 22, right: 18, top: 22, bottom: 18 })
       .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
+      .margin({ top: this.topBarHeight })
+      .backgroundColor($r('sys.color.comp_background_primary'))
       .alignItems(VerticalAlign.Top)
+      .zIndex(1)
+      .onAreaChange((_oldValue: Area, newValue: Area) => {
+        this.updateTaskPanelHeaderHeight(newValue.height);
+      })
 
-      Scroll() {
+      Scroll(this.taskDetailScroller) {
         Column({ space: 18 }) {
           Column({ space: 10 }) {
             Text(task.summary)
@@ -1324,49 +1345,58 @@ export struct WideHomePage {
         .alignItems(HorizontalAlign.Start)
       }
       .width('100%')
-      .layoutWeight(1)
+      .height('100%')
       .scrollBar(BarState.Auto)
       .edgeEffect(EdgeEffect.Spring)
+      .contentStartOffset(this.topBarHeight + this.taskPanelHeaderHeight)
+      .contentEndOffset(70 + this.naviIndicatorHeight)
+      .align(Alignment.TopStart)
 
-      Row({ space: 10 }) {
-        Button('查看长者')
-          .width(118)
-          .height(42)
-          .borderRadius(21)
-          .fontSize($r('sys.float.Body_M'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-          .backgroundColor($r('sys.color.comp_background_secondary'))
-          .keyboardFocusStyle()
-          .onClick(() => {
-            this.closeTaskPanel();
-            this.onOpenResident(task.residentId);
-          })
+      Column() {
+        Row({ space: 10 }) {
+          Button('查看长者')
+            .width(118)
+            .height(42)
+            .borderRadius(21)
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .backgroundColor($r('sys.color.comp_background_secondary'))
+            .keyboardFocusStyle()
+            .onClick(() => {
+              this.closeTaskPanel();
+              this.onOpenResident(task.residentId);
+            })
 
-        Button(this.taskActionLabel(task))
-          .layoutWeight(1)
-          .height(42)
-          .borderRadius(21)
-          .fontSize($r('sys.float.Body_M'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.effectiveTaskState(task) === 'done' ? $r('sys.color.font_tertiary') :
-            $r('app.color.text_on_brand'))
-          .backgroundColor(this.effectiveTaskState(task) === 'done' ? $r('sys.color.comp_background_secondary') :
-            $r('app.color.brand_blue'))
-          .enabled(this.effectiveTaskState(task) !== 'done')
-          .keyboardFocusStyle()
-          .onClick(() => this.handleTaskAction(task))
+          Button(this.taskActionLabel(task))
+            .layoutWeight(1)
+            .height(42)
+            .borderRadius(21)
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor(this.effectiveTaskState(task) === 'done' ? $r('sys.color.font_tertiary') :
+              $r('app.color.text_on_brand'))
+            .backgroundColor(this.effectiveTaskState(task) === 'done' ? $r('sys.color.comp_background_secondary') :
+              $r('app.color.brand_blue'))
+            .enabled(this.effectiveTaskState(task) !== 'done')
+            .keyboardFocusStyle()
+            .onClick(() => this.handleTaskAction(task))
+        }
+        .width('100%')
+        .height(70 + this.naviIndicatorHeight)
+        .padding({ left: 18, right: 18, bottom: this.naviIndicatorHeight })
+        .border({ width: { top: 0.5 }, color: { top: $r('sys.color.comp_divider') } })
+        .backgroundColor($r('sys.color.comp_background_primary'))
+        .alignItems(VerticalAlign.Center)
       }
       .width('100%')
-      .height(70 + this.naviIndicatorHeight)
-      .padding({ left: 18, right: 18, bottom: this.naviIndicatorHeight })
-      .border({ width: { top: 0.5 }, color: { top: $r('sys.color.comp_divider') } })
-      .backgroundColor($r('sys.color.comp_background_primary'))
-      .alignItems(VerticalAlign.Center)
+      .height('100%')
+      .justifyContent(FlexAlign.End)
+      .hitTestBehavior(HitTestMode.None)
+      .zIndex(1)
     }
     .width(this.compactWidth ? '88%' : 456)
     .height('100%')
-    .padding({ top: this.topBarHeight })
     .backgroundColor($r('sys.color.comp_background_primary'))
     .shadow(ShadowStyle.OUTER_DEFAULT_MD)
     .transition(TransitionEffect.OPACITY.animation({ duration: 180, curve: Curve.EaseOut }))

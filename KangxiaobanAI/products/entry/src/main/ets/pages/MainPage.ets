@@ -79,6 +79,7 @@ struct MainPage {
   @Local caregiverBackRequestToken: number = 0;
   @Local caregiverUnreadMessageCount: number = 3;
   private wideHomeScroller: Scroller = new Scroller();
+  private wideHomeTaskDetailScroller: Scroller = new Scroller();
   private wideResidentMasterScroller: Scroller = new Scroller();
   private wideResidentDetailScroller: Scroller = new Scroller();
   private wideMessageListScroller: Scroller = new Scroller();
@@ -161,6 +162,8 @@ struct MainPage {
       };
     }
     return {
+      avoidLayoutSafeArea: true,
+      enableComponentSafeArea: false,
       content: {
         title: {
           mainTitle: this.getCurrentPageTitle(),
@@ -176,13 +179,25 @@ struct MainPage {
       return PAGE_SCROLLER_MAP.get(PageKeyEnum.ADAPTIVE_TAB) ?? [];
     }
     if (this.isCaregiverWideWorkspace()) {
-      return [
-        this.wideHomeScroller,
-        this.wideResidentMasterScroller,
-        this.wideResidentDetailScroller,
-        this.wideMessageListScroller,
-        this.wideMessageChatScroller
-      ];
+      const activeTabIndex: number = this.wideCaregiverActiveTabIndex();
+      if (activeTabIndex === 0) {
+        return this.caregiverHasLocalBackLayer ?
+          [this.wideHomeTaskDetailScroller] : [this.wideHomeScroller];
+      }
+      if (activeTabIndex === 1) {
+        if (!this.useCompactCaregiverWorkspace()) {
+          return [this.wideResidentMasterScroller, this.wideResidentDetailScroller];
+        }
+        return this.caregiverHasLocalBackLayer ?
+          [this.wideResidentDetailScroller] : [this.wideResidentMasterScroller];
+      }
+      if (activeTabIndex === 2) {
+        if (!this.useCompactCaregiverWorkspace()) {
+          return [this.wideMessageListScroller, this.wideMessageChatScroller];
+        }
+        return this.caregiverHasLocalBackLayer ?
+          [this.wideMessageChatScroller] : [this.wideMessageListScroller];
+      }
     }
     return [];
   }
@@ -287,7 +302,7 @@ struct MainPage {
   }
 
   private isCaregiverWideWorkspace(): boolean {
-    return this.isWideLayout() && this.globalInfoModel.role !== '管理' && this.globalInfoModel.role !== '医师';
+    return this.isWideLayout() && this.globalInfoModel.role === '护工';
   }
 
   private useCompactCaregiverWorkspace(): boolean {
@@ -796,6 +811,7 @@ struct MainPage {
         primaryTabIndex: this.primaryTabIndex,
         topBarHeight: this.wideCaregiverTopBarHeight(),
         homeScroller: this.wideHomeScroller,
+        homeTaskDetailScroller: this.wideHomeTaskDetailScroller,
         residentMasterScroller: this.wideResidentMasterScroller,
         residentDetailScroller: this.wideResidentDetailScroller,
         messageListScroller: this.wideMessageListScroller,
@@ -832,6 +848,7 @@ struct MainPage {
   private aiChatCover() {
     AiChatPage({
       geometryId: 'aiReminderCard',
+      caregiverWideImmersive: this.isCaregiverWideWorkspace(),
       onClose: () => {
         this.closeAiChat();
       }

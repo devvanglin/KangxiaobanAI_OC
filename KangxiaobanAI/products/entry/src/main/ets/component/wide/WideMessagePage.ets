@@ -377,6 +377,18 @@ export struct WideMessagePage {
     return MESSAGE_FILTER_VALUES[this.activeFilterIndex] ?? 'all';
   }
 
+  private paneTopOffset(): number {
+    return this.topBarHeight + (this.compactWidth ? 0 : 20);
+  }
+
+  private conversationListStartOffset(): number {
+    return this.paneTopOffset() + 16 + 40 + 12 + 44 + 12 + 16;
+  }
+
+  private chatHistoryStartOffset(): number {
+    return this.paneTopOffset() + (this.compactWidth ? 60 : 0) + 72;
+  }
+
   private isUnread(conversationId: string): boolean {
     return this.unreadConversationIds.includes(conversationId);
   }
@@ -702,7 +714,9 @@ export struct WideMessagePage {
         }, (item: WideConversationData) => item.id)
       }
       .width('100%')
-      .layoutWeight(1)
+      .height('100%')
+      .padding({ left: 14, right: 14, bottom: 16 + this.naviIndicatorHeight })
+      .contentStartOffset(this.conversationListStartOffset())
       .scrollBar(BarState.Auto)
       .edgeEffect(EdgeEffect.Spring)
     } else {
@@ -719,7 +733,13 @@ export struct WideMessagePage {
           .fontColor($r('sys.color.font_tertiary'))
       }
       .width('100%')
-      .layoutWeight(1)
+      .height('100%')
+      .padding({
+        left: 14,
+        right: 14,
+        top: this.conversationListStartOffset(),
+        bottom: 16 + this.naviIndicatorHeight
+      })
       .justifyContent(FlexAlign.Center)
       .alignItems(HorizontalAlign.Center)
     }
@@ -727,18 +747,53 @@ export struct WideMessagePage {
 
   @Builder
   private listPane() {
-    Column({ space: 12 }) {
-      this.messageSearch()
-      this.filterBar()
+    Stack({ alignContent: Alignment.TopStart }) {
+      Column() {
+        Row()
+          .width('100%')
+          .height(this.paneTopOffset())
+
+        Column()
+          .width('100%')
+          .layoutWeight(1)
+          .backgroundColor($r('sys.color.comp_background_primary'))
+          .borderRadius(this.compactWidth ? 0 : 20)
+      }
+      .width('100%')
+      .height('100%')
+      .hitTestBehavior(HitTestMode.None)
+
       this.conversationList()
+
+      if (!this.compactWidth) {
+        Row()
+          .width('100%')
+          .height(20)
+          .margin({ top: this.topBarHeight })
+          .backgroundColor($r('sys.color.background_secondary'))
+          .hitTestBehavior(HitTestMode.None)
+      }
+
+      Column({ space: 12 }) {
+        this.messageSearch()
+        this.filterBar()
+      }
+      .width('100%')
+      .padding({ left: 14, right: 14, top: 16, bottom: 12 })
+      .margin({ top: this.paneTopOffset() })
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius({
+        topLeft: this.compactWidth ? 0 : 20,
+        topRight: this.compactWidth ? 0 : 20,
+        bottomLeft: 0,
+        bottomRight: 0
+      })
+      .clip(true)
+      .alignItems(HorizontalAlign.Start)
     }
     .width(this.compactWidth ? '100%' : 400)
     .height('100%')
-    .padding({ left: 14, right: 14, top: 16, bottom: 16 + this.naviIndicatorHeight })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(this.compactWidth ? 0 : 20)
-    .clip(true)
-    .alignItems(HorizontalAlign.Start)
+    .backgroundColor($r('sys.color.background_secondary'))
   }
 
   @Builder
@@ -1007,6 +1062,7 @@ export struct WideMessagePage {
     .width('100%')
     .layoutWeight(1)
     .padding({ left: 24, right: 24, top: 18, bottom: 12 })
+    .contentStartOffset(this.chatHistoryStartOffset())
     .scrollBar(BarState.Auto)
     .edgeEffect(EdgeEffect.Spring)
     .backgroundColor($r('sys.color.background_secondary'))
@@ -1088,26 +1144,79 @@ export struct WideMessagePage {
   }
 
   @Builder
+  private detailFooter() {
+    Column() {
+      if (this.selectedConversation()!.replyable) {
+        this.composer()
+      } else {
+        this.readOnlyFooter()
+      }
+    }
+    .width('100%')
+    .borderRadius({
+      topLeft: 0,
+      topRight: 0,
+      bottomLeft: this.compactWidth ? 0 : 20,
+      bottomRight: this.compactWidth ? 0 : 20
+    })
+    .clip(true)
+  }
+
+  @Builder
   private detailPane() {
     if (this.selectedConversation()) {
-      Column({ space: 0 }) {
-        if (this.compactWidth) {
-          this.compactBackBar()
+      Stack({ alignContent: Alignment.TopStart }) {
+        Column() {
+          Row()
+            .width('100%')
+            .height(this.paneTopOffset())
+
+          Column()
+            .width('100%')
+            .layoutWeight(1)
+            .backgroundColor(this.compactWidth ? $r('sys.color.background_secondary') :
+              $r('sys.color.comp_background_primary'))
+            .borderRadius(this.compactWidth ? 0 : 20)
         }
-        this.conversationHeader()
-        this.chatHistory()
-        if (this.selectedConversation()!.replyable) {
-          this.composer()
-        } else {
-          this.readOnlyFooter()
+        .width('100%')
+        .height('100%')
+        .hitTestBehavior(HitTestMode.None)
+
+        Column({ space: 0 }) {
+          this.chatHistory()
+          this.detailFooter()
         }
+        .width('100%')
+        .height('100%')
+
+        if (!this.compactWidth) {
+          Row()
+            .width('100%')
+            .height(20)
+            .margin({ top: this.topBarHeight })
+            .backgroundColor($r('sys.color.background_secondary'))
+            .hitTestBehavior(HitTestMode.None)
+        }
+
+        Column({ space: 0 }) {
+          if (this.compactWidth) {
+            this.compactBackBar()
+          }
+          this.conversationHeader()
+        }
+        .width('100%')
+        .margin({ top: this.paneTopOffset() })
+        .borderRadius({
+          topLeft: this.compactWidth ? 0 : 20,
+          topRight: this.compactWidth ? 0 : 20,
+          bottomLeft: 0,
+          bottomRight: 0
+        })
+        .clip(true)
       }
       .layoutWeight(1)
       .height('100%')
-      .backgroundColor(this.compactWidth ? $r('sys.color.background_secondary') :
-        $r('sys.color.comp_background_primary'))
-      .borderRadius(this.compactWidth ? 0 : 20)
-      .clip(true)
+      .backgroundColor($r('sys.color.background_secondary'))
     } else {
       Column({ space: 12 }) {
         SymbolGlyph($r('sys.symbol.message_on_message_fill'))
@@ -1120,6 +1229,7 @@ export struct WideMessagePage {
       }
       .layoutWeight(1)
       .height('100%')
+      .padding({ top: this.paneTopOffset() })
       .justifyContent(FlexAlign.Center)
       .alignItems(HorizontalAlign.Center)
       .backgroundColor(this.compactWidth ? $r('sys.color.background_secondary') :
@@ -1140,7 +1250,6 @@ export struct WideMessagePage {
       }
       .width('100%')
       .height('100%')
-      .padding({ top: this.topBarHeight })
       .backgroundColor($r('sys.color.background_secondary'))
     } else {
       Row({ space: 16 }) {
@@ -1149,7 +1258,7 @@ export struct WideMessagePage {
       }
       .width('100%')
       .height('100%')
-      .padding({ left: 24, right: 24, top: this.topBarHeight + 20, bottom: 24 })
+      .padding({ left: 24, right: 24, bottom: 24 })
       .backgroundColor($r('sys.color.background_secondary'))
     }
   }
