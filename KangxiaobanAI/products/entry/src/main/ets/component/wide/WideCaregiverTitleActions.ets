@@ -22,6 +22,7 @@ export struct WideCaregiverTitleActions {
   @Param @Require primaryTabIndex: number;
   @Param unreadMessageCount: number = 0;
   @Param compactWidth: boolean = false;
+  @Param iconOnlyNavigation: boolean = false;
   @Event onSwitchTab: (index: number) => void = (_index: number) => {};
   @Event onOpenAiChat: () => void = () => {};
   @Event onOpenAbout: () => void = () => {};
@@ -72,7 +73,8 @@ export struct WideCaregiverTitleActions {
       WideSlidingCapsule({
         items: this.navigationItems(),
         selectedIndex: this.activeTabIndex(),
-        itemWidth: this.compactWidth ? 96 : 104,
+        itemWidth: this.iconOnlyNavigation ? 48 : (this.compactWidth ? 96 : 104),
+        iconOnly: this.iconOnlyNavigation,
         onSelect: (index: number) => this.onSwitchTab(index)
       })
     }

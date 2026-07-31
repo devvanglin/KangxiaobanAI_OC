@@ -1161,17 +1161,19 @@ export struct WideHomePage {
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
 
-        Button({ type: ButtonType.Circle, stateEffect: true }) {
-          SymbolGlyph($r('sys.symbol.xmark'))
-            .fontSize(18)
-            .fontColor([$r('sys.color.icon_primary')])
+        if (!this.compactWidth) {
+          Button({ type: ButtonType.Circle, stateEffect: true }) {
+            SymbolGlyph($r('sys.symbol.xmark'))
+              .fontSize(18)
+              .fontColor([$r('sys.color.icon_primary')])
+          }
+          .width(40)
+          .height(40)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .keyboardFocusStyle()
+          .accessibilityText('关闭任务详情')
+          .onClick(() => this.closeTaskPanel())
         }
-        .width(40)
-        .height(40)
-        .backgroundColor($r('sys.color.comp_background_secondary'))
-        .keyboardFocusStyle()
-        .accessibilityText('关闭任务详情')
-        .onClick(() => this.closeTaskPanel())
       }
       .width('100%')
       .constraintSize({ minHeight: 88 })
@@ -1341,14 +1343,18 @@ export struct WideHomePage {
           .alignItems(HorizontalAlign.Start)
         }
         .width('100%')
-        .padding({ left: 22, right: 22, top: 20, bottom: 24 })
+        .padding({
+          left: 22,
+          right: 22,
+          top: this.topBarHeight + this.taskPanelHeaderHeight + 20,
+          bottom: 24
+        })
         .alignItems(HorizontalAlign.Start)
       }
       .width('100%')
       .height('100%')
       .scrollBar(BarState.Auto)
       .edgeEffect(EdgeEffect.Spring)
-      .contentStartOffset(this.topBarHeight + this.taskPanelHeaderHeight)
       .contentEndOffset(70 + this.naviIndicatorHeight)
       .align(Alignment.TopStart)
 
@@ -1424,7 +1430,7 @@ export struct WideHomePage {
         .padding({
           left: this.compactWidth ? 16 : 24,
           right: this.compactWidth ? 16 : 24,
-          top: this.compactWidth ? 16 : 20,
+          top: this.topBarHeight + (this.compactWidth ? 16 : 20),
           bottom: 28 + this.naviIndicatorHeight
         })
         .alignItems(HorizontalAlign.Center)
@@ -1433,7 +1439,6 @@ export struct WideHomePage {
       .height('100%')
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
-      .contentStartOffset(this.topBarHeight)
       .backgroundColor($r('sys.color.background_secondary'))
 
       if (this.isTaskPanelOpen && this.selectedTask() !== undefined) {

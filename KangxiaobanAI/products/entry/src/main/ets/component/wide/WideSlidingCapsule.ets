@@ -31,6 +31,7 @@ export struct WideSlidingCapsule {
   @Param @Require selectedIndex: number;
   @Param @Require itemWidth: number;
   @Param fillWidth: boolean = false;
+  @Param iconOnly: boolean = false;
   @Event onSelect: (index: number) => void = (_index: number) => {};
   @Local hoveredIndex: number = -1;
   @Local focusedIndex: number = -1;
@@ -102,21 +103,23 @@ export struct WideSlidingCapsule {
   @Builder
   private capsuleItem(item: WideSlidingCapsuleItem) {
     Stack({ alignContent: Alignment.TopEnd }) {
-      Row({ space: item.symbol === undefined && !this.showInlineBadge(item) ? 0 : 7 }) {
+      Row({ space: this.iconOnly || (item.symbol === undefined && !this.showInlineBadge(item)) ? 0 : 7 }) {
         if (item.symbol !== undefined) {
           SymbolGlyph(item.symbol)
-            .fontSize(17)
+            .fontSize(this.iconOnly ? 19 : 17)
             .fontColor([this.selectedIndex === item.index ? $r('app.color.brand_blue') :
               $r('sys.color.icon_secondary')])
         }
 
-        Text(item.title)
-          .fontSize($r('sys.float.Body_M'))
-          .fontWeight(this.selectedIndex === item.index ? FontWeight.Medium : FontWeight.Regular)
-          .fontColor(this.selectedIndex === item.index ? $r('app.color.brand_blue') :
-            $r('sys.color.font_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        if (!this.iconOnly) {
+          Text(item.title)
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(this.selectedIndex === item.index ? FontWeight.Medium : FontWeight.Regular)
+            .fontColor(this.selectedIndex === item.index ? $r('app.color.brand_blue') :
+              $r('sys.color.font_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
 
         if (this.showInlineBadge(item)) {
           Text(item.badgeText)
@@ -132,7 +135,7 @@ export struct WideSlidingCapsule {
       }
       .width('100%')
       .height('100%')
-      .padding({ left: 12, right: 12 })
+      .padding({ left: this.iconOnly ? 0 : 12, right: this.iconOnly ? 0 : 12 })
       .justifyContent(FlexAlign.Center)
       .alignItems(VerticalAlign.Center)
 

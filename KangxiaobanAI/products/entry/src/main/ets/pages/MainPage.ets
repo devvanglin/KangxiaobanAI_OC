@@ -28,10 +28,14 @@ import {
   SuffixArrow,
   SuffixText,
   TextStyleMode,
+  TitleBarContentOptions,
   TitleBarStyleOptions,
 } from '@kit.UIDesignKit';
 import { TabPageView } from '../component/TabPageView';
-import { WideCaregiverWorkspace } from '../component/wide/WideCaregiverWorkspace';
+import {
+  CaregiverMaterialScrollerOwner,
+  WideCaregiverWorkspace
+} from '../component/wide/WideCaregiverWorkspace';
 import { WideCaregiverTitleActions } from '../component/wide/WideCaregiverTitleActions';
 import { WideDoctorWorkspace } from '../component/wide/WideDoctorWorkspace';
 import { WideAdminWorkspace } from '../component/wide/WideAdminWorkspace';
@@ -47,6 +51,7 @@ import { WindowUtil } from '../util/WindowUtil';
 
 const TAG: string = '[MainPage]';
 const CAREGIVER_FULL_WORKSPACE_MIN_WIDTH: number = 1180;
+const CAREGIVER_TEXT_NAVIGATION_MIN_WIDTH: number = 680;
 const WIDE_TITLE_BAR_HEIGHT: number = 56;
 
 interface WideNavItem {
@@ -78,6 +83,7 @@ struct MainPage {
   @Local caregiverHasLocalBackLayer: boolean = false;
   @Local caregiverBackRequestToken: number = 0;
   @Local caregiverUnreadMessageCount: number = 3;
+  @Local caregiverMaterialScrollerOwner: CaregiverMaterialScrollerOwner = 'residentDetail';
   private wideHomeScroller: Scroller = new Scroller();
   private wideHomeTaskDetailScroller: Scroller = new Scroller();
   private wideResidentMasterScroller: Scroller = new Scroller();
@@ -116,8 +122,25 @@ struct MainPage {
   }
 
   private wideCaregiverPageTitle(): string {
-    const titles: string[] = ['首页', '长者管理', '消息中心'];
+    const titles: string[] = ['首页', '长者', '消息'];
     return titles[this.wideCaregiverActiveTabIndex()] ?? titles[0];
+  }
+
+  private wideCaregiverBackLabel(): string {
+    const labels: string[] = ['返回首页', '返回长者列表', '返回会话列表'];
+    return labels[this.wideCaregiverActiveTabIndex()] ?? labels[0];
+  }
+
+  private useIconOnlyCaregiverNavigation(): boolean {
+    return this.globalInfoModel.deviceWidth > 0 &&
+      this.globalInfoModel.deviceWidth < CAREGIVER_TEXT_NAVIGATION_MIN_WIDTH;
+  }
+
+  private showCaregiverLocalBackButton(): boolean {
+    return this.isCaregiverWideWorkspace() &&
+      this.useCompactCaregiverWorkspace() &&
+      this.pathStack.size() === 0 &&
+      this.caregiverHasLocalBackLayer;
   }
 
   private wideCaregiverTitleBarPadding(): number {
@@ -144,6 +167,23 @@ struct MainPage {
   private navigationTitleBarOptions(): HdsNavigationTitleBarOptions {
     if (this.isCaregiverWideWorkspace()) {
       const horizontalPadding: number = this.wideCaregiverTitleBarPadding();
+      const content: TitleBarContentOptions = {
+        title: {
+          mainTitle: this.wideCaregiverPageTitle()
+        },
+        menu: { value: [] },
+        stackBuilder: (): void => this.wideCaregiverTitleActions()
+      };
+      if (this.showCaregiverLocalBackButton()) {
+        content.backIcon = {
+          label: this.wideCaregiverBackLabel(),
+          icon: $r('sys.symbol.chevron_left'),
+          isEnabled: true,
+          action: (): void => {
+            this.caregiverBackRequestToken += 1;
+          }
+        };
+      }
       return {
         padding: {
           start: LengthMetrics.vp(horizontalPadding),
@@ -151,13 +191,7 @@ struct MainPage {
         },
         avoidLayoutSafeArea: true,
         enableComponentSafeArea: false,
-        content: {
-          title: {
-            mainTitle: this.wideCaregiverPageTitle()
-          },
-          menu: { value: [] },
-          stackBuilder: (): void => this.wideCaregiverTitleActions()
-        },
+        content: content,
         style: this.immersiveTitleBarStyle()
       };
     }
@@ -186,14 +220,16 @@ struct MainPage {
       }
       if (activeTabIndex === 1) {
         if (!this.useCompactCaregiverWorkspace()) {
-          return [this.wideResidentMasterScroller, this.wideResidentDetailScroller];
+          return [this.caregiverMaterialScrollerOwner === 'residentMaster' ?
+            this.wideResidentMasterScroller : this.wideResidentDetailScroller];
         }
         return this.caregiverHasLocalBackLayer ?
           [this.wideResidentDetailScroller] : [this.wideResidentMasterScroller];
       }
       if (activeTabIndex === 2) {
         if (!this.useCompactCaregiverWorkspace()) {
-          return [this.wideMessageListScroller, this.wideMessageChatScroller];
+          return [this.caregiverMaterialScrollerOwner === 'messageList' ?
+            this.wideMessageListScroller : this.wideMessageChatScroller];
         }
         return this.caregiverHasLocalBackLayer ?
           [this.wideMessageChatScroller] : [this.wideMessageListScroller];
@@ -724,8 +760,15 @@ struct MainPage {
     }
     .barOverlap(true)
     .vertical(false)
+    .onAnimationStart((_index: number, targetIndex: number, _event: TabsAnimationEvent) => {
+      if (this.currentTabIndex !== targetIndex) {
+        this.updateTabSelection(targetIndex);
+      }
+    })
     .onChange((index: number) => {
-      this.updateTabSelection(index);
+      if (this.currentTabIndex !== index) {
+        this.updateTabSelection(index);
+      }
     })
     .barPosition(BarPosition.End)
     .barFloatingStyle({
@@ -754,6 +797,7 @@ struct MainPage {
       primaryTabIndex: this.primaryTabIndex,
       unreadMessageCount: this.caregiverUnreadMessageCount,
       compactWidth: this.useCompactCaregiverWorkspace(),
+      iconOnlyNavigation: this.useIconOnlyCaregiverNavigation(),
       onSwitchTab: (index: number) => {
         this.switchTab(index);
       },
@@ -825,6 +869,9 @@ struct MainPage {
         onLocalBackStateChange: (hasLocalLayer: boolean) => {
           this.caregiverHasLocalBackLayer = hasLocalLayer;
         },
+        onMaterialScrollerOwnerChange: (owner: CaregiverMaterialScrollerOwner) => {
+          this.caregiverMaterialScrollerOwner = owner;
+        },
         onUnreadCountChange: (count: number) => {
           this.caregiverUnreadMessageCount = count;
         },
@@ -869,7 +916,7 @@ struct MainPage {
         .navDestination(this.destinationBuilder)
         .titleBar(this.navigationTitleBarOptions())
         .bindToScrollable(this.navigationScrollers())
-        .hideBackButton(true)
+        .hideBackButton(!this.showCaregiverLocalBackButton())
         .hideTitleBar(this.isWideLayout() && !this.isCaregiverWideWorkspace(), true)
         .titleMode(HdsNavigationTitleMode.MINI)
         .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])

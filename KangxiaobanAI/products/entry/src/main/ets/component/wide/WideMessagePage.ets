@@ -79,7 +79,7 @@ const DEMO_CONVERSATIONS: WideConversationData[] = [
     title: '护理部',
     subtitle: '工作通知 · 32人',
     avatar: '护',
-    preview: '课前案例已经更新到工作台，请在培训前完成阅读。',
+    preview: '课前案例已经更新，请在培训前完成阅读。',
     time: '09:46',
     replyable: true
   },
@@ -220,7 +220,7 @@ const DEMO_CHAT_RECORDS: WideChatRecord[] = [
     conversationId: 'care-department',
     role: 'incoming',
     author: '护理部',
-    content: '课前案例已经更新到工作台，请在培训前完成阅读。',
+    content: '课前案例已经更新，请在培训前完成阅读。',
     time: '09:46',
     dayLabel: '今天'
   },
@@ -295,7 +295,7 @@ const DEMO_CHAT_RECORDS: WideChatRecord[] = [
     conversationId: 'system',
     role: 'system',
     author: '排班更新',
-    content: '7月19日早班安排已更新，请前往工作台查看。',
+    content: '7月19日早班安排已更新，请前往首页查看。',
     time: '昨天 18:30',
     dayLabel: '昨天'
   },
@@ -319,6 +319,8 @@ export struct WideMessagePage {
   @Param backRequestToken: number = 0;
   @Event onLocalDetailVisibilityChange: (visible: boolean) => void = (_visible: boolean) => {};
   @Event onUnreadCountChange: (count: number) => void = (_count: number) => {};
+  @Event onListScrollerActive: () => void = () => {};
+  @Event onChatScrollerActive: () => void = () => {};
   @Local searchText: string = '';
   @Local activeFilterIndex: number = 0;
   @Local selectedConversationId: string = 'family-zhou';
@@ -342,6 +344,11 @@ export struct WideMessagePage {
     }
   }
 
+  @Monitor('compactWidth')
+  onCompactWidthChange(): void {
+    this.reportVisibleScrollerOwner();
+  }
+
   @Monitor('unreadConversationIds')
   onUnreadConversationIdsChange(): void {
     this.reportUnreadCount();
@@ -361,6 +368,7 @@ export struct WideMessagePage {
 
   aboutToAppear(): void {
     this.reportUnreadCount();
+    this.reportVisibleScrollerOwner();
     if (!this.compactWidth) {
       this.scheduleScrollToBottom();
     }
@@ -378,7 +386,7 @@ export struct WideMessagePage {
   }
 
   private paneTopOffset(): number {
-    return this.topBarHeight + (this.compactWidth ? 0 : 20);
+    return this.topBarHeight + (this.compactWidth ? 16 : 20);
   }
 
   private conversationListStartOffset(): number {
@@ -386,7 +394,7 @@ export struct WideMessagePage {
   }
 
   private chatHistoryStartOffset(): number {
-    return this.paneTopOffset() + (this.compactWidth ? 60 : 0) + 72;
+    return this.paneTopOffset() + 72;
   }
 
   private isUnread(conversationId: string): boolean {
@@ -430,6 +438,14 @@ export struct WideMessagePage {
 
   private selectedConversation(): WideConversationData | undefined {
     return DEMO_CONVERSATIONS.find((item: WideConversationData) => item.id === this.selectedConversationId);
+  }
+
+  private reportVisibleScrollerOwner(): void {
+    if (this.compactWidth && !this.compactDetailVisible) {
+      this.onListScrollerActive();
+    } else {
+      this.onChatScrollerActive();
+    }
   }
 
   private currentChatRecords(): WideChatRecord[] {
@@ -488,6 +504,8 @@ export struct WideMessagePage {
     }
     if (this.compactWidth) {
       this.showCompactDetail();
+    } else {
+      this.onChatScrollerActive();
     }
     this.scheduleScrollToBottom();
   }
@@ -499,11 +517,13 @@ export struct WideMessagePage {
     }
     this.compactDetailVisible = false;
     this.onLocalDetailVisibilityChange(false);
+    this.onListScrollerActive();
   }
 
   private showCompactDetail(): void {
     this.compactDetailVisible = true;
     this.onLocalDetailVisibilityChange(true);
+    this.onChatScrollerActive();
   }
 
   private toggleReadState(): void {
@@ -707,18 +727,21 @@ export struct WideMessagePage {
   private conversationList() {
     if (this.filteredConversations().length > 0) {
       List({ scroller: this.messageListScroller, space: 4 }) {
-        ForEach(this.filteredConversations(), (item: WideConversationData) => {
+        ForEach(this.filteredConversations(), (item: WideConversationData, index: number) => {
           ListItem() {
             this.conversationRow(item)
           }
+          .padding({ top: index === 0 ? this.conversationListStartOffset() : 0 })
         }, (item: WideConversationData) => item.id)
       }
       .width('100%')
       .height('100%')
       .padding({ left: 14, right: 14, bottom: 16 + this.naviIndicatorHeight })
-      .contentStartOffset(this.conversationListStartOffset())
       .scrollBar(BarState.Auto)
       .edgeEffect(EdgeEffect.Spring)
+      .onScrollStart(() => {
+        this.onListScrollerActive();
+      })
     } else {
       Column({ space: 10 }) {
         SymbolGlyph($r('sys.symbol.message_on_message_fill'))
@@ -765,15 +788,6 @@ export struct WideMessagePage {
 
       this.conversationList()
 
-      if (!this.compactWidth) {
-        Row()
-          .width('100%')
-          .height(20)
-          .margin({ top: this.topBarHeight })
-          .backgroundColor($r('sys.color.background_secondary'))
-          .hitTestBehavior(HitTestMode.None)
-      }
-
       Column({ space: 12 }) {
         this.messageSearch()
         this.filterBar()
@@ -794,58 +808,6 @@ export struct WideMessagePage {
     .width(this.compactWidth ? '100%' : 400)
     .height('100%')
     .backgroundColor($r('sys.color.background_secondary'))
-  }
-
-  @Builder
-  private compactBackBar() {
-    Row() {
-      Button({ type: ButtonType.Normal, stateEffect: true }) {
-        Row({ space: 7 }) {
-          SymbolGlyph($r('sys.symbol.chevron_left'))
-            .fontSize(16)
-            .fontColor([$r('sys.color.icon_primary')])
-          Text('返回会话列表')
-            .fontSize($r('sys.float.Body_M'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-        }
-        .height('100%')
-        .alignItems(VerticalAlign.Center)
-      }
-      .height(40)
-      .padding({ left: 13, right: 15 })
-      .borderRadius(20)
-      .backgroundColor($r('sys.color.comp_background_secondary'))
-      .focusable(true)
-      .focusOnTouch(true)
-      .hoverEffect(HoverEffect.None)
-      .focusBox({
-        margin: LengthMetrics.vp(2),
-        strokeWidth: LengthMetrics.vp(2),
-        strokeColor: ColorMetrics.numeric(0xFF1D63ED)
-      })
-      .accessibilityText('返回会话列表')
-      .accessibilityRole(AccessibilityRoleType.BUTTON)
-      .onKeyEvent((event: KeyEvent) => {
-        this.activateWithKeyboard(event, () => this.showCompactList());
-      })
-      .onClick(() => {
-        this.showCompactList();
-      })
-
-      Blank()
-
-      Text('会话详情')
-        .fontSize($r('sys.float.Body_M'))
-        .fontColor($r('sys.color.font_secondary'))
-        .maxLines(1)
-    }
-    .width('100%')
-    .height(60)
-    .padding({ left: 16, right: 20 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
-    .alignItems(VerticalAlign.Center)
   }
 
   @Builder
@@ -1041,7 +1003,7 @@ export struct WideMessagePage {
   @Builder
   private chatHistory() {
     List({ scroller: this.chatScroller, space: 12 }) {
-      ForEach(this.currentChatRecords(), (record: WideChatRecord) => {
+      ForEach(this.currentChatRecords(), (record: WideChatRecord, index: number) => {
         ListItem() {
           Column({ space: 12 }) {
             if (record.dayLabel !== undefined) {
@@ -1051,6 +1013,7 @@ export struct WideMessagePage {
           }
           .width('100%')
         }
+        .padding({ top: index === 0 ? this.chatHistoryStartOffset() : 0 })
       }, (record: WideChatRecord) => record.id)
 
       ListItem() {
@@ -1062,10 +1025,12 @@ export struct WideMessagePage {
     .width('100%')
     .layoutWeight(1)
     .padding({ left: 24, right: 24, top: 18, bottom: 12 })
-    .contentStartOffset(this.chatHistoryStartOffset())
     .scrollBar(BarState.Auto)
     .edgeEffect(EdgeEffect.Spring)
     .backgroundColor($r('sys.color.background_secondary'))
+    .onScrollStart(() => {
+      this.onChatScrollerActive();
+    })
   }
 
   @Builder
@@ -1189,19 +1154,7 @@ export struct WideMessagePage {
         .width('100%')
         .height('100%')
 
-        if (!this.compactWidth) {
-          Row()
-            .width('100%')
-            .height(20)
-            .margin({ top: this.topBarHeight })
-            .backgroundColor($r('sys.color.background_secondary'))
-            .hitTestBehavior(HitTestMode.None)
-        }
-
         Column({ space: 0 }) {
-          if (this.compactWidth) {
-            this.compactBackBar()
-          }
           this.conversationHeader()
         }
         .width('100%')

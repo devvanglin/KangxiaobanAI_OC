@@ -1342,11 +1342,14 @@ export struct AiChatPage {
           this.historyItems()
         }
         .width('100%')
-        .padding({ left: 14, right: 14 })
+        .padding({
+          left: 14,
+          right: 14,
+          top: this.caregiverWideTitleBarOffset() + 10
+        })
       }
       .width('100%')
       .height('100%')
-      .contentStartOffset(this.caregiverWideTitleBarOffset() + 10)
       .contentEndOffset(Math.max(18, this.globalInfoModel.naviIndicatorHeight + 8))
       .scrollBar(BarState.Auto)
       .edgeEffect(EdgeEffect.Spring)
@@ -1410,7 +1413,7 @@ export struct AiChatPage {
   @Builder
   private messageList() {
     List({ space: 0, scroller: this.listScroller }) {
-      ForEach(this.messages, (message: ChatMessage) => {
+      ForEach(this.messages, (message: ChatMessage, index: number) => {
         ListItem() {
           Row() {
             Column() {
@@ -1426,6 +1429,9 @@ export struct AiChatPage {
           .width('100%')
           .justifyContent(FlexAlign.Center)
         }
+        .padding({
+          top: this.caregiverWideImmersive && index === 0 ? this.caregiverWideTitleBarOffset() + 8 : 0
+        })
       }, (message: ChatMessage) => `${message.id}-${message.feedback ?? 'none'}`)
 
       if (this.isGenerating) {
@@ -1440,12 +1446,16 @@ export struct AiChatPage {
           .width('100%')
           .justifyContent(FlexAlign.Center)
         }
+        .padding({
+          top: this.caregiverWideImmersive && this.messages.length === 0 ?
+            this.caregiverWideTitleBarOffset() + 8 : 0
+        })
       }
     }
     .width('100%')
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
-    .contentStartOffset(this.caregiverWideImmersive ? this.caregiverWideTitleBarOffset() + 8 : 8)
+    .contentStartOffset(this.caregiverWideImmersive ? 0 : 8)
     .contentEndOffset(8)
     .margin({
       top: this.caregiverWideImmersive ? 0 :

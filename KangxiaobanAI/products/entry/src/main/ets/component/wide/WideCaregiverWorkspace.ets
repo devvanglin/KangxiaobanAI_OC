@@ -17,6 +17,9 @@ import { WideHomePage } from './WideHomePage';
 import { WideMessagePage } from './WideMessagePage';
 import { WideResidentPage } from './WideResidentPage';
 
+export type CaregiverMaterialScrollerOwner =
+  'residentMaster' | 'residentDetail' | 'messageList' | 'messageChat';
+
 @ComponentV2
 export struct WideCaregiverWorkspace {
   @Param @Require currentTabIndex: number;
@@ -33,6 +36,8 @@ export struct WideCaregiverWorkspace {
   @Param backRequestToken: number = 0;
   @Event onSwitchTab: (index: number) => void = (_index: number) => {};
   @Event onLocalBackStateChange: (hasLocalLayer: boolean) => void = (_hasLocalLayer: boolean) => {};
+  @Event onMaterialScrollerOwnerChange: (owner: CaregiverMaterialScrollerOwner) => void =
+    (_owner: CaregiverMaterialScrollerOwner) => {};
   @Event onUnreadCountChange: (count: number) => void = (_count: number) => {};
   @Event onOpenAiChat: () => void = () => {};
   @Local homeTaskPanelVisible: boolean = false;
@@ -41,6 +46,8 @@ export struct WideCaregiverWorkspace {
   @Local homeBackRequestToken: number = 0;
   @Local residentBackRequestToken: number = 0;
   @Local messageBackRequestToken: number = 0;
+  @Local residentMaterialScrollerOwner: CaregiverMaterialScrollerOwner = 'residentDetail';
+  @Local messageMaterialScrollerOwner: CaregiverMaterialScrollerOwner = 'messageChat';
   @Local requestedResidentId: string = '';
   @Local residentSelectionRequestToken: number = 0;
 
@@ -62,10 +69,12 @@ export struct WideCaregiverWorkspace {
   @Monitor('currentTabIndex', 'primaryTabIndex', 'compactWidth')
   onWorkspaceContextChange(): void {
     this.reportActiveLocalBackState();
+    this.reportMaterialScrollerOwnerForTab(this.activeTabIndex());
   }
 
   aboutToAppear(): void {
     this.reportActiveLocalBackState();
+    this.reportMaterialScrollerOwnerForTab(this.activeTabIndex());
   }
 
   aboutToDisappear(): void {
@@ -114,8 +123,29 @@ export struct WideCaregiverWorkspace {
     }
   }
 
+  private reportMaterialScrollerOwnerForTab(tabIndex: number): void {
+    if (tabIndex === 1) {
+      this.onMaterialScrollerOwnerChange(this.residentMaterialScrollerOwner);
+    } else if (tabIndex === 2) {
+      this.onMaterialScrollerOwnerChange(this.messageMaterialScrollerOwner);
+    }
+  }
+
+  private updateMaterialScrollerOwner(owner: CaregiverMaterialScrollerOwner): void {
+    const ownerTabIndex: number = owner === 'residentMaster' || owner === 'residentDetail' ? 1 : 2;
+    if (ownerTabIndex === 1) {
+      this.residentMaterialScrollerOwner = owner;
+    } else {
+      this.messageMaterialScrollerOwner = owner;
+    }
+    if (this.activeTabIndex() === ownerTabIndex) {
+      this.onMaterialScrollerOwnerChange(owner);
+    }
+  }
+
   private switchWorkspaceTab(index: number): void {
     this.onLocalBackStateChange(this.hasLocalLayerForTab(index));
+    this.reportMaterialScrollerOwnerForTab(index);
     this.onSwitchTab(index);
   }
 
@@ -156,7 +186,9 @@ export struct WideCaregiverWorkspace {
           backRequestToken: this.residentBackRequestToken,
           requestedResidentId: this.requestedResidentId,
           residentSelectionRequestToken: this.residentSelectionRequestToken,
-          onLocalDetailVisibilityChange: (visible: boolean) => this.updateLocalLayer(1, visible)
+          onLocalDetailVisibilityChange: (visible: boolean) => this.updateLocalLayer(1, visible),
+          onMasterScrollerActive: () => this.updateMaterialScrollerOwner('residentMaster'),
+          onDetailScrollerActive: () => this.updateMaterialScrollerOwner('residentDetail')
         })
       }
       .width('100%')
@@ -173,6 +205,8 @@ export struct WideCaregiverWorkspace {
           naviIndicatorHeight: this.naviIndicatorHeight,
           backRequestToken: this.messageBackRequestToken,
           onLocalDetailVisibilityChange: (visible: boolean) => this.updateLocalLayer(2, visible),
+          onListScrollerActive: () => this.updateMaterialScrollerOwner('messageList'),
+          onChatScrollerActive: () => this.updateMaterialScrollerOwner('messageChat'),
           onUnreadCountChange: (count: number) => this.onUnreadCountChange(count)
         })
       }

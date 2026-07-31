@@ -14,7 +14,6 @@
  */
 
 import { LengthMetrics } from '@kit.ArkUI';
-import { KeyCode } from '@kit.InputKit';
 import {
   MedicationProgress,
   ResidentData,
@@ -59,6 +58,8 @@ export struct WideResidentPage {
   @Param requestedResidentId: string = '';
   @Param residentSelectionRequestToken: number = 0;
   @Event onLocalDetailVisibilityChange: (visible: boolean) => void = (_visible: boolean) => {};
+  @Event onMasterScrollerActive: () => void = () => {};
+  @Event onDetailScrollerActive: () => void = () => {};
 
   private pageTopInset(): number {
     return this.topBarHeight + (this.compactWidth ? 16 : 20);
@@ -68,9 +69,6 @@ export struct WideResidentPage {
     return 72;
   }
 
-  private compactBackBarHeight(): number {
-    return 52;
-  }
   @Local residentFilterIndex: number = 0;
   private residentFilterItems: WideSlidingCapsuleItem[] = [
     { title: '全部 5', index: 0 },
@@ -95,13 +93,20 @@ export struct WideResidentPage {
     }
   }
 
+  @Monitor('compactWidth')
+  onCompactWidthChange(): void {
+    this.reportVisibleScrollerOwner();
+  }
+
   @Monitor('residentSelectionRequestToken', 'requestedResidentId')
   onResidentSelectionRequestTokenChange(): void {
     const requestedId: string = this.requestedResidentId.trim();
     if (requestedId.length === 0) {
-      this.compactDetailVisible = false;
       if (this.compactWidth) {
-        this.onLocalDetailVisibilityChange(false);
+        this.showCompactList();
+      } else {
+        this.resetDetailScrollPosition();
+        this.compactDetailVisible = false;
       }
       return;
     }
@@ -117,27 +122,45 @@ export struct WideResidentPage {
     if (this.compactWidth) {
       this.showCompactDetail();
     } else {
+      this.resetDetailScrollPosition();
       this.compactDetailVisible = false;
       this.onLocalDetailVisibilityChange(false);
+      this.onDetailScrollerActive();
     }
   }
 
-  private activateWithKeyboard(event: KeyEvent, action: () => void): void {
-    if (event.type === KeyType.Down &&
-      (event.keyCode === KeyCode.KEYCODE_ENTER || event.keyCode === KeyCode.KEYCODE_SPACE)) {
-      event.stopPropagation();
-      action();
+  aboutToAppear(): void {
+    this.reportVisibleScrollerOwner();
+  }
+
+  private reportVisibleScrollerOwner(): void {
+    if (this.compactWidth && !this.compactDetailVisible) {
+      this.onMasterScrollerActive();
+    } else {
+      this.onDetailScrollerActive();
     }
   }
 
   private showCompactList(): void {
+    this.resetDetailScrollPosition();
     this.compactDetailVisible = false;
     this.onLocalDetailVisibilityChange(false);
+    this.onMasterScrollerActive();
   }
 
   private showCompactDetail(): void {
+    this.resetDetailScrollPosition();
     this.compactDetailVisible = true;
     this.onLocalDetailVisibilityChange(true);
+    this.onDetailScrollerActive();
+  }
+
+  private resetDetailScrollPosition(): void {
+    try {
+      this.detailScroller.scrollEdge(Edge.Top);
+    } catch (_error) {
+      // The compact detail scroller may not be attached on its first render.
+    }
   }
 
   private allResidents(): ResidentData[] {
@@ -447,6 +470,12 @@ export struct WideResidentPage {
       .height('100%')
 
       List({ scroller: this.masterScroller, space: 0 }) {
+        ListItem() {
+          Row()
+            .width('100%')
+            .height(this.pageTopInset() + this.masterFilterHeight())
+        }
+
         if (this.filteredResidents().length === 0) {
           ListItem() {
             Column({ space: 8 }) {
@@ -484,7 +513,9 @@ export struct WideResidentPage {
       .padding({ left: 12, right: 12, top: 4, bottom: 10 + this.naviIndicatorHeight })
       .scrollBar(BarState.Auto)
       .edgeEffect(EdgeEffect.Spring)
-      .contentStartOffset(this.pageTopInset() + this.masterFilterHeight())
+      .onScrollStart(() => {
+        this.onMasterScrollerActive();
+      })
 
       Column() {
         this.filterBar()
@@ -576,54 +607,11 @@ export struct WideResidentPage {
       this.selectedTab = 'overview';
       if (this.compactWidth) {
         this.showCompactDetail();
+      } else {
+        this.resetDetailScrollPosition();
+        this.onDetailScrollerActive();
       }
     })
-  }
-
-  @Builder
-  private compactBackBar() {
-    Row() {
-      Button({ type: ButtonType.Normal, stateEffect: true }) {
-        Row({ space: 7 }) {
-          SymbolGlyph($r('sys.symbol.chevron_left'))
-            .fontSize(16)
-            .fontColor([$r('sys.color.icon_primary')])
-          Text('返回长者列表')
-            .fontSize($r('sys.float.Body_M'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-        }
-        .height('100%')
-        .alignItems(VerticalAlign.Center)
-      }
-      .height(40)
-      .padding({ left: 13, right: 15 })
-      .borderRadius(20)
-      .backgroundColor($r('sys.color.comp_background_secondary'))
-      .focusable(true)
-      .focusOnTouch(true)
-      .focusBox({ margin: LengthMetrics.vp(2), strokeWidth: LengthMetrics.vp(2) })
-      .accessibilityText('返回长者列表')
-      .accessibilityRole(AccessibilityRoleType.BUTTON)
-      .onKeyEvent((event: KeyEvent) => {
-        this.activateWithKeyboard(event, () => this.showCompactList());
-      })
-      .onClick(() => {
-        this.showCompactList();
-      })
-
-      Blank()
-
-      Text('长者详情')
-        .fontSize($r('sys.float.Body_M'))
-        .fontColor($r('sys.color.font_secondary'))
-        .maxLines(1)
-    }
-    .width('100%')
-    .height(52)
-    .padding({ right: 4, bottom: 12 })
-    .backgroundColor(Color.Transparent)
-    .alignItems(VerticalAlign.Center)
   }
 
   @Builder
@@ -661,24 +649,25 @@ export struct WideResidentPage {
         }
         .width('100%')
         .constraintSize({ maxWidth: 1120 })
-        .padding({ bottom: 8 + this.naviIndicatorHeight })
+        .padding({
+          top: this.pageTopInset(),
+          bottom: 8 + this.naviIndicatorHeight
+        })
       }
       .width('100%')
       .height('100%')
       .align(Alignment.TopStart)
       .scrollBar(BarState.Auto)
       .edgeEffect(EdgeEffect.Spring)
-      .contentStartOffset(this.pageTopInset() + (this.compactWidth ? this.compactBackBarHeight() : 0))
-
-      if (this.compactWidth) {
-        Column() {
-          this.compactBackBar()
+      .onScrollStart(() => {
+        this.onDetailScrollerActive();
+      })
+      .onAppear(() => {
+        if (this.compactWidth && this.compactDetailVisible) {
+          this.resetDetailScrollPosition();
         }
-        .width('100%')
-        .height(this.compactBackBarHeight())
-        .margin({ top: this.pageTopInset() })
-        .backgroundColor($r('sys.color.background_secondary'))
-      }
+      })
+
     }
     .layoutWeight(1)
     .height('100%')
