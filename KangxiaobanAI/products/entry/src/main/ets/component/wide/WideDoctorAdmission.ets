@@ -1037,6 +1037,7 @@ export struct WideDoctorAdmission {
           .borderRadius(10)
           .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
           .padding(10)
+          .barState(BarState.Off)
           .onChange((value: string) => {
             this.markDirty();
             this.updateSafetyRiskMeasure(riskIndex, value);
@@ -1775,7 +1776,7 @@ export struct WideDoctorAdmission {
         .layoutWeight(1)
         .width('100%')
         .align(Alignment.Top)
-        .scrollBar(BarState.Auto)
+        .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring)
         Column() {
           this.footerBar()

@@ -1116,7 +1116,7 @@ export struct WideDoctorWorkspace {
     }
     .width('100%')
     .height('100%')
-    .scrollBar(BarState.Auto)
+    .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
     .align(Alignment.Top)
   }
@@ -1465,7 +1465,7 @@ export struct WideDoctorWorkspace {
     }
     .width('100%')
     .height('100%')
-    .scrollBar(BarState.Auto)
+    .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
     .align(Alignment.Top)
   }
@@ -1608,6 +1608,7 @@ export struct WideDoctorWorkspace {
             .fontColor($r('app.color.doctor_workspace_text_primary'))
             .placeholderColor($r('app.color.doctor_workspace_text_tertiary'))
             .backgroundColor(Color.Transparent)
+            .barState(BarState.Off)
             .onChange((value: string) => {
               this.aiQuestion = value;
             })
@@ -1643,7 +1644,7 @@ export struct WideDoctorWorkspace {
     }
     .width('100%')
     .height('100%')
-    .scrollBar(BarState.Auto)
+    .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
     .align(Alignment.Top)
   }

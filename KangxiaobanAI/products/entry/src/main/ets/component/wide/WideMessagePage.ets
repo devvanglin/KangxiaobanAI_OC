@@ -737,7 +737,7 @@ export struct WideMessagePage {
       .width('100%')
       .height('100%')
       .padding({ left: 14, right: 14, bottom: 16 + this.naviIndicatorHeight })
-      .scrollBar(BarState.Auto)
+      .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
       .onScrollStart(() => {
         this.onListScrollerActive();
@@ -1025,7 +1025,7 @@ export struct WideMessagePage {
     .width('100%')
     .layoutWeight(1)
     .padding({ left: 24, right: 24, top: 18, bottom: 12 })
-    .scrollBar(BarState.Auto)
+    .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
     .backgroundColor($r('sys.color.background_secondary'))
     .onScrollStart(() => {
@@ -1049,7 +1049,7 @@ export struct WideMessagePage {
           .minLines(1)
           .maxLines(4, { overflowMode: MaxLinesMode.SCROLL })
           .textOverflow(TextOverflow.Clip)
-          .barState(BarState.Auto)
+          .barState(BarState.Off)
           .layoutWeight(1)
           .onChange((value: string) => {
             this.replyText = value;

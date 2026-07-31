@@ -1122,7 +1122,7 @@ export struct AiChatPage {
         .minLines(1)
         .maxLines(4, { overflowMode: MaxLinesMode.SCROLL })
         .textOverflow(TextOverflow.Clip)
-        .barState(BarState.Auto)
+        .barState(BarState.Off)
         .layoutWeight(1)
         .onChange((value: string) => {
           this.inputText = value;
@@ -1351,7 +1351,7 @@ export struct AiChatPage {
       .width('100%')
       .height('100%')
       .contentEndOffset(Math.max(18, this.globalInfoModel.naviIndicatorHeight + 8))
-      .scrollBar(BarState.Auto)
+      .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
       .align(Alignment.Top)
       .backgroundColor($r('sys.color.background_secondary'))
@@ -1377,7 +1377,7 @@ export struct AiChatPage {
         }
         .layoutWeight(1)
         .align(Alignment.Top)
-        .scrollBar(BarState.Auto)
+        .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring)
         .width('100%')
       }

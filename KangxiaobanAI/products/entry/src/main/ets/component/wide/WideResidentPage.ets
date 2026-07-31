@@ -511,7 +511,7 @@ export struct WideResidentPage {
       .width('100%')
       .height('100%')
       .padding({ left: 12, right: 12, top: 4, bottom: 10 + this.naviIndicatorHeight })
-      .scrollBar(BarState.Auto)
+      .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
       .onScrollStart(() => {
         this.onMasterScrollerActive();
@@ -657,7 +657,7 @@ export struct WideResidentPage {
       .width('100%')
       .height('100%')
       .align(Alignment.TopStart)
-      .scrollBar(BarState.Auto)
+      .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
       .onScrollStart(() => {
         this.onDetailScrollerActive();
@@ -1384,6 +1384,7 @@ export struct WideResidentPage {
       .columnsTemplate('1fr 1fr')
       .columnsGap(14)
       .rowsGap(14)
+      .scrollBar(BarState.Off)
       .height(Math.ceil(this.residentDevices(resident).length / 2) * 132 +
         Math.max(0, Math.ceil(this.residentDevices(resident).length / 2) - 1) * 14)
     }

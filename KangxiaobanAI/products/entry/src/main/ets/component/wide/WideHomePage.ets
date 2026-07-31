@@ -1309,6 +1309,7 @@ export struct WideHomePage {
                 .backgroundColor($r('sys.color.comp_background_secondary'))
                 .borderRadius(14)
                 .maxLength(200)
+                .barState(BarState.Off)
                 .onChange((value: string) => this.updateTaskNote(task.id, value))
 
               if (this.validationTaskId === task.id) {
@@ -1353,7 +1354,7 @@ export struct WideHomePage {
       }
       .width('100%')
       .height('100%')
-      .scrollBar(BarState.Auto)
+      .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
       .contentEndOffset(70 + this.naviIndicatorHeight)
       .align(Alignment.TopStart)

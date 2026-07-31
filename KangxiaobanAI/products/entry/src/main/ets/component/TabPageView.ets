@@ -867,6 +867,7 @@ export struct TabPageView {
     .rowsTemplate('1fr 1fr')
     .columnsGap(12)
     .rowsGap(12)
+    .scrollBar(BarState.Off)
     .height(176)
   }
 
@@ -1746,6 +1747,7 @@ export struct TabPageView {
     }
     .width('100%')
     .height('100%')
+    .scrollBar(BarState.Off)
     .backgroundColor($r('sys.color.background_secondary'))
   }
 
@@ -2531,6 +2533,7 @@ export struct TabPageView {
               })
           }
           .width('100%')
+          .scrollBar(BarState.Off)
           .backgroundColor($r('sys.color.comp_background_primary'))
           .borderRadius(16)
           .clip(true)

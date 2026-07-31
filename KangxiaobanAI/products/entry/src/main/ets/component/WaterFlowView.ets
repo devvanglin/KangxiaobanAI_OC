@@ -122,6 +122,7 @@ export struct WaterFlowView {
           .width('100%')
         })
     }
+    .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
     .onScrollFrameBegin((offset: number, state: ScrollState) => {
       this.handleTabBarAnimation?.(offset);
