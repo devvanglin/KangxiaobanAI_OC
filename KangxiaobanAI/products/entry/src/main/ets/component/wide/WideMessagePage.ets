@@ -389,6 +389,10 @@ export struct WideMessagePage {
     return this.topBarHeight + (this.compactWidth ? 16 : 20);
   }
 
+  private paneRadius(): number {
+    return this.compactWidth ? 18 : 20;
+  }
+
   private conversationListStartOffset(): number {
     return this.paneTopOffset() + 16 + 40 + 12 + 44 + 12 + 16;
   }
@@ -641,7 +645,7 @@ export struct WideMessagePage {
       items: MESSAGE_FILTER_ITEMS,
       selectedIndex: this.activeFilterIndex,
       itemWidth: 68,
-      fillWidth: false,
+      fillWidth: true,
       onSelect: (index: number) => {
         this.activeFilterIndex = index;
       }
@@ -780,7 +784,7 @@ export struct WideMessagePage {
           .width('100%')
           .layoutWeight(1)
           .backgroundColor($r('sys.color.comp_background_primary'))
-          .borderRadius(this.compactWidth ? 0 : 20)
+          .borderRadius(this.paneRadius())
       }
       .width('100%')
       .height('100%')
@@ -797,15 +801,15 @@ export struct WideMessagePage {
       .margin({ top: this.paneTopOffset() })
       .backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius({
-        topLeft: this.compactWidth ? 0 : 20,
-        topRight: this.compactWidth ? 0 : 20,
+        topLeft: this.paneRadius(),
+        topRight: this.paneRadius(),
         bottomLeft: 0,
         bottomRight: 0
       })
       .clip(true)
       .alignItems(HorizontalAlign.Start)
     }
-    .width(this.compactWidth ? '100%' : 400)
+    .width('100%')
     .height('100%')
     .backgroundColor($r('sys.color.background_secondary'))
   }
@@ -1121,8 +1125,8 @@ export struct WideMessagePage {
     .borderRadius({
       topLeft: 0,
       topRight: 0,
-      bottomLeft: this.compactWidth ? 0 : 20,
-      bottomRight: this.compactWidth ? 0 : 20
+      bottomLeft: this.paneRadius(),
+      bottomRight: this.paneRadius()
     })
     .clip(true)
   }
@@ -1139,9 +1143,8 @@ export struct WideMessagePage {
           Column()
             .width('100%')
             .layoutWeight(1)
-            .backgroundColor(this.compactWidth ? $r('sys.color.background_secondary') :
-              $r('sys.color.comp_background_primary'))
-            .borderRadius(this.compactWidth ? 0 : 20)
+            .backgroundColor($r('sys.color.comp_background_primary'))
+            .borderRadius(this.paneRadius())
         }
         .width('100%')
         .height('100%')
@@ -1160,8 +1163,8 @@ export struct WideMessagePage {
         .width('100%')
         .margin({ top: this.paneTopOffset() })
         .borderRadius({
-          topLeft: this.compactWidth ? 0 : 20,
-          topRight: this.compactWidth ? 0 : 20,
+          topLeft: this.paneRadius(),
+          topRight: this.paneRadius(),
           bottomLeft: 0,
           bottomRight: 0
         })
@@ -1185,9 +1188,8 @@ export struct WideMessagePage {
       .padding({ top: this.paneTopOffset() })
       .justifyContent(FlexAlign.Center)
       .alignItems(HorizontalAlign.Center)
-      .backgroundColor(this.compactWidth ? $r('sys.color.background_secondary') :
-        $r('sys.color.comp_background_primary'))
-      .borderRadius(this.compactWidth ? 0 : 20)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(this.paneRadius())
       .clip(true)
     }
   }
@@ -1203,10 +1205,17 @@ export struct WideMessagePage {
       }
       .width('100%')
       .height('100%')
+      .padding({ left: 16, right: 16, bottom: 16 })
       .backgroundColor($r('sys.color.background_secondary'))
     } else {
-      Row({ space: 16 }) {
-        this.listPane()
+      Row({ space: 20 }) {
+        Column() {
+          this.listPane()
+        }
+        .width('30%')
+        .constraintSize({ minWidth: 360, maxWidth: 440 })
+        .height('100%')
+
         this.detailPane()
       }
       .width('100%')

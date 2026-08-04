@@ -227,7 +227,7 @@ The role/layout matrix is fixed by current behavior:
 | Any other string | WIP placeholder | WIP placeholder |
 
 Phone tabs are home, resident, message/task area, and mine. They all instantiate `TabPageView` with a different
-`currentTabIndex` and config. Wide caregiver layout has no structural sidebar. Its `68vp + statusBarHeight` command bar
+`currentTabIndex` and config. Wide caregiver layout has no structural sidebar. Its `56vp + statusBarHeight` HDS MINI title bar
 keeps only the current page title on the left, with no brand mark or brand name, and groups a sliding
 home/resident/message capsule, AI, and avatar-only account entry on the right. The message capsule shows the live local
 unread count as a small top-right corner badge reported by
@@ -239,19 +239,22 @@ state.
 The root `HdsNavigation` owns both the phone title bar and the wide caregiver title bar. Both use HDS
 `IMMERSIVE`/`ADAPTIVE` system material with a bound `GRADIENT_BLUR` scroll effect. The wide caregiver title actions are
 supplied through the HDS title bar `stackBuilder`, while the page title remains native HDS title content. The root title
-bar binds the real Home, resident master/detail, and message list/chat Scrollers. Wide scroll content uses a
-title-bar-aware initial inset and can then scroll behind the HDS material surface. Do not replace this with a custom
-blur Row, an opaque structural panel, or another nested navigation destination.
+bar dynamically binds the visible Home/task, resident master/detail, or message list/chat Scroller; split views switch
+the binding to the pane the user selects or scrolls. Wide scroll content uses a title-bar-aware initial inset and can
+then scroll behind the HDS material surface. Do not replace this with a custom blur Row, an opaque structural panel, or
+another nested navigation destination.
 The home root is an on-shift workbench with shift status, advisory AI priorities, task summaries, a compact task queue,
 and an on-demand detail pane. Resident and message roots use an open shared canvas with independent work surfaces: at
 1180vp and above they retain side-by-side master/detail interaction; below 1180vp they use a full-width list followed by
-a full-width detail view with an explicit return action. Wide doctor layout is a separate local mock workspace. Its
+a full-width detail view whose return action is the native root HDS title-bar back control, not a page-wide return row.
+Wide doctor layout is a separate local mock workspace. Its
 `admission` sidebar branch mounts `WideDoctorAdmission` directly inside the workspace shell;
 it is not a router or `NavPathStack` destination. Wide administrator layouts mount `WideAdminWorkspace` directly; only
 its operations overview has local demo content and the other management modules are placeholders.
 
-`HdsNavigation` uses an immersive/adaptive system material title bar, gradient-blur scroll effect, four bound Scrollers,
-hidden back button, a hidden title bar in wide layouts, and system-safe-area expansion. `HdsTabs` overlaps content,
+`HdsNavigation` uses an immersive/adaptive system material title bar, gradient-blur scroll effect, the currently active
+bound Scroller, a back button hidden except for compact caregiver local-detail state, a hidden title bar for the other
+wide role workspaces, and system-safe-area expansion. `HdsTabs` overlaps content,
 floats above the navigation indicator, and preloads all four tab items. `MainPage` owns the full-screen window state while
 it is visible; the AI cover inherits that state rather than toggling the window independently. Measure startup/memory
 before extending preload.
@@ -506,11 +509,11 @@ familiarity. Existing relevant components and options include:
 5. bind title effects to the actual active Scroller;
 6. avoid layering multiple translucent surfaces without a content/contrast reason.
 
-The wide caregiver shell uses one continuous `background_secondary` canvas across its root, top command bar, content
+The wide caregiver shell uses one continuous `background_secondary` canvas across its root, HDS title bar, content
 region, and system-bottom area. Do not reintroduce a structural sidebar or white top-bar panel, frame borders, or shadows
 that form a separate dashboard shell. Reserve `comp_background_primary` for business surfaces and the active navigation
-target; use brand blue for interactive emphasis, and use red/orange/green only for risk or status meaning. The command
-bar uses the `68vp + statusBarHeight` rhythm, keeps identity/title on the left, and places the animated primary capsule,
+target; use brand blue for interactive emphasis, and use red/orange/green only for risk or status meaning. The HDS MINI
+title bar uses the `56vp + statusBarHeight` rhythm, keeps identity/title on the left, and places the animated primary capsule,
 AI, and avatar-only account action on the right. The message badge owns notification count; do not add a duplicate bell
 or shift chip. Detailed shift progress remains in the home workbench.
 

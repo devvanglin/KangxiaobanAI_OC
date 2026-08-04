@@ -1,0 +1,17 @@
+**/node_modules/
+**/oh_modules/
+**/build/
+**/.hvigor/
+**/.idea/
+**/.appanalyzer/
+**/.test/
+
+*.tsbuildinfo
+*.tsbuildinfo.linter
+*.log
+
+.claude/settings.local.json
+
+# Hvigor-generated files and dependency locks from local sample builds.
+MusicHome/**/BuildProfile.ets
+MusicHome/**/oh-package-lock.json5

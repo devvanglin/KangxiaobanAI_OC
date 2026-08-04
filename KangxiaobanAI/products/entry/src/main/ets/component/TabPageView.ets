@@ -199,12 +199,6 @@ export struct TabPageView {
   @Local readMessageIds: string[] = [];
   @Local isMessageSheetOpen: boolean = false;
   @Local selectedQuickActionIndex: number = 0;
-  @Local currentTime: Date = new Date();
-  @Local isClockedIn: boolean = false;
-  @Local clockInTime: Date | null = null;
-  @Local isClockedOut: boolean = false;
-  @Local clockOutTime: Date | null = null;
-  private timerId: number = -1;
   @Local isHealthExpandShow: boolean = false;
   @Local isResidentDetailShow: boolean = false;
   @Local isTaskExpandShow: boolean = false;
@@ -304,19 +298,6 @@ export struct TabPageView {
       return this.medicationItems();
     }
     return [];
-  }
-
-  aboutToAppear(): void {
-    this.timerId = setInterval(() => {
-      this.currentTime = new Date();
-    }, 1000);
-  }
-
-  aboutToDisappear(): void {
-    if (this.timerId !== -1) {
-      clearInterval(this.timerId);
-      this.timerId = -1;
-    }
   }
 
   private topPadding(): number {
@@ -908,116 +889,6 @@ export struct TabPageView {
     .alignItems(HorizontalAlign.Start)
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(16)
-  }
-
-  // ---------------- home: clock in ----------------
-
-  @Builder
-  private taskOverviewGrid() {
-    Column({ space: 0 }) {
-      Row({ space: 0 }) {
-        Column({ space: 5 }) {
-          Text(this.currentTimeString())
-            .fontSize(44)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-            .height(52)
-          Text(this.clockInStatusText())
-            .fontSize($r('sys.float.Body_M'))
-            .fontColor(this.workStatusColor())
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-
-        Row({ space: 8 }) {
-          if (!this.isClockedIn) {
-            Button('上班打卡')
-              .fontSize($r('sys.float.Body_L'))
-              .fontColor($r('app.color.text_on_brand'))
-              .backgroundColor($r('app.color.brand_blue'))
-              .height(52)
-              .padding({ left: 26, right: 26 })
-              .borderRadius(26)
-              .onClick(() => {
-                this.handleClockIn();
-              })
-          } else if (this.isClockedIn && !this.isClockedOut) {
-            Button('下班打卡')
-              .fontSize($r('sys.float.Body_L'))
-              .fontColor($r('app.color.text_on_brand'))
-              .backgroundColor($r('app.color.status_danger'))
-              .height(52)
-              .padding({ left: 26, right: 26 })
-              .borderRadius(26)
-              .onClick(() => {
-                this.handleClockOut();
-              })
-          } else {
-            Button('已下班')
-              .fontSize($r('sys.float.Body_L'))
-              .fontColor($r('sys.color.font_tertiary'))
-              .backgroundColor($r('sys.color.comp_background_secondary'))
-              .height(52)
-              .padding({ left: 26, right: 26 })
-              .borderRadius(26)
-              .enabled(false)
-          }
-        }
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-    }
-    .width('100%')
-    .padding(20)
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-  }
-
-  private currentTimeString(): string {
-    const h: string = this.currentTime.getHours().toString().padStart(2, '0');
-    const m: string = this.currentTime.getMinutes().toString().padStart(2, '0');
-    return `${h}:${m}`;
-  }
-
-  private clockInStatusText(): string {
-    if (!this.isClockedIn) {
-      return '今日未打卡';
-    }
-    if (this.isClockedOut && this.clockInTime && this.clockOutTime) {
-      const diffMs: number = this.clockOutTime.getTime() - this.clockInTime.getTime();
-      const diffMin: number = Math.floor(diffMs / 60000);
-      const h: number = Math.floor(diffMin / 60);
-      const m: number = diffMin % 60;
-      return `今日工作 ${h}小时${m}分`;
-    }
-    if (this.clockInTime) {
-      const diffMs: number = this.currentTime.getTime() - this.clockInTime.getTime();
-      const diffMin: number = Math.floor(diffMs / 60000);
-      const h: number = Math.floor(diffMin / 60);
-      const m: number = diffMin % 60;
-      return `已上班 ${h}小时${m}分`;
-    }
-    return '';
-  }
-
-  private workStatusColor(): ResourceColor {
-    if (!this.isClockedIn) {
-      return $r('sys.color.font_secondary');
-    }
-    if (this.isClockedOut) {
-      return $r('sys.color.font_tertiary');
-    }
-    return $r('app.color.status_normal');
-  }
-
-  private handleClockIn(): void {
-    this.isClockedIn = true;
-    this.clockInTime = new Date();
-  }
-
-  private handleClockOut(): void {
-    this.isClockedOut = true;
-    this.clockOutTime = new Date();
   }
 
   // ---------------- home: AI reminders ----------------
@@ -1885,22 +1756,12 @@ export struct TabPageView {
       }) {
         ListItem() {
           Column() {
-            this.taskOverviewGrid()
+            this.aiReminderCard()
           }
           .padding({
             left: this.pagePadding(),
             right: this.pagePadding(),
             top: this.contentTopPadding()
-          })
-        }
-
-        ListItem() {
-          Column() {
-            this.aiReminderCard()
-          }
-          .padding({
-            left: this.pagePadding(),
-            right: this.pagePadding()
           })
         }
 

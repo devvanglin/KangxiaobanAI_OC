@@ -18,6 +18,12 @@ import { KeyCode } from '@kit.InputKit';
 import { AiTitleLabel } from '../AiTitleLabel';
 import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule';
 
+const HOME_LG_MIN_WIDTH: number = 840;
+const HOME_SUMMARY_SPLIT_MIN_WIDTH: number = 960;
+const HOME_WORK_SPLIT_MIN_WIDTH: number = 1180;
+const HOME_XL_MIN_WIDTH: number = 1440;
+const HOME_XL_MAX_CONTENT_WIDTH: number = 1600;
+
 type CarePriority = 'danger' | 'warning' | 'normal';
 type CareTaskState = 'pending' | 'doing' | 'done';
 type CareTaskCategory = 'todo' | 'medication' | 'record' | 'family' | 'report';
@@ -65,15 +71,10 @@ export struct WideHomePage {
   @Event onOpenAiChat: () => void = () => {};
   @Event onOpenResident: (residentId: string) => void = (_residentId: string) => {};
   @Event onTaskPanelVisibilityChange: (visible: boolean) => void = (_visible: boolean) => {};
-  @Event onShiftStateChange: (clockedIn: boolean, clockedOut: boolean) => void =
-    (_clockedIn: boolean, _clockedOut: boolean) => {};
   @Event onTaskProgressChange: (completed: number, total: number) => void =
     (_completed: number, _total: number) => {};
-  @Local currentTime: Date = new Date();
-  @Local isClockedIn: boolean = false;
-  @Local isClockedOut: boolean = false;
-  @Local clockInTime: Date | null = null;
-  @Local clockOutTime: Date | null = null;
+  private currentTime: Date = new Date();
+  @Local layoutWidth: number = 0;
   @Local activeFilter: CareWorkFilter = 'todo';
   @Local selectedTaskId: string = '';
   @Local isTaskPanelOpen: boolean = false;
@@ -85,7 +86,6 @@ export struct WideHomePage {
   @Local noteDrafts: Map<string, string> = new Map<string, string>();
   @Local validationTaskId: string = '';
   @Local taskPanelHeaderHeight: number = 88;
-  private timerId: number = -1;
 
   private taskData: CareTaskData[] = [
     {
@@ -191,21 +191,7 @@ export struct WideHomePage {
   }
 
   aboutToAppear(): void {
-    this.onShiftStateChange(this.isClockedIn, this.isClockedOut);
     this.reportTaskProgress();
-    this.timerId = setInterval(() => {
-      const now: Date = new Date();
-      if (Math.floor(now.getTime() / 60000) !== Math.floor(this.currentTime.getTime() / 60000)) {
-        this.currentTime = now;
-      }
-    }, 1000);
-  }
-
-  aboutToDisappear(): void {
-    if (this.timerId !== -1) {
-      clearInterval(this.timerId);
-      this.timerId = -1;
-    }
   }
 
   private activateWithKeyboard(event: KeyEvent, action: () => void): void {
@@ -227,10 +213,80 @@ export struct WideHomePage {
     }
   }
 
-  private currentTimeText(): string {
-    const hour: string = this.currentTime.getHours().toString().padStart(2, '0');
-    const minute: string = this.currentTime.getMinutes().toString().padStart(2, '0');
-    return hour + ':' + minute;
+  private updateLayoutWidth(width: Length): void {
+    let nextWidth: number = 0;
+    if (typeof width === 'number') {
+      nextWidth = width;
+    } else if (typeof width === 'string') {
+      nextWidth = parseFloat(width);
+    }
+    if (nextWidth > 0 && Math.abs(nextWidth - this.layoutWidth) > 0.5) {
+      this.layoutWidth = nextWidth;
+    }
+  }
+
+  private layoutAtLeast(minWidth: number): boolean {
+    if (this.layoutWidth > 0) {
+      return this.layoutWidth >= minWidth;
+    }
+    return !this.compactWidth && minWidth <= HOME_WORK_SPLIT_MIN_WIDTH;
+  }
+
+  private useSummarySplitLayout(): boolean {
+    return this.layoutAtLeast(HOME_SUMMARY_SPLIT_MIN_WIDTH);
+  }
+
+  private useWorkSplitLayout(): boolean {
+    return this.layoutAtLeast(HOME_WORK_SPLIT_MIN_WIDTH);
+  }
+
+  private usePairedSupportCards(): boolean {
+    return this.layoutAtLeast(HOME_LG_MIN_WIDTH);
+  }
+
+  private useXlLayout(): boolean {
+    return this.layoutWidth >= HOME_XL_MIN_WIDTH;
+  }
+
+  private workOverviewSpan(): number {
+    if (!this.useSummarySplitLayout()) {
+      return 12;
+    }
+    return this.useXlLayout() ? 4 : 5;
+  }
+
+  private summaryAiSpan(): number {
+    if (!this.useSummarySplitLayout()) {
+      return 12;
+    }
+    return this.useXlLayout() ? 8 : 7;
+  }
+
+  private metricSpan(): number {
+    return this.useWorkSplitLayout() ? 3 : 6;
+  }
+
+  private sectionGap(): number {
+    return this.useXlLayout() ? 16 : 12;
+  }
+
+  private cardPadding(): number {
+    return this.useXlLayout() ? 24 : 20;
+  }
+
+  private summaryCardMinHeight(): number {
+    if (!this.useSummarySplitLayout()) {
+      return 0;
+    }
+    return this.useXlLayout() ? 276 : 252;
+  }
+
+  private contentHorizontalPadding(): number {
+    return this.useXlLayout() ? 32 : 16;
+  }
+
+  private contentMaxWidth(): number {
+    return this.useXlLayout() ? HOME_XL_MAX_CONTENT_WIDTH : 1440;
   }
 
   private dateText(): string {
@@ -251,37 +307,6 @@ export struct WideHomePage {
       return '下午好，刘婷';
     }
     return '晚上好，刘婷';
-  }
-
-  private clockStatusText(): string {
-    if (!this.isClockedIn) {
-      return '尚未开始今日班次';
-    }
-    if (this.isClockedOut && this.clockInTime && this.clockOutTime) {
-      return '今日班次已完成';
-    }
-    return '东区照护组 · 工作中';
-  }
-
-  private clockButtonLabel(): string {
-    if (this.isClockedOut) {
-      return '今日已完成';
-    }
-    return this.isClockedIn ? '下班打卡' : '上班打卡';
-  }
-
-  private handleClockAction(): void {
-    if (!this.isClockedIn) {
-      this.isClockedIn = true;
-      this.clockInTime = new Date();
-      this.onShiftStateChange(this.isClockedIn, this.isClockedOut);
-      return;
-    }
-    if (!this.isClockedOut) {
-      this.isClockedOut = true;
-      this.clockOutTime = new Date();
-      this.onShiftStateChange(this.isClockedIn, this.isClockedOut);
-    }
   }
 
   private effectiveTaskState(task: CareTaskData): CareTaskState {
@@ -491,12 +516,12 @@ export struct WideHomePage {
   }
 
   @Builder
-  private shiftCard() {
-    Column({ space: 16 }) {
-      Row() {
+  private workOverviewCard() {
+    Column({ space: this.useXlLayout() ? 16 : 12 }) {
+      Row({ space: 16 }) {
         Column({ space: 4 }) {
           Text(this.greetingText())
-            .fontSize(this.compactWidth ? 22 : 24)
+            .fontSize(this.useXlLayout() ? 24 : 22)
             .fontWeight(FontWeight.Bold)
             .fontColor($r('sys.color.font_primary'))
           Text('早班 · 东区照护组 · 负责 28 位长者')
@@ -506,51 +531,15 @@ export struct WideHomePage {
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
 
-        Row({ space: 6 }) {
-          Row()
-            .width(7)
-            .height(7)
-            .borderRadius(4)
-            .backgroundColor(this.isClockedIn && !this.isClockedOut ?
-              $r('app.color.status_normal') : $r('sys.color.icon_tertiary'))
-          Text(this.clockStatusText())
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor(this.isClockedIn && !this.isClockedOut ?
-              $r('app.color.status_normal') : $r('sys.color.font_secondary'))
-        }
-        .alignItems(VerticalAlign.Center)
+        Text(this.dateText())
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_secondary'))
+          .padding({ left: 10, right: 10, top: 5, bottom: 5 })
+          .borderRadius(12)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
       }
       .width('100%')
       .alignItems(VerticalAlign.Top)
-
-      Row({ space: 16 }) {
-        Column({ space: 2 }) {
-          Text(this.currentTimeText())
-            .fontSize(this.compactWidth ? 42 : 48)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-          Text(this.dateText())
-            .fontSize($r('sys.float.Body_M'))
-            .fontColor($r('sys.color.font_tertiary'))
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
-
-        Button(this.clockButtonLabel())
-          .height(44)
-          .padding({ left: 20, right: 20 })
-          .borderRadius(22)
-          .fontSize($r('sys.float.Body_M'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.isClockedOut ? $r('sys.color.font_tertiary') : $r('app.color.text_on_brand'))
-          .backgroundColor(this.isClockedOut ? $r('sys.color.comp_background_secondary') :
-            (this.isClockedIn ? $r('app.color.status_danger') : $r('app.color.brand_blue')))
-          .enabled(!this.isClockedOut)
-          .keyboardFocusStyle()
-          .onClick(() => this.handleClockAction())
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
 
       Column({ space: 8 }) {
         Row() {
@@ -583,8 +572,8 @@ export struct WideHomePage {
       .width('100%')
     }
     .width('100%')
-    .constraintSize({ minHeight: 240 })
-    .padding(this.compactWidth ? 20 : 24)
+    .constraintSize({ minHeight: this.summaryCardMinHeight() })
+    .padding(this.cardPadding())
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(20)
     .alignItems(HorizontalAlign.Start)
@@ -592,7 +581,7 @@ export struct WideHomePage {
 
   @Builder
   private aiFocusCard() {
-    Column({ space: 18 }) {
+    Column({ space: this.useXlLayout() ? 18 : 14 }) {
       Row({ space: 10 }) {
         Row() {
           SymbolGlyph($r('sys.symbol.AI_message'))
@@ -644,8 +633,8 @@ export struct WideHomePage {
       .width('100%')
     }
     .width('100%')
-    .constraintSize({ minHeight: 240 })
-    .padding(this.compactWidth ? 20 : 24)
+    .constraintSize({ minHeight: this.summaryCardMinHeight() })
+    .padding(this.cardPadding())
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(20)
     .geometryTransition('aiReminderCard', { follow: true })
@@ -682,7 +671,10 @@ export struct WideHomePage {
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
-    .padding({ top: 10, bottom: isLast ? 2 : 10 })
+    .padding({
+      top: this.useXlLayout() ? 8 : 6,
+      bottom: isLast ? 2 : (this.useXlLayout() ? 8 : 6)
+    })
     .border({
       width: { bottom: isLast ? 0 : 0.5 },
       color: { bottom: $r('sys.color.comp_divider') }
@@ -750,20 +742,20 @@ export struct WideHomePage {
 
   @Builder
   private metricsRow() {
-    GridRow({ columns: 12, gutter: { x: 12, y: 12 } }) {
-      GridCol({ span: this.compactWidth ? 6 : 3 }) {
+    GridRow({ columns: 12, gutter: { x: this.sectionGap(), y: this.sectionGap() } }) {
+      GridCol({ span: this.metricSpan() }) {
         this.metricCard('待处理', this.pendingCount().toString(), '按风险和时间排序',
           $r('sys.symbol.calendar_badge_clock'), $r('app.color.brand_blue'), 'todo')
       }
-      GridCol({ span: this.compactWidth ? 6 : 3 }) {
+      GridCol({ span: this.metricSpan() }) {
         this.metricCard('优先事项', this.urgentCount().toString(), '需要尽快人工确认',
           $r('sys.symbol.exclamationmark_triangle_fill'), $r('app.color.status_danger'), 'priority')
       }
-      GridCol({ span: this.compactWidth ? 6 : 3 }) {
+      GridCol({ span: this.metricSpan() }) {
         this.metricCard('用药任务', this.tasksForFilter('medication').length.toString(), '1 项等待复核',
           $r('sys.symbol.doc_text'), $r('app.color.status_warning'), 'medication')
       }
-      GridCol({ span: this.compactWidth ? 6 : 3 }) {
+      GridCol({ span: this.metricSpan() }) {
         this.metricCard('班次完成', this.progressPercent() + '%', this.completedCount() + ' 项已留痕',
           $r('sys.symbol.checkmark_circle_fill'), $r('app.color.status_normal'), 'completed')
       }
@@ -1119,16 +1111,28 @@ export struct WideHomePage {
 
   @Builder
   private mainWorkArea() {
-    GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
-      GridCol({ span: this.compactWidth ? 12 : 8 }) {
-        this.taskQueueCard()
-      }
-      GridCol({ span: this.compactWidth ? 12 : 4 }) {
-        Column({ space: 16 }) {
+    GridRow({ columns: 12, gutter: { x: this.sectionGap(), y: this.sectionGap() } }) {
+      if (this.useWorkSplitLayout()) {
+        GridCol({ span: 7 }) {
+          this.taskQueueCard()
+        }
+        GridCol({ span: 5 }) {
+          Column({ space: this.sectionGap() }) {
+            this.focusResidentCard()
+            this.checkpointCard()
+          }
+          .width('100%')
+        }
+      } else {
+        GridCol({ span: 12 }) {
+          this.taskQueueCard()
+        }
+        GridCol({ span: this.usePairedSupportCards() ? 6 : 12 }) {
           this.focusResidentCard()
+        }
+        GridCol({ span: this.usePairedSupportCards() ? 6 : 12 }) {
           this.checkpointCard()
         }
-        .width('100%')
       }
     }
     .width('100%')
@@ -1412,12 +1416,12 @@ export struct WideHomePage {
   build() {
     Stack({ alignContent: Alignment.TopEnd }) {
       Scroll(this.pageScroller) {
-        Column({ space: 16 }) {
-          GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
-            GridCol({ span: this.compactWidth ? 12 : 4 }) {
-              this.shiftCard()
+        Column({ space: this.sectionGap() }) {
+          GridRow({ columns: 12, gutter: { x: this.sectionGap(), y: this.sectionGap() } }) {
+            GridCol({ span: this.workOverviewSpan() }) {
+              this.workOverviewCard()
             }
-            GridCol({ span: this.compactWidth ? 12 : 8 }) {
+            GridCol({ span: this.summaryAiSpan() }) {
               this.aiFocusCard()
             }
           }
@@ -1427,10 +1431,10 @@ export struct WideHomePage {
           this.mainWorkArea()
         }
         .width('100%')
-        .constraintSize({ maxWidth: 1440 })
+        .constraintSize({ maxWidth: this.contentMaxWidth() })
         .padding({
-          left: this.compactWidth ? 16 : 24,
-          right: this.compactWidth ? 16 : 24,
+          left: this.contentHorizontalPadding(),
+          right: this.contentHorizontalPadding(),
           top: this.topBarHeight + (this.compactWidth ? 16 : 20),
           bottom: 28 + this.naviIndicatorHeight
         })
@@ -1455,5 +1459,8 @@ export struct WideHomePage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('sys.color.background_secondary'))
+    .onAreaChange((_oldValue: Area, newValue: Area) => {
+      this.updateLayoutWidth(newValue.width);
+    })
   }
 }
