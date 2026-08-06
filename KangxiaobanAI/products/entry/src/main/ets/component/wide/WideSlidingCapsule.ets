@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+import { curves } from '@kit.ArkUI';
 import { KeyCode } from '@kit.InputKit';
 
 export interface WideSlidingCapsuleItem {
@@ -36,14 +37,69 @@ export struct WideSlidingCapsule {
   @Local hoveredIndex: number = -1;
   @Local focusedIndex: number = -1;
   @Local measuredWidth: number = 0;
+  @Local animatedPosition: number = 0;
+  @Local visualSelectedIndex: number = -1;
+  @Local selectionRequestToken: number = 0;
 
   private selectedPosition(): number {
-    return this.items.findIndex((item: WideSlidingCapsuleItem) => item.index === this.selectedIndex);
+    return this.items.findIndex((item: WideSlidingCapsuleItem) => item.index === this.visualSelectedIndex);
   }
 
   private selectionOffset(): number {
+    return this.animatedPosition * (this.effectiveItemWidth() + 4);
+  }
+
+  aboutToAppear(): void {
+    this.visualSelectedIndex = this.selectedIndex;
     const position: number = this.selectedPosition();
-    return position < 0 ? 0 : position * (this.effectiveItemWidth() + 4);
+    this.animatedPosition = position < 0 ? 0 : position;
+  }
+
+  aboutToDisappear(): void {
+    this.selectionRequestToken += 1;
+  }
+
+  @Monitor('selectedIndex')
+  onSelectedIndexChange(): void {
+    if (this.selectedIndex === this.visualSelectedIndex) {
+      return;
+    }
+    this.selectionRequestToken += 1;
+    this.visualSelectedIndex = this.selectedIndex;
+    const position: number = this.selectedPosition();
+    if (position < 0 || position === this.animatedPosition) {
+      return;
+    }
+    this.getUIContext().animateTo({
+      duration: 280,
+      curve: curves.interpolatingSpring(0, 1, 320, 34)
+    }, () => {
+      this.animatedPosition = position;
+    });
+  }
+
+  private slideTo(index: number): void {
+    if (index === this.visualSelectedIndex) {
+      return;
+    }
+    const position: number = this.items.findIndex((item: WideSlidingCapsuleItem) => item.index === index);
+    if (position < 0) {
+      return;
+    }
+    this.selectionRequestToken += 1;
+    const requestToken: number = this.selectionRequestToken;
+    this.visualSelectedIndex = index;
+    this.getUIContext().animateTo({
+      duration: 280,
+      curve: curves.interpolatingSpring(0, 1, 320, 34)
+    }, () => {
+      this.animatedPosition = position;
+    });
+    setTimeout(() => {
+      if (requestToken === this.selectionRequestToken) {
+        this.onSelect(index);
+      }
+    }, 280);
   }
 
   private containerWidth(): number {
@@ -78,14 +134,14 @@ export struct WideSlidingCapsule {
     if (item.badgeTextColor !== undefined) {
       return item.badgeTextColor;
     }
-    return this.selectedIndex === item.index ? $r('app.color.brand_blue') : $r('sys.color.font_secondary');
+    return this.visualSelectedIndex === item.index ? $r('app.color.brand_blue') : $r('sys.color.font_secondary');
   }
 
   private badgeBackgroundColor(item: WideSlidingCapsuleItem): ResourceColor {
     if (item.badgeBackgroundColor !== undefined) {
       return item.badgeBackgroundColor;
     }
-    return this.selectedIndex === item.index ? $r('sys.color.comp_background_secondary') :
+    return this.visualSelectedIndex === item.index ? $r('sys.color.comp_background_secondary') :
       $r('sys.color.comp_background_primary');
   }
 
@@ -107,15 +163,15 @@ export struct WideSlidingCapsule {
         if (item.symbol !== undefined) {
           SymbolGlyph(item.symbol)
             .fontSize(this.iconOnly ? 19 : 17)
-            .fontColor([this.selectedIndex === item.index ? $r('app.color.brand_blue') :
+            .fontColor([this.visualSelectedIndex === item.index ? $r('app.color.brand_blue') :
               $r('sys.color.icon_secondary')])
         }
 
         if (!this.iconOnly) {
           Text(item.title)
             .fontSize($r('sys.float.Body_M'))
-            .fontWeight(this.selectedIndex === item.index ? FontWeight.Medium : FontWeight.Regular)
-            .fontColor(this.selectedIndex === item.index ? $r('app.color.brand_blue') :
+            .fontWeight(this.visualSelectedIndex === item.index ? FontWeight.Medium : FontWeight.Regular)
+            .fontColor(this.visualSelectedIndex === item.index ? $r('app.color.brand_blue') :
               $r('sys.color.font_primary'))
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -155,7 +211,7 @@ export struct WideSlidingCapsule {
     .width(this.effectiveItemWidth())
     .height(38)
     .borderRadius(19)
-    .backgroundColor(this.selectedIndex !== item.index && this.hoveredIndex === item.index ?
+    .backgroundColor(this.visualSelectedIndex !== item.index && this.hoveredIndex === item.index ?
       $r('sys.color.interactive_hover') : Color.Transparent)
     .border({
       width: this.focusedIndex === item.index ? 2 : 0,
@@ -165,7 +221,7 @@ export struct WideSlidingCapsule {
     .focusOnTouch(true)
     .accessibilityText(this.accessibilityLabel(item))
     .accessibilityRole(AccessibilityRoleType.BUTTON)
-    .accessibilitySelected(this.selectedIndex === item.index)
+    .accessibilitySelected(this.visualSelectedIndex === item.index)
     .animation({ duration: 180, curve: Curve.EaseOut })
     .onFocus(() => {
       this.focusedIndex = item.index;
@@ -179,10 +235,10 @@ export struct WideSlidingCapsule {
       this.hoveredIndex = isHover ? item.index : -1;
     })
     .onKeyEvent((event: KeyEvent) => {
-      this.activateWithKeyboard(event, () => this.onSelect(item.index));
+      this.activateWithKeyboard(event, () => this.slideTo(item.index));
     })
     .onClick(() => {
-      this.onSelect(item.index);
+      this.slideTo(item.index);
     })
   }
 
@@ -196,7 +252,6 @@ export struct WideSlidingCapsule {
         .shadow({ radius: 6, color: 'rgba(0,0,0,0.05)', offsetY: 1 })
         .translate({ x: this.selectionOffset() })
         .opacity(this.selectedPosition() >= 0 ? 1 : 0)
-        .animation({ duration: 260, curve: Curve.Friction })
 
       Row({ space: 4 }) {
         ForEach(this.items, (item: WideSlidingCapsuleItem) => {
