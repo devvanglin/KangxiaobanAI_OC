@@ -800,9 +800,6 @@ struct MainPage {
       onSwitchTab: (index: number) => {
         this.switchTab(index);
       },
-      onOpenAiChat: () => {
-        this.openAiChat();
-      },
       onOpenAbout: () => {
         this.pathStack.pushPath({ name: 'AboutPage' });
       },

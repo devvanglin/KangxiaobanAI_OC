@@ -24,7 +24,6 @@ export struct WideCaregiverTitleActions {
   @Param compactWidth: boolean = false;
   @Param iconOnlyNavigation: boolean = false;
   @Event onSwitchTab: (index: number) => void = (_index: number) => {};
-  @Event onOpenAiChat: () => void = () => {};
   @Event onOpenAbout: () => void = () => {};
   @Event onOpenGeneral: () => void = () => {};
   @Event onLogout: () => void = () => {};
@@ -80,41 +79,6 @@ export struct WideCaregiverTitleActions {
     }
     .height(48)
     .alignItems(VerticalAlign.Center)
-  }
-
-  @Builder
-  private aiEntry() {
-    Button({ type: ButtonType.Normal, stateEffect: true }) {
-      Row({ space: this.compactWidth ? 0 : 7 }) {
-        SymbolGlyph($r('sys.symbol.AI_message'))
-          .fontSize(20)
-          .fontColor([$r('app.color.brand_blue')])
-
-        if (!this.compactWidth) {
-          Text('AI 助手')
-            .fontSize($r('sys.float.Body_M'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.brand_blue'))
-            .maxLines(1)
-        }
-      }
-      .width('100%')
-      .height('100%')
-      .padding({ left: this.compactWidth ? 0 : 12, right: this.compactWidth ? 0 : 12 })
-      .justifyContent(FlexAlign.Center)
-      .alignItems(VerticalAlign.Center)
-    }
-    .width(this.compactWidth ? 48 : 92)
-    .height(48)
-    .padding(0)
-    .borderRadius(24)
-    .backgroundColor(this.targetBackground('ai-entry'))
-    .hoverEffect(HoverEffect.None)
-    .accessibilityText('打开 AI 助手，获取照护建议与工作问答')
-    .focusable(true)
-    .focusOnTouch(true)
-    .onHover((isHover: boolean) => this.hoveredTarget = isHover ? 'ai-entry' : '')
-    .onClick(() => this.onOpenAiChat())
   }
 
   @Builder
@@ -224,7 +188,6 @@ export struct WideCaregiverTitleActions {
   build() {
     Row({ space: 6 }) {
       this.primaryNavigation()
-      this.aiEntry()
       this.accountEntry()
     }
     .width('100%')

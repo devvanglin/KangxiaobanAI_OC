@@ -44,15 +44,6 @@ interface CareTaskData {
   state: CareTaskState;
 }
 
-interface CareFocusResident {
-  id: string;
-  name: string;
-  room: string;
-  note: string;
-  updatedAt: string;
-  priority: CarePriority;
-}
-
 interface CareCheckpoint {
   id: string;
   time: string;
@@ -80,7 +71,6 @@ export struct WideHomePage {
   @Local selectedTaskId: string = '';
   @Local isTaskPanelOpen: boolean = false;
   @Local hoveredTaskId: string = '';
-  @Local hoveredResidentId: string = '';
   @Local focusedTarget: string = '';
   @Local inProgressTaskIds: string[] = [];
   @Local completedTaskIds: string[] = [];
@@ -147,21 +137,6 @@ export struct WideHomePage {
       room: '2F 东区',
       summary: '夜间巡查无新增高风险事件，交接摘要已整理', time: '07:20', owner: '夜班组',
       priority: 'normal', state: 'done'
-    }
-  ];
-
-  private focusResidents: CareFocusResident[] = [
-    {
-      id: 'r1', name: '肖爷爷', room: '3F-302', note: '活动量下降，情绪需要陪伴观察',
-      updatedAt: '10分钟前', priority: 'danger'
-    },
-    {
-      id: 'r2', name: '周奶奶', room: '2F-215', note: '夜间离床增加，午休前复评',
-      updatedAt: '24分钟前', priority: 'warning'
-    },
-    {
-      id: 'r5', name: '李秀英', room: '3F-305', note: '用药后需要复测血压',
-      updatedAt: '38分钟前', priority: 'warning'
     }
   ];
 
@@ -238,20 +213,6 @@ export struct WideHomePage {
 
   private isTabletDevice(): boolean {
     return deviceInfo.deviceType === deviceInfo.DeviceTypes.TYPE_TABLET;
-  }
-
-  private workOverviewSpan(): number {
-    if (!this.useSummarySplitLayout()) {
-      return 12;
-    }
-    return this.useXlLayout() ? 4 : 5;
-  }
-
-  private summaryAiSpan(): number {
-    if (!this.useSummarySplitLayout()) {
-      return 12;
-    }
-    return this.useXlLayout() ? 8 : 7;
   }
 
   private sectionGap(): number {
@@ -580,10 +541,7 @@ export struct WideHomePage {
         }
 
         Column({ space: 3 }) {
-          AiTitleLabel({ text: '今日照护重点', compact: false })
-          Text('根据本地演示数据整理 · 需要人工确认')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_tertiary'))
+          AiTitleLabel({ text: '康小伴 AI', compact: false })
         }
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
@@ -677,9 +635,6 @@ export struct WideHomePage {
             .fontSize(20)
             .fontWeight(FontWeight.Bold)
             .fontColor($r('sys.color.font_primary'))
-          Text('沿用手机端入口，按当前班次优先级整理')
-            .fontSize($r('sys.float.Body_M'))
-            .fontColor($r('sys.color.font_secondary'))
         }
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
@@ -816,118 +771,6 @@ export struct WideHomePage {
   }
 
   @Builder
-  private focusResidentCard() {
-    Column({ space: 0 }) {
-      Row() {
-        Column({ space: 3 }) {
-          Text('重点长者')
-            .fontSize(20)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-          Text('本班次需要持续观察')
-            .fontSize($r('sys.float.Body_M'))
-            .fontColor($r('sys.color.font_secondary'))
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
-
-        Button({ type: ButtonType.Normal, stateEffect: true }) {
-          Row({ space: 5 }) {
-            Text('全部长者')
-              .fontSize($r('sys.float.Body_M'))
-              .fontColor($r('app.color.brand_blue'))
-            SymbolGlyph($r('sys.symbol.chevron_right'))
-              .fontSize(13)
-              .fontColor([$r('app.color.brand_blue')])
-          }
-        }
-        .height(36)
-        .padding({ left: 12, right: 10 })
-        .borderRadius(18)
-        .backgroundColor($r('sys.color.comp_background_secondary'))
-        .keyboardFocusStyle()
-        .onClick(() => this.onOpenResident(''))
-      }
-      .width('100%')
-      .padding({ left: 20, right: 18, top: 20, bottom: 12 })
-      .alignItems(VerticalAlign.Center)
-
-      ForEach(this.focusResidents, (resident: CareFocusResident, index: number) => {
-        this.focusResidentRow(resident, index === this.focusResidents.length - 1)
-      }, (resident: CareFocusResident) => resident.id)
-    }
-    .width('100%')
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(20)
-    .clip(true)
-  }
-
-  @Builder
-  private focusResidentRow(resident: CareFocusResident, isLast: boolean) {
-    Row({ space: 12 }) {
-      if (!this.isTabletDevice()) {
-        Stack({ alignContent: Alignment.BottomEnd }) {
-          Text(resident.name.slice(0, 1))
-            .fontSize($r('sys.float.Body_L'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-            .width(42)
-            .height(42)
-            .textAlign(TextAlign.Center)
-            .borderRadius(21)
-            .backgroundColor($r('sys.color.comp_background_secondary'))
-          Row()
-            .width(10)
-            .height(10)
-            .borderRadius(5)
-            .backgroundColor(this.priorityColor(resident.priority))
-        }
-        .width(42)
-        .height(42)
-      }
-
-      Column({ space: 4 }) {
-        Row({ space: 8 }) {
-          Text(resident.name)
-            .fontSize($r('sys.float.Body_L'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-          Text(resident.room)
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_tertiary'))
-        }
-        Text(resident.note)
-          .width('100%')
-          .fontSize($r('sys.float.Body_M'))
-          .fontColor($r('sys.color.font_secondary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-      }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
-
-      Text(resident.updatedAt)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_tertiary'))
-    }
-    .width('calc(100% - 24vp)')
-    .height(72)
-    .margin({ left: 12, right: 12 })
-    .padding({ left: 8, right: 8 })
-    .border({
-      width: { bottom: isLast ? 0 : 0.5 },
-      color: { bottom: $r('sys.color.comp_divider') }
-    })
-    .backgroundColor(this.hoveredResidentId === resident.id ? $r('sys.color.interactive_hover') : Color.Transparent)
-    .borderRadius(12)
-    .keyboardFocusStyle()
-    .accessibilityText(resident.name + '，' + resident.room + '，' + resident.note)
-    .onHover((isHover: boolean) => this.hoveredResidentId = isHover ? resident.id : '')
-    .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => this.onOpenResident(resident.id)))
-    .onClick(() => this.onOpenResident(resident.id))
-  }
-
-  @Builder
   private checkpointCard() {
     Column({ space: 0 }) {
       Row() {
@@ -1027,7 +870,7 @@ export struct WideHomePage {
         }
         GridCol({ span: 5 }) {
           Column({ space: this.sectionGap() }) {
-            this.focusResidentCard()
+            this.aiFocusCard()
             if (!this.isTabletDevice()) {
               this.checkpointCard()
             }
@@ -1039,7 +882,7 @@ export struct WideHomePage {
           this.taskQueueCard()
         }
         GridCol({ span: this.usePairedSupportCards() ? 6 : 12 }) {
-          this.focusResidentCard()
+          this.aiFocusCard()
         }
         if (!this.isTabletDevice()) {
           GridCol({ span: this.usePairedSupportCards() ? 6 : 12 }) {
@@ -1307,17 +1150,14 @@ export struct WideHomePage {
     Stack({ alignContent: Alignment.TopEnd }) {
       Scroll(this.pageScroller) {
         Column({ space: this.sectionGap() }) {
-          GridRow({ columns: 12, gutter: { x: this.sectionGap(), y: this.sectionGap() } }) {
-            if (!this.isTabletDevice()) {
-              GridCol({ span: this.workOverviewSpan() }) {
+          if (!this.isTabletDevice()) {
+            GridRow({ columns: 12, gutter: { x: this.sectionGap(), y: this.sectionGap() } }) {
+              GridCol({ span: 12 }) {
                 this.workOverviewCard()
               }
             }
-            GridCol({ span: this.isTabletDevice() ? 12 : this.summaryAiSpan() }) {
-              this.aiFocusCard()
-            }
+            .width('100%')
           }
-          .width('100%')
 
           this.mainWorkArea()
         }
