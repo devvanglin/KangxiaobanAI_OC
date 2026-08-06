@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import { curves, LengthMetrics } from '@kit.ArkUI';
+import { LengthMetrics } from '@kit.ArkUI';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { KeyCode } from '@kit.InputKit';
 import { AiTitleLabel } from '../AiTitleLabel';
@@ -86,7 +86,6 @@ export struct WideHomePage {
   @Local completedTaskIds: string[] = [];
   @Local noteDrafts: Map<string, string> = new Map<string, string>();
   @Local validationTaskId: string = '';
-  @Local taskPanelHeaderHeight: number = 88;
 
   private taskData: CareTaskData[] = [
     {
@@ -202,18 +201,6 @@ export struct WideHomePage {
     }
   }
 
-  private updateTaskPanelHeaderHeight(height: Length): void {
-    let nextHeight: number = 0;
-    if (typeof height === 'number') {
-      nextHeight = height;
-    } else if (typeof height === 'string') {
-      nextHeight = parseFloat(height);
-    }
-    if (nextHeight > 0 && Math.abs(nextHeight - this.taskPanelHeaderHeight) > 0.5) {
-      this.taskPanelHeaderHeight = nextHeight;
-    }
-  }
-
   private updateLayoutWidth(width: Length): void {
     let nextWidth: number = 0;
     if (typeof width === 'number') {
@@ -265,10 +252,6 @@ export struct WideHomePage {
       return 12;
     }
     return this.useXlLayout() ? 8 : 7;
-  }
-
-  private metricSpan(): number {
-    return this.useWorkSplitLayout() ? 3 : 6;
   }
 
   private sectionGap(): number {
@@ -446,22 +429,16 @@ export struct WideHomePage {
     if (this.isTaskPanelOpen) {
       return;
     }
-    this.getUIContext().animateTo({
-      curve: curves.interpolatingSpring(0, 1, 328, 36)
-    }, () => {
-      this.isTaskPanelOpen = true;
-      this.onTaskPanelVisibilityChange(true);
-    });
+    this.isTaskPanelOpen = true;
+    this.onTaskPanelVisibilityChange(true);
   }
 
   private closeTaskPanel(): void {
     if (!this.isTaskPanelOpen) {
       return;
     }
-    this.getUIContext().animateTo({ duration: 180, curve: Curve.EaseOut }, () => {
-      this.isTaskPanelOpen = false;
-      this.onTaskPanelVisibilityChange(false);
-    });
+    this.isTaskPanelOpen = false;
+    this.onTaskPanelVisibilityChange(false);
   }
 
   private taskNote(taskId: string): string {
@@ -689,89 +666,6 @@ export struct WideHomePage {
       color: { bottom: $r('sys.color.comp_divider') }
     })
     .alignItems(VerticalAlign.Center)
-  }
-
-  @Builder
-  private metricCard(label: string, value: string, note: string, symbol: Resource,
-    valueColor: ResourceColor, targetFilter: CareWorkFilter) {
-    Row({ space: 14 }) {
-      if (!this.isTabletDevice()) {
-        Row() {
-          SymbolGlyph(symbol)
-            .fontSize(20)
-            .fontColor([valueColor])
-        }
-        .width(42)
-        .height(42)
-        .borderRadius(14)
-        .backgroundColor($r('sys.color.comp_background_secondary'))
-        .justifyContent(FlexAlign.Center)
-        .alignItems(VerticalAlign.Center)
-      }
-
-      Column({ space: 3 }) {
-        Row({ space: 7 }) {
-          Text(value)
-            .fontSize(24)
-            .fontWeight(FontWeight.Bold)
-            .fontColor(valueColor)
-          Text(label)
-            .fontSize($r('sys.float.Body_M'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-        }
-        .alignItems(VerticalAlign.Bottom)
-        Text(note)
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor($r('sys.color.font_tertiary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-      }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
-
-      SymbolGlyph($r('sys.symbol.chevron_right'))
-        .fontSize(13)
-        .fontColor([$r('sys.color.icon_tertiary')])
-    }
-    .width('100%')
-    .height(82)
-    .padding({ left: 16, right: 14 })
-    .borderRadius(16)
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .keyboardFocusStyle()
-    .accessibilityText(label + '，' + value + '，' + note)
-    .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => {
-      this.activeFilter = targetFilter;
-      this.pageScroller.scrollEdge(Edge.Bottom);
-    }))
-    .onClick(() => {
-      this.activeFilter = targetFilter;
-      this.pageScroller.scrollEdge(Edge.Bottom);
-    })
-  }
-
-  @Builder
-  private metricsRow() {
-    GridRow({ columns: 12, gutter: { x: this.sectionGap(), y: this.sectionGap() } }) {
-      GridCol({ span: this.metricSpan() }) {
-        this.metricCard('待处理', this.pendingCount().toString(), '按风险和时间排序',
-          $r('sys.symbol.calendar_badge_clock'), $r('app.color.brand_blue'), 'todo')
-      }
-      GridCol({ span: this.metricSpan() }) {
-        this.metricCard('优先事项', this.urgentCount().toString(), '需要尽快人工确认',
-          $r('sys.symbol.exclamationmark_triangle_fill'), $r('app.color.status_danger'), 'priority')
-      }
-      GridCol({ span: this.metricSpan() }) {
-        this.metricCard('用药任务', this.tasksForFilter('medication').length.toString(), '1 项等待复核',
-          $r('sys.symbol.doc_text'), $r('app.color.status_warning'), 'medication')
-      }
-      GridCol({ span: this.metricSpan() }) {
-        this.metricCard('班次完成', this.progressPercent() + '%', this.completedCount() + ' 项已留痕',
-          $r('sys.symbol.checkmark_circle_fill'), $r('app.color.status_normal'), 'completed')
-      }
-    }
-    .width('100%')
   }
 
   @Builder
@@ -1159,7 +1053,7 @@ export struct WideHomePage {
 
   @Builder
   private taskDetailPanel(task: CareTaskData) {
-    Stack({ alignContent: Alignment.TopStart }) {
+    Column({ space: 0 }) {
       Row({ space: 12 }) {
         Column({ space: 4 }) {
           Row({ space: 8 }) {
@@ -1183,32 +1077,12 @@ export struct WideHomePage {
         }
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
-
-        if (!this.compactWidth) {
-          Button({ type: ButtonType.Circle, stateEffect: true }) {
-            SymbolGlyph($r('sys.symbol.xmark'))
-              .fontSize(18)
-              .fontColor([$r('sys.color.icon_primary')])
-          }
-          .width(40)
-          .height(40)
-          .backgroundColor($r('sys.color.comp_background_secondary'))
-          .keyboardFocusStyle()
-          .accessibilityText('关闭任务详情')
-          .onClick(() => this.closeTaskPanel())
-        }
       }
       .width('100%')
-      .constraintSize({ minHeight: 88 })
-      .padding({ left: 22, right: 18, top: 22, bottom: 18 })
+      .padding({ left: 22, right: 22, top: 12, bottom: 18 })
       .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
-      .margin({ top: this.topBarHeight })
       .backgroundColor($r('sys.color.comp_background_primary'))
       .alignItems(VerticalAlign.Top)
-      .zIndex(1)
-      .onAreaChange((_oldValue: Area, newValue: Area) => {
-        this.updateTaskPanelHeaderHeight(newValue.height);
-      })
 
       Scroll(this.taskDetailScroller) {
         Column({ space: 18 }) {
@@ -1370,66 +1244,63 @@ export struct WideHomePage {
         .padding({
           left: 22,
           right: 22,
-          top: this.topBarHeight + this.taskPanelHeaderHeight + 20,
-          bottom: 24
+          top: 20,
+          bottom: 20
         })
         .alignItems(HorizontalAlign.Start)
       }
       .width('100%')
-      .height('100%')
+      .layoutWeight(1)
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
-      .contentEndOffset(70 + this.naviIndicatorHeight)
       .align(Alignment.TopStart)
 
-      Column() {
-        Row({ space: 10 }) {
-          Button('查看长者')
-            .width(118)
-            .height(42)
-            .borderRadius(21)
-            .fontSize($r('sys.float.Body_M'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-            .backgroundColor($r('sys.color.comp_background_secondary'))
-            .keyboardFocusStyle()
-            .onClick(() => {
-              this.closeTaskPanel();
-              this.onOpenResident(task.residentId);
-            })
+      Row({ space: 10 }) {
+        Button('查看长者')
+          .width(118)
+          .height(42)
+          .borderRadius(21)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .keyboardFocusStyle()
+          .onClick(() => {
+            this.closeTaskPanel();
+            this.onOpenResident(task.residentId);
+          })
 
-          Button(this.taskActionLabel(task))
-            .layoutWeight(1)
-            .height(42)
-            .borderRadius(21)
-            .fontSize($r('sys.float.Body_M'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor(this.effectiveTaskState(task) === 'done' ? $r('sys.color.font_tertiary') :
-              $r('app.color.text_on_brand'))
-            .backgroundColor(this.effectiveTaskState(task) === 'done' ? $r('sys.color.comp_background_secondary') :
-              $r('app.color.brand_blue'))
-            .enabled(this.effectiveTaskState(task) !== 'done')
-            .keyboardFocusStyle()
-            .onClick(() => this.handleTaskAction(task))
-        }
-        .width('100%')
-        .height(70 + this.naviIndicatorHeight)
-        .padding({ left: 18, right: 18, bottom: this.naviIndicatorHeight })
-        .border({ width: { top: 0.5 }, color: { top: $r('sys.color.comp_divider') } })
-        .backgroundColor($r('sys.color.comp_background_primary'))
-        .alignItems(VerticalAlign.Center)
+        Button(this.taskActionLabel(task))
+          .layoutWeight(1)
+          .height(42)
+          .borderRadius(21)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor(this.effectiveTaskState(task) === 'done' ? $r('sys.color.font_tertiary') :
+            $r('app.color.text_on_brand'))
+          .backgroundColor(this.effectiveTaskState(task) === 'done' ? $r('sys.color.comp_background_secondary') :
+            $r('app.color.brand_blue'))
+          .enabled(this.effectiveTaskState(task) !== 'done')
+          .keyboardFocusStyle()
+          .onClick(() => this.handleTaskAction(task))
       }
       .width('100%')
-      .height('100%')
-      .justifyContent(FlexAlign.End)
-      .hitTestBehavior(HitTestMode.None)
-      .zIndex(1)
+      .height(70)
+      .padding({ left: 18, right: 18 })
+      .border({ width: { top: 0.5 }, color: { top: $r('sys.color.comp_divider') } })
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .alignItems(VerticalAlign.Center)
     }
-    .width(this.compactWidth ? '88%' : 456)
+    .width('100%')
     .height('100%')
     .backgroundColor($r('sys.color.comp_background_primary'))
-    .shadow(ShadowStyle.OUTER_DEFAULT_MD)
-    .transition(TransitionEffect.OPACITY.animation({ duration: 180, curve: Curve.EaseOut }))
+  }
+
+  @Builder
+  private taskDetailSheet() {
+    if (this.selectedTask() !== undefined) {
+      this.taskDetailPanel(this.selectedTask()!)
+    }
   }
 
   build() {
@@ -1448,7 +1319,6 @@ export struct WideHomePage {
           }
           .width('100%')
 
-          this.metricsRow()
           this.mainWorkArea()
         }
         .width('100%')
@@ -1467,21 +1337,27 @@ export struct WideHomePage {
       .edgeEffect(EdgeEffect.Spring)
       .backgroundColor($r('sys.color.background_secondary'))
 
-      if (this.isTaskPanelOpen && this.selectedTask() !== undefined) {
-        Row()
-          .width('100%')
-          .height('100%')
-          .backgroundColor(Color.Transparent)
-          .onClick(() => this.closeTaskPanel())
-
-        this.taskDetailPanel(this.selectedTask()!)
-      }
     }
     .width('100%')
     .height('100%')
     .backgroundColor($r('sys.color.background_secondary'))
     .onAreaChange((_oldValue: Area, newValue: Area) => {
       this.updateLayoutWidth(newValue.width);
+    })
+    .bindSheet(this.isTaskPanelOpen, this.taskDetailSheet, {
+      detents: [SheetSize.LARGE, SheetSize.MEDIUM],
+      preferType: SheetType.CENTER,
+      width: 640,
+      showClose: true,
+      dragBar: true,
+      title: { title: '任务详情' },
+      backgroundColor: $r('sys.color.comp_background_primary'),
+      onDisappear: () => {
+        if (this.isTaskPanelOpen) {
+          this.isTaskPanelOpen = false;
+          this.onTaskPanelVisibilityChange(false);
+        }
+      }
     })
   }
 }
