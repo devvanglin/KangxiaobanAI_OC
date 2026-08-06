@@ -215,8 +215,7 @@ struct MainPage {
     if (this.isCaregiverWideWorkspace()) {
       const activeTabIndex: number = this.wideCaregiverActiveTabIndex();
       if (activeTabIndex === 0) {
-        return this.caregiverHasLocalBackLayer ?
-          [this.wideHomeTaskDetailScroller] : [this.wideHomeScroller];
+        return [this.wideHomeScroller];
       }
       if (activeTabIndex === 1) {
         if (!this.useCompactCaregiverWorkspace()) {
