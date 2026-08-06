@@ -20,17 +20,26 @@ import Logger from '../util/Logger';
 import { WindowUtil } from '../util/WindowUtil';
 
 const TAG: string = '[LoginPage]';
+const ROLE_CAREGIVER: string = '护工';
+const ROLE_DOCTOR: string = '医师';
+const ROLE_ADMIN: string = '管理';
+const DEMO_PASSWORD: string = '123456';
+
+interface DemoCredential {
+  account: string;
+  password: string;
+}
 
 @Entry
 @ComponentV2
 struct LoginPage {
-  @Local account: string = '';
-  @Local password: string = '';
+  @Local account: string = 'caregiver_demo';
+  @Local password: string = DEMO_PASSWORD;
   @Local showPassword: boolean = false;
   @Local isLoading: boolean = false;
   @Local rememberMe: boolean = false;
   @Local keyboardOffset: number = 0;
-  @Local selectedRole: string = '护工';
+  @Local selectedRole: string = ROLE_CAREGIVER;
   @Local isRoleMenuOpen: boolean = false;
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO, () => new GlobalInfoModel()) ?? new GlobalInfoModel();
@@ -76,7 +85,23 @@ struct LoginPage {
     }, 800);
   }
 
-  private roleOptions: string[] = ['护工', '医师', '管理'];
+  private roleOptions: string[] = [ROLE_CAREGIVER, ROLE_DOCTOR, ROLE_ADMIN];
+
+  private demoCredentialForRole(role: string): DemoCredential {
+    if (role === ROLE_DOCTOR) {
+      return { account: 'doctor_demo', password: DEMO_PASSWORD };
+    }
+    if (role === ROLE_ADMIN) {
+      return { account: 'admin_demo', password: DEMO_PASSWORD };
+    }
+    return { account: 'caregiver_demo', password: DEMO_PASSWORD };
+  }
+
+  private applyDemoCredential(role: string): void {
+    const credential: DemoCredential = this.demoCredentialForRole(role);
+    this.account = credential.account;
+    this.password = credential.password;
+  }
 
   @Builder
   private roleSelector() {
@@ -98,6 +123,7 @@ struct LoginPage {
       action: () => {
         this.selectedRole = role;
         this.globalInfoModel.role = role;
+        this.applyDemoCredential(role);
       }
     })))
   }

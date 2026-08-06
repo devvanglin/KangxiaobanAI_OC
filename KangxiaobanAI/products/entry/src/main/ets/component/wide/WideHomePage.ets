@@ -588,17 +588,19 @@ export struct WideHomePage {
   private aiFocusCard() {
     Column({ space: this.useXlLayout() ? 18 : 14 }) {
       Row({ space: 10 }) {
-        Row() {
-          SymbolGlyph($r('sys.symbol.AI_message'))
-            .fontSize(20)
-            .fontColor([$r('app.color.brand_blue')])
+        if (!this.isTabletDevice()) {
+          Row() {
+            SymbolGlyph($r('sys.symbol.AI_message'))
+              .fontSize(20)
+              .fontColor([$r('app.color.brand_blue')])
+          }
+          .width(40)
+          .height(40)
+          .borderRadius(20)
+          .backgroundColor($r('app.color.ai_feed_background'))
+          .justifyContent(FlexAlign.Center)
+          .alignItems(VerticalAlign.Center)
         }
-        .width(40)
-        .height(40)
-        .borderRadius(20)
-        .backgroundColor($r('app.color.ai_feed_background'))
-        .justifyContent(FlexAlign.Center)
-        .alignItems(VerticalAlign.Center)
 
         Column({ space: 3 }) {
           AiTitleLabel({ text: '今日照护重点', compact: false })
@@ -649,11 +651,13 @@ export struct WideHomePage {
   @Builder
   private aiFocusRow(name: string, detail: string, timeLabel: string, priority: CarePriority, isLast: boolean) {
     Row({ space: 12 }) {
-      Row()
-        .width(4)
-        .height(38)
-        .borderRadius(2)
-        .backgroundColor(this.priorityColor(priority))
+      if (!this.isTabletDevice()) {
+        Row()
+          .width(4)
+          .height(38)
+          .borderRadius(2)
+          .backgroundColor(this.priorityColor(priority))
+      }
 
       Column({ space: 4 }) {
         Row({ space: 8 }) {
@@ -691,17 +695,19 @@ export struct WideHomePage {
   private metricCard(label: string, value: string, note: string, symbol: Resource,
     valueColor: ResourceColor, targetFilter: CareWorkFilter) {
     Row({ space: 14 }) {
-      Row() {
-        SymbolGlyph(symbol)
-          .fontSize(20)
-          .fontColor([valueColor])
+      if (!this.isTabletDevice()) {
+        Row() {
+          SymbolGlyph(symbol)
+            .fontSize(20)
+            .fontColor([valueColor])
+        }
+        .width(42)
+        .height(42)
+        .borderRadius(14)
+        .backgroundColor($r('sys.color.comp_background_secondary'))
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
       }
-      .width(42)
-      .height(42)
-      .borderRadius(14)
-      .backgroundColor($r('sys.color.comp_background_secondary'))
-      .justifyContent(FlexAlign.Center)
-      .alignItems(VerticalAlign.Center)
 
       Column({ space: 3 }) {
         Row({ space: 7 }) {
@@ -965,24 +971,26 @@ export struct WideHomePage {
   @Builder
   private focusResidentRow(resident: CareFocusResident, isLast: boolean) {
     Row({ space: 12 }) {
-      Stack({ alignContent: Alignment.BottomEnd }) {
-        Text(resident.name.slice(0, 1))
-          .fontSize($r('sys.float.Body_L'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-          .width(42)
-          .height(42)
-          .textAlign(TextAlign.Center)
-          .borderRadius(21)
-          .backgroundColor($r('sys.color.comp_background_secondary'))
-        Row()
-          .width(10)
-          .height(10)
-          .borderRadius(5)
-          .backgroundColor(this.priorityColor(resident.priority))
+      if (!this.isTabletDevice()) {
+        Stack({ alignContent: Alignment.BottomEnd }) {
+          Text(resident.name.slice(0, 1))
+            .fontSize($r('sys.float.Body_L'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .width(42)
+            .height(42)
+            .textAlign(TextAlign.Center)
+            .borderRadius(21)
+            .backgroundColor($r('sys.color.comp_background_secondary'))
+          Row()
+            .width(10)
+            .height(10)
+            .borderRadius(5)
+            .backgroundColor(this.priorityColor(resident.priority))
+        }
+        .width(42)
+        .height(42)
       }
-      .width(42)
-      .height(42)
 
       Column({ space: 4 }) {
         Row({ space: 8 }) {
@@ -1126,7 +1134,9 @@ export struct WideHomePage {
         GridCol({ span: 5 }) {
           Column({ space: this.sectionGap() }) {
             this.focusResidentCard()
-            this.checkpointCard()
+            if (!this.isTabletDevice()) {
+              this.checkpointCard()
+            }
           }
           .width('100%')
         }
@@ -1137,8 +1147,10 @@ export struct WideHomePage {
         GridCol({ span: this.usePairedSupportCards() ? 6 : 12 }) {
           this.focusResidentCard()
         }
-        GridCol({ span: this.usePairedSupportCards() ? 6 : 12 }) {
-          this.checkpointCard()
+        if (!this.isTabletDevice()) {
+          GridCol({ span: this.usePairedSupportCards() ? 6 : 12 }) {
+            this.checkpointCard()
+          }
         }
       }
     }
