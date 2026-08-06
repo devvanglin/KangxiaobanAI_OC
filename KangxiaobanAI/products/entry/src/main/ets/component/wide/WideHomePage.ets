@@ -14,6 +14,7 @@
  */
 
 import { curves, LengthMetrics } from '@kit.ArkUI';
+import { deviceInfo } from '@kit.BasicServicesKit';
 import { KeyCode } from '@kit.InputKit';
 import { AiTitleLabel } from '../AiTitleLabel';
 import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule';
@@ -246,6 +247,10 @@ export struct WideHomePage {
 
   private useXlLayout(): boolean {
     return this.layoutWidth >= HOME_XL_MIN_WIDTH;
+  }
+
+  private isTabletDevice(): boolean {
+    return deviceInfo.deviceType === deviceInfo.DeviceTypes.TYPE_TABLET;
   }
 
   private workOverviewSpan(): number {
@@ -849,11 +854,13 @@ export struct WideHomePage {
       .width(62)
       .alignItems(HorizontalAlign.Start)
 
-      Row()
-        .width(4)
-        .height(42)
-        .borderRadius(2)
-        .backgroundColor(this.priorityColor(task.priority))
+      if (!this.isTabletDevice()) {
+        Row()
+          .width(4)
+          .height(42)
+          .borderRadius(2)
+          .backgroundColor(this.priorityColor(task.priority))
+      }
 
       Column({ space: 5 }) {
         Row({ space: 8 }) {
@@ -1418,10 +1425,12 @@ export struct WideHomePage {
       Scroll(this.pageScroller) {
         Column({ space: this.sectionGap() }) {
           GridRow({ columns: 12, gutter: { x: this.sectionGap(), y: this.sectionGap() } }) {
-            GridCol({ span: this.workOverviewSpan() }) {
-              this.workOverviewCard()
+            if (!this.isTabletDevice()) {
+              GridCol({ span: this.workOverviewSpan() }) {
+                this.workOverviewCard()
+              }
             }
-            GridCol({ span: this.summaryAiSpan() }) {
+            GridCol({ span: this.isTabletDevice() ? 12 : this.summaryAiSpan() }) {
               this.aiFocusCard()
             }
           }

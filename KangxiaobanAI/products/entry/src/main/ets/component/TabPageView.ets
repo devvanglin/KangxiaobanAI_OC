@@ -921,7 +921,6 @@ export struct TabPageView {
         SymbolGlyph($r('sys.symbol.chevron_right'))
           .fontSize(16)
           .fontColor([$r('sys.color.font_tertiary')])
-          .padding(8)
           .onClick(() => {
             this.openAiChat();
           })
