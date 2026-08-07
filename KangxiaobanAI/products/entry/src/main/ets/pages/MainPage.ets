@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import { AppStorageV2, curves, LengthMetrics, router, SymbolGlyphModifier } from '@kit.ArkUI';
+import { AppStorageV2, curves, LengthMetrics, SymbolGlyphModifier } from '@kit.ArkUI';
 import {
   hdsMaterial,
   HdsListItemCard,
@@ -291,7 +291,7 @@ struct MainPage {
   private async handleLogout(): Promise<void> {
     try {
       await WindowUtil.setImmersiveMode(false);
-      await router.replaceUrl({ url: 'pages/LoginPage' });
+      await this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
     } catch (error) {
       await WindowUtil.setImmersiveMode(true);
       Logger.error(TAG, `logout failed: ${JSON.stringify(error)}`);

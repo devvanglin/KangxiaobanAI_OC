@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import { ColorMetrics, LengthMetrics } from '@kit.ArkUI';
+import { ColorMetrics, KeyboardAvoidMode, LengthMetrics } from '@kit.ArkUI';
 import { KeyCode } from '@kit.InputKit';
 import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule';
 
@@ -331,11 +331,12 @@ export struct WideMessagePage {
   ];
   @Local hoveredConversationId: string = '';
   @Local focusedConversationId: string = '';
-  @Local hoveredHeaderAction: string = '';
   @Local replyText: string = '';
   @Local sentRecords: WideChatRecord[] = [];
   @Local compactDetailVisible: boolean = false;
   private scrollTimerId: number = -1;
+  private previousKeyboardAvoidMode: KeyboardAvoidMode = KeyboardAvoidMode.OFFSET;
+  private composerHasFocus: boolean = false;
 
   @Monitor('backRequestToken')
   onBackRequestTokenChange(): void {
@@ -375,10 +376,28 @@ export struct WideMessagePage {
   }
 
   aboutToDisappear(): void {
+    this.restoreKeyboardAvoidMode();
     if (this.scrollTimerId !== -1) {
       clearTimeout(this.scrollTimerId);
       this.scrollTimerId = -1;
     }
+  }
+
+  private useComposerKeyboardAvoidMode(): void {
+    if (this.composerHasFocus) {
+      return;
+    }
+    this.previousKeyboardAvoidMode = this.getUIContext().getKeyboardAvoidMode();
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
+    this.composerHasFocus = true;
+  }
+
+  private restoreKeyboardAvoidMode(): void {
+    if (!this.composerHasFocus) {
+      return;
+    }
+    this.getUIContext().setKeyboardAvoidMode(this.previousKeyboardAvoidMode);
+    this.composerHasFocus = false;
   }
 
   private activeFilter(): WideMessageFilter {
@@ -398,7 +417,7 @@ export struct WideMessagePage {
   }
 
   private chatHistoryStartOffset(): number {
-    return this.paneTopOffset() + 72;
+    return this.paneTopOffset();
   }
 
   private isUnread(conversationId: string): boolean {
@@ -530,18 +549,6 @@ export struct WideMessagePage {
     this.onChatScrollerActive();
   }
 
-  private toggleReadState(): void {
-    const selected: WideConversationData | undefined = this.selectedConversation();
-    if (!selected) {
-      return;
-    }
-    if (this.isUnread(selected.id)) {
-      this.unreadConversationIds = this.unreadConversationIds.filter((id: string) => id !== selected.id);
-      return;
-    }
-    this.unreadConversationIds = [...this.unreadConversationIds, selected.id];
-  }
-
   private currentTimeText(): string {
     const now: Date = new Date();
     const hour: string = now.getHours().toString().padStart(2, '0');
@@ -600,22 +607,6 @@ export struct WideMessagePage {
     .height(size)
     .borderRadius(size / 2)
     .backgroundColor(this.avatarBackground(item.kind))
-    .justifyContent(FlexAlign.Center)
-    .alignItems(VerticalAlign.Center)
-  }
-
-  @Builder
-  private selectedConversationAvatar(size: number) {
-    Row() {
-      Text(this.selectedConversation()!.avatar)
-        .fontSize(size >= 40 ? 16 : 13)
-        .fontWeight(FontWeight.Medium)
-        .fontColor(this.avatarColor(this.selectedConversation()!.kind))
-    }
-    .width(size)
-    .height(size)
-    .borderRadius(size / 2)
-    .backgroundColor(this.avatarBackground(this.selectedConversation()!.kind))
     .justifyContent(FlexAlign.Center)
     .alignItems(VerticalAlign.Center)
   }
@@ -815,62 +806,6 @@ export struct WideMessagePage {
   }
 
   @Builder
-  private conversationHeader() {
-    Row({ space: 12 }) {
-      this.selectedConversationAvatar(44)
-
-      Column({ space: 3 }) {
-        Text(this.selectedConversation()!.title)
-          .fontSize($r('sys.float.Title_S'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(this.selectedConversation()!.subtitle)
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_secondary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-      }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
-
-      Row({ space: 7 }) {
-        SymbolGlyph($r('sys.symbol.bell'))
-          .fontSize(16)
-          .fontColor([$r('sys.color.icon_primary')])
-        Text(this.isUnread(this.selectedConversation()!.id) ? '标为已读' : '标为未读')
-          .fontSize($r('sys.float.Body_M'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-      }
-      .height(36)
-      .padding({ left: 13, right: 13 })
-      .borderRadius(18)
-      .backgroundColor(this.hoveredHeaderAction === 'read' ? $r('sys.color.interactive_hover') :
-        $r('sys.color.comp_background_secondary'))
-      .justifyContent(FlexAlign.Center)
-      .alignItems(VerticalAlign.Center)
-      .keyboardFocusStyle()
-      .onHover((isHover: boolean) => {
-        this.hoveredHeaderAction = isHover ? 'read' : '';
-      })
-      .onKeyEvent((event: KeyEvent) => {
-        this.activateWithKeyboard(event, () => this.toggleReadState());
-      })
-      .onClick(() => {
-        this.toggleReadState();
-      })
-    }
-    .width('100%')
-    .height(72)
-    .padding({ left: 20, right: 20 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
-    .alignItems(VerticalAlign.Center)
-  }
-
-  @Builder
   private daySeparator(label: string) {
     Row() {
       Text(label)
@@ -887,34 +822,27 @@ export struct WideMessagePage {
   @Builder
   private incomingRecord(record: WideChatRecord) {
     Row() {
-      Row({ space: 10 }) {
-        this.conversationAvatar(this.selectedConversation()!, 34)
+      Column({ space: 4 }) {
+        Text(record.author)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_secondary'))
 
-        Column({ space: 4 }) {
-          Text(record.author)
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_secondary'))
+        Text(record.content)
+          .fontSize($r('sys.float.Body_L'))
+          .fontColor($r('sys.color.font_primary'))
+          .lineHeight(23)
+          .padding({ left: 14, right: 14, top: 10, bottom: 10 })
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .borderRadius({ topLeft: 4, topRight: 16, bottomLeft: 16, bottomRight: 16 })
+          .constraintSize({ maxWidth: 560 })
 
-          Text(record.content)
-            .fontSize($r('sys.float.Body_L'))
-            .fontColor($r('sys.color.font_primary'))
-            .lineHeight(23)
-            .padding({ left: 14, right: 14, top: 10, bottom: 10 })
-            .backgroundColor($r('sys.color.comp_background_primary'))
-            .borderRadius({ topLeft: 3, topRight: 17, bottomLeft: 17, bottomRight: 17 })
-            .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-            .constraintSize({ maxWidth: 620 })
-
-          Text(record.time)
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_tertiary'))
-        }
-        .constraintSize({ maxWidth: 620 })
-        .alignItems(HorizontalAlign.Start)
+        Text(record.time)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_tertiary'))
       }
       .width('100%')
-      .constraintSize({ maxWidth: 900 })
-      .alignItems(VerticalAlign.Top)
+      .constraintSize({ maxWidth: 820 })
+      .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
     .justifyContent(FlexAlign.Center)
@@ -933,8 +861,8 @@ export struct WideMessagePage {
             .lineHeight(23)
             .padding({ left: 14, right: 14, top: 10, bottom: 10 })
             .backgroundColor($r('app.color.brand_blue'))
-            .borderRadius({ topLeft: 17, topRight: 3, bottomLeft: 17, bottomRight: 17 })
-            .constraintSize({ maxWidth: 620 })
+            .borderRadius({ topLeft: 16, topRight: 4, bottomLeft: 16, bottomRight: 16 })
+            .constraintSize({ maxWidth: 560 })
 
           Row({ space: 6 }) {
             Text(record.time)
@@ -948,7 +876,7 @@ export struct WideMessagePage {
         .alignItems(HorizontalAlign.End)
       }
       .width('100%')
-      .constraintSize({ maxWidth: 900 })
+      .constraintSize({ maxWidth: 820 })
     }
     .width('100%')
     .justifyContent(FlexAlign.Center)
@@ -982,11 +910,10 @@ export struct WideMessagePage {
           .width('100%')
           .textAlign(TextAlign.End)
       }
-      .width(520)
+      .width(480)
       .padding(16)
-      .backgroundColor($r('sys.color.comp_background_primary'))
-      .borderRadius(12)
-      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+      .backgroundColor($r('sys.color.comp_background_secondary'))
+      .borderRadius(16)
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
@@ -1006,7 +933,7 @@ export struct WideMessagePage {
 
   @Builder
   private chatHistory() {
-    List({ scroller: this.chatScroller, space: 12 }) {
+    List({ scroller: this.chatScroller, space: 10 }) {
       ForEach(this.currentChatRecords(), (record: WideChatRecord, index: number) => {
         ListItem() {
           Column({ space: 12 }) {
@@ -1028,7 +955,7 @@ export struct WideMessagePage {
     }
     .width('100%')
     .layoutWeight(1)
-    .padding({ left: 24, right: 24, top: 18, bottom: 12 })
+    .padding({ left: 20, right: 20, top: 16, bottom: 10 })
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
     .backgroundColor($r('sys.color.background_secondary'))
@@ -1055,6 +982,12 @@ export struct WideMessagePage {
           .textOverflow(TextOverflow.Clip)
           .barState(BarState.Off)
           .layoutWeight(1)
+          .onFocus(() => {
+            this.useComposerKeyboardAvoidMode();
+          })
+          .onBlur(() => {
+            this.restoreKeyboardAvoidMode();
+          })
           .onChange((value: string) => {
             this.replyText = value;
           })
@@ -1077,7 +1010,7 @@ export struct WideMessagePage {
         })
       }
       .width('100%')
-      .constraintSize({ minHeight: 56, maxWidth: 900 })
+      .constraintSize({ minHeight: 56, maxWidth: 760 })
       .padding({ left: 10, right: 6, top: 8, bottom: 8 })
       .backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius(28)
@@ -1087,9 +1020,8 @@ export struct WideMessagePage {
       .animation({ duration: 180, curve: Curve.EaseOut })
     }
     .width('100%')
-    .padding({ left: 24, right: 24, top: 10, bottom: 12 + this.naviIndicatorHeight })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .border({ width: { top: 0.5 }, color: { top: $r('sys.color.comp_divider') } })
+    .padding({ left: 20, right: 20, top: 10, bottom: 12 + this.naviIndicatorHeight })
+    .backgroundColor($r('sys.color.background_secondary'))
     .alignItems(HorizontalAlign.Center)
   }
 
@@ -1157,18 +1089,6 @@ export struct WideMessagePage {
         .width('100%')
         .height('100%')
 
-        Column({ space: 0 }) {
-          this.conversationHeader()
-        }
-        .width('100%')
-        .margin({ top: this.paneTopOffset() })
-        .borderRadius({
-          topLeft: this.paneRadius(),
-          topRight: this.paneRadius(),
-          bottomLeft: 0,
-          bottomRight: 0
-        })
-        .clip(true)
       }
       .layoutWeight(1)
       .height('100%')

@@ -5,7 +5,7 @@
         "name": "default",
         "signingConfig": "default",
         "targetSdkVersion": "6.1.1(24)",
-        "compatibleSdkVersion": "6.1.1(24)",
+        "compatibleSdkVersion": "6.1.0(23)",
         "runtimeOS": "HarmonyOS",
         "buildOption": {
           "strictMode": {
@@ -23,8 +23,7 @@
         "name": "release"
       }
     ],
-    "signingConfigs": [
-    ]
+    "signingConfigs": []
   },
   "modules": [
     {

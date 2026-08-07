@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import { AppStorageV2, router } from '@kit.ArkUI';
+import { AppStorageV2 } from '@kit.ArkUI';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { StorageKey } from '../common/CommonConstants';
 import Logger from '../util/Logger';
@@ -78,7 +78,7 @@ struct LoginPage {
       this.isLoading = false;
       this.globalInfoModel.role = this.selectedRole;
       try {
-        await router.replaceUrl({ url: 'pages/MainPage' });
+        await this.getUIContext().getRouter().replaceUrl({ url: 'pages/MainPage' });
       } catch (err) {
         Logger.error(TAG, `login route failed: ${JSON.stringify(err)}`);
       }

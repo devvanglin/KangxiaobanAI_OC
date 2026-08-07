@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import { AppStorageV2, SymbolGlyphModifier, curves, router } from '@kit.ArkUI';
+import { AppStorageV2, SymbolGlyphModifier, curves } from '@kit.ArkUI';
 import {
   HdsNavDestination,
   HdsNavDestinationTitleMode,
@@ -51,6 +51,7 @@ import {
   RESIDENT_SUMMARY_CARD_HEIGHT,
   ResidentSummaryCard
 } from './ResidentSummaryCard';
+import { PhoneLocalMessageRecord, PhoneMessageChatPage } from './PhoneMessageChatPage';
 
 type TaskSource = 'ai' | 'elder' | 'staff' | 'plan';
 type TaskStatus = 'todo' | 'doing' | 'done';
@@ -200,7 +201,8 @@ export struct TabPageView {
   @Local messageFilter: MessageFilter = 'all';
   @Local selectedMessageId: string = '';
   @Local readMessageIds: string[] = [];
-  @Local isMessageSheetOpen: boolean = false;
+  @Local isPhoneMessageChatOpen: boolean = false;
+  @Local phoneLocalMessageRecords: PhoneLocalMessageRecord[] = [];
   @Local selectedAiReminderId: string = '';
   @Local isAiReminderSheetOpen: boolean = false;
   @Local selectedQuickActionIndex: number = 0;
@@ -2165,6 +2167,20 @@ export struct TabPageView {
     return this.inboxMessages().find((item: InboxMessage) => item.id === this.selectedMessageId);
   }
 
+  private latestPhoneMessage(item: InboxMessage): PhoneLocalMessageRecord | undefined {
+    const records: PhoneLocalMessageRecord[] = this.phoneLocalMessageRecords.filter((record: PhoneLocalMessageRecord) =>
+      record.conversationId === item.id);
+    return records.length > 0 ? records[records.length - 1] : undefined;
+  }
+
+  private messagePreview(item: InboxMessage): string {
+    return this.latestPhoneMessage(item)?.content ?? item.preview;
+  }
+
+  private messageTime(item: InboxMessage): string {
+    return this.latestPhoneMessage(item)?.time ?? item.time;
+  }
+
   private messageKindLabel(kind: MessageKind): string {
     if (kind === 'handoff') {
       return '交接消息';
@@ -2205,13 +2221,23 @@ export struct TabPageView {
     return 0xFFEAF1FF;
   }
 
+  private messageAvatarText(item: InboxMessage): string {
+    if (item.kind === 'notice') {
+      return '系';
+    }
+    if (item.sender === '护理站' || item.sender === '护理部') {
+      return '护';
+    }
+    return item.sender.substring(0, 1);
+  }
+
   private openMessage(item: InboxMessage): void {
     this.selectedMessageId = item.id;
     if (this.isMessageUnread(item)) {
       this.readMessageIds = [...this.readMessageIds, item.id];
     }
     if (!this.isWideLayout()) {
-      this.isMessageSheetOpen = true;
+      this.isPhoneMessageChatOpen = true;
     }
   }
 
@@ -2250,9 +2276,10 @@ export struct TabPageView {
     Row({ space: 12 }) {
       Stack({ alignContent: Alignment.BottomEnd }) {
         Row() {
-          SymbolGlyph(this.messageIcon(item.kind))
-            .fontSize(20)
-            .fontColor([this.messageIconColor(item.kind)])
+          Text(this.messageAvatarText(item))
+            .fontSize(15)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(this.messageIconColor(item.kind))
         }
         .width(44)
         .height(44)
@@ -2282,13 +2309,13 @@ export struct TabPageView {
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
             .layoutWeight(1)
-          Text(item.time)
+          Text(this.messageTime(item))
             .fontSize($r('sys.float.Caption_M'))
             .fontColor($r('sys.color.font_tertiary'))
         }
         .width('100%')
 
-        Text(item.preview)
+        Text(this.messagePreview(item))
           .fontSize($r('sys.float.Body_M'))
           .fontColor(this.isMessageUnread(item) ? $r('sys.color.font_secondary') : $r('sys.color.font_tertiary'))
           .maxLines(1)
@@ -2299,7 +2326,8 @@ export struct TabPageView {
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
-    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+    .height(74)
+    .padding({ left: 12, right: 12 })
     .alignItems(VerticalAlign.Center)
     .border({
       width: { bottom: isLast ? 0 : 0.5 },
@@ -2311,6 +2339,7 @@ export struct TabPageView {
     })
     .focusable(true)
     .focusOnTouch(true)
+    .accessibilityText(item.sender + '，' + this.messagePreview(item))
     .onClick(() => {
       this.openMessage(item);
     })
@@ -2350,43 +2379,6 @@ export struct TabPageView {
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(16)
     .clip(true)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-  }
-
-  @Builder
-  private messageSheetBuilder() {
-    Column({ space: 16 }) {
-      if (this.selectedMessage()) {
-        Row() {
-          Text(this.messageKindLabel(this.selectedMessage()!.kind))
-            .fontSize($r('sys.float.Body_S'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor(this.messageIconColor(this.selectedMessage()!.kind))
-            .padding({ left: 10, right: 10, top: 4, bottom: 4 })
-            .borderRadius(12)
-            .backgroundColor(this.messageIconBackground(this.selectedMessage()!.kind))
-          Blank()
-          Text(this.selectedMessage()!.time)
-            .fontSize($r('sys.float.Body_S'))
-            .fontColor($r('sys.color.font_tertiary'))
-        }
-        .width('100%')
-
-        Text(this.selectedMessage()!.content)
-          .fontSize($r('sys.float.Body_L'))
-          .fontColor($r('sys.color.font_primary'))
-          .lineHeight(28)
-          .width('100%')
-          .padding(16)
-          .backgroundColor($r('sys.color.comp_background_primary'))
-          .borderRadius(16)
-      }
-    }
-    .width('100%')
-    .height('100%')
-    .padding({ left: 16, right: 16, top: 12, bottom: 24 })
-    .backgroundColor($r('sys.color.background_secondary'))
-    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
@@ -2513,14 +2505,25 @@ export struct TabPageView {
       .backgroundColor(this.pageBackgroundColor())
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
-      .bindSheet(this.isMessageSheetOpen, this.messageSheetBuilder, {
-        detents: [SheetSize.MEDIUM],
-        showClose: true,
-        dragBar: true,
-        title: { title: this.selectedMessage()?.sender ?? '消息' },
-        backgroundColor: $r('sys.color.background_secondary'),
-        onDisappear: () => {
-          this.isMessageSheetOpen = false;
+    }
+  }
+
+  @Builder
+  private phoneMessageChatCover() {
+    if (this.selectedMessage()) {
+      PhoneMessageChatPage({
+        conversationId: this.selectedMessage()!.id,
+        title: this.selectedMessage()!.sender,
+        subtitle: this.messageKindLabel(this.selectedMessage()!.kind),
+        kind: this.selectedMessage()!.kind,
+        initialContent: this.selectedMessage()!.content,
+        replyable: this.selectedMessage()!.kind !== 'notice',
+        localRecords: this.phoneLocalMessageRecords,
+        onClose: () => {
+          this.isPhoneMessageChatOpen = false;
+        },
+        onSend: (record: PhoneLocalMessageRecord) => {
+          this.phoneLocalMessageRecords = [...this.phoneLocalMessageRecords, record];
         }
       })
     }
@@ -2685,7 +2688,7 @@ export struct TabPageView {
     // 预留：清空登录态、token、缓存
     try {
       await WindowUtil.setImmersiveMode(false);
-      await router.replaceUrl({ url: 'pages/LoginPage' });
+      await this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
     } catch (err) {
       await WindowUtil.setImmersiveMode(true);
       Logger.error('[TabPageView]', `logout failed: ${JSON.stringify(err)}`);
@@ -3512,6 +3515,16 @@ export struct TabPageView {
           onWillDismiss: (action: DismissContentCoverAction) => {
             if (action.reason === DismissReason.PRESS_BACK) {
               this.closeTaskExpand();
+            }
+          }
+        })
+      .bindContentCover(this.isPhoneMessageChatOpen, this.phoneMessageChatCover,
+        {
+          modalTransition: ModalTransition.NONE,
+          backgroundColor: 'rgba(0,0,0,0)',
+          onWillDismiss: (action: DismissContentCoverAction) => {
+            if (action.reason === DismissReason.PRESS_BACK) {
+              this.isPhoneMessageChatOpen = false;
             }
           }
         })
