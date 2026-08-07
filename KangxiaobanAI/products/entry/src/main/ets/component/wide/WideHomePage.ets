@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import { LengthMetrics } from '@kit.ArkUI';
+import { display, LengthMetrics } from '@kit.ArkUI';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { KeyCode } from '@kit.InputKit';
 import { AiTitleLabel } from '../AiTitleLabel';
@@ -22,6 +22,7 @@ import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule
 const HOME_LG_MIN_WIDTH: number = 840;
 const HOME_SUMMARY_SPLIT_MIN_WIDTH: number = 960;
 const HOME_WORK_SPLIT_MIN_WIDTH: number = 1180;
+const HOME_FULL_WIDTH_RATIO: number = 0.9;
 const HOME_XL_MIN_WIDTH: number = 1440;
 const HOME_XL_MAX_CONTENT_WIDTH: number = 1600;
 
@@ -80,6 +81,7 @@ export struct WideHomePage {
   private currentTime: Date = new Date();
   @Local layoutWidth: number = 0;
   @Local layoutHeight: number = 0;
+  @Local displayWidth: number = 0;
   @Local activeFilter: CareWorkFilter = 'todo';
   @Local taskPageIndex: number = 0;
   @Local aiPageIndex: number = 0;
@@ -360,6 +362,16 @@ export struct WideHomePage {
     if (nextHeight > 0 && Math.abs(nextHeight - this.layoutHeight) > 0.5) {
       this.layoutHeight = nextHeight;
     }
+    try {
+      const displayInfo: display.Display = display.getDefaultDisplaySync();
+      const nextDisplayWidth: number = displayInfo.densityPixels > 0 ?
+        displayInfo.width / displayInfo.densityPixels : 0;
+      if (nextDisplayWidth > 0 && Math.abs(nextDisplayWidth - this.displayWidth) > 0.5) {
+        this.displayWidth = nextDisplayWidth;
+      }
+    } catch (_error) {
+      this.displayWidth = 0;
+    }
   }
 
   private layoutAtLeast(minWidth: number): boolean {
@@ -374,7 +386,9 @@ export struct WideHomePage {
   }
 
   private useWorkSplitLayout(): boolean {
-    return this.layoutAtLeast(HOME_WORK_SPLIT_MIN_WIDTH);
+    const occupiesFullWidth: boolean = this.displayWidth > 0 && this.layoutWidth > 0 ?
+      this.layoutWidth >= this.displayWidth * HOME_FULL_WIDTH_RATIO : !this.compactWidth;
+    return occupiesFullWidth && this.layoutAtLeast(HOME_WORK_SPLIT_MIN_WIDTH);
   }
 
   private usePairedSupportCards(): boolean {
@@ -931,7 +945,7 @@ export struct WideHomePage {
         }, (item: AiFocusItem) => item.id)
       }
       .width('100%')
-      .layoutWeight(1)
+      .layoutWeight(this.useWorkSplitLayout() ? 1 : 0)
       .padding({ left: 10, right: 10, bottom: 8 })
 
       this.cardPagination(true)
@@ -1303,7 +1317,7 @@ export struct WideHomePage {
           }, (task: CareTaskData) => task.id)
         }
         .width('100%')
-        .layoutWeight(1)
+        .layoutWeight(this.useWorkSplitLayout() ? 1 : 0)
         .padding({ left: 10, right: 10, bottom: 8 })
       }
 
@@ -1527,13 +1541,13 @@ export struct WideHomePage {
         .height('100%')
       } else {
         GridCol({ span: 12 }) {
-          this.taskQueueCard()
-        }
-        GridCol({ span: this.usePairedSupportCards() ? 6 : 12 }) {
           this.aiFocusCard()
         }
+        GridCol({ span: 12 }) {
+          this.taskQueueCard()
+        }
         if (!this.isTabletDevice()) {
-          GridCol({ span: this.usePairedSupportCards() ? 6 : 12 }) {
+          GridCol({ span: 12 }) {
             this.checkpointCard()
           }
         }

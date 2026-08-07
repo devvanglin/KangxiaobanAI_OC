@@ -337,7 +337,10 @@ export struct AiChatPage {
   }
 
   private isWideLayout(): boolean {
-    return BreakpointUtil.isWide(this.globalInfoModel.widthBreakpoint);
+    return BreakpointUtil.usesWideWorkspace(
+      this.globalInfoModel.deviceWidth,
+      this.globalInfoModel.widthBreakpoint
+    );
   }
 
   private caregiverWideTitleBarOffset(): number {
