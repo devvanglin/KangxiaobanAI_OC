@@ -124,11 +124,14 @@ interface QuickActionData {
 }
 
 interface AiReminder {
+  id: string;
   level: StatusLevel;
   location: string;
   name: string;
   title: string;
   detail: string;
+  signal: string;
+  suggestion: string;
 }
 
 interface QuickListRow {
@@ -198,6 +201,8 @@ export struct TabPageView {
   @Local selectedMessageId: string = '';
   @Local readMessageIds: string[] = [];
   @Local isMessageSheetOpen: boolean = false;
+  @Local selectedAiReminderId: string = '';
+  @Local isAiReminderSheetOpen: boolean = false;
   @Local selectedQuickActionIndex: number = 0;
   @Local isHealthExpandShow: boolean = false;
   @Local isResidentDetailShow: boolean = false;
@@ -225,6 +230,19 @@ export struct TabPageView {
 
   private openAiChat(): void {
     this.onOpenAiChat();
+  }
+
+  private selectedAiReminder(): AiReminder | undefined {
+    return this.aiReminders().find((item: AiReminder) => item.id === this.selectedAiReminderId);
+  }
+
+  private openAiReminderSheet(itemId: string): void {
+    this.selectedAiReminderId = itemId;
+    this.isAiReminderSheetOpen = true;
+  }
+
+  private closeAiReminderSheet(): void {
+    this.isAiReminderSheetOpen = false;
   }
 
   private openHealthExpand(): void {
@@ -382,11 +400,15 @@ export struct TabPageView {
   @Styles
   itemNormalStyle() {
     .backgroundColor($r('sys.color.ohos_id_color_background_transparent'))
+    .shadow({ radius: 0, color: Color.Transparent, offsetX: 0, offsetY: 0 })
+    .scale({ x: 1, y: 1 })
   }
 
   @Styles
   itemPressedStyle() {
     .backgroundColor($r('sys.color.interactive_pressed'))
+    .shadow({ radius: 7, color: 'rgba(0,0,0,0.10)', offsetX: 0, offsetY: 2 })
+    .scale({ x: 0.992, y: 0.992 })
   }
 
   @Styles
@@ -896,18 +918,24 @@ export struct TabPageView {
   private aiReminders(): AiReminder[] {
     return [
       {
+        id: 'ai-reminder-blood-pressure',
         level: 'danger',
         location: '302-1',
         name: '张明华',
         title: '血压连续3天偏高',
-        detail: '建议今日重点观察'
+        detail: '建议今日重点观察',
+        signal: '近 3 日早间记录均高于个人近期基线。',
+        suggestion: '按护理要求复测并记录伴随不适，异常时及时人工上报。'
       },
       {
+        id: 'ai-reminder-rehabilitation',
         level: 'normal',
         location: '305-2',
         name: '李秀英',
         title: '康复训练完成率87%',
-        detail: '继续保持'
+        detail: '继续保持',
+        signal: '本周已完成 6 次计划中的 5 次，记录连续。',
+        suggestion: '按既定计划继续，同时关注疲劳、疼痛和训练后恢复。'
       }
     ];
   }
@@ -918,9 +946,24 @@ export struct TabPageView {
       Row({ space: 6 }) {
         AiTitleLabel({ compact: true })
         Blank()
-        SymbolGlyph($r('sys.symbol.chevron_right'))
-          .fontSize(16)
-          .fontColor([$r('sys.color.font_tertiary')])
+        Button({ type: ButtonType.Normal, stateEffect: true }) {
+          Row({ space: 5 }) {
+            Text('开始对话')
+              .fontSize($r('sys.float.Body_M'))
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('app.color.brand_blue'))
+            SymbolGlyph($r('sys.symbol.chevron_right'))
+              .fontSize(13)
+              .fontColor([$r('app.color.brand_blue')])
+          }
+        }
+          .height(36)
+          .padding({ left: 13, right: 11 })
+          .borderRadius(18)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .shadow({ radius: 7, color: 'rgba(0,0,0,0.08)', offsetX: 0, offsetY: 2 })
+          .focusable(true)
+          .accessibilityText('开始与康小伴 AI 对话')
           .onClick(() => {
             this.openAiChat();
           })
@@ -940,6 +983,7 @@ export struct TabPageView {
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(16)
     .geometryTransition('aiReminderCard', { follow: true })
+    .bindSheet(this.isAiReminderSheetOpen, this.aiReminderSheetBuilder, this.aiReminderSheetOptions())
   }
 
   @Builder
@@ -958,13 +1002,177 @@ export struct TabPageView {
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
     }
-    .width('100%')
-    .padding({ top: 14, bottom: isLast ? 0 : 14 })
+    .width('calc(100% - 8vp)')
+    .padding({ left: 12, right: 12, top: 14, bottom: 14 })
     .alignItems(HorizontalAlign.Start)
     .border({
       width: { bottom: isLast ? 0 : 0.5 },
       color: { bottom: $r('sys.color.comp_divider') }
     })
+    .borderRadius(12)
+    .stateStyles({
+      pressed: this.itemPressedStyle,
+      normal: this.itemNormalStyle
+    })
+    .focusable(true)
+    .focusOnTouch(true)
+    .accessibilityText('康小伴 AI 提醒，' + item.title + '，' + item.location + ' ' + item.name + '，' + item.detail)
+    .onClick(() => this.openAiReminderSheet(item.id))
+  }
+
+  private aiReminderSheetOptions(): SheetOptions {
+    if (this.isWideLayout()) {
+      return {
+        detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+        preferType: SheetType.CENTER,
+        width: 520,
+        showClose: true,
+        dragBar: true,
+        title: { title: '康小伴 AI' },
+        backgroundColor: $r('sys.color.comp_background_primary'),
+        onDisappear: () => {
+          this.isAiReminderSheetOpen = false;
+        }
+      };
+    }
+    return {
+      detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+      showClose: true,
+      dragBar: true,
+      title: { title: '康小伴 AI' },
+      backgroundColor: $r('sys.color.comp_background_primary'),
+      onDisappear: () => {
+        this.isAiReminderSheetOpen = false;
+      }
+    };
+  }
+
+  @Builder
+  private aiReminderSheetBuilder() {
+    if (this.selectedAiReminder() !== undefined) {
+      Column({ space: 0 }) {
+        Scroll() {
+          Column({ space: 18 }) {
+            Row({ space: 14 }) {
+              Row() {
+                SymbolGlyph($r('sys.symbol.AI_message'))
+                  .fontSize(24)
+                  .fontColor([$r('app.color.brand_blue')])
+              }
+              .width(48)
+              .height(48)
+              .borderRadius(24)
+              .backgroundColor($r('app.color.ai_feed_background'))
+              .justifyContent(FlexAlign.Center)
+              .alignItems(VerticalAlign.Center)
+
+              Column({ space: 5 }) {
+                Text(this.selectedAiReminder()!.title)
+                  .fontSize($r('sys.float.Title_S'))
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor($r('sys.color.font_primary'))
+                Text(this.selectedAiReminder()!.location + ' ' + this.selectedAiReminder()!.name)
+                  .fontSize($r('sys.float.Body_M'))
+                  .fontColor($r('sys.color.font_secondary'))
+              }
+              .layoutWeight(1)
+              .alignItems(HorizontalAlign.Start)
+            }
+            .width('100%')
+            .alignItems(VerticalAlign.Center)
+
+            Column({ space: 8 }) {
+              Row() {
+                Text('康小伴提示')
+                  .fontSize($r('sys.float.Body_L'))
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('sys.color.font_primary'))
+                Blank()
+                Text(this.selectedAiReminder()!.level === 'danger' ? '优先关注' : '持续观察')
+                  .fontSize($r('sys.float.Caption_M'))
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor(this.statusColor(this.selectedAiReminder()!.level))
+                  .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+                  .borderRadius(8)
+                  .backgroundColor(this.statusBg(this.selectedAiReminder()!.level))
+              }
+              .width('100%')
+
+              Text(this.selectedAiReminder()!.detail)
+                .width('100%')
+                .fontSize($r('sys.float.Body_M'))
+                .fontColor($r('sys.color.font_secondary'))
+            }
+            .width('100%')
+            .padding(16)
+            .borderRadius(16)
+            .backgroundColor($r('sys.color.comp_background_secondary'))
+            .alignItems(HorizontalAlign.Start)
+
+            Column({ space: 8 }) {
+              Text('提醒依据')
+                .fontSize($r('sys.float.Body_L'))
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_primary'))
+              Text(this.selectedAiReminder()!.signal)
+                .width('100%')
+                .fontSize($r('sys.float.Body_M'))
+                .fontColor($r('sys.color.font_secondary'))
+            }
+            .width('100%')
+            .padding(16)
+            .borderRadius(16)
+            .backgroundColor($r('sys.color.comp_background_secondary'))
+            .alignItems(HorizontalAlign.Start)
+
+            Column({ space: 8 }) {
+              Text('建议处理')
+                .fontSize($r('sys.float.Body_L'))
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_primary'))
+              Text(this.selectedAiReminder()!.suggestion)
+                .width('100%')
+                .fontSize($r('sys.float.Body_M'))
+                .fontColor($r('sys.color.font_secondary'))
+            }
+            .width('100%')
+            .padding(16)
+            .borderRadius(16)
+            .backgroundColor($r('sys.color.comp_background_secondary'))
+            .alignItems(HorizontalAlign.Start)
+
+            Text('康小伴仅整理本地演示数据，不替代护理规范、医嘱或现场人工判断。')
+              .width('100%')
+              .fontSize($r('sys.float.Body_M'))
+              .fontColor($r('sys.color.font_tertiary'))
+          }
+          .width('100%')
+          .padding({ left: 20, right: 20, top: 10, bottom: 20 })
+          .alignItems(HorizontalAlign.Start)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
+
+        Button('继续询问康小伴')
+          .width('100%')
+          .height(48)
+          .margin({ left: 20, right: 20, bottom: 16 })
+          .borderRadius(24)
+          .fontSize($r('sys.float.Body_L'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.text_on_brand'))
+          .backgroundColor($r('app.color.brand_blue'))
+          .onClick(() => {
+            this.closeAiReminderSheet();
+            this.openAiChat();
+          })
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('sys.color.comp_background_primary'))
+    }
   }
 
   // ---------------- home: quick actions ----------------
@@ -1099,13 +1307,14 @@ export struct TabPageView {
           .borderRadius(8)
       }
     }
-    .width('100%')
-    .padding({ top: 14, bottom: isLast ? 0 : 14 })
+    .width('calc(100% - 8vp)')
+    .padding({ left: 12, right: 12, top: 14, bottom: 14 })
     .alignItems(VerticalAlign.Center)
     .border({
       width: { bottom: isLast ? 0 : 0.5 },
       color: { bottom: $r('sys.color.comp_divider') }
     })
+    .borderRadius(12)
     .stateStyles({
       pressed: this.itemPressedStyle,
       normal: this.itemNormalStyle

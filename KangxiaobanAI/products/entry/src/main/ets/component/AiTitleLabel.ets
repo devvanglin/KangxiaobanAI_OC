@@ -19,11 +19,12 @@ export const AI_BRAND_NAME: string = '康小伴 AI';
 export struct AiTitleLabel {
   @Param text: string = AI_BRAND_NAME;
   @Param compact: boolean = false;
+  @Param cardTitle: boolean = false;
 
   build() {
     Text(this.text)
-      .fontSize(this.compact ? $r('sys.float.Body_L') : $r('sys.float.Title_M'))
-      .fontWeight(this.compact ? FontWeight.Medium : FontWeight.Bold)
+      .fontSize(this.cardTitle ? 20 : (this.compact ? $r('sys.float.Body_L') : $r('sys.float.Title_M')))
+      .fontWeight(this.cardTitle ? FontWeight.Bold : (this.compact ? FontWeight.Medium : FontWeight.Bold))
       .fontColor($r('sys.color.font_primary'))
       .maxLines(1)
       .ellipsisMode(EllipsisMode.END)
