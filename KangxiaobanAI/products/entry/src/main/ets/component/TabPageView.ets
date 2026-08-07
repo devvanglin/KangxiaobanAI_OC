@@ -1002,7 +1002,7 @@ export struct TabPageView {
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
     }
-    .width('calc(100% - 8vp)')
+    .width('calc(100% + 16vp)')
     .padding({ left: 12, right: 12, top: 14, bottom: 14 })
     .alignItems(HorizontalAlign.Start)
     .border({
@@ -1307,7 +1307,7 @@ export struct TabPageView {
           .borderRadius(8)
       }
     }
-    .width('calc(100% - 8vp)')
+    .width('calc(100% + 16vp)')
     .padding({ left: 12, right: 12, top: 14, bottom: 14 })
     .alignItems(VerticalAlign.Center)
     .border({
