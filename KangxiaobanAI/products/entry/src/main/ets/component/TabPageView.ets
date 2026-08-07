@@ -32,7 +32,7 @@ import Logger from '../util/Logger';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { PageKeyEnum, PAGE_SCROLLER_MAP } from '../model/TabsBarModel';
 import { TabPageConfig } from '../model/TabPageModel';
-import { BreakpointType } from '../util/BreakpointSystem';
+import { BreakpointType, BreakpointUtil } from '../util/BreakpointSystem';
 import { WindowUtil } from '../util/WindowUtil';
 import { HealthListCard, HealthListCardData, HealthListCardRow } from './HealthListCard';
 
@@ -351,15 +351,14 @@ export struct TabPageView {
   }
 
   private isWideLayout(): boolean {
-    const widthBreakpoint: WidthBreakpoint = this.globalInfoModel.widthBreakpoint;
-    return widthBreakpoint === WidthBreakpoint.WIDTH_MD ||
-      widthBreakpoint === WidthBreakpoint.WIDTH_LG ||
-      widthBreakpoint === WidthBreakpoint.WIDTH_XL;
+    return BreakpointUtil.usesWideWorkspace(
+      this.globalInfoModel.deviceWidth,
+      this.globalInfoModel.widthBreakpoint
+    );
   }
 
   private isExtraWideLayout(): boolean {
-    const widthBreakpoint: WidthBreakpoint = this.globalInfoModel.widthBreakpoint;
-    return widthBreakpoint === WidthBreakpoint.WIDTH_LG || widthBreakpoint === WidthBreakpoint.WIDTH_XL;
+    return this.isWideLayout() && BreakpointUtil.isExtraWide(this.globalInfoModel.widthBreakpoint);
   }
 
   private pagePadding(): number {

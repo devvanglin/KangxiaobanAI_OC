@@ -372,18 +372,20 @@ export struct PhoneMessageChatPage {
   @Builder
   private chatHistory() {
     List({ scroller: this.chatScroller, space: 10 }) {
-      ForEach(this.currentRecords(), (record: PhoneChatRecord, index: number) => {
-        ListItem() {
-          Column({ space: 10 }) {
-            if (record.dayLabel !== undefined) {
-              this.daySeparator(record.dayLabel)
+      Repeat(this.currentRecords())
+        .each((repeatItem: RepeatItem<PhoneChatRecord>) => {
+          ListItem() {
+            Column({ space: 10 }) {
+              if (repeatItem.item.dayLabel !== undefined) {
+                this.daySeparator(repeatItem.item.dayLabel)
+              }
+              this.chatRecord(repeatItem.item)
             }
-            this.chatRecord(record)
+            .width('100%')
           }
-          .width('100%')
-        }
-        .padding({ top: index === 0 ? this.globalInfoModel.statusBarHeight + 64 : 0 })
-      }, (record: PhoneChatRecord) => record.id)
+          .padding({ top: repeatItem.index === 0 ? this.globalInfoModel.statusBarHeight + 64 : 0 })
+        })
+        .key((record: PhoneChatRecord) => record.id)
       ListItem() {
         Row()
           .width('100%')

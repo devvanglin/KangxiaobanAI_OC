@@ -13,6 +13,10 @@
  * limitations under the License.
  */
 
+import { deviceInfo } from '@kit.BasicServicesKit';
+
+export const TABLET_WIDE_WINDOW_MIN_WIDTH: number = 720;
+
 export interface BreakpointTypeOptions<T> {
   xs?: T;
   sm: T;
@@ -60,6 +64,16 @@ export class BreakpointType<T> {
  * - pc    = LG / XL（PC 桌面）
  */
 export class BreakpointUtil {
+  static usesWideWorkspace(deviceWidth: number, breakpoint: WidthBreakpoint): boolean {
+    const isLargeScreenDevice: boolean =
+      deviceInfo.deviceType === deviceInfo.DeviceTypes.TYPE_TABLET ||
+      deviceInfo.deviceType === deviceInfo.DeviceTypes.TYPE_2IN1;
+    if (!isLargeScreenDevice) {
+      return false;
+    }
+    return deviceWidth > 0 ? deviceWidth >= TABLET_WIDE_WINDOW_MIN_WIDTH : BreakpointUtil.isWide(breakpoint);
+  }
+
   static isWide(breakpoint: WidthBreakpoint): boolean {
     return breakpoint === WidthBreakpoint.WIDTH_MD ||
       breakpoint === WidthBreakpoint.WIDTH_LG ||

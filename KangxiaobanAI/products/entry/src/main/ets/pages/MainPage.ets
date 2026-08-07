@@ -285,7 +285,10 @@ struct MainPage {
   }
 
   private isWideLayout(): boolean {
-    return BreakpointUtil.isWide(this.globalInfoModel.widthBreakpoint);
+    return BreakpointUtil.usesWideWorkspace(
+      this.globalInfoModel.deviceWidth,
+      this.globalInfoModel.widthBreakpoint
+    );
   }
 
   private async handleLogout(): Promise<void> {
@@ -694,9 +697,17 @@ struct MainPage {
 
   // ==================== 手机端（原样保留） ====================
 
+  private phoneFloatingBarWidth(): number {
+    const windowWidth: number = this.globalInfoModel.deviceWidth;
+    if (windowWidth <= 0) {
+      return 328;
+    }
+    return Math.max(240, Math.min(328, windowWidth - 32));
+  }
+
   @Builder
   private phoneTabs() {
-    HdsTabs({ controller: this.controller }) {
+    HdsTabs({ controller: this.controller, index: this.currentTabIndex }) {
       TabContent() {
         TabPageView({
           currentTabIndex: 0,
@@ -757,8 +768,11 @@ struct MainPage {
       }
       .tabBar(this.tabsBar[3])
     }
+    .barMode(BarMode.Fixed)
+    .barHeight(56)
     .barOverlap(true)
     .vertical(false)
+    .scrollable(false)
     .onAnimationStart((_index: number, targetIndex: number, _event: TabsAnimationEvent) => {
       if (this.currentTabIndex !== targetIndex) {
         this.updateTabSelection(targetIndex);
@@ -771,6 +785,12 @@ struct MainPage {
     })
     .barPosition(BarPosition.End)
     .barFloatingStyle({
+      barWidth: {
+        smallWidth: this.phoneFloatingBarWidth(),
+        mediumWidth: this.phoneFloatingBarWidth(),
+        largeWidth: this.phoneFloatingBarWidth()
+      },
+      barSideMargin: 16,
       barBottomMargin: this.globalInfoModel.naviIndicatorHeight > 0 ? this.globalInfoModel.naviIndicatorHeight :
         $r('sys.float.padding_level8'),
       systemMaterialEffect: {
@@ -778,6 +798,8 @@ struct MainPage {
         materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
       }
     })
+    .width('100%')
+    .height('100%')
     .onAttach(() => {
       try {
         this.controller.preloadItems([0, 1, 2, 3]);
