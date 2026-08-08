@@ -444,8 +444,6 @@ export struct PhoneMessageChatPage {
       }
       .width('100%')
       .padding({ left: 12, right: 12, top: 8, bottom: 10 + this.globalInfoModel.naviIndicatorHeight })
-      .backgroundColor($r('sys.color.comp_background_primary'))
-      .border({ width: { top: 0.5 }, color: { top: $r('sys.color.comp_divider') } })
     } else {
       Row({ space: 8 }) {
         SymbolGlyph($r('sys.symbol.bell_fill'))
