@@ -598,10 +598,16 @@ export struct WideMessagePage {
   @Builder
   private conversationAvatar(item: WideConversationData, size: number) {
     Row() {
-      Text(item.avatar)
-        .fontSize(size >= 40 ? 16 : 13)
-        .fontWeight(FontWeight.Medium)
-        .fontColor(this.avatarColor(item.kind))
+      if (item.kind === 'family') {
+        Text(item.avatar)
+          .fontSize(size >= 40 ? 16 : 13)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(this.avatarColor(item.kind))
+      } else {
+        SymbolGlyph($r('sys.symbol.bell_fill'))
+          .fontSize(size >= 40 ? 20 : 16)
+          .fontColor([this.avatarColor(item.kind)])
+      }
     }
     .width(size)
     .height(size)
@@ -1116,11 +1122,31 @@ export struct WideMessagePage {
 
   build() {
     if (this.compactWidth) {
-      Row({ space: 0 }) {
+      Stack({ alignContent: Alignment.TopStart }) {
         if (this.compactDetailVisible) {
-          this.detailPane()
+          Column() {
+            this.detailPane()
+          }
+          .width('100%')
+          .height('100%')
+          .transition(TransitionEffect.asymmetric(
+            TransitionEffect.move(TransitionEdge.END)
+              .animation({ duration: 250, curve: Curve.LinearOutSlowIn }),
+            TransitionEffect.move(TransitionEdge.END)
+              .animation({ duration: 200, curve: Curve.FastOutLinearIn })
+          ))
         } else {
-          this.listPane()
+          Column() {
+            this.listPane()
+          }
+          .width('100%')
+          .height('100%')
+          .transition(TransitionEffect.asymmetric(
+            TransitionEffect.move(TransitionEdge.START)
+              .animation({ duration: 250, curve: Curve.LinearOutSlowIn }),
+            TransitionEffect.move(TransitionEdge.START)
+              .animation({ duration: 200, curve: Curve.FastOutLinearIn })
+          ))
         }
       }
       .width('100%')

@@ -72,16 +72,6 @@ export struct PhoneMessageChatPage {
     }
   }
 
-  private avatarText(): string {
-    if (this.kind === 'notice') {
-      return '系';
-    }
-    if (this.title.includes('护理')) {
-      return '护';
-    }
-    return this.title.substring(0, 1);
-  }
-
   private avatarColor(): ResourceColor {
     if (this.kind === 'family') {
       return $r('app.color.status_normal');
@@ -246,10 +236,16 @@ export struct PhoneMessageChatPage {
   @Builder
   private avatar(size: number) {
     Row() {
-      Text(this.avatarText())
-        .fontSize(size >= 36 ? 14 : 12)
-        .fontWeight(FontWeight.Medium)
-        .fontColor(this.avatarColor())
+      if (this.kind === 'family') {
+        Text(this.title.substring(0, 1))
+          .fontSize(size >= 36 ? 14 : 12)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(this.avatarColor())
+      } else {
+        SymbolGlyph($r('sys.symbol.bell_fill'))
+          .fontSize(size >= 36 ? 18 : 15)
+          .fontColor([this.avatarColor()])
+      }
     }
     .width(size)
     .height(size)

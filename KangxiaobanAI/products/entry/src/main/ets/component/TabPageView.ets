@@ -2220,16 +2220,6 @@ export struct TabPageView {
     return 0xFFEAF1FF;
   }
 
-  private messageAvatarText(item: InboxMessage): string {
-    if (item.kind === 'notice') {
-      return '系';
-    }
-    if (item.sender === '护理站' || item.sender === '护理部') {
-      return '护';
-    }
-    return item.sender.substring(0, 1);
-  }
-
   private openMessage(item: InboxMessage): void {
     this.selectedMessageId = item.id;
     if (this.isMessageUnread(item)) {
@@ -2275,10 +2265,16 @@ export struct TabPageView {
     Row({ space: 12 }) {
       Stack({ alignContent: Alignment.BottomEnd }) {
         Row() {
-          Text(this.messageAvatarText(item))
-            .fontSize(15)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(this.messageIconColor(item.kind))
+          if (item.kind === 'family') {
+            Text(item.sender.substring(0, 1))
+              .fontSize(15)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(this.messageIconColor(item.kind))
+          } else {
+            SymbolGlyph($r('sys.symbol.bell_fill'))
+              .fontSize(20)
+              .fontColor([this.messageIconColor(item.kind)])
+          }
         }
         .width(44)
         .height(44)
@@ -2510,21 +2506,31 @@ export struct TabPageView {
   @Builder
   private phoneMessageChatCover() {
     if (this.selectedMessage()) {
-      PhoneMessageChatPage({
-        conversationId: this.selectedMessage()!.id,
-        title: this.selectedMessage()!.sender,
-        subtitle: this.messageKindLabel(this.selectedMessage()!.kind),
-        kind: this.selectedMessage()!.kind,
-        initialContent: this.selectedMessage()!.content,
-        replyable: this.selectedMessage()!.kind !== 'notice',
-        localRecords: this.phoneLocalMessageRecords,
-        onClose: () => {
-          this.isPhoneMessageChatOpen = false;
-        },
-        onSend: (record: PhoneLocalMessageRecord) => {
-          this.phoneLocalMessageRecords = [...this.phoneLocalMessageRecords, record];
-        }
-      })
+      Column() {
+        PhoneMessageChatPage({
+          conversationId: this.selectedMessage()!.id,
+          title: this.selectedMessage()!.sender,
+          subtitle: this.messageKindLabel(this.selectedMessage()!.kind),
+          kind: this.selectedMessage()!.kind,
+          initialContent: this.selectedMessage()!.content,
+          replyable: this.selectedMessage()!.kind !== 'notice',
+          localRecords: this.phoneLocalMessageRecords,
+          onClose: () => {
+            this.isPhoneMessageChatOpen = false;
+          },
+          onSend: (record: PhoneLocalMessageRecord) => {
+            this.phoneLocalMessageRecords = [...this.phoneLocalMessageRecords, record];
+          }
+        })
+      }
+      .width('100%')
+      .height('100%')
+      .transition(TransitionEffect.asymmetric(
+        TransitionEffect.move(TransitionEdge.END)
+          .animation({ duration: 250, curve: Curve.LinearOutSlowIn }),
+        TransitionEffect.move(TransitionEdge.END)
+          .animation({ duration: 200, curve: Curve.FastOutLinearIn })
+      ))
     }
   }
 
