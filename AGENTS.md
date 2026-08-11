@@ -219,7 +219,7 @@ authorization assumptions on the selected role string.
 - `@Provider('mainPageStack') pathStack: NavPathStack`;
 - `GlobalInfoModel` from `AppStorageV2`;
 - `HdsTabsController` and four tab styles;
-- `currentTabIndex`, `primaryTabIndex`, sidebar state, and AI-cover visibility;
+- `currentTabIndex`, `primaryTabIndex`, sidebar state, and AI/resident-detail cover visibility;
 - `HdsNavigation` in `NavigationMode.Stack`;
 - local destination builder for `AboutPage` and `GeneralSettingsPage`, both rendered by `MineDetailPage`;
 - phone HDS Tabs and wide role-specific workspaces;
@@ -264,7 +264,7 @@ its operations overview has local demo content and the other management modules 
 bound Scroller, a back button hidden except for compact caregiver local-detail state, a hidden title bar for the other
 wide role workspaces, and system-safe-area expansion. `HdsTabs` overlaps content,
 floats above the navigation indicator, and preloads all four tab items. `MainPage` owns the full-screen window state while
-it is visible; the AI cover inherits that state rather than toggling the window independently. Measure startup/memory
+it is visible; root local covers such as AI and resident detail inherit that state rather than toggling the window independently. Measure startup/memory
 before extending preload.
 
 ### 5.5 Current route inventory
@@ -276,7 +276,7 @@ before extending preload.
 | About | `NavPathStack.pushPath` | wide shell / mine | `MineDetailPage('about')` |
 | General settings | `NavPathStack.pushPath` | wide shell / mine | `MineDetailPage('general')` |
 | AI assistant | animated local cover | `MainPage` | `AiChatPage` |
-| Resident detail | transparent `bindContentCover` | `TabPageView` | `ResidentDetailPage` |
+| Resident detail | animated root local cover | `MainPage` (opened by `TabPageView`) | `ResidentDetailPage` |
 | Health expansion | transparent `bindContentCover` | `TabPageView` | `HealthExpandPage` |
 | Task expansion | transparent `bindContentCover` | `TabPageView` | internal HDS destination UI |
 | Task/message/profile detail | sheet/local pane | `TabPageView` | internal builders |
@@ -446,8 +446,8 @@ Current production source is under `KangxiaobanAI/products/entry/src/main/ets`.
 |---|---|
 | `entryability/EntryAbility.ets` | UIAbility lifecycle, LoginPage loading, WindowUtil initialization, configuration-driven system-bar refresh |
 | `pages/LoginPage.ets` | mock login, role selector, keyboard-offset form, auth-shell routing |
-| `pages/MainPage.ets` | root HDS navigation, phone/wide selection, role selection, window-immersive ownership, AI overlay, local destinations |
-| `component/TabPageView.ets` | all four phone tab feature roots, most phone mock data and sheets/covers |
+| `pages/MainPage.ets` | root HDS navigation, phone/wide selection, role selection, window-immersive ownership, AI and resident-detail overlays, local destinations |
+| `component/TabPageView.ets` | all four phone tab feature roots, most phone mock data and sheets/covers, and resident-detail open events |
 | `pages/AiChatPage.ets` | local AI conversation UI, history, feedback/copy/edit, mock response timers; inherits shell immersive state |
 | `pages/ResidentDetailPage.ets` | resident detail sections and local detail mock data |
 | `pages/HealthExpandPage.ets` | expanded health list and resident index UI |
@@ -1278,7 +1278,7 @@ Use this lookup before starting a new implementation:
 | Parameterized V2 settings | `NavigationSettings/features/multisettinglink/...` | `@Param/@Require/@Event` ownership stays explicit |
 | Wide list/detail messaging | `MultiDeviceCommunication/...`, `KangxiaobanAI/.../WideMessagePage.ets` | mock data is not distributed sync |
 | Wide content/sidebar | `MultiCommunityApplication/...`, `ResponsiveLayout/...` | use ordered List for tasks/alerts |
-| Geometry transition | `KangxiaobanAI/.../TabPageView.ets` + `ResidentDetailPage.ets` | stable IDs, transparent cover, animated insertion/removal |
+| Geometry transition | `KangxiaobanAI/.../TabPageView.ets` + `MainPage.ets` + `ResidentDetailPage.ets` | stable IDs and root-level animated insertion/removal above HDS Tabs |
 | Complex custom transition | `transitions-collection/.../utils/customtransition` | API migration, interruption, PixelMap/resource cleanup |
 | Live image/video node migration | `transitions-collection/.../NodeController.ets` | use only when live node continuity is required |
 | Account authorization | `account-kit-.../entry/src/main/ets/pages` | separate provider identity from institutional identity |

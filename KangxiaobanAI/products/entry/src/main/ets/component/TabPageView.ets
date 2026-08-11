@@ -45,7 +45,6 @@ import {
   VitalSign
 } from '../model/DetailTypes';
 import { HealthExpandPage } from '../pages/HealthExpandPage';
-import { ResidentDetailPage } from '../pages/ResidentDetailPage';
 import { AiTitleLabel } from './AiTitleLabel';
 import {
   RESIDENT_SUMMARY_CARD_HEIGHT,
@@ -187,6 +186,8 @@ export struct TabPageView {
   @Consumer('mainPageStack') pathStack: NavPathStack = new NavPathStack();
   @Event onSwitchTab: (index: number) => void = () => {};
   @Event onOpenAiChat: () => void = () => {};
+  @Event onOpenResidentDetail: (resident: ResidentData, vitalSign: VitalSign,
+    medicationProgress: MedicationProgress, geometryId: string) => void = () => {};
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
   @Local isProfileSheetOpen: boolean = false;
@@ -207,28 +208,7 @@ export struct TabPageView {
   @Local isAiReminderSheetOpen: boolean = false;
   @Local selectedQuickActionIndex: number = 0;
   @Local isHealthExpandShow: boolean = false;
-  @Local isResidentDetailShow: boolean = false;
   @Local isTaskExpandShow: boolean = false;
-  @Local selectedResidentId: string = '';
-  @Local selectedResident: ResidentData = {
-    id: '',
-    name: '',
-    age: 0,
-    gender: 'male',
-    room: '',
-    bed: '',
-    level: 'normal',
-    status: '',
-    emergencyContact: '',
-    emergencyPhone: '',
-    admissionDate: '',
-    careLevel: '',
-    diagnosis: [],
-    allergies: [],
-    deviceIds: [],
-    avatarText: ''
-  } as ResidentData;
-  @Local activeResidentGeometryId: string = '';
 
   private openAiChat(): void {
     this.onOpenAiChat();
@@ -264,22 +244,8 @@ export struct TabPageView {
   }
 
   private openResidentDetail(item: ResidentData): void {
-    this.selectedResident = item;
-    this.selectedResidentId = item.id;
-    this.activeResidentGeometryId = this.residentGeometryId(item.id);
-    this.getUIContext().animateTo({
-      curve: curves.interpolatingSpring(0, 1, 328, 36)
-    }, () => {
-      this.isResidentDetailShow = true;
-    })
-  }
-
-  private closeResidentDetail(): void {
-    this.getUIContext().animateTo({
-      curve: curves.interpolatingSpring(0, 1, 342, 38)
-    }, () => {
-      this.isResidentDetailShow = false;
-    })
+    this.onOpenResidentDetail(item, this.residentVitalSign(item),
+      this.residentMedicationProgress(item), this.residentGeometryId(item.id));
   }
 
   private openTaskExpand(): void {
@@ -1551,39 +1517,27 @@ export struct TabPageView {
   @Builder
   private residentListRow(item: ResidentData, isLast: boolean) {
     ListItem() {
-      if (this.isResidentDetailShow && this.selectedResidentId === item.id) {
-        Column()
-          .width('100%')
-          .height(this.residentCardHeight())
-          .backgroundColor($r('sys.color.comp_background_primary'))
-          .borderRadius(16)
-          .border({
-            width: 0.5,
-            color: $r('sys.color.comp_divider')
-          })
-      } else {
-        Column() {
-          ResidentSummaryCard({
-            resident: item,
-            vitalSign: this.residentVitalSign(item),
-            medicationProgress: this.residentMedicationProgress(item),
-            mode: 'compact'
-          })
-        }
-        .width('100%')
-        .height(this.residentCardHeight())
-        .geometryTransition(this.residentGeometryId(item.id), { follow: true })
-        .transition(TransitionEffect.OPACITY)
-        .stateStyles({
-          pressed: this.residentCardPressedStyle,
-          normal: this.residentCardNormalStyle
-        })
-        .focusable(true)
-        .focusOnTouch(true)
-        .onClick(() => {
-          this.openResidentDetail(item);
+      Column() {
+        ResidentSummaryCard({
+          resident: item,
+          vitalSign: this.residentVitalSign(item),
+          medicationProgress: this.residentMedicationProgress(item),
+          mode: 'compact'
         })
       }
+      .width('100%')
+      .height(this.residentCardHeight())
+      .geometryTransition(this.residentGeometryId(item.id), { follow: true })
+      .transition(TransitionEffect.OPACITY)
+      .stateStyles({
+        pressed: this.residentCardPressedStyle,
+        normal: this.residentCardNormalStyle
+      })
+      .focusable(true)
+      .focusOnTouch(true)
+      .onClick(() => {
+        this.openResidentDetail(item);
+      })
     }
     .padding({ left: 16, right: 16 })
   }
@@ -3137,19 +3091,6 @@ export struct TabPageView {
   }
 
   @Builder
-  private residentDetailCover() {
-    ResidentDetailPage({
-      resident: this.selectedResident,
-      vitalSignData: this.residentVitalSign(this.selectedResident),
-      medicationProgress: this.residentMedicationProgress(this.selectedResident),
-      geometryId: this.activeResidentGeometryId,
-      onClose: () => {
-        this.closeResidentDetail();
-      }
-    })
-  }
-
-  @Builder
   private expandOverviewCard() {
     Row() {
       if (this.selectedQuickActionIndex === 0) {
@@ -3500,16 +3441,6 @@ export struct TabPageView {
         }
         .width('100%')
         .height('100%')
-        .bindContentCover(this.isResidentDetailShow, this.residentDetailCover,
-          {
-            modalTransition: ModalTransition.NONE,
-            backgroundColor: 'rgba(0,0,0,0)',
-            onWillDismiss: (action: DismissContentCoverAction) => {
-              if (action.reason === DismissReason.PRESS_BACK) {
-                this.closeResidentDetail();
-              }
-            }
-          })
       }
       .width('100%')
       .height('100%')

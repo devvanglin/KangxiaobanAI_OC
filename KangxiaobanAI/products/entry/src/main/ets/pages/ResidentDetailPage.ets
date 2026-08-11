@@ -85,10 +85,25 @@ export struct ResidentDetailPage {
   @Styles
   private sectionCardStyle() {
     .width('100%')
-    .padding({ left: 16, right: 16, top: 4, bottom: 12 })
+    .padding({ left: 4, right: 4, top: 4, bottom: 4 })
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(16)
     .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .clip(true)
+  }
+
+  @Styles
+  private sectionHeaderNormalStyle() {
+    .backgroundColor(Color.Transparent)
+  }
+
+  @Styles
+  private sectionHeaderPressedStyle() {
+    .backgroundColor($r('sys.color.interactive_pressed'))
+  }
+
+  private sectionCardBottomPadding(sectionBit: number): number {
+    return (this.expandedMask & (1 << sectionBit)) !== 0 ? 12 : 4;
   }
 
   private statusText(level: StatusLevel): string {
@@ -241,7 +256,7 @@ export struct ResidentDetailPage {
   @Builder
   private basicInfoCard() {
     Column({ space: 0 }) {
-      Button({ type: ButtonType.Normal, stateEffect: true }) {
+      Button({ type: ButtonType.Normal, stateEffect: false }) {
         Row({ space: 8 }) {
           Text('基础信息')
             .fontSize($r('sys.float.Body_M'))
@@ -257,9 +272,15 @@ export struct ResidentDetailPage {
         .width('100%')
       }
       .width('100%')
-      .height(44)
-      .padding(0)
+      .height(48)
+      .padding({ left: 20, right: 20 })
       .backgroundColor(Color.Transparent)
+      .borderRadius(12)
+      .clip(true)
+      .stateStyles({
+        normal: this.sectionHeaderNormalStyle,
+        pressed: this.sectionHeaderPressedStyle
+      })
       .accessibilityText(`基础信息，${(this.expandedMask & (1 << 9)) !== 0 ? '已展开，点击收起' : '已收起，点击展开'}`)
       .onClick(() => {
         this.expandedMask = this.expandedMask ^ (1 << 9);
@@ -273,16 +294,18 @@ export struct ResidentDetailPage {
           this.descriptionRow('入院日期', this.resident.admissionDate, true)
         }
         .width('100%')
+        .padding({ left: 12, right: 12 })
         .transition(TransitionEffect.OPACITY.animation({ duration: 150, curve: Curve.FastOutSlowIn }))
       }
     }
     .sectionCardStyle()
+    .padding({ left: 4, right: 4, top: 4, bottom: this.sectionCardBottomPadding(9) })
   }
 
   @Builder
   private riskAssessmentCard() {
     Column({ space: 0 }) {
-      Button({ type: ButtonType.Normal, stateEffect: true }) {
+      Button({ type: ButtonType.Normal, stateEffect: false }) {
         Row({ space: 8 }) {
           Text('风险评估')
             .fontSize($r('sys.float.Body_M'))
@@ -298,9 +321,15 @@ export struct ResidentDetailPage {
         .width('100%')
       }
       .width('100%')
-      .height(44)
-      .padding(0)
+      .height(48)
+      .padding({ left: 20, right: 20 })
       .backgroundColor(Color.Transparent)
+      .borderRadius(12)
+      .clip(true)
+      .stateStyles({
+        normal: this.sectionHeaderNormalStyle,
+        pressed: this.sectionHeaderPressedStyle
+      })
       .accessibilityText(`风险评估，${(this.expandedMask & (1 << 8)) !== 0 ? '已展开，点击收起' : '已收起，点击展开'}`)
       .onClick(() => {
         this.expandedMask = this.expandedMask ^ (1 << 8);
@@ -315,10 +344,12 @@ export struct ResidentDetailPage {
           this.descriptionRow('下次复评', this.riskAssessment().nextReview, true)
         }
         .width('100%')
+        .padding({ left: 12, right: 12 })
         .transition(TransitionEffect.OPACITY.animation({ duration: 150, curve: Curve.FastOutSlowIn }))
       }
     }
     .sectionCardStyle()
+    .padding({ left: 4, right: 4, top: 4, bottom: this.sectionCardBottomPadding(8) })
   }
 
   @Builder
@@ -343,7 +374,7 @@ export struct ResidentDetailPage {
   @Builder
   private alertHistoryCard() {
     Column({ space: 0 }) {
-      Button({ type: ButtonType.Normal, stateEffect: true }) {
+      Button({ type: ButtonType.Normal, stateEffect: false }) {
         Row({ space: 8 }) {
           Text('近期报警')
             .fontSize($r('sys.float.Body_M'))
@@ -359,9 +390,15 @@ export struct ResidentDetailPage {
         .width('100%')
       }
       .width('100%')
-      .height(44)
-      .padding(0)
+      .height(48)
+      .padding({ left: 20, right: 20 })
       .backgroundColor(Color.Transparent)
+      .borderRadius(12)
+      .clip(true)
+      .stateStyles({
+        normal: this.sectionHeaderNormalStyle,
+        pressed: this.sectionHeaderPressedStyle
+      })
       .accessibilityText(`近期报警，${(this.expandedMask & (1 << 10)) !== 0 ? '已展开，点击收起' : '已收起，点击展开'}`)
       .onClick(() => {
         this.expandedMask = this.expandedMask ^ (1 << 10);
@@ -374,10 +411,12 @@ export struct ResidentDetailPage {
             })
         }
         .width('100%')
+        .padding({ left: 12, right: 12 })
         .transition(TransitionEffect.OPACITY.animation({ duration: 150, curve: Curve.FastOutSlowIn }))
       }
     }
     .sectionCardStyle()
+    .padding({ left: 4, right: 4, top: 4, bottom: this.sectionCardBottomPadding(10) })
   }
 
   @Builder
@@ -405,7 +444,7 @@ export struct ResidentDetailPage {
   @Builder
   private vitalTrendCard() {
     Column({ space: 0 }) {
-      Button({ type: ButtonType.Normal, stateEffect: true }) {
+      Button({ type: ButtonType.Normal, stateEffect: false }) {
         Row({ space: 8 }) {
           Text('体征趋势（近 6 次）')
             .fontSize($r('sys.float.Body_M'))
@@ -421,9 +460,15 @@ export struct ResidentDetailPage {
         .width('100%')
       }
       .width('100%')
-      .height(44)
-      .padding(0)
+      .height(48)
+      .padding({ left: 20, right: 20 })
       .backgroundColor(Color.Transparent)
+      .borderRadius(12)
+      .clip(true)
+      .stateStyles({
+        normal: this.sectionHeaderNormalStyle,
+        pressed: this.sectionHeaderPressedStyle
+      })
       .accessibilityText(`体征趋势，${(this.expandedMask & (1 << 0)) !== 0 ? '已展开，点击收起' : '已收起，点击展开'}`)
       .onClick(() => {
         this.expandedMask = this.expandedMask ^ (1 << 0);
@@ -436,10 +481,12 @@ export struct ResidentDetailPage {
             })
         }
         .width('100%')
+        .padding({ left: 12, right: 12 })
         .transition(TransitionEffect.OPACITY.animation({ duration: 150, curve: Curve.FastOutSlowIn }))
       }
     }
     .sectionCardStyle()
+    .padding({ left: 4, right: 4, top: 4, bottom: this.sectionCardBottomPadding(0) })
   }
 
   @Builder
@@ -464,7 +511,7 @@ export struct ResidentDetailPage {
   @Builder
   private monitorEntryCard() {
     Column({ space: 0 }) {
-      Button({ type: ButtonType.Normal, stateEffect: true }) {
+      Button({ type: ButtonType.Normal, stateEffect: false }) {
         Row({ space: 8 }) {
           Text('房间监控')
             .fontSize($r('sys.float.Body_M'))
@@ -480,9 +527,15 @@ export struct ResidentDetailPage {
         .width('100%')
       }
       .width('100%')
-      .height(44)
-      .padding(0)
+      .height(48)
+      .padding({ left: 20, right: 20 })
       .backgroundColor(Color.Transparent)
+      .borderRadius(12)
+      .clip(true)
+      .stateStyles({
+        normal: this.sectionHeaderNormalStyle,
+        pressed: this.sectionHeaderPressedStyle
+      })
       .accessibilityText(`房间监控，${(this.expandedMask & (1 << 1)) !== 0 ? '已展开，点击收起' : '已收起，点击展开'}`)
       .onClick(() => {
         this.expandedMask = this.expandedMask ^ (1 << 1);
@@ -495,10 +548,12 @@ export struct ResidentDetailPage {
             })
         }
         .width('100%')
+        .padding({ left: 12, right: 12 })
         .transition(TransitionEffect.OPACITY.animation({ duration: 150, curve: Curve.FastOutSlowIn }))
       }
     }
     .sectionCardStyle()
+    .padding({ left: 4, right: 4, top: 4, bottom: this.sectionCardBottomPadding(1) })
   }
 
   @Builder
@@ -528,7 +583,7 @@ export struct ResidentDetailPage {
   @Builder
   private deviceCard() {
     Column({ space: 0 }) {
-      Button({ type: ButtonType.Normal, stateEffect: true }) {
+      Button({ type: ButtonType.Normal, stateEffect: false }) {
         Row({ space: 8 }) {
           Text('IoT 设备')
             .fontSize($r('sys.float.Body_M'))
@@ -544,9 +599,15 @@ export struct ResidentDetailPage {
         .width('100%')
       }
       .width('100%')
-      .height(44)
-      .padding(0)
+      .height(48)
+      .padding({ left: 20, right: 20 })
       .backgroundColor(Color.Transparent)
+      .borderRadius(12)
+      .clip(true)
+      .stateStyles({
+        normal: this.sectionHeaderNormalStyle,
+        pressed: this.sectionHeaderPressedStyle
+      })
       .accessibilityText(`IoT 设备，${(this.expandedMask & (1 << 7)) !== 0 ? '已展开，点击收起' : '已收起，点击展开'}`)
       .onClick(() => {
         this.expandedMask = this.expandedMask ^ (1 << 7);
@@ -559,10 +620,12 @@ export struct ResidentDetailPage {
             })
         }
         .width('100%')
+        .padding({ left: 12, right: 12 })
         .transition(TransitionEffect.OPACITY.animation({ duration: 150, curve: Curve.FastOutSlowIn }))
       }
     }
     .sectionCardStyle()
+    .padding({ left: 4, right: 4, top: 4, bottom: this.sectionCardBottomPadding(7) })
   }
 
   @Builder
@@ -592,7 +655,7 @@ export struct ResidentDetailPage {
   @Builder
   private moodCard() {
     Column({ space: 0 }) {
-      Button({ type: ButtonType.Normal, stateEffect: true }) {
+      Button({ type: ButtonType.Normal, stateEffect: false }) {
         Row({ space: 8 }) {
           Text('情绪记录')
             .fontSize($r('sys.float.Body_M'))
@@ -608,9 +671,15 @@ export struct ResidentDetailPage {
         .width('100%')
       }
       .width('100%')
-      .height(44)
-      .padding(0)
+      .height(48)
+      .padding({ left: 20, right: 20 })
       .backgroundColor(Color.Transparent)
+      .borderRadius(12)
+      .clip(true)
+      .stateStyles({
+        normal: this.sectionHeaderNormalStyle,
+        pressed: this.sectionHeaderPressedStyle
+      })
       .accessibilityText(`情绪记录，${(this.expandedMask & (1 << 6)) !== 0 ? '已展开，点击收起' : '已收起，点击展开'}`)
       .onClick(() => {
         this.expandedMask = this.expandedMask ^ (1 << 6);
@@ -623,10 +692,12 @@ export struct ResidentDetailPage {
             })
         }
         .width('100%')
+        .padding({ left: 12, right: 12 })
         .transition(TransitionEffect.OPACITY.animation({ duration: 150, curve: Curve.FastOutSlowIn }))
       }
     }
     .sectionCardStyle()
+    .padding({ left: 4, right: 4, top: 4, bottom: this.sectionCardBottomPadding(6) })
   }
 
   @Builder
@@ -654,7 +725,7 @@ export struct ResidentDetailPage {
   @Builder
   private footprintCard() {
     Column({ space: 0 }) {
-      Button({ type: ButtonType.Normal, stateEffect: true }) {
+      Button({ type: ButtonType.Normal, stateEffect: false }) {
         Row({ space: 8 }) {
           Text('今日足迹')
             .fontSize($r('sys.float.Body_M'))
@@ -670,9 +741,15 @@ export struct ResidentDetailPage {
         .width('100%')
       }
       .width('100%')
-      .height(44)
-      .padding(0)
+      .height(48)
+      .padding({ left: 20, right: 20 })
       .backgroundColor(Color.Transparent)
+      .borderRadius(12)
+      .clip(true)
+      .stateStyles({
+        normal: this.sectionHeaderNormalStyle,
+        pressed: this.sectionHeaderPressedStyle
+      })
       .accessibilityText(`今日足迹，${(this.expandedMask & (1 << 5)) !== 0 ? '已展开，点击收起' : '已收起，点击展开'}`)
       .onClick(() => {
         this.expandedMask = this.expandedMask ^ (1 << 5);
@@ -685,10 +762,12 @@ export struct ResidentDetailPage {
             })
         }
         .width('100%')
+        .padding({ left: 12, right: 12 })
         .transition(TransitionEffect.OPACITY.animation({ duration: 150, curve: Curve.FastOutSlowIn }))
       }
     }
     .sectionCardStyle()
+    .padding({ left: 4, right: 4, top: 4, bottom: this.sectionCardBottomPadding(5) })
   }
 
   @Builder
@@ -716,7 +795,7 @@ export struct ResidentDetailPage {
   @Builder
   private medicationCard() {
     Column({ space: 0 }) {
-      Button({ type: ButtonType.Normal, stateEffect: true }) {
+      Button({ type: ButtonType.Normal, stateEffect: false }) {
         Row({ space: 8 }) {
           Text('用药管理')
             .fontSize($r('sys.float.Body_M'))
@@ -732,9 +811,15 @@ export struct ResidentDetailPage {
         .width('100%')
       }
       .width('100%')
-      .height(44)
-      .padding(0)
+      .height(48)
+      .padding({ left: 20, right: 20 })
       .backgroundColor(Color.Transparent)
+      .borderRadius(12)
+      .clip(true)
+      .stateStyles({
+        normal: this.sectionHeaderNormalStyle,
+        pressed: this.sectionHeaderPressedStyle
+      })
       .accessibilityText(`用药管理，${(this.expandedMask & (1 << 2)) !== 0 ? '已展开，点击收起' : '已收起，点击展开'}`)
       .onClick(() => {
         this.expandedMask = this.expandedMask ^ (1 << 2);
@@ -751,10 +836,12 @@ export struct ResidentDetailPage {
           }
         }
         .width('100%')
+        .padding({ left: 12, right: 12 })
         .transition(TransitionEffect.OPACITY.animation({ duration: 150, curve: Curve.FastOutSlowIn }))
       }
     }
     .sectionCardStyle()
+    .padding({ left: 4, right: 4, top: 4, bottom: this.sectionCardBottomPadding(2) })
   }
 
   @Builder
@@ -782,7 +869,7 @@ export struct ResidentDetailPage {
   @Builder
   private careTaskCard() {
     Column({ space: 0 }) {
-      Button({ type: ButtonType.Normal, stateEffect: true }) {
+      Button({ type: ButtonType.Normal, stateEffect: false }) {
         Row({ space: 8 }) {
           Text('今日护理任务')
             .fontSize($r('sys.float.Body_M'))
@@ -798,9 +885,15 @@ export struct ResidentDetailPage {
         .width('100%')
       }
       .width('100%')
-      .height(44)
-      .padding(0)
+      .height(48)
+      .padding({ left: 20, right: 20 })
       .backgroundColor(Color.Transparent)
+      .borderRadius(12)
+      .clip(true)
+      .stateStyles({
+        normal: this.sectionHeaderNormalStyle,
+        pressed: this.sectionHeaderPressedStyle
+      })
       .accessibilityText(`今日护理任务，${(this.expandedMask & (1 << 3)) !== 0 ? '已展开，点击收起' : '已收起，点击展开'}`)
       .onClick(() => {
         this.expandedMask = this.expandedMask ^ (1 << 3);
@@ -813,10 +906,12 @@ export struct ResidentDetailPage {
             })
         }
         .width('100%')
+        .padding({ left: 12, right: 12 })
         .transition(TransitionEffect.OPACITY.animation({ duration: 150, curve: Curve.FastOutSlowIn }))
       }
     }
     .sectionCardStyle()
+    .padding({ left: 4, right: 4, top: 4, bottom: this.sectionCardBottomPadding(3) })
   }
 
   @Builder
@@ -842,7 +937,7 @@ export struct ResidentDetailPage {
   @Builder
   private mealCard() {
     Column({ space: 0 }) {
-      Button({ type: ButtonType.Normal, stateEffect: true }) {
+      Button({ type: ButtonType.Normal, stateEffect: false }) {
         Row({ space: 8 }) {
           Text('今日膳食')
             .fontSize($r('sys.float.Body_M'))
@@ -858,9 +953,15 @@ export struct ResidentDetailPage {
         .width('100%')
       }
       .width('100%')
-      .height(44)
-      .padding(0)
+      .height(48)
+      .padding({ left: 20, right: 20 })
       .backgroundColor(Color.Transparent)
+      .borderRadius(12)
+      .clip(true)
+      .stateStyles({
+        normal: this.sectionHeaderNormalStyle,
+        pressed: this.sectionHeaderPressedStyle
+      })
       .accessibilityText(`今日膳食，${(this.expandedMask & (1 << 4)) !== 0 ? '已展开，点击收起' : '已收起，点击展开'}`)
       .onClick(() => {
         this.expandedMask = this.expandedMask ^ (1 << 4);
@@ -873,10 +974,12 @@ export struct ResidentDetailPage {
             })
         }
         .width('100%')
+        .padding({ left: 12, right: 12 })
         .transition(TransitionEffect.OPACITY.animation({ duration: 150, curve: Curve.FastOutSlowIn }))
       }
     }
     .sectionCardStyle()
+    .padding({ left: 4, right: 4, top: 4, bottom: this.sectionCardBottomPadding(4) })
   }
 
   @Builder

@@ -41,7 +41,9 @@ import { WideDoctorWorkspace } from '../component/wide/WideDoctorWorkspace';
 import { WideAdminWorkspace } from '../component/wide/WideAdminWorkspace';
 import { AiChatPage } from '../pages/AiChatPage';
 import { MineDetailPage } from '../pages/MineDetailPage';
+import { ResidentDetailPage } from '../pages/ResidentDetailPage';
 import { StorageKey } from '../common/CommonConstants';
+import { MedicationProgress, ResidentData, VitalSign } from '../model/DetailTypes';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { PAGE_SCROLLER_MAP, PageKeyEnum, TabsBarModel } from '../model/TabsBarModel';
 import { TAB_PAGE_CONFIGS, TabPageConfig } from '../model/TabPageModel';
@@ -80,6 +82,38 @@ struct MainPage {
   @Local primaryTabIndex: number = 0;
   @Local isSidebarCollapsed: boolean = false;
   @Local isAiChatShow: boolean = false;
+  @Local isResidentDetailShow: boolean = false;
+  @Local selectedResident: ResidentData = {
+    id: '',
+    name: '',
+    age: 0,
+    gender: 'male',
+    room: '',
+    bed: '',
+    level: 'normal',
+    status: '',
+    emergencyContact: '',
+    emergencyPhone: '',
+    admissionDate: '',
+    careLevel: '',
+    diagnosis: [],
+    allergies: [],
+    deviceIds: [],
+    avatarText: ''
+  } as ResidentData;
+  @Local selectedResidentVitalSign: VitalSign = {
+    heartRate: 0,
+    systolic: 0,
+    diastolic: 0,
+    oxygen: 0,
+    temperature: 0,
+    respiratory: 0,
+    steps: 0,
+    sleepHours: 0,
+    measuredAt: '--'
+  };
+  @Local selectedResidentMedicationProgress: MedicationProgress = { done: 0, total: 0 };
+  @Local selectedResidentGeometryId: string = '';
   @Local caregiverHasLocalBackLayer: boolean = false;
   @Local caregiverBackRequestToken: number = 0;
   @Local caregiverUnreadMessageCount: number = 3;
@@ -339,6 +373,27 @@ struct MainPage {
     })
   }
 
+  private openResidentDetail(resident: ResidentData, vitalSign: VitalSign,
+    medicationProgress: MedicationProgress, geometryId: string): void {
+    this.selectedResident = resident;
+    this.selectedResidentVitalSign = vitalSign;
+    this.selectedResidentMedicationProgress = medicationProgress;
+    this.selectedResidentGeometryId = geometryId;
+    this.getUIContext().animateTo({
+      curve: curves.interpolatingSpring(0, 1, 328, 36)
+    }, () => {
+      this.isResidentDetailShow = true;
+    })
+  }
+
+  private closeResidentDetail(): void {
+    this.getUIContext().animateTo({
+      curve: curves.interpolatingSpring(0, 1, 342, 38)
+    }, () => {
+      this.isResidentDetailShow = false;
+    })
+  }
+
   private isCaregiverWideWorkspace(): boolean {
     return this.isWideLayout() && this.globalInfoModel.role === '护工';
   }
@@ -352,6 +407,10 @@ struct MainPage {
   onBackPress(): boolean {
     if (this.isAiChatShow) {
       this.closeAiChat();
+      return true;
+    }
+    if (this.isResidentDetailShow) {
+      this.closeResidentDetail();
       return true;
     }
     if (this.isCaregiverWideWorkspace() && this.pathStack.size() === 0 && this.caregiverHasLocalBackLayer) {
@@ -718,6 +777,10 @@ struct MainPage {
           },
           onOpenAiChat: () => {
             this.openAiChat();
+          },
+          onOpenResidentDetail: (resident: ResidentData, vitalSign: VitalSign,
+            medicationProgress: MedicationProgress, geometryId: string) => {
+            this.openResidentDetail(resident, vitalSign, medicationProgress, geometryId);
           }
         })
       }
@@ -733,6 +796,10 @@ struct MainPage {
           },
           onOpenAiChat: () => {
             this.openAiChat();
+          },
+          onOpenResidentDetail: (resident: ResidentData, vitalSign: VitalSign,
+            medicationProgress: MedicationProgress, geometryId: string) => {
+            this.openResidentDetail(resident, vitalSign, medicationProgress, geometryId);
           }
         })
       }
@@ -748,6 +815,10 @@ struct MainPage {
           },
           onOpenAiChat: () => {
             this.openAiChat();
+          },
+          onOpenResidentDetail: (resident: ResidentData, vitalSign: VitalSign,
+            medicationProgress: MedicationProgress, geometryId: string) => {
+            this.openResidentDetail(resident, vitalSign, medicationProgress, geometryId);
           }
         })
       }
@@ -763,6 +834,10 @@ struct MainPage {
           },
           onOpenAiChat: () => {
             this.openAiChat();
+          },
+          onOpenResidentDetail: (resident: ResidentData, vitalSign: VitalSign,
+            medicationProgress: MedicationProgress, geometryId: string) => {
+            this.openResidentDetail(resident, vitalSign, medicationProgress, geometryId);
           }
         })
       }
@@ -920,6 +995,19 @@ struct MainPage {
     })
   }
 
+  @Builder
+  private residentDetailCover() {
+    ResidentDetailPage({
+      resident: this.selectedResident,
+      vitalSignData: this.selectedResidentVitalSign,
+      medicationProgress: this.selectedResidentMedicationProgress,
+      geometryId: this.selectedResidentGeometryId,
+      onClose: () => {
+        this.closeResidentDetail();
+      }
+    })
+  }
+
   build() {
     Stack() {
       if (this.isRoleAdapted()) {
@@ -947,6 +1035,10 @@ struct MainPage {
 
       if (this.isAiChatShow) {
         this.aiChatCover()
+      }
+
+      if (this.isResidentDetailShow) {
+        this.residentDetailCover()
       }
     }
     .width('100%')
