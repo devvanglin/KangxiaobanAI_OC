@@ -76,6 +76,14 @@ When facts disagree, use this order:
 4. root analysis documents and project README files;
 5. sample comments or marketing descriptions.
 
+The locally added HarmonyOS guide corpus under
+`docs/huawei-harmonyos-guides-complete-2026-08-10/` may be used as a development, implementation, review, and
+troubleshooting reference. Its handbook chapters, official-menu indexes, page digests, coverage reports, and helper
+tools are intended to help locate relevant platform guidance and compare implementation options. Treat it as a dated
+local reference snapshot rather than a higher-priority source of truth: verify current SDK/API behavior against the
+active project configuration, current source code, local compilation, and current official HarmonyOS documentation
+when availability or behavior is uncertain.
+
 Known documentation drift:
 
 - `KANGXIAOBANAI_ARKTS_DEEP_PROJECT_REPORT.md` was accurate for an older snapshot but says API 23 and refers to files
