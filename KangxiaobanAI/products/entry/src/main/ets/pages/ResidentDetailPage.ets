@@ -53,6 +53,14 @@ interface VitalTrendRow {
   bp: string;
 }
 
+const ALL_RESIDENT_DETAIL_SECTIONS_EXPANDED: number = 0x7FF;
+const RESIDENT_DETAIL_EXPANSION_STORE_KEY: string = 'kanxiaoban_resident_detail_expansion_store';
+
+@ObservedV2
+class ResidentDetailExpansionStore {
+  @Trace expandedMask: number = ALL_RESIDENT_DETAIL_SECTIONS_EXPANDED;
+}
+
 @ComponentV2
 export struct ResidentDetailPage {
   @Param @Require resident: ResidentData;
@@ -62,6 +70,26 @@ export struct ResidentDetailPage {
   @Event onClose: () => void = () => {};
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
+  @Local expansionStore: ResidentDetailExpansionStore =
+    AppStorageV2.connect(ResidentDetailExpansionStore, RESIDENT_DETAIL_EXPANSION_STORE_KEY,
+      () => new ResidentDetailExpansionStore()) ?? new ResidentDetailExpansionStore();
+
+  private get expandedMask(): number {
+    return this.expansionStore.expandedMask;
+  }
+
+  private set expandedMask(value: number) {
+    this.expansionStore.expandedMask = value;
+  }
+
+  @Styles
+  private sectionCardStyle() {
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 4, bottom: 12 })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(16)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+  }
 
   private statusText(level: StatusLevel): string {
     if (level === 'danger') {
@@ -213,62 +241,84 @@ export struct ResidentDetailPage {
   @Builder
   private basicInfoCard() {
     Column({ space: 0 }) {
-      this.sectionTitle('基础信息')
-      this.descriptionRow('性别', this.genderText(this.resident.gender), false)
-      this.descriptionRow('年龄', `${this.resident.age}岁`, false)
-      this.descriptionRow('房间床号', `${this.resident.room} ${this.resident.bed}`, false)
-      this.descriptionRow('护理等级', this.resident.careLevel, false)
-      this.descriptionRow('入院日期', this.resident.admissionDate, true)
-    }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 4, bottom: 12 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-  }
-
-  @Builder
-  private emergencyContactCard() {
-    Column({ space: 0 }) {
-      this.sectionTitle('紧急联系')
-      Column({ space: 0 }) {
-        HdsListItemCard({
-          textItem: {
-            primaryText: { text: this.resident.emergencyContact },
-            secondaryText: { text: this.resident.emergencyPhone }
-          },
-          suffixItem: new SuffixText({ text: '第一联系人' }),
-          cardBorderRadius: 0,
-          cardBackgroundColor: 'rgba(0,0,0,0)',
-          cardHeight: 60,
-          cardPrefixMargin: 0,
-          cardSuffixMargin: 0
-        })
+      Button({ type: ButtonType.Normal, stateEffect: true }) {
+        Row({ space: 8 }) {
+          Text('基础信息')
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+            .textAlign(TextAlign.Start)
+          SymbolGlyph($r('sys.symbol.chevron_down'))
+            .fontSize(16)
+            .fontColor([$r('sys.color.icon_tertiary')])
+            .rotate({ angle: (this.expandedMask & (1 << 9)) !== 0 ? 180 : 0 })
+        }
+        .width('100%')
+      }
+      .width('100%')
+      .height(44)
+      .padding(0)
+      .backgroundColor(Color.Transparent)
+      .accessibilityText(`基础信息，${(this.expandedMask & (1 << 9)) !== 0 ? '已展开，点击收起' : '已收起，点击展开'}`)
+      .onClick(() => {
+        this.expandedMask = this.expandedMask ^ (1 << 9);
+      })
+      if ((this.expandedMask & (1 << 9)) !== 0) {
+        Column({ space: 0 }) {
+          this.descriptionRow('性别', this.genderText(this.resident.gender), false)
+          this.descriptionRow('年龄', `${this.resident.age}岁`, false)
+          this.descriptionRow('房间床号', `${this.resident.room} ${this.resident.bed}`, false)
+          this.descriptionRow('护理等级', this.resident.careLevel, false)
+          this.descriptionRow('入院日期', this.resident.admissionDate, true)
+        }
+        .width('100%')
+        .transition(TransitionEffect.OPACITY.animation({ duration: 150, curve: Curve.FastOutSlowIn }))
       }
     }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 4, bottom: 12 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .sectionCardStyle()
   }
 
   @Builder
   private riskAssessmentCard() {
     Column({ space: 0 }) {
-      this.sectionTitle('风险评估')
-      this.riskRow('跌倒风险', this.riskAssessment().fallRisk, false)
-      this.riskRow('压疮风险', this.riskAssessment().pressureUlcerRisk, false)
-      this.riskRow('走失风险', this.riskAssessment().wanderingRisk, false)
-      this.descriptionRow('ADL 评分', `${this.riskAssessment().adlScore} 分`, false)
-      this.descriptionRow('认知评分', `${this.riskAssessment().cognitiveScore} 分`, false)
-      this.descriptionRow('下次复评', this.riskAssessment().nextReview, true)
+      Button({ type: ButtonType.Normal, stateEffect: true }) {
+        Row({ space: 8 }) {
+          Text('风险评估')
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+            .textAlign(TextAlign.Start)
+          SymbolGlyph($r('sys.symbol.chevron_down'))
+            .fontSize(16)
+            .fontColor([$r('sys.color.icon_tertiary')])
+            .rotate({ angle: (this.expandedMask & (1 << 8)) !== 0 ? 180 : 0 })
+        }
+        .width('100%')
+      }
+      .width('100%')
+      .height(44)
+      .padding(0)
+      .backgroundColor(Color.Transparent)
+      .accessibilityText(`风险评估，${(this.expandedMask & (1 << 8)) !== 0 ? '已展开，点击收起' : '已收起，点击展开'}`)
+      .onClick(() => {
+        this.expandedMask = this.expandedMask ^ (1 << 8);
+      })
+      if ((this.expandedMask & (1 << 8)) !== 0) {
+        Column({ space: 0 }) {
+          this.riskRow('跌倒风险', this.riskAssessment().fallRisk, false)
+          this.riskRow('压疮风险', this.riskAssessment().pressureUlcerRisk, false)
+          this.riskRow('走失风险', this.riskAssessment().wanderingRisk, false)
+          this.descriptionRow('ADL 评分', `${this.riskAssessment().adlScore} 分`, false)
+          this.descriptionRow('认知评分', `${this.riskAssessment().cognitiveScore} 分`, false)
+          this.descriptionRow('下次复评', this.riskAssessment().nextReview, true)
+        }
+        .width('100%')
+        .transition(TransitionEffect.OPACITY.animation({ duration: 150, curve: Curve.FastOutSlowIn }))
+      }
     }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 4, bottom: 12 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .sectionCardStyle()
   }
 
   @Builder
@@ -293,19 +343,41 @@ export struct ResidentDetailPage {
   @Builder
   private alertHistoryCard() {
     Column({ space: 0 }) {
-      this.sectionTitle('近期报警')
-      Column({ space: 0 }) {
-        Repeat(this.alertEvents())
-          .each((repeatItem: RepeatItem<AlertEvent>) => {
-            this.alertEventRow(repeatItem.item, repeatItem.index === this.alertEvents().length - 1)
-          })
+      Button({ type: ButtonType.Normal, stateEffect: true }) {
+        Row({ space: 8 }) {
+          Text('近期报警')
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+            .textAlign(TextAlign.Start)
+          SymbolGlyph($r('sys.symbol.chevron_down'))
+            .fontSize(16)
+            .fontColor([$r('sys.color.icon_tertiary')])
+            .rotate({ angle: (this.expandedMask & (1 << 10)) !== 0 ? 180 : 0 })
+        }
+        .width('100%')
+      }
+      .width('100%')
+      .height(44)
+      .padding(0)
+      .backgroundColor(Color.Transparent)
+      .accessibilityText(`近期报警，${(this.expandedMask & (1 << 10)) !== 0 ? '已展开，点击收起' : '已收起，点击展开'}`)
+      .onClick(() => {
+        this.expandedMask = this.expandedMask ^ (1 << 10);
+      })
+      if ((this.expandedMask & (1 << 10)) !== 0) {
+        Column({ space: 0 }) {
+          Repeat(this.alertEvents())
+            .each((repeatItem: RepeatItem<AlertEvent>) => {
+              this.alertEventRow(repeatItem.item, repeatItem.index === this.alertEvents().length - 1)
+            })
+        }
+        .width('100%')
+        .transition(TransitionEffect.OPACITY.animation({ duration: 150, curve: Curve.FastOutSlowIn }))
       }
     }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 4, bottom: 12 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .sectionCardStyle()
   }
 
   @Builder
@@ -333,19 +405,41 @@ export struct ResidentDetailPage {
   @Builder
   private vitalTrendCard() {
     Column({ space: 0 }) {
-      this.sectionTitle('体征趋势（近 6 次）')
-      Column({ space: 0 }) {
-        Repeat(this.vitalTrend())
-          .each((repeatItem: RepeatItem<VitalTrendRow>) => {
-            this.vitalTrendRow(repeatItem.item, repeatItem.index === this.vitalTrend().length - 1)
-          })
+      Button({ type: ButtonType.Normal, stateEffect: true }) {
+        Row({ space: 8 }) {
+          Text('体征趋势（近 6 次）')
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+            .textAlign(TextAlign.Start)
+          SymbolGlyph($r('sys.symbol.chevron_down'))
+            .fontSize(16)
+            .fontColor([$r('sys.color.icon_tertiary')])
+            .rotate({ angle: (this.expandedMask & (1 << 0)) !== 0 ? 180 : 0 })
+        }
+        .width('100%')
+      }
+      .width('100%')
+      .height(44)
+      .padding(0)
+      .backgroundColor(Color.Transparent)
+      .accessibilityText(`体征趋势，${(this.expandedMask & (1 << 0)) !== 0 ? '已展开，点击收起' : '已收起，点击展开'}`)
+      .onClick(() => {
+        this.expandedMask = this.expandedMask ^ (1 << 0);
+      })
+      if ((this.expandedMask & (1 << 0)) !== 0) {
+        Column({ space: 0 }) {
+          Repeat(this.vitalTrend())
+            .each((repeatItem: RepeatItem<VitalTrendRow>) => {
+              this.vitalTrendRow(repeatItem.item, repeatItem.index === this.vitalTrend().length - 1)
+            })
+        }
+        .width('100%')
+        .transition(TransitionEffect.OPACITY.animation({ duration: 150, curve: Curve.FastOutSlowIn }))
       }
     }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 4, bottom: 12 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .sectionCardStyle()
   }
 
   @Builder
@@ -370,19 +464,41 @@ export struct ResidentDetailPage {
   @Builder
   private monitorEntryCard() {
     Column({ space: 0 }) {
-      this.sectionTitle('房间监控')
-      Column({ space: 0 }) {
-        Repeat(this.monitors())
-          .each((repeatItem: RepeatItem<MonitorSnapshot>) => {
-            this.monitorRow(repeatItem.item, repeatItem.index === this.monitors().length - 1)
-          })
+      Button({ type: ButtonType.Normal, stateEffect: true }) {
+        Row({ space: 8 }) {
+          Text('房间监控')
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+            .textAlign(TextAlign.Start)
+          SymbolGlyph($r('sys.symbol.chevron_down'))
+            .fontSize(16)
+            .fontColor([$r('sys.color.icon_tertiary')])
+            .rotate({ angle: (this.expandedMask & (1 << 1)) !== 0 ? 180 : 0 })
+        }
+        .width('100%')
+      }
+      .width('100%')
+      .height(44)
+      .padding(0)
+      .backgroundColor(Color.Transparent)
+      .accessibilityText(`房间监控，${(this.expandedMask & (1 << 1)) !== 0 ? '已展开，点击收起' : '已收起，点击展开'}`)
+      .onClick(() => {
+        this.expandedMask = this.expandedMask ^ (1 << 1);
+      })
+      if ((this.expandedMask & (1 << 1)) !== 0) {
+        Column({ space: 0 }) {
+          Repeat(this.monitors())
+            .each((repeatItem: RepeatItem<MonitorSnapshot>) => {
+              this.monitorRow(repeatItem.item, repeatItem.index === this.monitors().length - 1)
+            })
+        }
+        .width('100%')
+        .transition(TransitionEffect.OPACITY.animation({ duration: 150, curve: Curve.FastOutSlowIn }))
       }
     }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 4, bottom: 12 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .sectionCardStyle()
   }
 
   @Builder
@@ -412,19 +528,41 @@ export struct ResidentDetailPage {
   @Builder
   private deviceCard() {
     Column({ space: 0 }) {
-      this.sectionTitle('IoT 设备')
-      Column({ space: 0 }) {
-        Repeat(this.residentDevices())
-          .each((repeatItem: RepeatItem<RoomDeviceData>) => {
-            this.deviceRow(repeatItem.item, repeatItem.index === this.residentDevices().length - 1)
-          })
+      Button({ type: ButtonType.Normal, stateEffect: true }) {
+        Row({ space: 8 }) {
+          Text('IoT 设备')
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+            .textAlign(TextAlign.Start)
+          SymbolGlyph($r('sys.symbol.chevron_down'))
+            .fontSize(16)
+            .fontColor([$r('sys.color.icon_tertiary')])
+            .rotate({ angle: (this.expandedMask & (1 << 7)) !== 0 ? 180 : 0 })
+        }
+        .width('100%')
+      }
+      .width('100%')
+      .height(44)
+      .padding(0)
+      .backgroundColor(Color.Transparent)
+      .accessibilityText(`IoT 设备，${(this.expandedMask & (1 << 7)) !== 0 ? '已展开，点击收起' : '已收起，点击展开'}`)
+      .onClick(() => {
+        this.expandedMask = this.expandedMask ^ (1 << 7);
+      })
+      if ((this.expandedMask & (1 << 7)) !== 0) {
+        Column({ space: 0 }) {
+          Repeat(this.residentDevices())
+            .each((repeatItem: RepeatItem<RoomDeviceData>) => {
+              this.deviceRow(repeatItem.item, repeatItem.index === this.residentDevices().length - 1)
+            })
+        }
+        .width('100%')
+        .transition(TransitionEffect.OPACITY.animation({ duration: 150, curve: Curve.FastOutSlowIn }))
       }
     }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 4, bottom: 12 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .sectionCardStyle()
   }
 
   @Builder
@@ -454,19 +592,41 @@ export struct ResidentDetailPage {
   @Builder
   private moodCard() {
     Column({ space: 0 }) {
-      this.sectionTitle('情绪记录')
-      Column({ space: 0 }) {
-        Repeat(this.moodRecords())
-          .each((repeatItem: RepeatItem<MoodRecord>) => {
-            this.moodRow(repeatItem.item, repeatItem.index === this.moodRecords().length - 1)
-          })
+      Button({ type: ButtonType.Normal, stateEffect: true }) {
+        Row({ space: 8 }) {
+          Text('情绪记录')
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+            .textAlign(TextAlign.Start)
+          SymbolGlyph($r('sys.symbol.chevron_down'))
+            .fontSize(16)
+            .fontColor([$r('sys.color.icon_tertiary')])
+            .rotate({ angle: (this.expandedMask & (1 << 6)) !== 0 ? 180 : 0 })
+        }
+        .width('100%')
+      }
+      .width('100%')
+      .height(44)
+      .padding(0)
+      .backgroundColor(Color.Transparent)
+      .accessibilityText(`情绪记录，${(this.expandedMask & (1 << 6)) !== 0 ? '已展开，点击收起' : '已收起，点击展开'}`)
+      .onClick(() => {
+        this.expandedMask = this.expandedMask ^ (1 << 6);
+      })
+      if ((this.expandedMask & (1 << 6)) !== 0) {
+        Column({ space: 0 }) {
+          Repeat(this.moodRecords())
+            .each((repeatItem: RepeatItem<MoodRecord>) => {
+              this.moodRow(repeatItem.item, repeatItem.index === this.moodRecords().length - 1)
+            })
+        }
+        .width('100%')
+        .transition(TransitionEffect.OPACITY.animation({ duration: 150, curve: Curve.FastOutSlowIn }))
       }
     }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 4, bottom: 12 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .sectionCardStyle()
   }
 
   @Builder
@@ -494,19 +654,41 @@ export struct ResidentDetailPage {
   @Builder
   private footprintCard() {
     Column({ space: 0 }) {
-      this.sectionTitle('今日足迹')
-      Column({ space: 0 }) {
-        Repeat(this.footprints())
-          .each((repeatItem: RepeatItem<FootprintRecord>) => {
-            this.footprintRow(repeatItem.item, repeatItem.index === this.footprints().length - 1)
-          })
+      Button({ type: ButtonType.Normal, stateEffect: true }) {
+        Row({ space: 8 }) {
+          Text('今日足迹')
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+            .textAlign(TextAlign.Start)
+          SymbolGlyph($r('sys.symbol.chevron_down'))
+            .fontSize(16)
+            .fontColor([$r('sys.color.icon_tertiary')])
+            .rotate({ angle: (this.expandedMask & (1 << 5)) !== 0 ? 180 : 0 })
+        }
+        .width('100%')
+      }
+      .width('100%')
+      .height(44)
+      .padding(0)
+      .backgroundColor(Color.Transparent)
+      .accessibilityText(`今日足迹，${(this.expandedMask & (1 << 5)) !== 0 ? '已展开，点击收起' : '已收起，点击展开'}`)
+      .onClick(() => {
+        this.expandedMask = this.expandedMask ^ (1 << 5);
+      })
+      if ((this.expandedMask & (1 << 5)) !== 0) {
+        Column({ space: 0 }) {
+          Repeat(this.footprints())
+            .each((repeatItem: RepeatItem<FootprintRecord>) => {
+              this.footprintRow(repeatItem.item, repeatItem.index === this.footprints().length - 1)
+            })
+        }
+        .width('100%')
+        .transition(TransitionEffect.OPACITY.animation({ duration: 150, curve: Curve.FastOutSlowIn }))
       }
     }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 4, bottom: 12 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .sectionCardStyle()
   }
 
   @Builder
@@ -534,21 +716,45 @@ export struct ResidentDetailPage {
   @Builder
   private medicationCard() {
     Column({ space: 0 }) {
-      this.sectionTitle('用药管理')
-      this.descriptionRow('下次服药', this.nextMedicationTime(), false)
-      this.descriptionRow('今日进度', `${this.medicationDoneCount()}/${this.medicationTotalCount()} 次`, false)
-      Column({ space: 0 }) {
-        Repeat(this.medications())
-          .each((repeatItem: RepeatItem<Medication>) => {
-            this.medicationRow(repeatItem.item, repeatItem.index === this.medications().length - 1)
-          })
+      Button({ type: ButtonType.Normal, stateEffect: true }) {
+        Row({ space: 8 }) {
+          Text('用药管理')
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+            .textAlign(TextAlign.Start)
+          SymbolGlyph($r('sys.symbol.chevron_down'))
+            .fontSize(16)
+            .fontColor([$r('sys.color.icon_tertiary')])
+            .rotate({ angle: (this.expandedMask & (1 << 2)) !== 0 ? 180 : 0 })
+        }
+        .width('100%')
+      }
+      .width('100%')
+      .height(44)
+      .padding(0)
+      .backgroundColor(Color.Transparent)
+      .accessibilityText(`用药管理，${(this.expandedMask & (1 << 2)) !== 0 ? '已展开，点击收起' : '已收起，点击展开'}`)
+      .onClick(() => {
+        this.expandedMask = this.expandedMask ^ (1 << 2);
+      })
+      if ((this.expandedMask & (1 << 2)) !== 0) {
+        Column({ space: 0 }) {
+          this.descriptionRow('下次服药', this.nextMedicationTime(), false)
+          this.descriptionRow('今日进度', `${this.medicationDoneCount()}/${this.medicationTotalCount()} 次`, false)
+          Column({ space: 0 }) {
+            Repeat(this.medications())
+              .each((repeatItem: RepeatItem<Medication>) => {
+                this.medicationRow(repeatItem.item, repeatItem.index === this.medications().length - 1)
+              })
+          }
+        }
+        .width('100%')
+        .transition(TransitionEffect.OPACITY.animation({ duration: 150, curve: Curve.FastOutSlowIn }))
       }
     }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 4, bottom: 12 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .sectionCardStyle()
   }
 
   @Builder
@@ -576,19 +782,41 @@ export struct ResidentDetailPage {
   @Builder
   private careTaskCard() {
     Column({ space: 0 }) {
-      this.sectionTitle('今日护理任务')
-      Column({ space: 0 }) {
-        Repeat(this.careTasks())
-          .each((repeatItem: RepeatItem<CareTaskItem>) => {
-            this.careTaskRow(repeatItem.item, repeatItem.index === this.careTasks().length - 1)
-          })
+      Button({ type: ButtonType.Normal, stateEffect: true }) {
+        Row({ space: 8 }) {
+          Text('今日护理任务')
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+            .textAlign(TextAlign.Start)
+          SymbolGlyph($r('sys.symbol.chevron_down'))
+            .fontSize(16)
+            .fontColor([$r('sys.color.icon_tertiary')])
+            .rotate({ angle: (this.expandedMask & (1 << 3)) !== 0 ? 180 : 0 })
+        }
+        .width('100%')
+      }
+      .width('100%')
+      .height(44)
+      .padding(0)
+      .backgroundColor(Color.Transparent)
+      .accessibilityText(`今日护理任务，${(this.expandedMask & (1 << 3)) !== 0 ? '已展开，点击收起' : '已收起，点击展开'}`)
+      .onClick(() => {
+        this.expandedMask = this.expandedMask ^ (1 << 3);
+      })
+      if ((this.expandedMask & (1 << 3)) !== 0) {
+        Column({ space: 0 }) {
+          Repeat(this.careTasks())
+            .each((repeatItem: RepeatItem<CareTaskItem>) => {
+              this.careTaskRow(repeatItem.item, repeatItem.index === this.careTasks().length - 1)
+            })
+        }
+        .width('100%')
+        .transition(TransitionEffect.OPACITY.animation({ duration: 150, curve: Curve.FastOutSlowIn }))
       }
     }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 4, bottom: 12 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .sectionCardStyle()
   }
 
   @Builder
@@ -614,19 +842,41 @@ export struct ResidentDetailPage {
   @Builder
   private mealCard() {
     Column({ space: 0 }) {
-      this.sectionTitle('今日膳食')
-      Column({ space: 0 }) {
-        Repeat(this.meals())
-          .each((repeatItem: RepeatItem<MealRecord>) => {
-            this.mealRow(repeatItem.item, repeatItem.index === this.meals().length - 1)
-          })
+      Button({ type: ButtonType.Normal, stateEffect: true }) {
+        Row({ space: 8 }) {
+          Text('今日膳食')
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+            .textAlign(TextAlign.Start)
+          SymbolGlyph($r('sys.symbol.chevron_down'))
+            .fontSize(16)
+            .fontColor([$r('sys.color.icon_tertiary')])
+            .rotate({ angle: (this.expandedMask & (1 << 4)) !== 0 ? 180 : 0 })
+        }
+        .width('100%')
+      }
+      .width('100%')
+      .height(44)
+      .padding(0)
+      .backgroundColor(Color.Transparent)
+      .accessibilityText(`今日膳食，${(this.expandedMask & (1 << 4)) !== 0 ? '已展开，点击收起' : '已收起，点击展开'}`)
+      .onClick(() => {
+        this.expandedMask = this.expandedMask ^ (1 << 4);
+      })
+      if ((this.expandedMask & (1 << 4)) !== 0) {
+        Column({ space: 0 }) {
+          Repeat(this.meals())
+            .each((repeatItem: RepeatItem<MealRecord>) => {
+              this.mealRow(repeatItem.item, repeatItem.index === this.meals().length - 1)
+            })
+        }
+        .width('100%')
+        .transition(TransitionEffect.OPACITY.animation({ duration: 150, curve: Curve.FastOutSlowIn }))
       }
     }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 4, bottom: 12 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .sectionCardStyle()
   }
 
   @Builder
@@ -650,16 +900,6 @@ export struct ResidentDetailPage {
   }
 
   // ---------------- 公共 Builder ----------------
-
-  @Builder
-  private sectionTitle(text: string) {
-    Text(text)
-      .fontSize($r('sys.float.Body_M'))
-      .fontWeight(FontWeight.Medium)
-      .fontColor($r('sys.color.font_primary'))
-      .width('100%')
-      .height(40)
-  }
 
   @Builder
   private descriptionRow(label: string, value: string, isLast: boolean) {

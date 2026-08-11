@@ -1244,6 +1244,16 @@ export struct TabPageView {
     .clip(true)
     .geometryTransition(this.quickExpandGeometryId(), { follow: true })
     .transition(TransitionEffect.OPACITY)
+    .bindContentCover(this.isTaskExpandShow, this.taskExpandCover,
+      {
+        modalTransition: ModalTransition.NONE,
+        backgroundColor: 'rgba(0,0,0,0)',
+        onWillDismiss: (action: DismissContentCoverAction) => {
+          if (action.reason === DismissReason.PRESS_BACK) {
+            this.closeTaskExpand();
+          }
+        }
+      })
   }
 
   @Builder
@@ -3470,7 +3480,7 @@ export struct TabPageView {
       [SafeAreaType.SYSTEM],
       [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM]
     )
-    .geometryTransition(this.quickExpandGeometryId())
+    .geometryTransition(this.quickExpandGeometryId(), { follow: true })
     .transition(TransitionEffect.OPACITY)
   }
 
@@ -3510,16 +3520,6 @@ export struct TabPageView {
           onWillDismiss: (action: DismissContentCoverAction) => {
             if (action.reason === DismissReason.PRESS_BACK) {
               this.closeHealthExpand();
-            }
-          }
-        })
-      .bindContentCover(this.isTaskExpandShow, this.taskExpandCover,
-        {
-          modalTransition: ModalTransition.NONE,
-          backgroundColor: 'rgba(0,0,0,0)',
-          onWillDismiss: (action: DismissContentCoverAction) => {
-            if (action.reason === DismissReason.PRESS_BACK) {
-              this.closeTaskExpand();
             }
           }
         })
