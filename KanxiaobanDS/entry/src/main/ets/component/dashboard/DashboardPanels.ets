@@ -29,9 +29,8 @@ function PanelHeading(title: string, subtitle: string, symbol: Resource) {
     }
     .width(40)
     .height(40)
-    .borderRadius(2)
-    .backgroundColor($r('app.color.cockpit_panel_strong'))
-    .border({ width: 1, color: $r('app.color.cockpit_border_bright') })
+    .borderRadius(14)
+    .backgroundColor($r('app.color.brand_soft'))
 
     Column({ space: 3 }) {
       Text(title)
@@ -67,9 +66,8 @@ export struct ExecutiveSummaryPanel {
         }
         .width(52)
         .height(52)
-        .borderRadius(2)
-        .backgroundColor($r('app.color.cockpit_panel_strong'))
-        .border({ width: 1, color: $r('app.color.cockpit_border_bright') })
+        .borderRadius(16)
+        .backgroundColor($r('app.color.brand_soft'))
 
         Column({ space: 5 }) {
           Row({ space: 8 }) {
@@ -122,7 +120,8 @@ export struct ExecutiveSummaryPanel {
     .padding(20)
     .backgroundColor($r('app.color.cockpit_panel'))
     .border({ width: 1, color: $r('app.color.cockpit_border') })
-    .borderRadius(4)
+    .borderRadius($r('sys.float.corner_radius_level8'))
+    .shadow(ShadowStyle.OUTER_DEFAULT_SM)
     .accessibilityGroup(true)
   }
 }
@@ -190,7 +189,8 @@ export struct WardCapacityPanel {
     .padding(20)
     .backgroundColor($r('app.color.cockpit_panel'))
     .border({ width: 1, color: $r('app.color.cockpit_border') })
-    .borderRadius(4)
+    .borderRadius($r('sys.float.corner_radius_level8'))
+    .shadow(ShadowStyle.OUTER_DEFAULT_SM)
   }
 }
 
@@ -250,7 +250,8 @@ export struct CareTrendPanel {
     .padding(20)
     .backgroundColor($r('app.color.cockpit_panel'))
     .border({ width: 1, color: $r('app.color.cockpit_border') })
-    .borderRadius(4)
+    .borderRadius($r('sys.float.corner_radius_level8'))
+    .shadow(ShadowStyle.OUTER_DEFAULT_SM)
   }
 }
 
@@ -303,7 +304,8 @@ export struct RiskSummaryPanel {
     .padding(20)
     .backgroundColor($r('app.color.cockpit_panel'))
     .border({ width: 1, color: $r('app.color.cockpit_border') })
-    .borderRadius(4)
+    .borderRadius($r('sys.float.corner_radius_level8'))
+    .shadow(ShadowStyle.OUTER_DEFAULT_SM)
   }
 }
 
@@ -356,7 +358,8 @@ export struct LiveEventPanel {
     .padding(20)
     .backgroundColor($r('app.color.cockpit_panel'))
     .border({ width: 1, color: $r('app.color.cockpit_border') })
-    .borderRadius(4)
+    .borderRadius($r('sys.float.corner_radius_level8'))
+    .shadow(ShadowStyle.OUTER_DEFAULT_SM)
   }
 }
 
@@ -417,7 +420,8 @@ export struct CareExecutionPanel {
     .padding(20)
     .backgroundColor($r('app.color.cockpit_panel'))
     .border({ width: 1, color: $r('app.color.cockpit_border') })
-    .borderRadius(4)
+    .borderRadius($r('sys.float.corner_radius_level8'))
+    .shadow(ShadowStyle.OUTER_DEFAULT_SM)
   }
 }
 
@@ -478,7 +482,7 @@ export struct FacilityStatusPanel {
             .padding(16)
             .backgroundColor($r('app.color.cockpit_panel_strong'))
             .border({ width: 1, color: $r('app.color.cockpit_grid') })
-            .borderRadius(3)
+            .borderRadius(18)
             .accessibilityGroup(true)
             .accessibilityText(`${item.label}，${item.online}/${item.total}在线，${item.note}`)
           }
@@ -490,7 +494,8 @@ export struct FacilityStatusPanel {
     .padding(20)
     .backgroundColor($r('app.color.cockpit_panel'))
     .border({ width: 1, color: $r('app.color.cockpit_border') })
-    .borderRadius(4)
+    .borderRadius($r('sys.float.corner_radius_level8'))
+    .shadow(ShadowStyle.OUTER_DEFAULT_SM)
   }
 }
 
@@ -512,7 +517,8 @@ export struct ActionCenterPanel {
     .padding(20)
     .backgroundColor($r('app.color.cockpit_panel'))
     .border({ width: 1, color: $r('app.color.cockpit_border') })
-    .borderRadius(4)
+    .borderRadius($r('sys.float.corner_radius_level8'))
+    .shadow(ShadowStyle.OUTER_DEFAULT_SM)
   }
 
   @Builder
@@ -546,7 +552,7 @@ export struct ActionCenterPanel {
     }
     .width('100%')
     .padding(12)
-    .borderRadius(2)
+    .borderRadius(16)
     .backgroundColor($r('app.color.cockpit_panel_strong'))
     .border({ width: 1, color: $r('app.color.cockpit_grid') })
     .accessibilityGroup(true)

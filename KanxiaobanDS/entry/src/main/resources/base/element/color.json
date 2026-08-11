@@ -2,83 +2,83 @@
   "color": [
     {
       "name": "start_window_background",
-      "value": "#020817"
+      "value": "#F5F7FA"
     },
     {
       "name": "brand_primary",
-      "value": "#20D8F2"
+      "value": "#0A59F7"
     },
     {
       "name": "brand_soft",
-      "value": "#102D43"
+      "value": "#EAF2FF"
     },
     {
       "name": "status_success",
-      "value": "#4FE1A7"
+      "value": "#078767"
     },
     {
       "name": "status_success_soft",
-      "value": "#11382F"
+      "value": "#E8F7F1"
     },
     {
       "name": "status_warning",
-      "value": "#FFC857"
+      "value": "#A85B00"
     },
     {
       "name": "status_warning_soft",
-      "value": "#3B3019"
+      "value": "#FFF3E3"
     },
     {
       "name": "status_danger",
-      "value": "#FF6270"
+      "value": "#C9364F"
     },
     {
       "name": "status_danger_soft",
-      "value": "#421E29"
+      "value": "#FFF0F2"
     },
     {
       "name": "chart_track",
-      "value": "#17344A"
+      "value": "#E7EBF0"
     },
     {
       "name": "cockpit_background",
-      "value": "#020817"
+      "value": "#F5F7FA"
     },
     {
       "name": "cockpit_panel",
-      "value": "#D9081729"
+      "value": "#FFFFFFFF"
     },
     {
       "name": "cockpit_panel_strong",
-      "value": "#F20A1C31"
+      "value": "#F2F4F7"
     },
     {
       "name": "cockpit_border",
-      "value": "#286B98"
+      "value": "#12000000"
     },
     {
       "name": "cockpit_border_bright",
-      "value": "#20D8F2"
+      "value": "#0A59F7"
     },
     {
       "name": "cockpit_grid",
-      "value": "#12344F"
+      "value": "#0A000000"
     },
     {
       "name": "cockpit_text_primary",
-      "value": "#EAF8FF"
+      "value": "#182431"
     },
     {
       "name": "cockpit_text_secondary",
-      "value": "#8FB2C9"
+      "value": "#66717F"
     },
     {
       "name": "cockpit_blue",
-      "value": "#338CFF"
+      "value": "#0A59F7"
     },
     {
       "name": "cockpit_glow",
-      "value": "#4020D8F2"
+      "value": "#00000000"
     }
   ]
 }
