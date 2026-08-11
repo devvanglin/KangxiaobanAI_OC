@@ -1,0 +1,794 @@
+{
+  "generated_at": "2026-08-10T19:27:02+08:00",
+  "critical_checks": {
+    "sqlite_integrity": true,
+    "saved_menu_node_count": true,
+    "saved_menu_document_count": true,
+    "database_menu_matches_saved": true,
+    "page_row_count": true,
+    "success_count": true,
+    "failed_count_zero": true,
+    "menu_page_slug_sets_equal": true,
+    "menu_page_urls_equal": true,
+    "blob_integrity": true,
+    "soft_error_pages_zero": true,
+    "second_catalog_identical": true,
+    "current_catalog_baseline": true
+  },
+  "all_critical_passed": true,
+  "counts": {
+    "saved_menu_nodes": 5720,
+    "saved_menu_documents": 5694,
+    "database_pages": 5694,
+    "status": {
+      "success": 5694
+    },
+    "verified_blobs": 5694,
+    "title_mismatches": 0,
+    "title_anomalies": 0,
+    "duplicate_hash_groups": 0,
+    "soft_error_pages": 0,
+    "blob_errors": 0
+  },
+  "aggregates": {
+    "text_characters": 19621279,
+    "html_characters": 50846355,
+    "code_blocks": 20996,
+    "tables": 5018,
+    "admonitions": 3325,
+    "images": 11339,
+    "min_text_length": 7,
+    "max_text_length": 79672,
+    "average_text_length": 3445.96
+  },
+  "current_menu_summary": {
+    "ui_nodes": 5720,
+    "raw_nodes": 5715,
+    "section_nodes": 5,
+    "branch_nodes": 1059,
+    "group_nodes": 21,
+    "document_links": 5694,
+    "branch_documents": 1038,
+    "leaf_documents": 4656,
+    "unique_slugs": 5694,
+    "duplicate_slugs": [],
+    "max_depth": 8,
+    "sections": {
+      "入门": {
+        "nodes": 47,
+        "links": 45,
+        "groups": 1
+      },
+      "开发": {
+        "nodes": 4822,
+        "links": 4811,
+        "groups": 10
+      },
+      "工具": {
+        "nodes": 766,
+        "links": 757,
+        "groups": 8
+      },
+      "测试": {
+        "nodes": 25,
+        "links": 23,
+        "groups": 1
+      },
+      "体验建议": {
+        "nodes": 60,
+        "links": 58,
+        "groups": 1
+      }
+    },
+    "baseline_mismatches": {}
+  },
+  "warnings": {
+    "title_anomalies": [],
+    "title_mismatch_examples": [],
+    "duplicate_hash_examples": [],
+    "shortest_pages": [
+      {
+        "slug": "ide-app-analyzer-appendix",
+        "title": "附录",
+        "text_length": 7,
+        "html_length": 362,
+        "summary": "附录\n体检规则"
+      },
+      {
+        "slug": "cannkit-math",
+        "title": "数学库",
+        "text_length": 8,
+        "html_length": 341,
+        "summary": "数学库\nTanh"
+      },
+      {
+        "slug": "iap-after-sales",
+        "title": "售后",
+        "text_length": 8,
+        "html_length": 475,
+        "summary": "售后\n退款\n开票"
+      },
+      {
+        "slug": "push-faq-11",
+        "title": "如何收费",
+        "text_length": 8,
+        "html_length": 175,
+        "summary": "如何收费\n免费。"
+      },
+      {
+        "slug": "account-management",
+        "title": "账号管理",
+        "text_length": 9,
+        "html_length": 344,
+        "summary": "账号管理\n应用账号"
+      },
+      {
+        "slug": "health-appendix",
+        "title": "附录",
+        "text_length": 9,
+        "html_length": 354,
+        "summary": "附录\n标志使用规范"
+      },
+      {
+        "slug": "account-appendix",
+        "title": "附录",
+        "text_length": 11,
+        "html_length": 359,
+        "summary": "附录\n支持的国家/地区"
+      },
+      {
+        "slug": "application-account",
+        "title": "应用账号",
+        "text_length": 11,
+        "html_length": 353,
+        "summary": "应用账号\n管理应用账号"
+      },
+      {
+        "slug": "cloudfoundation-appendix",
+        "title": "附录",
+        "text_length": 11,
+        "html_length": 360,
+        "summary": "附录\n支持的国家/地区"
+      },
+      {
+        "slug": "compress",
+        "title": "压缩与解压",
+        "text_length": 11,
+        "html_length": 346,
+        "summary": "压缩与解压\n压缩与解压"
+      },
+      {
+        "slug": "devicesecurity-appendix",
+        "title": "附录",
+        "text_length": 11,
+        "html_length": 357,
+        "summary": "附录\n支持的国家/地区"
+      },
+      {
+        "slug": "enterprisespace-spacedatatransfer-guide",
+        "title": "空间互传",
+        "text_length": 11,
+        "html_length": 364,
+        "summary": "空间互传\n文件外发管控"
+      },
+      {
+        "slug": "general-log",
+        "title": "通用日志",
+        "text_length": 11,
+        "html_length": 341,
+        "summary": "通用日志\n页面切换日志"
+      },
+      {
+        "slug": "music-template",
+        "title": "音频模板",
+        "text_length": 11,
+        "html_length": 358,
+        "summary": "音频模板\n使用音频模板"
+      },
+      {
+        "slug": "remote-communication-streamreq",
+        "title": "实现流式请求",
+        "text_length": 11,
+        "html_length": 361,
+        "summary": "实现流式请求\n流式传输"
+      },
+      {
+        "slug": "scenario-fusion-appendix",
+        "title": "附录",
+        "text_length": 11,
+        "html_length": 367,
+        "summary": "附录\n支持的国家/地区"
+      },
+      {
+        "slug": "cloudfoundation-develop-function",
+        "title": "开发函数",
+        "text_length": 12,
+        "html_length": 367,
+        "summary": "开发函数\nNode.js"
+      },
+      {
+        "slug": "iap-appendix",
+        "title": "附录",
+        "text_length": 12,
+        "html_length": 349,
+        "summary": "附录\n华为IAP范围覆盖"
+      },
+      {
+        "slug": "powermgr",
+        "title": "电源管理",
+        "text_length": 12,
+        "html_length": 339,
+        "summary": "电源管理\n运行锁使用指南"
+      },
+      {
+        "slug": "arkts-animation-effects",
+        "title": "动画效果",
+        "text_length": 13,
+        "html_length": 632,
+        "summary": "动画效果\n阴影\n色彩\n模糊"
+      },
+      {
+        "slug": "ide-emulator-modify",
+        "title": "修改模拟器",
+        "text_length": 13,
+        "html_length": 372,
+        "summary": "修改模拟器\n自定义屏幕配置"
+      },
+      {
+        "slug": "payment-promotion-service-platform-coupons",
+        "title": "平台券",
+        "text_length": 13,
+        "html_length": 518,
+        "summary": "平台券\n领券场景\n选券场景"
+      },
+      {
+        "slug": "upload-download",
+        "title": "上传下载",
+        "text_length": 13,
+        "html_length": 353,
+        "summary": "上传下载\n应用文件上传下载"
+      },
+      {
+        "slug": "health-healthsequence",
+        "title": "健康记录数据",
+        "text_length": 14,
+        "html_length": 497,
+        "summary": "健康记录数据\n睡眠\n生理周期"
+      },
+      {
+        "slug": "ide-harmonyos-act",
+        "title": "智能执行",
+        "text_length": 14,
+        "html_length": 493,
+        "summary": "智能执行\n代码生成\n代码修改"
+      },
+      {
+        "slug": "payment-promotion-service",
+        "title": "运营工具",
+        "text_length": 14,
+        "html_length": 542,
+        "summary": "运营工具\n商家券场景\n平台券"
+      },
+      {
+        "slug": "ui-js-interpolator-animation",
+        "title": "插值器动画",
+        "text_length": 14,
+        "html_length": 506,
+        "summary": "插值器动画\n动画动效\n动画帧"
+      },
+      {
+        "slug": "busmanager",
+        "title": "串口通信服务",
+        "text_length": 15,
+        "html_length": 359,
+        "summary": "串口通信服务\n开发串口通信服务"
+      },
+      {
+        "slug": "ide-ohpm-deploy-guide",
+        "title": "部署指导",
+        "text_length": 15,
+        "html_length": 524,
+        "summary": "部署指导\n单点部署\n多实例部署"
+      },
+      {
+        "slug": "map-location-services",
+        "title": "位置搜索",
+        "text_length": 15,
+        "html_length": 490,
+        "summary": "位置搜索\nPOI搜索\n地理编码"
+      },
+      {
+        "slug": "ui-js-animation-js",
+        "title": "JS动画",
+        "text_length": 15,
+        "html_length": 510,
+        "summary": "JS动画\n组件动画\n插值器动画"
+      },
+      {
+        "slug": "agc-harmonyos-clouddev-appdevelop",
+        "title": "开发端侧工程",
+        "text_length": 16,
+        "html_length": 370,
+        "summary": "开发端侧工程\n在端侧调用云侧代码"
+      },
+      {
+        "slug": "cannkit-scalar-ternary-instruction",
+        "title": "标量三目指令",
+        "text_length": 16,
+        "html_length": 512,
+        "summary": "标量三目指令\nAxpy\n更多样例"
+      },
+      {
+        "slug": "gameservice-appendix",
+        "title": "附录",
+        "text_length": 16,
+        "html_length": 494,
+        "summary": "附录\n配置回调地址\n获取游戏密钥"
+      },
+      {
+        "slug": "gameservice-nearbytransfer-access-procedure",
+        "title": "开发指导",
+        "text_length": 16,
+        "html_length": 550,
+        "summary": "开发指导\n传输资源包\n传输安装包"
+      },
+      {
+        "slug": "graphics-accelerate-assetdownload",
+        "title": "游戏资源加速服务",
+        "text_length": 16,
+        "html_length": 373,
+        "summary": "游戏资源加速服务\n资源包后台下载"
+      },
+      {
+        "slug": "graphics-accelerate-mirror-launch",
+        "title": "秒级启动",
+        "text_length": 16,
+        "html_length": 537,
+        "summary": "秒级启动\n业务概述\n实现秒级启动"
+      },
+      {
+        "slug": "map-calculation-tool",
+        "title": "地图计算工具",
+        "text_length": 16,
+        "html_length": 504,
+        "summary": "地图计算工具\n坐标纠偏\n距离计算"
+      },
+      {
+        "slug": "packing-unpacking",
+        "title": "打包拆包工具",
+        "text_length": 16,
+        "html_length": 486,
+        "summary": "打包拆包工具\n打包工具\n拆包工具"
+      },
+      {
+        "slug": "resource-management",
+        "title": "资源管理",
+        "text_length": 16,
+        "html_length": 350,
+        "summary": "资源管理\nRawfile开发指导"
+      },
+      {
+        "slug": "wallet-member",
+        "title": "会员卡",
+        "text_length": 16,
+        "html_length": 650,
+        "summary": "会员卡\n概述\n开发准备\n开发场景"
+      },
+      {
+        "slug": "wallet-park",
+        "title": "园区卡",
+        "text_length": 16,
+        "html_length": 644,
+        "summary": "园区卡\n概述\n开发准备\n开发场景"
+      },
+      {
+        "slug": "wallet-transitcard",
+        "title": "交通卡",
+        "text_length": 16,
+        "html_length": 665,
+        "summary": "交通卡\n概述\n开发准备\n开发场景"
+      },
+      {
+        "slug": "busmanager-serialmanager-dev",
+        "title": "开发串口通信服务",
+        "text_length": 17,
+        "html_length": 350,
+        "summary": "开发串口通信服务\n串口通信开发指导"
+      },
+      {
+        "slug": "devicesecurity-taas-verify",
+        "title": "签名验证",
+        "text_length": 17,
+        "html_length": 531,
+        "summary": "签名验证\n验证匿名证书链\n验证签名"
+      },
+      {
+        "slug": "huks-key-generation-import",
+        "title": "密钥生成/导入",
+        "text_length": 17,
+        "html_length": 495,
+        "summary": "密钥生成/导入\n密钥生成\n密钥导入"
+      },
+      {
+        "slug": "ide-customized-multi-targets-and-products",
+        "title": "配置多目标产物",
+        "text_length": 17,
+        "html_length": 557,
+        "summary": "配置多目标产物\n能力说明\n实践说明"
+      },
+      {
+        "slug": "ide-developer-options",
+        "title": "开发者模式",
+        "text_length": 17,
+        "html_length": 501,
+        "summary": "开发者模式\n开发者选项\n开发者关怀"
+      },
+      {
+        "slug": "ide-log-and-fault-analysis",
+        "title": "日志与故障分析",
+        "text_length": 17,
+        "html_length": 502,
+        "summary": "日志与故障分析\n日志分析\n故障分析"
+      },
+      {
+        "slug": "l10n-testing",
+        "title": "本地化测试",
+        "text_length": 17,
+        "html_length": 498,
+        "summary": "本地化测试\n伪本地化测试\n语言测试"
+      },
+      {
+        "slug": "ui-js-animation",
+        "title": "动效开发指导",
+        "text_length": 17,
+        "html_length": 498,
+        "summary": "动效开发指导\nCSS动画\nJS动画"
+      },
+      {
+        "slug": "ui-js-webgl",
+        "title": "WebGL",
+        "text_length": 17,
+        "html_length": 352,
+        "summary": "WebGL\n使用WebGL绘制图形"
+      },
+      {
+        "slug": "wallet-generalcard",
+        "title": "通用凭证",
+        "text_length": 17,
+        "html_length": 666,
+        "summary": "通用凭证\n概述\n开发准备\n开发场景"
+      },
+      {
+        "slug": "wallet-hotel",
+        "title": "酒店房卡",
+        "text_length": 17,
+        "html_length": 648,
+        "summary": "酒店房卡\n概述\n开发准备\n开发场景"
+      },
+      {
+        "slug": "wallet-travel",
+        "title": "出行凭证",
+        "text_length": 17,
+        "html_length": 651,
+        "summary": "出行凭证\n概述\n开发准备\n开发场景"
+      },
+      {
+        "slug": "wearengine_phonedev",
+        "title": "手机侧应用开发",
+        "text_length": 17,
+        "html_length": 510,
+        "summary": "手机侧应用开发\n接入准备\n应用开发"
+      },
+      {
+        "slug": "agc-harmonyos-clouddev-template",
+        "title": "附录：云开发工程模板",
+        "text_length": 18,
+        "html_length": 369,
+        "summary": "附录：云开发工程模板\n通用云开发模板"
+      },
+      {
+        "slug": "arkts-ui-lockscreen-form",
+        "title": "ArkTS锁屏卡片",
+        "text_length": 18,
+        "html_length": 370,
+        "summary": "ArkTS锁屏卡片\n锁屏卡片开发指导"
+      },
+      {
+        "slug": "arkts-use-animation-ndk",
+        "title": "使用动画",
+        "text_length": 18,
+        "html_length": 502,
+        "summary": "使用动画\n动画概述\n使用动画开发指导"
+      },
+      {
+        "slug": "bluetooth-ble",
+        "title": "低功耗蓝牙",
+        "text_length": 18,
+        "html_length": 505,
+        "summary": "低功耗蓝牙\n查找设备\n连接和传输数据"
+      },
+      {
+        "slug": "graphics-accelerate-fg-ai",
+        "title": "AI超帧模式",
+        "text_length": 18,
+        "html_length": 528,
+        "summary": "AI超帧模式\n概述\nVulkan平台"
+      },
+      {
+        "slug": "graphics-accelerate-gamebuddy-service",
+        "title": "游戏伴随服务",
+        "text_length": 18,
+        "html_length": 554,
+        "summary": "游戏伴随服务\n开发准备\n实现游戏伴随"
+      },
+      {
+        "slug": "graphics-accelerate-prelaunch",
+        "title": "游戏预启动",
+        "text_length": 18,
+        "html_length": 541,
+        "summary": "游戏预启动\n业务概述\n实现游戏预启动"
+      },
+      {
+        "slug": "i18n-time-zone-dst",
+        "title": "时区与夏令时国际化",
+        "text_length": 18,
+        "html_length": 495,
+        "summary": "时区与夏令时国际化\n时区\n夏令时跳变"
+      },
+      {
+        "slug": "ide-codegenie-code-edit",
+        "title": "编辑区代码生成",
+        "text_length": 18,
+        "html_length": 512,
+        "summary": "编辑区代码生成\n编辑区对话\n代码续写"
+      },
+      {
+        "slug": "ide-hvigor-compilation-options-customizing",
+        "title": "灵活定制编译选项",
+        "text_length": 18,
+        "html_length": 559,
+        "summary": "灵活定制编译选项\n能力说明\n实践说明"
+      },
+      {
+        "slug": "ide-hvigor-config-ohos",
+        "title": "动态修改编译配置",
+        "text_length": 18,
+        "html_length": 519,
+        "summary": "动态修改编译配置\n能力说明\n实践说明"
+      },
+      {
+        "slug": "intents-search-rec-access-programme",
+        "title": "接入方案",
+        "text_length": 18,
+        "html_length": 535,
+        "summary": "接入方案\n功能搜索方案\n内容搜索方案"
+      },
+      {
+        "slug": "l10n",
+        "title": "应用本地化",
+        "text_length": 18,
+        "html_length": 505,
+        "summary": "应用本地化\n多语言适配\n提升可翻译性"
+      },
+      {
+        "slug": "passwordvault-autosave",
+        "title": "自动保存",
+        "text_length": 18,
+        "html_length": 526,
+        "summary": "自动保存\n账号密码保存\n账号密码更新"
+      },
+      {
+        "slug": "same-layer-rendering",
+        "title": "同层渲染",
+        "text_length": 18,
+        "html_length": 513,
+        "summary": "同层渲染\n同层渲染\n同层渲染原生组件"
+      },
+      {
+        "slug": "scan-imagerecognition",
+        "title": "图像识码",
+        "text_length": 18,
+        "html_length": 496,
+        "summary": "图像识码\n识别本地图片\n识别图像数据"
+      },
+      {
+        "slug": "wallet-carkey",
+        "title": "数字车钥匙",
+        "text_length": 18,
+        "html_length": 652,
+        "summary": "数字车钥匙\n概述\n开发准备\n开发场景"
+      },
+      {
+        "slug": "cannkit-compilation-and-deployment",
+        "title": "算子编译安装",
+        "text_length": 19,
+        "html_length": 534,
+        "summary": "算子编译安装\n算子工程编译\n算子包安装"
+      },
+      {
+        "slug": "cannkit-llm-usage-processes",
+        "title": "量化使用步骤",
+        "text_length": 19,
+        "html_length": 544,
+        "summary": "量化使用步骤\n环境准备\n三段式量化步骤"
+      },
+      {
+        "slug": "i18n-name-localization",
+        "title": "本地化名称",
+        "text_length": 19,
+        "html_length": 512,
+        "summary": "本地化名称\n概述\n本地化语言与地区名称"
+      },
+      {
+        "slug": "iap-nonrenewable",
+        "title": "非续期订阅商品购买",
+        "text_length": 19,
+        "html_length": 516,
+        "summary": "非续期订阅商品购买\n接入购买\n权益发放"
+      },
+      {
+        "slug": "ide-app-test",
+        "title": "开发自测试",
+        "text_length": 19,
+        "html_length": 487,
+        "summary": "开发自测试\n测试框架\n应用与元服务体检"
+      },
+      {
+        "slug": "ide-hvigor-get-build-profile-para",
+        "title": "获取自定义编译参数",
+        "text_length": 19,
+        "html_length": 550,
+        "summary": "获取自定义编译参数\n能力说明\n实践说明"
+      },
+      {
+        "slug": "intents-search-rec",
+        "title": "本地搜索方案",
+        "text_length": 19,
+        "html_length": 692,
+        "summary": "本地搜索方案\n概述\n场景体验\n接入方案"
+      },
+      {
+        "slug": "reader-content",
+        "title": "书籍内容排版",
+        "text_length": 19,
+        "html_length": 493,
+        "summary": "书籍内容排版\n构建阅读器\n修改阅读设置"
+      },
+      {
+        "slug": "screentimeguard-preparations",
+        "title": "开发准备",
+        "text_length": 19,
+        "html_length": 530,
+        "summary": "开发准备\n配置签名\n受限ACL权限申请"
+      },
+      {
+        "slug": "test-app-accessibility",
+        "title": "测试应用的无障碍功能",
+        "text_length": 19,
+        "html_length": 353,
+        "summary": "测试应用的无障碍功能\n测试屏幕朗读功能"
+      },
+      {
+        "slug": "arkts-build-layout-ndk",
+        "title": "构建布局",
+        "text_length": 20,
+        "html_length": 511,
+        "summary": "构建布局\n使用布局组件\n设置通用布局属性"
+      },
+      {
+        "slug": "basic-compatibility",
+        "title": "基础兼容性",
+        "text_length": 20,
+        "html_length": 640,
+        "summary": "基础兼容性\nOS兼容\n升级兼容\n设备兼容"
+      },
+      {
+        "slug": "bundle-management",
+        "title": "包管理",
+        "text_length": 20,
+        "html_length": 360,
+        "summary": "包管理\nNativeBundle开发指导"
+      },
+      {
+        "slug": "cannkit-basic-concepts",
+        "title": "基本概念",
+        "text_length": 20,
+        "html_length": 670,
+        "summary": "基本概念\n硬件架构\n编程模型\n编程API"
+      },
+      {
+        "slug": "cannkit-model-optimization",
+        "title": "模型优化",
+        "text_length": 20,
+        "html_length": 518,
+        "summary": "模型优化\nModel Zoo\n模型轻量化"
+      },
+      {
+        "slug": "freeform-window",
+        "title": "自由窗口",
+        "text_length": 20,
+        "html_length": 526,
+        "summary": "自由窗口\n自由窗口简介\n应用适配自由窗口"
+      },
+      {
+        "slug": "i18n-sorting",
+        "title": "多语言排序",
+        "text_length": 20,
+        "html_length": 649,
+        "summary": "多语言排序\n概述\n本地习惯排序\n创建索引"
+      },
+      {
+        "slug": "ide-emulator-management",
+        "title": "管理模拟器",
+        "text_length": 20,
+        "html_length": 511,
+        "summary": "管理模拟器\n创建模拟器\n启动和关闭模拟器"
+      },
+      {
+        "slug": "push-alert",
+        "title": "推送通知消息",
+        "text_length": 20,
+        "html_length": 496,
+        "summary": "推送通知消息\n发送通知消息\n撤回通知消息"
+      },
+      {
+        "slug": "reader-interaction",
+        "title": "书籍内容交互",
+        "text_length": 20,
+        "html_length": 495,
+        "summary": "书籍内容交互\n手动触发翻页\n阅读进度通知"
+      },
+      {
+        "slug": "reader-parser",
+        "title": "书籍内容解析",
+        "text_length": 20,
+        "html_length": 499,
+        "summary": "书籍内容解析\n获取书籍信息\n获取目录列表"
+      },
+      {
+        "slug": "scenario-fusion-input",
+        "title": "场景化Input",
+        "text_length": 20,
+        "html_length": 372,
+        "summary": "场景化Input\n省市区选择器Input"
+      },
+      {
+        "slug": "wallet-ticket",
+        "title": "活动/景点门票",
+        "text_length": 20,
+        "html_length": 654,
+        "summary": "活动/景点门票\n概述\n开发准备\n开发场景"
+      },
+      {
+        "slug": "xengine-kit-maleoon-api",
+        "title": "Maleoon API",
+        "text_length": 20,
+        "html_length": 376,
+        "summary": "Maleoon API\n高性能GPU排序"
+      },
+      {
+        "slug": "app-data-migration-verification",
+        "title": "验证应用数据迁移",
+        "text_length": 21,
+        "html_length": 498,
+        "summary": "验证应用数据迁移\n开发者自验证\n端到端验证"
+      },
+      {
+        "slug": "app-power-experience-standards",
+        "title": "应用功耗体验建议",
+        "text_length": 21,
+        "html_length": 682,
+        "summary": "应用功耗体验建议\n概述\n后台场景\n前台场景"
+      },
+      {
+        "slug": "arkts-animation-curve",
+        "title": "动画曲线",
+        "text_length": 21,
+        "html_length": 654,
+        "summary": "动画曲线\n动画曲线概述\n传统曲线\n弹簧曲线"
+      }
+    ],
+    "soft_error_pages": [],
+    "blob_errors": []
+  }
+}

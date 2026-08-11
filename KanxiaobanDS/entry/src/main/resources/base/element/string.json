@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "康小伴全院信息中心与运营驾驶舱"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "全院态势、照护运营、安全预警与设备空间信息中心"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "康小伴驾驶舱"
+    }
+  ]
+}

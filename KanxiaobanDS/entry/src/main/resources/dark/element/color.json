@@ -1,0 +1,84 @@
+{
+  "color": [
+    {
+      "name": "start_window_background",
+      "value": "#020817"
+    },
+    {
+      "name": "brand_primary",
+      "value": "#20D8F2"
+    },
+    {
+      "name": "brand_soft",
+      "value": "#102D43"
+    },
+    {
+      "name": "status_success",
+      "value": "#4FE1A7"
+    },
+    {
+      "name": "status_success_soft",
+      "value": "#11382F"
+    },
+    {
+      "name": "status_warning",
+      "value": "#FFC857"
+    },
+    {
+      "name": "status_warning_soft",
+      "value": "#3B3019"
+    },
+    {
+      "name": "status_danger",
+      "value": "#FF6270"
+    },
+    {
+      "name": "status_danger_soft",
+      "value": "#421E29"
+    },
+    {
+      "name": "chart_track",
+      "value": "#17344A"
+    },
+    {
+      "name": "cockpit_background",
+      "value": "#020817"
+    },
+    {
+      "name": "cockpit_panel",
+      "value": "#D9081729"
+    },
+    {
+      "name": "cockpit_panel_strong",
+      "value": "#F20A1C31"
+    },
+    {
+      "name": "cockpit_border",
+      "value": "#286B98"
+    },
+    {
+      "name": "cockpit_border_bright",
+      "value": "#20D8F2"
+    },
+    {
+      "name": "cockpit_grid",
+      "value": "#12344F"
+    },
+    {
+      "name": "cockpit_text_primary",
+      "value": "#EAF8FF"
+    },
+    {
+      "name": "cockpit_text_secondary",
+      "value": "#8FB2C9"
+    },
+    {
+      "name": "cockpit_blue",
+      "value": "#338CFF"
+    },
+    {
+      "name": "cockpit_glow",
+      "value": "#4020D8F2"
+    }
+  ]
+}

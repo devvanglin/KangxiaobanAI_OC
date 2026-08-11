@@ -1,0 +1,103 @@
+{
+  "checks": {
+    "coverage_audit_passed": true,
+    "audit_database_menu_matches_saved": true,
+    "audit_menu_page_urls_equal": true,
+    "page_count_5694": true,
+    "failure_count_zero": true,
+    "second_catalog_identical": true,
+    "section_counts_match": true,
+    "menu_has_expected_21_roots": true,
+    "readme_utf8_chinese_clean": true,
+    "page_index_utf8_chinese_clean": true,
+    "theme_audit_utf8_chinese_clean": true,
+    "readme_fences_balanced": true,
+    "page_index_fences_balanced": true,
+    "theme_audit_fences_balanced": true,
+    "required_topics_present": true,
+    "no_outdated_status_phrases": true,
+    "project_sdk_current": true,
+    "project_sdk_has_no_conflicting_exact_values": true,
+    "readme_has_expected_title": true,
+    "readme_has_eight_chapters": true,
+    "readme_is_generated_from_reviewed_chapters": true,
+    "readme_coverage_numbers_match_audit": true,
+    "page_index_entries_5694": true,
+    "page_index_entries_match_menu_order": true,
+    "page_index_identifiers_match_menu": true,
+    "page_index_urls_match_menu": true,
+    "page_index_has_no_body_excerpt_field": true,
+    "page_index_has_21_roots_in_order": true,
+    "page_index_has_five_sections_in_order": true,
+    "readme_local_links_resolve": true,
+    "page_index_local_links_resolve": true,
+    "theme_audit_local_links_resolve": true,
+    "official_guide_links_in_snapshot": true,
+    "theme_audit_has_no_old_status_or_index_wording": true,
+    "theme_audit_has_all_21_root_rows": true,
+    "theme_audit_uses_structural_index_wording": true,
+    "readme_is_detailed": true
+  },
+  "details": {
+    "menu_root_count": 21,
+    "menu_root_mismatches": {},
+    "mojibake_hits": {
+      "readme": [],
+      "page_index": [],
+      "theme_audit": []
+    },
+    "fence_errors": {
+      "readme": [],
+      "page_index": [],
+      "theme_audit": []
+    },
+    "missing_required_topics": [],
+    "outdated_status_phrases": [],
+    "project_sdk_values": {
+      "targetSdkVersion": [
+        "6.1.1(24)"
+      ],
+      "compatibleSdkVersion": [
+        "6.1.0(23)"
+      ]
+    },
+    "missing_readme_coverage_rows": [],
+    "page_index_entries": 5694,
+    "page_index_identifier_rows": 5694,
+    "page_index_url_rows": 5694,
+    "page_index_root_headings": [
+      "基础入门",
+      "应用开发准备",
+      "应用框架",
+      "系统",
+      "媒体",
+      "图形",
+      "应用服务",
+      "AI",
+      "一次开发，多端部署",
+      "自由流转",
+      "NDK开发",
+      "开发环境搭建",
+      "编写与调试应用",
+      "构建应用",
+      "优化应用性能",
+      "发布应用",
+      "命令行工具",
+      "AI Coding",
+      "使用AI智能辅助编程（不推荐）",
+      "应用测试",
+      "应用体验建议"
+    ],
+    "page_index_forbidden_fields": [],
+    "readme_broken_local_links": [],
+    "page_index_broken_local_links": [],
+    "theme_audit_broken_local_links": [],
+    "official_guide_link_count": 288,
+    "official_links_missing_from_snapshot": [],
+    "theme_audit_outdated_phrases": [],
+    "readme_characters": 262856,
+    "readme_lines": 7685,
+    "page_index_characters": 3636148,
+    "all_checks_passed": true
+  }
+}
