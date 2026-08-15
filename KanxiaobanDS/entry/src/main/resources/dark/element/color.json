@@ -79,6 +79,18 @@
     {
       "name": "cockpit_glow",
       "value": "#00000000"
+    },
+    {
+      "name": "room_metric_surface",
+      "value": "#F6F9FF"
+    },
+    {
+      "name": "room_metric_border",
+      "value": "#DDE8F8"
+    },
+    {
+      "name": "room_task_surface",
+      "value": "#EDF4FF"
     }
   ]
 }

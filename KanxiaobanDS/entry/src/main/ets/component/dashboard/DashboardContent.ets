@@ -2,8 +2,8 @@ import { CockpitOverview } from './CockpitOverview';
 
 @ComponentV2
 export struct DashboardContent {
-  @Param @Require pageScroller: Scroller;
   @Local layoutWidth: number = 0;
+  @Local layoutHeight: number = 0;
 
   private lengthValue(value: Length): number {
     if (typeof value === 'number') {
@@ -15,10 +15,14 @@ export struct DashboardContent {
     return 0;
   }
 
-  private updateLayoutWidth(width: Length): void {
+  private updateLayoutSize(width: Length, height: Length): void {
     const nextWidth: number = this.lengthValue(width);
+    const nextHeight: number = this.lengthValue(height);
     if (nextWidth > 0 && Math.abs(nextWidth - this.layoutWidth) > 0.5) {
       this.layoutWidth = nextWidth;
+    }
+    if (nextHeight > 0 && Math.abs(nextHeight - this.layoutHeight) > 0.5) {
+      this.layoutHeight = nextHeight;
     }
   }
 
@@ -36,40 +40,18 @@ export struct DashboardContent {
     return 12;
   }
 
-  @Builder
-  private dataNotice() {
-    Row({ space: 10 }) {
-      SymbolGlyph($r('sys.symbol.info_circle'))
-        .fontSize(18)
-        .fontColor([$r('app.color.brand_primary')])
-      Text('房间、住户、照护、设备与告警内容均为 KanxiaobanDS 本地演示数据，尚未接入院内业务服务。')
-        .layoutWeight(1)
-        .fontSize($r('sys.float.Body_S'))
-        .fontColor($r('sys.color.font_secondary'))
-    }
-    .width('100%')
-    .padding(16)
-    .borderRadius(16)
-    .backgroundColor($r('app.color.brand_soft'))
-    .accessibilityGroup(true)
-  }
-
   build() {
-    Scroll(this.pageScroller) {
-      Column({ space: 16 }) {
-        CockpitOverview({ compact: this.isCompact() })
-        this.dataNotice()
-      }
-      .width('100%')
-      .padding({ left: this.pagePadding(), right: this.pagePadding(), top: 68, bottom: this.pagePadding() })
-    }
+    CockpitOverview({
+      compact: this.isCompact(),
+      layoutWidth: this.layoutWidth,
+      layoutHeight: this.layoutHeight
+    })
     .width('100%')
     .height('100%')
-    .scrollBar(BarState.Auto)
-    .edgeEffect(EdgeEffect.Spring)
+    .padding(this.pagePadding())
     .backgroundColor($r('sys.color.background_secondary'))
     .onAreaChange((_oldValue: Area, newValue: Area) => {
-      this.updateLayoutWidth(newValue.width);
+      this.updateLayoutSize(newValue.width, newValue.height);
     })
   }
 }

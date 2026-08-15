@@ -1,0 +1,84 @@
+{
+  "color": [
+    {
+      "name": "start_window_background",
+      "value": "#FAFAFA"
+    },
+    {
+      "name": "hermes_bg_primary",
+      "value": "#FAFAFA"
+    },
+    {
+      "name": "hermes_bg_secondary",
+      "value": "#F0F0F0"
+    },
+    {
+      "name": "hermes_bg_sidebar",
+      "value": "#F5F5F5"
+    },
+    {
+      "name": "hermes_bg_surface",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "hermes_bg_hover",
+      "value": "#FAFAFA"
+    },
+    {
+      "name": "hermes_border",
+      "value": "#E0E0E0"
+    },
+    {
+      "name": "hermes_border_light",
+      "value": "#EBEBEB"
+    },
+    {
+      "name": "hermes_accent",
+      "value": "#333333"
+    },
+    {
+      "name": "hermes_accent_pressed",
+      "value": "#1A1A1A"
+    },
+    {
+      "name": "hermes_text_primary",
+      "value": "#1A1A1A"
+    },
+    {
+      "name": "hermes_text_secondary",
+      "value": "#666666"
+    },
+    {
+      "name": "hermes_text_muted",
+      "value": "#999999"
+    },
+    {
+      "name": "hermes_text_on_accent",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "hermes_success",
+      "value": "#2E7D32"
+    },
+    {
+      "name": "hermes_error",
+      "value": "#C62828"
+    },
+    {
+      "name": "hermes_warning",
+      "value": "#F57F17"
+    },
+    {
+      "name": "hermes_info",
+      "value": "#4A90D9"
+    },
+    {
+      "name": "hermes_message_bubble",
+      "value": "#F5F5F5"
+    },
+    {
+      "name": "hermes_scrim",
+      "value": "#66000000"
+    }
+  ]
+}

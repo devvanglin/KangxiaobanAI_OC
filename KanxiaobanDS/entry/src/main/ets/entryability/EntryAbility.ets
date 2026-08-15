@@ -13,6 +13,12 @@ export default class EntryAbility extends UIAbility {
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
+    try {
+      const mainWindow: window.Window = windowStage.getMainWindowSync();
+      mainWindow.setWindowLayoutFullScreen(true);
+      mainWindow.setWindowSystemBarEnable([]);
+    } catch (_err) {
+    }
     windowStage.loadContent('pages/Index', (err) => {
       if (err.code) {
         return;

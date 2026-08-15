@@ -1,0 +1,56 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "Hermes Studio HarmonyOS 客户端"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "Hermes Studio 原生鸿蒙入口"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "Hermes Studio"
+    },
+    {
+      "name": "login_title",
+      "value": "登录 Hermes Studio"
+    },
+    {
+      "name": "login_subtitle",
+      "value": "连接你的 Hermes Agent 工作空间"
+    },
+    {
+      "name": "login_username",
+      "value": "用户名"
+    },
+    {
+      "name": "login_password",
+      "value": "密码"
+    },
+    {
+      "name": "login_action",
+      "value": "登录"
+    },
+    {
+      "name": "login_demo_hint",
+      "value": "当前为原生移植预览，任意非空账号和密码均可进入。"
+    },
+    {
+      "name": "chat_empty_title",
+      "value": "有什么可以帮你？"
+    },
+    {
+      "name": "chat_empty_subtitle",
+      "value": "向 Hermes 发送消息，或从左侧打开已有会话。"
+    },
+    {
+      "name": "chat_placeholder",
+      "value": "给 Hermes 发消息…"
+    },
+    {
+      "name": "mock_data_notice",
+      "value": "本地交互预览 · 尚未连接 Hermes Studio 服务"
+    }
+  ]
+}

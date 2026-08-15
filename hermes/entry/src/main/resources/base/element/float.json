@@ -1,0 +1,48 @@
+{
+  "float": [
+    {
+      "name": "hermes_text_caption",
+      "value": "12fp"
+    },
+    {
+      "name": "hermes_text_body",
+      "value": "14fp"
+    },
+    {
+      "name": "hermes_text_title",
+      "value": "16fp"
+    },
+    {
+      "name": "hermes_text_heading",
+      "value": "22fp"
+    },
+    {
+      "name": "hermes_text_display",
+      "value": "30fp"
+    },
+    {
+      "name": "hermes_radius_small",
+      "value": "6vp"
+    },
+    {
+      "name": "hermes_radius_medium",
+      "value": "8vp"
+    },
+    {
+      "name": "hermes_radius_shell",
+      "value": "14vp"
+    },
+    {
+      "name": "hermes_sidebar_width",
+      "value": "240vp"
+    },
+    {
+      "name": "hermes_sidebar_compact_width",
+      "value": "72vp"
+    },
+    {
+      "name": "hermes_header_height",
+      "value": "64vp"
+    }
+  ]
+}

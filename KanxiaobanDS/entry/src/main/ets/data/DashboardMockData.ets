@@ -240,7 +240,11 @@ export const LIVE_EVENTS: DashboardEvent[] = [
   { id: 'event-1', time: '10:24', title: '离床未归预警', detail: '已通知责任护理员，正在现场确认', location: '东区二层 · 218 房', level: '紧急', tone: 'danger' },
   { id: 'event-2', time: '10:18', title: '呼叫器连续触发', detail: '班组长已接单，响应计时 4 分钟', location: '东区三层 · 公共活动区', level: '关注', tone: 'warning' },
   { id: 'event-3', time: '10:05', title: '房间湿度偏高', detail: '已生成环境工单并转设备班组', location: '西区三层 · 305 房', level: '关注', tone: 'warning' },
-  { id: 'event-4', time: '09:56', title: '晨间用药复核完成', detail: '高风险药品已完成双人核验', location: '全院药事', level: '完成', tone: 'success' }
+  { id: 'event-4', time: '09:56', title: '晨间用药复核完成', detail: '高风险药品已完成双人核验', location: '全院药事', level: '完成', tone: 'success' },
+  { id: 'event-5', time: '09:42', title: '床旁呼叫设备离线', detail: '备用设备已启用，维保人员正在排查', location: '东区二层 · 220 房', level: '关注', tone: 'warning' },
+  { id: 'event-6', time: '09:31', title: '夜班照护记录补全', detail: '缺失责任人与复查点的信息已补充', location: '西区二层 · 护理站', level: '完成', tone: 'success' },
+  { id: 'event-7', time: '09:18', title: '血糖复测即将到时', detail: '医护协同组已确认复测安排', location: '医养中心 · 506 房', level: '关注', tone: 'warning' },
+  { id: 'event-8', time: '09:05', title: '门禁网关恢复在线', detail: '信号与通行记录已完成复核', location: '西区一层 · 西门', level: '完成', tone: 'success' }
 ];
 
 export const CARE_WORK_ITEMS: CareWorkItem[] = [
