@@ -1,6 +1,20 @@
 {
   "app": {
-    "signingConfigs": [],
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "C:\\Users\\Shenyi\\.ohos\\config\\default_MusicHome_wTFjUiAVfimfzC6XM3aKgsnKLmrV0-bhO-MY7cIOlMQ=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001B6763EBE47899D576861E8A8D78AC5DE97FC7E12FC7F0D85E30897CA2E29D638C1FEB9CB8A17F16",
+          "profile": "C:\\Users\\Shenyi\\.ohos\\config\\default_MusicHome_wTFjUiAVfimfzC6XM3aKgsnKLmrV0-bhO-MY7cIOlMQ=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "C:\\Users\\Shenyi\\.ohos\\config\\default_MusicHome_wTFjUiAVfimfzC6XM3aKgsnKLmrV0-bhO-MY7cIOlMQ=.p12",
+          "storePassword": "0000001BBAC5CE726743F31440C9F18BF19D303F2BB8A683875B179332B49EA5E049CE2FCCEF38229D495D"
+        }
+      }
+    ],
     "products": [
       {
         "name": "default",

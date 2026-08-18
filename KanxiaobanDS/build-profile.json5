@@ -1,8 +1,24 @@
 {
   "app": {
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "C:\\Users\\Shenyi\\.ohos\\config\\default_KanxiaobanDS_31sMnTUkf8e_v2JS29yT0SOc8U9yutE-grPsvWUsn44=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001AE8A1A4ABABA32D9EA923DD7E07ED914AA27DFD6AB11D73AB23B37FE419B069FFA6D2D2EB5E4C",
+          "profile": "C:\\Users\\Shenyi\\.ohos\\config\\default_KanxiaobanDS_31sMnTUkf8e_v2JS29yT0SOc8U9yutE-grPsvWUsn44=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "C:\\Users\\Shenyi\\.ohos\\config\\default_KanxiaobanDS_31sMnTUkf8e_v2JS29yT0SOc8U9yutE-grPsvWUsn44=.p12",
+          "storePassword": "0000001A4F81BCF0EBF783C2D4DA4458C547E5011C44EBB32E7418B30BE05E204D1A309BE47CD1F77CCA"
+        }
+      }
+    ],
     "products": [
       {
         "name": "default",
+        "signingConfig": "default",
         "targetSdkVersion": "26.0.0",
         "compatibleSdkVersion": "6.1.0(23)",
         "runtimeOS": "HarmonyOS",
@@ -16,7 +32,7 @@
     ],
     "buildModeSet": [
       {
-        "name": "debug"
+        "name": "debug",
       },
       {
         "name": "release"

@@ -1,6 +1,19 @@
 {
   "app": {
     "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "C:\\Users\\Shenyi\\.ohos\\config\\default_NavigationSettings_V3v-jqyBEwgD60Q8pXTOZiD0JCYS-Ble45SRD61sssQ=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001B65D4C2CE7C85718607CFA9DEB86078E345DDC68B900F8DF2FA2023D2C76E3F59DB799A18DB243F",
+          "profile": "C:\\Users\\Shenyi\\.ohos\\config\\default_NavigationSettings_V3v-jqyBEwgD60Q8pXTOZiD0JCYS-Ble45SRD61sssQ=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "C:\\Users\\Shenyi\\.ohos\\config\\default_NavigationSettings_V3v-jqyBEwgD60Q8pXTOZiD0JCYS-Ble45SRD61sssQ=.p12",
+          "storePassword": "0000001BD758F80EA63F800B00064790B7AA3D246458F1928AB4402377257D8EC052BBFE9FC1F5137C2A52"
+        }
+      }
     ],
     "products": [
       {

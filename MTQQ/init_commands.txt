@@ -1,0 +1,17 @@
+养老院雷达初始化参数设置清单
+========================================
+以下每台设备需各发一条 set 命令,让算法匹配房间环境(降低误报)。
+在 HA 开发者工具 -> 服务 -> mqtt.publish 逐条发送。
+
+--- 101 (R60ABD1) ---
+  topic:   /Radar60SP/请在配网时登记设备ID/sys/property/set
+  payload: {"version":"1.0","method":"set","params":{"sceneMode":"2","installHeight":"220","installAngle":{"x":"0","y":"0","z":"0"}}}
+
+--- 101卫生间 (R60AFD1) ---
+  topic:   /Radar60FL/请在配网时登记设备ID/sys/property/set
+  payload: {"version":"1.0","method":"set","params":{"sceneMode":"3","installHeight":"220","installAngle":{"x":"0","y":"0","z":"0"}}}
+
+--- 102 (R60ABD1) ---
+  topic:   /Radar60SP/请在配网时登记设备ID/sys/property/set
+  payload: {"version":"1.0","method":"set","params":{"sceneMode":"2","installHeight":"220","installAngle":{"x":"0","y":"0","z":"0"}}}
+

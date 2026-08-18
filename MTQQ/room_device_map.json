@@ -1,0 +1,5 @@
+{
+  "RadarID_ABC123": {"room": "101", "resident": "张三", "product": "R60ABD1"},
+  "RadarID_DEF456": {"room": "102", "resident": "李四", "product": "R60ABD1"},
+  "RadarID_GHI789": {"room": "101卫生间", "resident": "", "product": "R60AFD1"}
+}

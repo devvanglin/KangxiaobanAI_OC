@@ -23,7 +23,21 @@
         "name": "release"
       }
     ],
-    "signingConfigs": []
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "C:\\Users\\Shenyi\\.ohos\\config\\default_KangxiaobanAI_SPtBn5sux-ZBvFE-LekBUPjXpe_uZgVdH2tCP3YGGFE=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001B50F882F1083A699B984B70F1B0971B18CD8B8CD5095EC10DD76D09EEF70D2242938397F0D02EAB",
+          "profile": "C:\\Users\\Shenyi\\.ohos\\config\\default_KangxiaobanAI_SPtBn5sux-ZBvFE-LekBUPjXpe_uZgVdH2tCP3YGGFE=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "C:\\Users\\Shenyi\\.ohos\\config\\default_KangxiaobanAI_SPtBn5sux-ZBvFE-LekBUPjXpe_uZgVdH2tCP3YGGFE=.p12",
+          "storePassword": "0000001B823EA4AED142078A0D662FED188BBC736217F30A03ABBAB77532857548566EF8E2E9B3913B44F2"
+        }
+      }
+    ]
   },
   "modules": [
     {
