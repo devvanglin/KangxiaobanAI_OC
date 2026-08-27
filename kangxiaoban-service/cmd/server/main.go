@@ -45,7 +45,7 @@ func main() {
 	medicationSvc := service.NewMedicationService(medicationRepo)
 	auditSvc := service.NewAuditService(auditRepo)
 	supplySvc := service.NewSupplyService(supplyRepo)
-	familySvc := service.NewFamilyService(familyRepo)
+	familySvc := service.NewFamilyService(familyRepo, db)
 
 	hub := ws.NewHub()
 	go hub.Run()

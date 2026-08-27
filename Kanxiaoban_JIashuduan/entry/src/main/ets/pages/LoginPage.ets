@@ -9,8 +9,8 @@ const TAG: string = '[LoginPage]';
 @Entry
 @ComponentV2
 struct LoginPage {
-  @Local account: string = '';
-  @Local password: string = '';
+  @Local account: string = 'family_demo';
+  @Local password: string = 'Family@123456';
   @Local loading: boolean = false;
   @Local error: string = '';
 

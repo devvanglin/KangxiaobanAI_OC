@@ -36,11 +36,12 @@ func New(cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	elderHandler := handler.NewElderHandler(elderSvc, familySvc)
 	resourceHandler := handler.NewResourceHandler(resourceSvc)
 	taskHandler := handler.NewTaskHandler(taskSvc, hub)
-	healthHandler := handler.NewHealthHandler(healthSvc, hub)
+	healthHandler := handler.NewHealthHandler(healthSvc, hub, familySvc)
 	wsHandler := handler.NewWSHandler(hub, cfg.JWT.Secret)
-	iotHandler := handler.NewIotHandler(iotSvc)
-	m4Handler := handler.NewM4Handler(scheduleSvc, financeSvc, medicationSvc, auditSvc)
+	iotHandler := handler.NewIotHandler(iotSvc, familySvc)
+	m4Handler := handler.NewM4Handler(scheduleSvc, financeSvc, medicationSvc, auditSvc, familySvc)
 	supplyHandler := handler.NewSupplyHandler(supplySvc)
+	familyHandler := handler.NewFamilyManageHandler(familySvc)
 
 	// 访问校验封装
 	perm := func(code string) gin.HandlerFunc { return middleware.RequirePermission(userRepo, code) }
@@ -121,6 +122,11 @@ func New(cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		// ---- M5 餐饮订餐 ----
 		authed.GET("/dining", perm("elder:read"), supplyHandler.ListDining)
 		authed.POST("/dining", perm("task:write"), supplyHandler.CreateDining)
+
+		// ---- 家属账号管理（管理员）----
+		authed.POST("/families", perm("admin:all"), familyHandler.CreateMember)
+		authed.GET("/families", perm("admin:all"), familyHandler.ListBindings)
+		authed.DELETE("/families", perm("admin:all"), familyHandler.Unbind)
 	}
 
 	return r

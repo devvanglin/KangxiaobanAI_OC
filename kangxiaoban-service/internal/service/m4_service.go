@@ -43,6 +43,11 @@ func (s *FinanceService) ListBills(elderID uint, month string, page, size int) (
 	return s.repo.ListBills(elderID, month, page, size)
 }
 
+// ListBillsScoped 账单列表（家属按绑定集合过滤）。
+func (s *FinanceService) ListBillsScoped(elderID uint, month string, page, size int, allowed []uint) ([]model.Bill, int64, error) {
+	return s.repo.ListBillsScoped(elderID, month, page, size, allowed)
+}
+
 func (s *FinanceService) ListFlows(elderID uint, page, size int) ([]model.FundFlow, int64, error) {
 	return s.repo.ListFlows(elderID, page, size)
 }

@@ -7,15 +7,17 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"kangxiaoban-service/internal/iot"
+	"kangxiaoban-service/internal/service"
 )
 
 // IotHandler 物联网设备与告警。
 type IotHandler struct {
-	svc *iot.IotService
+	svc    *iot.IotService
+	family *service.FamilyService
 }
 
-func NewIotHandler(svc *iot.IotService) *IotHandler {
-	return &IotHandler{svc: svc}
+func NewIotHandler(svc *iot.IotService, family *service.FamilyService) *IotHandler {
+	return &IotHandler{svc: svc, family: family}
 }
 
 // ListDevices GET /api/v1/iot/devices
@@ -32,7 +34,8 @@ func (h *IotHandler) ListDevices(c *gin.Context) {
 // ListAlerts GET /api/v1/alerts?status=&level=
 func (h *IotHandler) ListAlerts(c *gin.Context) {
 	page, size := parsePage(c)
-	items, total, err := h.svc.ListAlerts(c.Query("status"), c.Query("level"), page, size)
+	bound := boundElderIDs(c, h.family)
+	items, total, err := h.svc.ListAlertsScoped(c.Query("status"), c.Query("level"), page, size, bound)
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "查询告警失败")
 		return

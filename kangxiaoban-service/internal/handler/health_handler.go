@@ -13,17 +13,22 @@ import (
 
 // HealthHandler 健康体征。
 type HealthHandler struct {
-	svc *service.HealthService
-	hub *ws.Hub
+	svc    *service.HealthService
+	hub    *ws.Hub
+	family *service.FamilyService
 }
 
-func NewHealthHandler(svc *service.HealthService, hub *ws.Hub) *HealthHandler {
-	return &HealthHandler{svc: svc, hub: hub}
+func NewHealthHandler(svc *service.HealthService, hub *ws.Hub, family *service.FamilyService) *HealthHandler {
+	return &HealthHandler{svc: svc, hub: hub, family: family}
 }
 
 // ListByElder GET /api/v1/elders/:id/health-records
 func (h *HealthHandler) ListByElder(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	if bound := boundElderIDs(c, h.family); bound != nil && !contains(uint(id), bound) {
+		Fail(c, http.StatusForbidden, 403, "无权限查看该长者体征")
+		return
+	}
 	page, size := parsePage(c)
 	items, total, err := h.svc.ListByElder(uint(id), page, size)
 	if err != nil {

@@ -165,7 +165,15 @@ func (s *IotService) ListDevices(page, size int) ([]model.IotDevice, int64, erro
 
 // ListAlerts 告警列表（可按状态/级别筛）。
 func (s *IotService) ListAlerts(status, level string, page, size int) ([]model.Alert, int64, error) {
+	return s.ListAlertsScoped(status, level, page, size, nil)
+}
+
+// ListAlertsScoped 告警列表；allowed 非空时仅返回绑定长者告警（用于家属隔离）。
+func (s *IotService) ListAlertsScoped(status, level string, page, size int, allowed []uint) ([]model.Alert, int64, error) {
 	q := s.db.Model(&model.Alert{})
+	if len(allowed) > 0 {
+		q = q.Where("elder_id IN ?", allowed)
+	}
 	if status != "" {
 		q = q.Where("status = ?", status)
 	}
