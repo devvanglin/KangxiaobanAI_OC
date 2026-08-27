@@ -1,0 +1,12 @@
+# build, oh_modules, hvigor 等本地生成产物不入库
+**/node_modules/
+**/oh_modules/
+**/build/
+**/.hvigor/
+**/.idea/
+**/.appanalyzer/
+**/.test/
+
+*.tsbuildinfo
+*.tsbuildinfo.linter
+*.log
