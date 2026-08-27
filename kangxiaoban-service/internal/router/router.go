@@ -22,6 +22,7 @@ func New(cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	healthSvc *service.HealthService, scheduleSvc *service.ScheduleService,
 	financeSvc *service.FinanceService, medicationSvc *service.MedicationService,
 	auditSvc *service.AuditService, auditRepo *repository.AuditRepository,
+	supplySvc *service.SupplyService,
 ) *gin.Engine {
 	r := gin.Default()
 	r.Use(middleware.CORS())
@@ -39,6 +40,7 @@ func New(cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	wsHandler := handler.NewWSHandler(hub, cfg.JWT.Secret)
 	iotHandler := handler.NewIotHandler(iotSvc)
 	m4Handler := handler.NewM4Handler(scheduleSvc, financeSvc, medicationSvc, auditSvc)
+	supplyHandler := handler.NewSupplyHandler(supplySvc)
 
 	// 访问校验封装
 	perm := func(code string) gin.HandlerFunc { return middleware.RequirePermission(userRepo, code) }
@@ -110,6 +112,15 @@ func New(cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 
 		// ---- M4 审计 ----
 		authed.GET("/audits", perm("admin:all"), m4Handler.ListAudits)
+
+		// ---- M5 药物库存 ----
+		authed.GET("/stocks", perm("elder:read"), supplyHandler.ListStock)
+		authed.POST("/stocks", perm("task:write"), supplyHandler.CreateStock)
+		authed.PATCH("/stocks/:id", perm("admin:all"), supplyHandler.AdjustStock)
+
+		// ---- M5 餐饮订餐 ----
+		authed.GET("/dining", perm("elder:read"), supplyHandler.ListDining)
+		authed.POST("/dining", perm("task:write"), supplyHandler.CreateDining)
 	}
 
 	return r

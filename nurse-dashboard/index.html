@@ -3,273 +3,223 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>康小伴 · 护理站实时大屏</title>
+<title>康小伴 · 护理站大屏</title>
 <style>
-  :root{
-    --bg:#0b1020; --panel:#141b31; --panel2:#1a2340; --line:#232f52;
-    --txt:#e6ebff; --sub:#8ea0c7; --cyan:#38e1ff; --green:#3cec9b;
-    --orange:#ffb547; --red:#ff5d6c; --blue:#4d8dff;
-  }
-  *{box-sizing:border-box; margin:0; padding:0;}
+  :root{--bg:#0b1020;--panel:#141b31;--panel2:#1a2340;--line:#232f52;--txt:#e6ebff;--sub:#8ea0c7;
+    --cyan:#38e1ff;--green:#3cec9b;--orange:#ffb547;--red:#ff5d6c;--blue:#4d8dff;}
+  *{box-sizing:border-box;margin:0;padding:0;}
   html,body{height:100%;}
-  body{
-    background:radial-gradient(1200px 600px at 15% -10%, #152047 0%, transparent 60%),
-               radial-gradient(1000px 500px at 95% 110%, #122046 0%, transparent 60%), var(--bg);
-    color:var(--txt);
-    font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;
-    padding:18px 22px;
-    display:flex; flex-direction:column;
-    min-height:100vh; overflow:hidden;
-  }
-  .header{display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap;}
-  .title{font-size:30px; font-weight:700; letter-spacing:2px;}
-  .title small{font-size:14px; color:var(--sub); letter-spacing:1px; margin-left:12px;}
-  .clock{font-size:20px; color:var(--cyan); font-variant-numeric:tabular-nums;}
-  .status{font-size:13px; color:var(--sub); margin-top:2px; text-align:right;}
-  .dot{display:inline-block; width:9px;height:9px;border-radius:50%;margin-right:6px;}
-  .dot.ok{background:var(--green); box-shadow:0 0 8px var(--green);}
-  .dot.off{background:var(--red); box-shadow:0 0 8px var(--red);}
+  body{background:radial-gradient(1200px 600px at 15% -10%,#152047 0%,transparent 60%),radial-gradient(1000px 500px at 95% 110%,#122046 0%,transparent 60%),var(--bg);
+    color:var(--txt);font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;padding:16px 22px;display:flex;flex-direction:column;min-height:100vh;overflow:hidden;}
+  .header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+  .title{font-size:26px;font-weight:700;letter-spacing:2px;}
+  .title small{font-size:13px;color:var(--sub);letter-spacing:1px;margin-left:10px;}
+  .nav{display:flex;gap:6px;}
+  .nav button{background:var(--panel);border:1px solid var(--line);color:var(--sub);padding:8px 18px;border-radius:20px;font-size:14px;cursor:pointer;}
+  .nav button.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+  .clock{font-size:19px;color:var(--cyan);font-variant-numeric:tabular-nums;}
+  .status{font-size:12px;color:var(--sub);text-align:right;}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;}
+  .dot.ok{background:var(--green);box-shadow:0 0 8px var(--green);}
+  .dot.off{background:var(--red);box-shadow:0 0 8px var(--red);}
 
-  .kpis{display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin:18px 0;}
-  .kpi{background:linear-gradient(160deg,var(--panel2),var(--panel)); border:1px solid var(--line);
-       border-radius:14px; padding:16px 18px; position:relative; overflow:hidden;}
-  .kpi::after{content:""; position:absolute; inset:0 0 auto 0; height:3px;
-       background:linear-gradient(90deg,transparent,var(--c,rgba(255,255,255,.35)),transparent);}
-  .kpi .label{font-size:13px; color:var(--sub);}
-  .kpi .value{font-size:40px; font-weight:800; margin-top:6px; font-variant-numeric:tabular-nums; color:var(--c,var(--txt));}
-  .kpi .value small{font-size:15px; font-weight:500; color:var(--sub); margin-left:4px;}
+  .view{display:none;flex:1;min-height:0;flex-direction:column;margin-top:14px;}
+  .view.show{display:flex;}
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;}
+  .kpi{background:linear-gradient(160deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:14px;padding:14px 16px;position:relative;overflow:hidden;}
+  .kpi::after{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:linear-gradient(90deg,transparent,var(--c,#fff8),transparent);}
+  .kpi .label{font-size:12px;color:var(--sub);}
+  .kpi .value{font-size:36px;font-weight:800;margin-top:4px;color:var(--c,var(--txt));font-variant-numeric:tabular-nums;}
+  .kpi .value small{font-size:13px;color:var(--sub);margin-left:4px;}
 
-  .main{display:grid; grid-template-columns:1.5fr 1fr; gap:14px; flex:1; min-height:0;}
-  .panel{background:var(--panel); border:1px solid var(--line); border-radius:14px; display:flex; flex-direction:column; min-height:0;}
-  .panel .head{display:flex; align-items:center; gap:10px; padding:13px 18px; font-size:15px; font-weight:600;
-       border-bottom:1px solid var(--line);}
-  .panel .head .tag{font-size:11px; padding:2px 8px; border-radius:20px; background:#233052; color:var(--sub);}
-  .panel .body{overflow:auto; padding:4px 10px; flex:1;}
-  .panel .body::-webkit-scrollbar{width:6px;} .panel .body::-webkit-scrollbar-thumb{background:#2b3a63;border-radius:3px;}
+  .cols{display:grid;grid-template-columns:1.5fr 1fr;gap:12px;flex:1;min-height:0;margin-top:12px;}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;min-height:0;}
+  .panel.full{grid-column:1/-1;}
+  .panel .head{display:flex;align-items:center;gap:10px;padding:12px 16px;font-size:15px;font-weight:600;border-bottom:1px solid var(--line);}
+  .panel .head .tag{font-size:11px;padding:2px 8px;border-radius:20px;background:#233052;color:var(--sub);}
+  .panel .head .sp{flex:1;}
+  .panel .head .br{padding:5px 12px;border-radius:8px;font-size:12px;cursor:pointer;}
+  .br.gen{background:rgba(77,141,255,.2);color:var(--blue);border:1px solid rgba(77,141,255,.4);}
+  .panel .body{overflow:auto;padding:4px 10px;flex:1;}
+  .panel .body::-webkit-scrollbar{width:6px;}.panel .body::-webkit-scrollbar-thumb{background:#2b3a63;border-radius:3px;}
 
-  table{width:100%; border-collapse:collapse; font-size:13px;}
-  th{color:var(--sub); font-weight:500; text-align:left; padding:10px 8px; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--panel);}
-  td{padding:9px 8px; border-bottom:1px solid rgba(35,47,82,.5);}
-  .lv{font-size:11px; padding:2px 9px; border-radius:20px; font-weight:600;}
-  .lv.emergency{background:rgba(255,93,108,.16); color:var(--red);}
-  .lv.important{background:rgba(255,181,71,.16); color:var(--orange);}
-  .lv.info{background:rgba(142,160,199,.16); color:var(--sub);}
-  .st{font-size:11px; padding:2px 8px; border-radius:6px; background:#2b3557; color:var(--txt);}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{color:var(--sub);font-weight:500;text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);}
+  td{padding:8px 8px;border-bottom:1px solid rgba(35,47,82,.5);}
+  .lv{font-size:11px;padding:2px 9px;border-radius:20px;font-weight:600;}
+  .lv.emergency{background:rgba(255,93,108,.16);color:var(--red);}
+  .lv.important{background:rgba(255,181,71,.16);color:var(--orange);}
+  .lv.info{background:rgba(142,160,199,.16);color:var(--sub);}
+  .st{font-size:11px;padding:2px 8px;border-radius:6px;background:#2b3557;color:var(--txt);}
+  .st.paid{background:rgba(60,236,155,.15);color:var(--green);}
+  .st.partial{background:rgba(255,181,71,.15);color:var(--orange);}
   .st.closed{opacity:.5;}
-  .tick{display:flex; gap:10px; align-items:center; font-size:13px; padding:7px 4px; border-bottom:1px dashed rgba(35,47,82,.5);}
-  .tick .t-time{color:var(--cyan); white-space:nowrap; font-variant-numeric:tabular-nums;}
-  .tick .t-level{flex:0 0 auto;}
-  .tick .t-msg{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  .offline i{font-style:normal; color:var(--red);}
-  .online i{font-style:normal; color:var(--green);}
-
-  .overlay{position:fixed; inset:0; background:rgba(5,8,18,.92); display:none; align-items:center; justify-content:center; z-index:50;}
+  .money{color:var(--green);font-variant-numeric:tabular-nums;}
+  .pay{font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid rgba(77,141,255,.5);color:var(--blue);background:transparent;cursor:pointer;}
+  .tick{display:flex;gap:10px;align-items:center;font-size:12px;padding:6px 4px;border-bottom:1px dashed rgba(35,47,82,.5);}
+  .tick .t-time{color:var(--cyan);white-space:nowrap;}
+  .tick .t-msg{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .offline{color:var(--red);} .online{color:var(--green);}
+  .formbar{display:flex;gap:8px;padding:10px;flex-wrap:wrap;}
+  .formbar input{background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:8px 10px;border-radius:8px;font-size:13px;}
+  .formbar button{background:var(--blue);border:0;color:#fff;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;}
+  .overlay{position:fixed;inset:0;background:rgba(5,8,18,.92);display:none;align-items:center;justify-content:center;z-index:50;}
   .overlay.show{display:flex;}
-  .login{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:28px; width:320px;}
-  .login h3{font-size:18px; margin-bottom:16px;}
-  .login input{width:100%; background:var(--panel2); border:1px solid var(--line); color:var(--txt);
-       padding:11px 12px; border-radius:8px; margin-bottom:10px; font-size:14px;}
-  .login button{width:100%; background:var(--blue); border:0; color:#fff; padding:11px; border-radius:8px; font-size:15px; cursor:pointer;}
-  .login .err{color:var(--red); font-size:12px; margin-top:8px; min-height:16px;}
-  .hint{font-size:11px; color:var(--sub); margin-top:10px; line-height:1.6;}
+  .login{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:28px;width:320px;}
+  .login h3{font-size:18px;margin-bottom:16px;}
+  .login input{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:11px 12px;border-radius:8px;margin-bottom:10px;font-size:14px;}
+  .login button{width:100%;background:var(--blue);border:0;color:#fff;padding:11px;border-radius:8px;font-size:15px;cursor:pointer;}
+  .login .err{color:var(--red);font-size:12px;margin-top:8px;min-height:16px;}
+  .hint{font-size:11px;color:var(--sub);margin-top:10px;line-height:1.6;}
 </style>
 </head>
 <body>
 
 <div class="header">
-  <div class="title">康小伴 · 护理站实时大屏<small>Kangxiaoban Care Desk</small></div>
+  <div class="title">康小伴 · 护理站大屏<small>管理层 / 收付费 / 排班</small></div>
+  <div class="nav" id="tabBar">
+    <button class="active" data-v="monitor">📡 实时监控</button>
+    <button data-v="finance">💰 费用账单</button>
+    <button data-v="schedule">🗓 排班交接</button>
+  </div>
   <div>
     <div class="clock" id="clock">--:--:--</div>
-    <div class="status"><span class="dot ok" id="wsDot"></span><span id="wsText">未连接</span> · <span id="env"></span></div>
+    <div class="status"><span class="dot ok" id="wsDot"></span><span id="wsText">未连接</span></div>
   </div>
 </div>
 
-<div class="kpis">
-  <div class="kpi" style="--c:var(--cyan)"><div class="label">在床长者</div><div class="value" id="kvElders">-</div></div>
-  <div class="kpi" style="--c:var(--green)"><div class="label">在线设备</div><div class="value" id="kvOnline">-<small>/<span id="kvDeviceTotal">-</span></small></div></div>
-  <div class="kpi" style="--c:var(--blue)"><div class="label">今日告警</div><div class="value" id="kvAlerts">-</div></div>
-  <div class="kpi" style="--c:var(--orange)"><div class="label">待处理</div><div class="value" id="kvPending">-</div></div>
-  <div class="kpi" style="--c:var(--red)"><div class="label">紧急告警</div><div class="value" id="kvEmergency">-</div></div>
+<!-- 监控视图 -->
+<div class="view show" id="v-monitor">
+  <div class="kpis">
+    <div class="kpi" style="--c:var(--cyan)"><div class="label">在床长者</div><div class="value" id="kvElders">-</div></div>
+    <div class="kpi" style="--c:var(--green)"><div class="label">在线设备</div><div class="value" id="kvOnline">-<small>/<span id="kvDeviceTotal">-</span></small></div></div>
+    <div class="kpi" style="--c:var(--blue)"><div class="label">今日告警</div><div class="value" id="kvAlerts">-</div></div>
+    <div class="kpi" style="--c:var(--orange)"><div class="label">待处理</div><div class="value" id="kvPending">-</div></div>
+    <div class="kpi" style="--c:var(--red)"><div class="label">紧急告警</div><div class="value" id="kvEmergency">-</div></div>
+  </div>
+  <div class="cols">
+    <div class="panel"><div class="head">⚠ 实时告警<span class="tag">按级别排序</span></div>
+      <div class="body"><table><thead><tr><th>时间</th><th>级别</th><th>内容</th><th>设备</th><th>状态</th></tr></thead><tbody id="alertRows"></tbody></table></div></div>
+    <div class="panel"><div class="head">📡 设备在线<span class="tag" id="devCount">-</span></div>
+      <div class="body"><table><thead><tr><th>设备ID</th><th>类型</th><th>状态</th><th>最后上报</th></tr></thead><tbody id="deviceRows"></tbody></table></div></div>
+  </div>
+  <div class="panel" style="margin-top:12px;flex:0 0 auto;max-height:120px;"><div class="head">📣 实时事件<span class="tag">WebSocket</span></div>
+    <div class="body" id="ticker"></div></div>
 </div>
 
-<div class="main">
-  <div class="panel">
-    <div class="head">⚠ 实时告警<span class="tag">按时间和级别</span></div>
-    <div class="body">
-      <table>
-        <thead><tr><th>时间</th><th>级别</th><th>内容</th><th>设备</th><th>状态</th></tr></thead>
-        <tbody id="alertRows"></tbody>
-      </table>
+<!-- 费用视图 -->
+<div class="view" id="v-finance">
+  <div class="kpis">
+    <div class="kpi" style="--c:var(--blue)"><div class="label">本月账单</div><div class="value" id="kvBillCount">-<small>笔</small></div></div>
+    <div class="kpi" style="--c:var(--green)"><div class="label">本月应缴</div><div class="value" id="kvBillSum">-</div></div>
+    <div class="kpi" style="--c:var(--orange)"><div class="label">已缴</div><div class="value" id="kvPaid">-</div></div>
+    <div class="kpi" style="--c:var(--red)"><div class="label">待缴</div><div class="value" id="kvDue">-</div></div>
+    <div class="kpi" style="--c:var(--cyan)"><div class="label">缴费率</div><div class="value" id="kvRate">-</div></div>
+  </div>
+  <div class="panel" style="flex:1"><div class="head">💰 月度账单<span class="tag" id="billMonth">-</span><span class="sp"></span><button class="br gen" onclick="genBills()">＋ 生成本月账单</button></div>
+    <div class="body"><table><thead><tr><th>月份</th><th>长者</th><th>床位费</th><th>护理费</th><th>餐费</th><th>合计</th><th>已缴</th><th>状态</th><th>操作</th></tr></thead><tbody id="billRows"></tbody></table></div></div>
+</div>
+
+<!-- 排班视图 -->
+<div class="view" id="v-schedule">
+  <div class="cols">
+    <div class="panel"><div class="head">🗓 排班<span class="tag">按日期</span><span class="sp"></span><span class="tag" id="todayTag"></span></div>
+      <div class="body"><table><thead><tr><th>日期</th><th>员工</th><th>班次</th><th>负责房间</th></tr></thead><tbody id="scheduleRows"></tbody></table></div>
+      <div class="formbar"><input id="scStaff" placeholder="员工"><input id="scDate" placeholder="日期 2026-08-28"><input id="scShift" placeholder="班次 morning/night"><input id="scRoom" placeholder="房间 101-102"><button onclick="addSchedule()">新增排班</button></div>
+    </div>
+    <div class="panel"><div class="head">🔁 交接班</div>
+      <div class="body"><table><thead><tr><th>日期</th><th>交班→接班</th><th>交接摘要</th><th>问题</th></tr></thead><tbody id="handoverRows"></tbody></table></div>
+      <div class="formbar"><input id="hoFrom" placeholder="交班人"><input id="hoTo" placeholder="接班人"><textarea style="flex:2;min-width:120px" id="hoSum" placeholder="交接摘要"></textarea><button onclick="addHandover()">记录交接</button></div>
     </div>
   </div>
-  <div class="panel">
-    <div class="head">📡 设备在线状态<span class="tag" id="devCount">-</span></div>
-    <div class="body">
-      <table>
-        <thead><tr><th>设备ID</th><th>类型</th><th>状态</th><th>最后上报</th></tr></thead>
-        <tbody id="deviceRows"></tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-<!-- 实时事件滚动条带 -->
-<div class="panel" style="margin-top:14px; flex:0 0 auto; max-height:130px;">
-  <div class="head">📣 实时事件<span class="tag">WebSocket 推送</span></div>
-  <div class="body" id="ticker"></div>
 </div>
 
 <div class="overlay" id="loginOverlay">
   <form class="login" onsubmit="return doLogin(event)">
     <h3>大屏接入</h3>
-    <input id="user" placeholder="账号 (admin)" value="admin">
-    <input id="pass" type="password" placeholder="密码 (Admin@123456)" value="Admin@123456">
+    <input id="user" value="admin"><input id="pass" type="password" value="Admin@123456">
     <button type="submit">进入大屏</button>
     <div class="err" id="loginErr"></div>
-    <div class="hint">默认演示账号 admin / Admin@123456。请先确保 Go 后端已运行。</div>
+    <div class="hint">默认账号 admin / Admin@123456，请先确保 Go 后端已运行。</div>
   </form>
 </div>
 
 <script>
-const API_BASE = 'http://127.0.0.1:8080/api/v1';
-const WS_BASE  = 'ws://127.0.0.1:8080/api/v1/ws';
+const API_BASE='http://127.0.0.1:8080/api/v1', WS_BASE='ws://127.0.0.1:8080/api/v1/ws';
+const $=id=>document.getElementById(id);
+let token=localStorage.getItem('kxb_token')||'', ws=null;
 
-const $ = id => document.getElementById(id);
-let token = localStorage.getItem('kxb_token') || '';
-let ws = null;
+// 视图切换
+document.getElementById('tabBar').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  document.querySelectorAll('#tabBar button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('show'));
+  $('v-'+b.dataset.v).classList.add('show');
+});
+function setWsText(ok,t){$('wsText').textContent=t;$('wsDot').className='dot '+(ok?'ok':'off');}
+function clock(){const d=new Date(),p=n=>String(n).padStart(2,'0');
+  $('clock').textContent=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());}
+function api(p){return fetch(API_BASE+p,{headers:{'Authorization':'Bearer '+token}}).then(r=>r.json());}
+function auth(p,o){o=o||{};o.headers=Object.assign({'Content-Type':'application/json','Authorization':'Bearer '+token},o.headers||{});return fetch(API_BASE+p,o).then(r=>r.json());}
 
-function setEnv(){ const e = new URL(API_BASE).host; $('env').textContent = '后端 ' + e; setWsText(false,'未连接'); }
+async function doLogin(e){e.preventDefault();$('loginErr').textContent='';
+  const r=await auth('/auth/login',{method:'POST',body:JSON.stringify({username:$('user').value,password:$('pass').value})});
+  if(r.code===0&&r.data&&r.data.token){token=r.data.token;localStorage.setItem('kxb_token',token);$('loginOverlay').classList.remove('show');connectWs();refreshAll();}
+  else $('loginErr').textContent=r.msg||'登录失败';}
 
-function setWsText(ok,txt){ $('wsText').textContent = txt; $('wsDot').className = 'dot ' + (ok?'ok':'off'); }
-function clock(){
-  const d = new Date();
-  const p = n => String(n).padStart(2,'0');
-  $('clock').textContent = d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()) + ' ' + p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
-}
+const LVN={emergency:'紧急',important:'重要',info:'提示'};
+function lvc(l){return l==='emergency'?'lv emergency':(l==='important'?'lv important':'lv info');}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function ft(t){if(!t)return'-';const d=new Date(t),p=n=>String(n).padStart(2,'0');return p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());}
 
-function api(path){
-  return fetch(API_BASE+path, { headers: { 'Authorization':'Bearer '+token } }).then(r=>r.json());
-}
-function authApi(path, opts){
-  opts = opts || {};
-  opts.headers = Object.assign({'Content-Type':'application/json','Authorization':'Bearer '+token}, opts.headers||{});
-  return fetch(API_BASE+path, opts).then(r=>r.json());
-}
+// ---- 监控 ----
+function refreshAlerts(){api('/alerts?size=300').then(r=>{if(r.code!==0)return;const l=r.data.list||[];
+  $('kvAlerts').textContent=r.data.total;let p=0,e=0;l.forEach(a=>{if(a.status==='new')p++;if(a.level==='emergency'&&a.status!=='closed')e++;});
+  $('kvPending').textContent=p;$('kvEmergency').textContent=e;
+  const o={emergency:0,important:1,info:2};l.sort((a,b)=>(o[a.level]||9)-(o[b.level]||9));
+  $('alertRows').innerHTML=l.map(a=>`<tr><td>${ft(a.create_time)}</td><td><span class="${lvc(a.level)}">${LVN[a.level]||a.level}</span></td><td>${esc(a.content)}</td><td style="color:var(--sub)">${esc(a.device_id)}</td><td><span class="st ${a.status==='closed'?'closed':''}">${a.status}</span></td></tr>`).join('')||'<tr><td colspan="5" style="color:var(--sub)">暂无</td></tr>';});}
+function refreshDevices(){api('/iot/devices?size=200').then(r=>{if(r.code!==0)return;const l=r.data.list||[];let on=0;l.forEach(d=>{if(d.online===1)on++;});$('kvOnline').textContent=on;$('kvDeviceTotal').textContent=l.length;$('devCount').textContent=l.length+' 台';
+  l.sort((a,b)=>(b.online||0)-(a.online||0));
+  $('deviceRows').innerHTML=l.map(d=>`<tr><td>${esc(d.device_id)}</td><td style="color:var(--sub)">${esc(d.product)}</td><td>${d.online===1?'<span class="online">● 在线</span>':'<span class="offline">● 离线</span>'}</td><td style="color:var(--sub)">${d.last_seen?ft(d.last_seen):'-'}</td></tr>`).join('')||'<tr><td colspan="4" style="color:var(--sub)">暂无</td></tr>';});}
+function refreshElders(){api('/elders?size=200').then(r=>{if(r.code===0)$('kvElders').textContent=(r.data.list||[]).filter(x=>x.status===2).length;});}
 
-async function doLogin(e){
-  e.preventDefault();
-  $('loginErr').textContent='';
-  const resp = await authApi('/auth/login', { method:'POST', body: JSON.stringify({ username:$('user').value, password:$('pass').value }) });
-  if(resp.code===0 && resp.data && resp.data.token){
-    token = resp.data.token; localStorage.setItem('kxb_token', token);
-    $('loginOverlay').classList.remove('show');
-    connectWs(); refreshAll();
-  } else { $('loginErr').textContent = resp.msg || '登录失败'; }
-}
+// ---- 费用 ----
+function refreshBills(){api('/bills?size=300').then(r=>{if(r.code!==0)return;const l=r.data.list||[];
+  let sum=0,paid=0;const kvd={};l.forEach(b=>{sum+=b.amount;paid+=b.paid;kvd[b.elder_id]=b.elder_id;});
+  $('kvBillCount').textContent=l.length;$('kvBillSum').textContent=sum;$('kvPaid').textContent=paid;$('kvDue').textContent=sum-paid;
+  $('kvRate').textContent=(sum?Math.round(paid/sum*100):0)+'%';
+  $('billMonth').textContent='(显示最近 '+l.length+' 条)';
+  $('billRows').innerHTML=l.map(b=>`<tr><td>${esc(b.bill_month)}</td><td>长者#${b.elder_id}</td><td>${b.bed_fee}</td><td>${b.nursing_fee}</td><td>${b.meal_fee}</td><td class="money">${b.amount}</td><td>${b.paid}</td><td><span class="st ${b.status==='paid'?'paid':(b.status==='partial'?'partial':'')}">${b.status}</span></td><td>${b.paid>=b.amount?'':`<button class="pay" onclick="payBill(${b.elder_id},'${b.bill_month}')">缴费</button>`}</td></tr>`).join('')||'<tr><td colspan="9" style="color:var(--sub)">暂无账单，点击右上角生成</td></tr>';});}
+function genBills(){auth('/bills/generate',{method:'POST'}).then(r=>{alert('已生成账单：'+(r.data?r.data.created:0)+' 笔');refreshBills();});}
+function payBill(eld,month){const amt=parseFloat(prompt('为 长者#'+eld+' 缴纳 '+month+' 金额：'));if(!amt)return;
+  auth('/bills/pay',{method:'POST',body:JSON.stringify({elder_id:Number(eld),month:month,amount:amt,reason:'大屏缴费'})}).then(()=>refreshBills());}
 
-function lvClass(l){ return l==='emergency'?'lv emergency':(l==='important'?'lv important':'lv info'); }
-const LEVEL_CN = { emergency:'紧急', important:'重要', info:'提示' };
-const ST_CN = { new:'待处理', handling:'处理中', handled:'已处理', closed:'已关闭' };
+// ---- 排班 ----
+function refreshSchedules(){api('/schedules?size=300').then(r=>{if(r.code!==0)return;const l=r.data.list||[];
+  $('todayTag').textContent='共 '+l.length+' 条';
+  $('scheduleRows').innerHTML=l.map(s=>`<tr><td>${esc(s.work_date)}</td><td>${esc(s.staff)}</td><td>${esc(s.shift)}</td><td style="color:var(--sub)">${esc(s.room_scope)}</td></tr>`).join('')||'<tr><td colspan="4" style="color:var(--sub)">暂无排班</td></tr>';});}
+function refreshHandovers(){api('/handovers?size=300').then(r=>{if(r.code!==0)return;const l=r.data.list||[];
+  $('handoverRows').innerHTML=l.map(h=>`<tr><td>${esc(h.work_date)}</td><td>${esc(h.from_staff)} → ${esc(h.to_staff)}</td><td>${esc(h.summary)}</td><td style="color:var(--orange)">${esc(h.issues)}</td></tr>`).join('')||'<tr><td colspan="4" style="color:var(--sub)">暂无交接</td></tr>';});}
+function addSchedule(){auth('/schedules',{method:'POST',body:JSON.stringify({staff:$('scStaff').value,work_date:$('scDate').value,shift:$('scShift').value,room_scope:$('scRoom').value})}).then(refreshSchedules);}
+function addHandover(){auth('/handovers',{method:'POST',body:JSON.stringify({from_staff:$('hoFrom').value,to_staff:$('hoTo').value,work_date:new Date().toISOString().slice(0,10),summary:$('hoSum').value})}).then(refreshHandovers);}
 
-async function refreshAll(){ refreshAlerts(); refreshDevices(); refreshElders(); }
+// ---- WS ----
+function onWsEvent(raw){let ev;try{ev=JSON.parse(raw);}catch(e){return;}const t=ev.type||'',d=ev.data||{};
+  if(t==='alert.new'){addTick('alert',d.level,d.content||'新告警');refreshAlerts();}
+  else if(t==='vital.record'||t==='vital.abnormal'){addTick('vital','info','体征更新');}
+  else if(t==='task.updated'){addTick('task','info',(d.title||'任务')+' → '+d.status);}}
+function addTick(k,l,m){const d=new Date(),p=n=>String(n).padStart(2,'0');const row=document.createElement('div');row.className='tick';
+  row.innerHTML=`<span class="t-time">${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}</span><span class="${lvc(l)}">${LVN[l]||l}</span><span class="t-msg">${esc(m)}</span>`;
+  $('ticker').prepend(row);while($('ticker').children.length>40)$('ticker').lastChild.remove();}
+function connectWs(){if(!token)return;if(ws){try{ws.close();}catch(e){}}ws=new WebSocket(WS_BASE+'?token='+encodeURIComponent(token));
+  ws.onopen=()=>setWsText(true,'实时连接');ws.onmessage=e=>onWsEvent(e.data);
+  ws.onclose=()=>{setWsText(false,'断线重连…');setTimeout(connectWs,3000);};ws.onerror=()=>{try{ws.close();}catch(e){}};}
+function refreshAll(){refreshAlerts();refreshDevices();refreshElders();refreshBills();refreshSchedules();refreshHandovers();}
 
-async function refreshAlerts(){
-  try{
-    const r = await api('/alerts?size=200');
-    if(r.code!==0) return;
-    const list = r.data.list || [];
-    $('kvAlerts').textContent = r.data.total;
-    let pending=0, emergency=0;
-    list.forEach(a => { if(a.status==='new') pending++; if(a.level==='emergency'&&a.status!=='closed') emergency++; });
-    $('kvPending').textContent = pending; $('kvEmergency').textContent = emergency;
-    const order = { emergency:0, important:1, info:2 };
-    list.sort((a,b)=>(order[a.level]||9)-(order[b.level]||9) );
-    $('alertRows').innerHTML = list.map(a=>
-      `<tr>
-        <td>${fmtTime(a.create_time)}</td>
-        <td><span class="${lvClass(a.level)}">${LEVEL_CN[a.level]||a.level}</span></td>
-        <td>${esc(a.content)}</td>
-        <td style="color:var(--sub)">${esc(a.device_id)}</td>
-        <td><span class="st ${a.status==='closed'?'closed':''}">${ST_CN[a.status]||a.status}</span></td>
-      </tr>`).join('') || '<tr><td colspan="5" style="color:var(--sub)">暂无告警</td></tr>';
-  }catch(e){}
-}
-
-async function refreshDevices(){
-  try{
-    const r = await api('/iot/devices?size=200');
-    if(r.code!==0) return;
-    const list = r.data.list || [];
-    $('kvDeviceTotal').textContent = list.length;
-    let online=0; list.forEach(d=>{ if(d.online===1) online++; });
-    $('kvOnline').textContent = online;
-    $('devCount').textContent = list.length + ' 台';
-    list.sort((a,b)=>(b.online||0)-(a.online||0));
-    $('deviceRows').innerHTML = list.map(d=>
-      `<tr>
-        <td>${esc(d.device_id)}</td>
-        <td style="color:var(--sub)">${esc(d.product||'unknown')}</td>
-        <td>${d.online===1?'<span class="online"><i>● 在线</i></span>':'<span class="offline"><i>● 离线</i></span>'}</td>
-        <td style="color:var(--sub)">${d.last_seen?fmtTime(d.last_seen):'-'}</td>
-      </tr>`).join('') || '<tr><td colspan="4" style="color:var(--sub)">暂无设备</td></tr>';
-  }catch(e){}
-}
-
-async function refreshElders(){
-  try{
-    const r = await api('/elders?size=200');
-    if(r.code===0){ const n = (r.data.list||[]).filter(x=>x.status===2).length; $('kvElders').textContent = n; }
-  }catch(e){}
-}
-
-function onWsEvent(raw){
-  let ev; try{ ev = JSON.parse(raw); }catch(e){ return; }
-  const t = ev.type||''; const d = ev.data||{};
-  if(t==='alert.new'){
-    addTick('alert', d.level, d.content||'新告警');
-    refreshAlerts();
-  } else if(t==='vital.abnormal' || t==='vital.record'){
-    addTick('vital', 'info', '体征 '+(d.elder_id?'长者#'+d.elder_id:'')+' 更新');
-  } else if(t==='task.updated'){
-    addTick('task', 'info', (d.title||'任务')+' → '+d.status);
-  }
-}
-
-let tickSeq=0;
-function addTick(kind, level, msg){
-  const cls = level==='emergency'?'lv emergency':(level==='important'?'lv important':'lv info');
-  const d = new Date(); const p=n=>String(n).padStart(2,'0');
-  const time = p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
-  const row = document.createElement('div');
-  row.className='tick';
-  row.innerHTML = `<span class="t-time">${time}</span><span class="t-level"><span class="${cls}">${LEVEL_CN[level]||level}</span></span><span class="t-msg">${esc(msg)}</span>`;
-  $('ticker').prepend(row);
-  while($('ticker').children.length>40){ $('ticker').lastChild.remove(); }
-}
-
-function connectWs(){
-  if(!token) return;
-  if(ws){ try{ws.close();}catch(e){} }
-  ws = new WebSocket(WS_BASE + '?token=' + encodeURIComponent(token));
-  ws.onopen = ()=>{ setWsText(true,'实时连接'); };
-  ws.onmessage = e => onWsEvent(e.data);
-  ws.onclose = ()=>{ setWsText(false,'连接断开，重连中…'); setTimeout(connectWs, 3000); };
-  ws.onerror = ()=>{ try{ws.close();}catch(e){} };
-}
-
-function fmtTime(t){
-  if(!t) return '-';
-  const d = new Date(t);
-  const p=n=>String(n).padStart(2,'0');
-  return p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
-}
-function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-
-setInterval(clock, 1000); clock();
-setEnv();
-if(token){ $('user').value='admin'; $('pass').value='Admin@123456'; doLogin({preventDefault:()=>{}}); }
-else { $('loginOverlay').classList.add('show'); }
-setInterval(refreshAll, 6000);
+setInterval(clock,1000);clock();
+if(token)doLogin({preventDefault:()=>{}});else $('loginOverlay').classList.add('show');
+setInterval(refreshAll,6000);
 </script>
 </body>
 </html>

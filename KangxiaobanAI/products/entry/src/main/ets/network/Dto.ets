@@ -111,3 +111,46 @@ export interface WsEvent<T = Object> {
   type: string;
   data: T;
 }
+
+/** 月度账单。 */
+export interface Bill {
+  id: number;
+  elder_id: number;
+  bill_month: string;
+  bed_fee: number;
+  nursing_fee: number;
+  meal_fee: number;
+  other_fee: number;
+  amount: number;
+  paid: number;
+  status: string;
+}
+
+/** 资金流水。 */
+export interface FundFlow {
+  id: number;
+  elder_id: number;
+  direction: string;
+  related_month: string;
+  reason: string;
+  amount: number;
+}
+
+/** 排班。 */
+export interface Schedule {
+  id: number;
+  staff: string;
+  work_date: string;
+  shift: string;
+  room_scope?: string;
+}
+
+/** 交接班。 */
+export interface ShiftHandover {
+  id: number;
+  from_staff: string;
+  to_staff: string;
+  work_date: string;
+  summary?: string;
+  issues?: string;
+}
