@@ -59,5 +59,5 @@ func AutoMigrate(db *gorm.DB) error {
 
 // AutoMigrateAll 认证表 + 业务业务。
 func AutoMigrateAll(db *gorm.DB) error {
-	return db.AutoMigrate(&User{}, &Role{}, &Permission{}, &AuditLog{}, &Elder{}, &Room{}, &Bed{}, &CareTask{}, &HealthRecord{})
+	return db.AutoMigrate(&User{}, &Role{}, &Permission{}, &AuditLog{}, &Elder{}, &Room{}, &Bed{}, &CareTask{}, &HealthRecord{}, &IotDevice{}, &SignalRecord{}, &Alert{})
 }

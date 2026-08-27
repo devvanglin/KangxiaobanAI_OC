@@ -8,9 +8,10 @@ import (
 
 // Config 应用配置，由环境变量 / .env 注入，区分开发与生产。
 type Config struct {
-	Server   ServerConfig
+	Server ServerConfig
 	Database DBConfig
 	JWT      JWTConfig
+	MQTT     MQTTConfig
 }
 
 type ServerConfig struct {
@@ -31,6 +32,17 @@ type JWTConfig struct {
 	Expire int64 // 秒
 }
 
+// MQTTConfig 物联网 Broker 接入（雷达等设备）。
+type MQTTConfig struct {
+	Enable   bool
+	URL      string
+	ClientID string
+	Username string
+	Password string
+	TopicSP  string // 睡眠雷达
+	TopicFL  string // 跌倒雷达
+}
+
 // Load 从环境变量读取配置；存在 .env 则自动加载。
 func Load() *Config {
 	_ = godotenv.Load()
@@ -46,6 +58,15 @@ func Load() *Config {
 		JWT: JWTConfig{
 			Secret: env("KXB_JWT_SECRET", "change-me-in-production"),
 			Expire: int64(envInt("KXB_JWT_EXPIRE", 86400)),
+		},
+		MQTT: MQTTConfig{
+			Enable:   env("KXB_MQTT_ENABLE", "true") == "true",
+			URL:      env("KXB_MQTT_URL", "tcp://192.168.100.110:1883"),
+			ClientID: env("KXB_MQTT_CLIENT_ID", "kxb-backend"),
+			Username: os.Getenv("KXB_MQTT_USERNAME"),
+			Password: os.Getenv("KXB_MQTT_PASSWORD"),
+			TopicSP:  "/Radar60SP/+/sys/property/post",
+			TopicFL:  "/Radar60FL/+/sys/property/post",
 		},
 	}
 }

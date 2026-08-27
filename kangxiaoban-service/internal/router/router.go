@@ -7,6 +7,7 @@ import (
 
 	"kangxiaoban-service/internal/config"
 	"kangxiaoban-service/internal/handler"
+	"kangxiaoban-service/internal/iot"
 	"kangxiaoban-service/internal/middleware"
 	"kangxiaoban-service/internal/repository"
 	"kangxiaoban-service/internal/service"
@@ -14,7 +15,8 @@ import (
 )
 
 // New 组装路由。
-func New(cfg *config.Config, hub *ws.Hub, userRepo *repository.UserRepository,
+func New(cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
+	userRepo *repository.UserRepository,
 	authSvc *service.AuthService, elderSvc *service.ElderService,
 	resourceSvc *service.ResourceService, taskSvc *service.TaskService,
 	healthSvc *service.HealthService,
@@ -32,6 +34,7 @@ func New(cfg *config.Config, hub *ws.Hub, userRepo *repository.UserRepository,
 	taskHandler := handler.NewTaskHandler(taskSvc, hub)
 	healthHandler := handler.NewHealthHandler(healthSvc, hub)
 	wsHandler := handler.NewWSHandler(hub, cfg.JWT.Secret)
+	iotHandler := handler.NewIotHandler(iotSvc)
 
 	// 访问校验封装
 	perm := func(code string) gin.HandlerFunc { return middleware.RequirePermission(userRepo, code) }
@@ -72,6 +75,12 @@ func New(cfg *config.Config, hub *ws.Hub, userRepo *repository.UserRepository,
 
 		// 体征录入（查看在 /elders/:id/health-records）
 		authed.POST("/health-records", perm("health:write"), healthHandler.Create)
+
+		// 物联网：设备/告警读写
+		authed.GET("/iot/devices", perm("alert:read"), iotHandler.ListDevices)
+		authed.GET("/alerts", perm("alert:read"), iotHandler.ListAlerts)
+		authed.PATCH("/alerts/:id/handle", perm("admin:all"), iotHandler.HandleAlert)
+		authed.POST("/iot/ingest", perm("admin:all"), iotHandler.Ingest)
 
 		// 演示/测试：向所有客户端广播事件（admin）
 		authed.POST("/demo/push", perm("admin:all"), wsHandler.DemoPush)

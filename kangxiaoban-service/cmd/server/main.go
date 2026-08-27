@@ -5,6 +5,7 @@ import (
 
 	"kangxiaoban-service/internal/config"
 	"kangxiaoban-service/internal/database"
+	"kangxiaoban-service/internal/iot"
 	"kangxiaoban-service/internal/repository"
 	"kangxiaoban-service/internal/router"
 	"kangxiaoban-service/internal/service"
@@ -37,7 +38,13 @@ func main() {
 	hub := ws.NewHub()
 	go hub.Run()
 
-	r := router.New(cfg, hub, userRepo, authSvc, elderSvc, resourceSvc, taskSvc, healthSvc)
+	iotSvc := iot.NewIotService(db, hub)
+	if cfg.MQTT.Enable {
+		go iotSvc.StartMQTT(cfg.MQTT)
+	}
+	go iotSvc.StartOfflineScanner()
+
+	r := router.New(cfg, hub, iotSvc, userRepo, authSvc, elderSvc, resourceSvc, taskSvc, healthSvc)
 
 	log.Printf("Kangxiaoban 后端服务启动: http://0.0.0.0:%s (db=%s)", cfg.Server.Port, cfg.Database.Driver)
 	if err := r.Run(":" + cfg.Server.Port); err != nil {
