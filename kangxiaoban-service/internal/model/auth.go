@@ -56,3 +56,8 @@ type AuditLog struct {
 func AutoMigrate(db *gorm.DB) error {
 	return db.AutoMigrate(&User{}, &Role{}, &Permission{}, &AuditLog{})
 }
+
+// AutoMigrateAll 认证表 + 业务业务。
+func AutoMigrateAll(db *gorm.DB) error {
+	return db.AutoMigrate(&User{}, &Role{}, &Permission{}, &AuditLog{}, &Elder{}, &Room{}, &Bed{}, &CareTask{}, &HealthRecord{})
+}

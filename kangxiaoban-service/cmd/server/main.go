@@ -22,9 +22,18 @@ func main() {
 	}
 
 	userRepo := repository.NewUserRepository(db)
-	authSvc := service.NewAuthService(userRepo, &cfg.JWT)
+	elderRepo := repository.NewElderRepository(db)
+	resourceRepo := repository.NewResourceRepository(db)
+	taskRepo := repository.NewTaskRepository(db)
+	healthRepo := repository.NewHealthRepository(db)
 
-	r := router.New(cfg, userRepo, authSvc)
+	authSvc := service.NewAuthService(userRepo, &cfg.JWT)
+	elderSvc := service.NewElderService(elderRepo)
+	resourceSvc := service.NewResourceService(resourceRepo)
+	taskSvc := service.NewTaskService(taskRepo)
+	healthSvc := service.NewHealthService(healthRepo)
+
+	r := router.New(cfg, userRepo, authSvc, elderSvc, resourceSvc, taskSvc, healthSvc)
 
 	log.Printf("Kangxiaoban 后端服务启动: http://0.0.0.0:%s (db=%s)", cfg.Server.Port, cfg.Database.Driver)
 	if err := r.Run(":" + cfg.Server.Port); err != nil {

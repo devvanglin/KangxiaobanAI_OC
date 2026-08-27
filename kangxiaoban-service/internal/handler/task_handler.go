@@ -1,0 +1,68 @@
+package handler
+
+import (
+	"net/http"
+	"strconv"
+
+	"github.com/gin-gonic/gin"
+
+	"kangxiaoban-service/internal/model"
+	"kangxiaoban-service/internal/service"
+)
+
+// TaskHandler 护理任务。
+type TaskHandler struct{ svc *service.TaskService }
+
+func NewTaskHandler(svc *service.TaskService) *TaskHandler { return &TaskHandler{svc: svc} }
+
+func (h *TaskHandler) List(c *gin.Context) {
+	page, size := parsePage(c)
+	elderID := uint(parseUint(c, "elder_id"))
+	items, total, err := h.svc.List(elderID, c.Query("status"), page, size)
+	if err != nil {
+		Fail(c, http.StatusInternalServerError, 500, "查询任务失败")
+		return
+	}
+	OK(c, gin.H{"list": items, "page": page, "size": size, "total": total})
+}
+
+func (h *TaskHandler) Create(c *gin.Context) {
+	var req model.CareTask
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Fail(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	if req.ElderID == 0 || req.Title == "" {
+		Fail(c, http.StatusBadRequest, 400, "elder_id 与 title 必填")
+		return
+	}
+	if err := h.svc.Create(&req); err != nil {
+		Fail(c, http.StatusInternalServerError, 500, "创建任务失败")
+		return
+	}
+	OK(c, req)
+}
+
+type setStatusReq struct {
+	Status string `json:"status" binding:"required"`
+}
+
+func (h *TaskHandler) SetStatus(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	var req setStatusReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Fail(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	switch req.Status {
+	case "todo", "doing", "done":
+	default:
+		Fail(c, http.StatusBadRequest, 400, "status 仅支持 todo/doing/done")
+		return
+	}
+	if err := h.svc.SetStatus(uint(id), req.Status); err != nil {
+		Fail(c, http.StatusNotFound, 404, "任务不存在")
+		return
+	}
+	OK(c, gin.H{"id": id, "status": req.Status})
+}

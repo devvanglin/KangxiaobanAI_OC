@@ -3,6 +3,7 @@ package database
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	mysqlDriver "gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -40,20 +41,25 @@ func Connect(cfg *config.DBConfig) (*gorm.DB, error) {
 
 // AutoMigrateAndSeed 建表并注入基础种子数据（角色/权限/管理员）。
 func AutoMigrateAndSeed(db *gorm.DB) error {
-	if err := model.AutoMigrate(db); err != nil {
+	if err := model.AutoMigrateAll(db); err != nil {
 		return fmt.Errorf("auto migrate: %w", err)
 	}
-	return seed(db)
+	if err := seed(db); err != nil {
+		return err
+	}
+	return seedBusiness(db)
 }
 
 func seed(db *gorm.DB) error {
-	// 权限：M0 先落核心权限集；后续里程碑扩展。
+	// 权限：M0-M1 核心权限集；后续里程碑扩展。
 	perms := []struct{ code, name string }{
 		{"dash:read", "工作台查看"},
 		{"elder:read", "长者档案查看"},
 		{"elder:write", "长者档案编辑"},
 		{"task:read", "任务查看"},
 		{"task:write", "任务处理"},
+		{"health:read", "体征查看"},
+		{"health:write", "体征录入"},
 		{"alert:read", "告警查看"},
 		{"admin:all", "系统管理"},
 	}
@@ -66,17 +72,19 @@ func seed(db *gorm.DB) error {
 		permByCode[p.code] = perm
 	}
 
-	// 角色：管理员拥有全部权限；护工/医师拥有视图+任务/告警相关权限。
+	// 角色：管理员拥有全部权限；医师/护工按业务范围授权。
 	roles := []struct {
 		code, name, desc string
 		permCodes        []string
 	}{
 		{"admin", "管理员", "系统管理与全部业务", []string{
-			"dash:read", "elder:read", "elder:write", "task:read", "task:write", "alert:read", "admin:all"}},
+			"dash:read", "elder:read", "elder:write", "task:read", "task:write",
+			"health:read", "health:write", "alert:read", "admin:all"}},
 		{"doctor", "医师", "看护与评估", []string{
-			"dash:read", "elder:read", "task:read", "alert:read"}},
+			"dash:read", "elder:read", "health:read", "task:read", "alert:read"}},
 		{"caregiver", "护工", "现场护理", []string{
-			"dash:read", "elder:read", "task:read", "task:write", "alert:read"}},
+			"dash:read", "elder:read", "health:read", "health:write",
+			"task:read", "task:write", "alert:read"}},
 	}
 	for _, r := range roles {
 		var role model.Role
@@ -126,3 +134,58 @@ func permRefs(byCode map[string]model.Permission, codes []string) []model.Permis
 	}
 	return out
 }
+
+// seedBusiness 注入演示业务数据（房间/床位/长者/任务/体征），仅当库为空时写入。
+func seedBusiness(db *gorm.DB) error {
+	var count int64
+	if err := db.Model(&model.Room{}).Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+
+	// 楼栋 A 一层 101/102 房间，各两床
+	rooms := []model.Room{
+		{Building: "A", Floor: 1, RoomNo: "101", Type: "normal", Status: "free"},
+		{Building: "A", Floor: 1, RoomNo: "102", Type: "nursing", Status: "free"},
+	}
+	for i := range rooms {
+		if err := db.Create(&rooms[i]).Error; err != nil {
+			return err
+		}
+		db.Create(&model.Bed{RoomID: rooms[i].ID, BedNo: "1", Status: "free"})
+		db.Create(&model.Bed{RoomID: rooms[i].ID, BedNo: "2", Status: "free"})
+	}
+
+	beds := make([]model.Bed, 0)
+	db.Where("room_id IN ?", []uint{rooms[0].ID, rooms[1].ID}).Order("id").Find(&beds)
+	binding := []model.Elder{
+		{Name: "张素英", Gender: "F", BirthDate: "1938-05-12", ContactPhone: "13800000001", CareLevel: 3, Status: 2, IDCard: "110101193805120011",
+			EmergencyContacts: []model.ElderContact{{Name: "张伟", Relation: "儿子", Phone: "13800000001", IsEmergency: true}}},
+		{Name: "王建国", Gender: "M", BirthDate: "1945-11-02", ContactPhone: "13800000002", CareLevel: 2, Status: 2, IDCard: "110101194511020012",
+			EmergencyContacts: []model.ElderContact{{Name: "王芳", Relation: "女儿", Phone: "13800000002", IsEmergency: true}}},
+	}
+	for i := range binding {
+		if err := db.Create(&binding[i]).Error; err != nil {
+			return err
+		}
+		if i < len(beds) {
+			bid := beds[i].ID
+			binding[i].BedID = &bid
+			db.Model(&binding[i]).Update("bed_id", bid)
+			db.Model(&beds[i]).Updates(map[string]interface{}{"status": "occupied", "elder_id": binding[i].ID})
+		}
+	}
+
+	db.Create(&model.CareTask{ElderID: binding[0].ID, Title: "早间翻身", Kind: "turnover", Assignee: "李护工", Status: "todo", Remark: "两小时一次"})
+	db.Create(&model.CareTask{ElderID: binding[1].ID, Title: "服用降压药", Kind: "medication", Assignee: "刘护工", Status: "todo"})
+
+	now := time.Now()
+	db.Create(&model.HealthRecord{ElderID: binding[0].ID, Temperature: fp(36.6), Systolic: pi(132), Diastolic: pi(82), HeartRate: pi(78), Spo2: fp(97), Source: "manual", RecordTime: now, IsAbnormal: false})
+	db.Create(&model.HealthRecord{ElderID: binding[1].ID, Temperature: fp(38.2), Systolic: pi(98), Diastolic: pi(64), HeartRate: pi(96), Spo2: fp(93), Source: "manual", RecordTime: now, IsAbnormal: true})
+	return nil
+}
+
+func fp(v float64) *float64      { return &v }
+func pi(v int) *int              { return &v }
