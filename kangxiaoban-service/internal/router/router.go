@@ -19,7 +19,9 @@ func New(cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	userRepo *repository.UserRepository,
 	authSvc *service.AuthService, elderSvc *service.ElderService,
 	resourceSvc *service.ResourceService, taskSvc *service.TaskService,
-	healthSvc *service.HealthService,
+	healthSvc *service.HealthService, scheduleSvc *service.ScheduleService,
+	financeSvc *service.FinanceService, medicationSvc *service.MedicationService,
+	auditSvc *service.AuditService, auditRepo *repository.AuditRepository,
 ) *gin.Engine {
 	r := gin.Default()
 	r.Use(middleware.CORS())
@@ -36,6 +38,7 @@ func New(cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	healthHandler := handler.NewHealthHandler(healthSvc, hub)
 	wsHandler := handler.NewWSHandler(hub, cfg.JWT.Secret)
 	iotHandler := handler.NewIotHandler(iotSvc)
+	m4Handler := handler.NewM4Handler(scheduleSvc, financeSvc, medicationSvc, auditSvc)
 
 	// 访问校验封装
 	perm := func(code string) gin.HandlerFunc { return middleware.RequirePermission(userRepo, code) }
@@ -48,6 +51,7 @@ func New(cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	// 需认证
 	authed := r.Group("/api/v1")
 	authed.Use(middleware.JWTAuth(cfg.JWT.Secret))
+	authed.Use(middleware.Audit(auditRepo))
 	{
 		authed.GET("/auth/me", authHandler.Me)
 
@@ -85,6 +89,27 @@ func New(cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 
 		// 演示/测试：向所有客户端广播事件（admin）
 		authed.POST("/demo/push", perm("admin:all"), wsHandler.DemoPush)
+
+		// ---- M4 排班/交接班 ----
+		authed.GET("/schedules", perm("task:read"), m4Handler.ListSchedules)
+		authed.POST("/schedules", perm("task:write"), m4Handler.CreateSchedule)
+		authed.GET("/handovers", perm("task:read"), m4Handler.ListHandovers)
+		authed.POST("/handovers", perm("task:write"), m4Handler.CreateHandover)
+
+		// ---- M4 费用 ----
+		authed.GET("/bills", perm("elder:read"), m4Handler.ListBills)
+		authed.POST("/bills/generate", perm("admin:all"), m4Handler.GenerateBills)
+		authed.POST("/bills/pay", perm("admin:all"), m4Handler.Pay)
+		authed.GET("/elders/:id/balance", perm("elder:read"), m4Handler.Balance)
+		authed.GET("/elders/:id/flows", perm("elder:read"), m4Handler.ListFlows)
+
+		// ---- M4 用药 ----
+		authed.GET("/medications", perm("elder:read"), m4Handler.ListMedications)
+		authed.POST("/medications", perm("task:write"), m4Handler.CreateMedication)
+		authed.PATCH("/medications/:id/status", perm("task:write"), m4Handler.MarkMedicationStatus)
+
+		// ---- M4 审计 ----
+		authed.GET("/audits", perm("admin:all"), m4Handler.ListAudits)
 	}
 
 	return r
