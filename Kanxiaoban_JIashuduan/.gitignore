@@ -10,3 +10,7 @@
 *.tsbuildinfo
 *.tsbuildinfo.linter
 *.log
+
+# 本机环境与生成的依赖锁
+local.properties
+oh-package-lock.json5
