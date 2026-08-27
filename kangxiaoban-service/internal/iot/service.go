@@ -152,6 +152,23 @@ func (s *IotService) okCooldown(typ, deviceID string, now time.Time) bool {
 	return true
 }
 
+// StartEscalationScanner 应急自动升级：紧急/重要告警 new 超时未被处置 → escalated 并广播。
+func (s *IotService) StartEscalationScanner() {
+	ticker := time.NewTicker(15 * time.Second)
+	for range ticker.C {
+		cutoff := time.Now().Add(-escalationAfter)
+		var alerts []model.Alert
+		if err := s.db.Where("level IN ? AND status = 'new' AND create_time < ?", []string{"emergency", "important"}, cutoff).Find(&alerts).Error; err != nil {
+			continue
+		}
+		for i := range alerts {
+			s.db.Model(&alerts[i]).Update("status", "escalated")
+			alerts[i].Status = "escalated"
+			s.hub.BroadcastEvent("alert.escalated", alerts[i])
+		}
+	}
+}
+
 // ListDevices 设备列表。
 func (s *IotService) ListDevices(page, size int) ([]model.IotDevice, int64, error) {
 	var total int64

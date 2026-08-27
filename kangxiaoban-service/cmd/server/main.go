@@ -35,7 +35,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("数据库连接失败: %v", err)
 	}
-	if err := database.AutoMigrateAndSeed(db); err != nil {
+	if err := database.AutoMigrateAndSeed(db, cfg.Server.SeedDemo); err != nil {
 		log.Fatalf("数据库初始化失败: %v", err)
 	}
 
@@ -62,6 +62,7 @@ func main() {
 	auditSvc := service.NewAuditService(auditRepo)
 	supplySvc := service.NewSupplyService(supplyRepo)
 	familySvc := service.NewFamilyService(familyRepo, db)
+	aiSvc := service.NewAIService(&cfg.AI, db)
 
 	hub := ws.NewHub()
 	go hub.Run()
@@ -71,9 +72,10 @@ func main() {
 		go iotSvc.StartMQTT(cfg.MQTT)
 	}
 	go iotSvc.StartOfflineScanner()
+	go iotSvc.StartEscalationScanner()
 
 	r := router.New(db, cfg, hub, iotSvc, userRepo, authSvc, elderSvc, resourceSvc, taskSvc, healthSvc,
-		scheduleSvc, financeSvc, medicationSvc, auditSvc, auditRepo, supplySvc, familySvc)
+		scheduleSvc, financeSvc, medicationSvc, auditSvc, auditRepo, supplySvc, familySvc, aiSvc)
 
 	// 展示壳静态托管：落地页(/)与大屏(/dashboard.html)（API 路由优先，未匹配路径回落到静态）
 	if cfg.Server.StaticDir != "" {

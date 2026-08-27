@@ -39,15 +39,21 @@ func Connect(cfg *config.DBConfig) (*gorm.DB, error) {
 	return db, nil
 }
 
-// AutoMigrateAndSeed 建表并注入基础种子数据（角色/权限/管理员）。
-func AutoMigrateAndSeed(db *gorm.DB) error {
+// AutoMigrateAndSeed 建表并注入基础种子数据（角色/权限/管理员）；seedDemo 时再播演示业务数据。
+func AutoMigrateAndSeed(db *gorm.DB, seedDemo bool) error {
 	if err := model.AutoMigrateAll(db); err != nil {
 		return fmt.Errorf("auto migrate: %w", err)
 	}
 	if err := seed(db); err != nil {
 		return err
 	}
-	return seedBusiness(db)
+	if err := seedBusiness(db); err != nil {
+		return err
+	}
+	if seedDemo {
+		return seedDemoData(db)
+	}
+	return nil
 }
 
 func seed(db *gorm.DB) error {
@@ -218,3 +224,94 @@ func seedBusiness(db *gorm.DB) error {
 
 func fp(v float64) *float64      { return &v }
 func pi(v int) *int              { return &v }
+
+// seedDemoData 播演示业务数据（设备/告警/账单/任务），仅空库首次启动时执行，让展示壳开即有数据。
+func seedDemoData(db *gorm.DB) error {
+	var devCount int64
+	if err := db.Model(&model.IotDevice{}).Count(&devCount).Error; err != nil {
+		return err
+	}
+	if devCount > 0 {
+		return nil // 已播种过
+	}
+	now := time.Now()
+
+	// 设备（绑定在院长者）
+	var elders []model.Elder
+	db.Where("status = 2").Order("id").Find(&elders)
+	bind := func(i int) *uint {
+		if i < len(elders) {
+			id := elders[i].ID
+			return &id
+		}
+		return nil
+	}
+	devices := []model.IotDevice{
+		{DeviceID: "E438192584AA", Product: "fall_radar", Online: 1, ElderID: bind(0), Protocol: "MQTT", LastSeen: &now},
+		{DeviceID: "E438192584F5", Product: "breath_radar", Online: 1, ElderID: bind(1), Protocol: "MQTT", LastSeen: &now},
+		{DeviceID: "E438192587C3", Product: "fall_radar", Online: 0, Protocol: "MQTT"},
+	}
+	for i := range devices {
+		if err := db.Create(&devices[i]).Error; err != nil {
+			return err
+		}
+	}
+
+	// 告警（演示分级与状态）
+	alerts := []model.Alert{
+		{ElderID: bind(0), DeviceID: "E438192584AA", Type: "fall", Level: "emergency", Content: "长者[" + elderName(db, bind(0)) + "] 检测到跌倒", Status: "new", CreateTime: now},
+		{ElderID: bind(1), DeviceID: "E438192584F5", Type: "breath_abnormal", Level: "important", Content: "长者[" + elderName(db, bind(1)) + "] 呼吸异常(次/分=28)", Status: "new", CreateTime: now.Add(-2 * time.Minute)},
+		{ElderID: bind(0), DeviceID: "E438192584AA", Type: "offline", Level: "info", Content: "设备离线(超过60s无上报)", Status: "handled", HandledBy: "演示", CreateTime: now.Add(-3 * time.Hour)},
+	}
+	for i := range alerts {
+		if err := db.Create(&alerts[i]).Error; err != nil {
+			return err
+		}
+	}
+
+	// 当月账单（在院长者）
+	month := now.Format("2006-01")
+	for _, e := range elders {
+		var n int64
+		if err := db.Model(&model.Bill{}).Where("elder_id = ? AND bill_month = ?", e.ID, month).Count(&n).Error; err != nil || n > 0 {
+			continue
+		}
+		nursing := nursingFee(int(e.CareLevel))
+		db.Create(&model.Bill{ElderID: e.ID, BillMonth: month, BedFee: 1500, NursingFee: nursing, MealFee: 900, Amount: 1500 + nursing + 900, Status: "unpaid"})
+	}
+
+	// 排班 + 交接 + 体征演示
+	db.Create(&model.Schedule{Staff: "李护工", WorkDate: now.Format("2006-01-02"), Shift: "morning", RoomScope: "101-102"})
+	db.Create(&model.Schedule{Staff: "刘护工", WorkDate: now.Format("2006-01-02"), Shift: "night", RoomScope: "103"})
+	db.Create(&model.ShiftHandover{FromStaff: "李护工", ToStaff: "刘护工", WorkDate: now.Format("2006-01-02"), Summary: "长者情绪稳定，张素英需两小时翻身", Issues: ""})
+	if len(elders) > 0 {
+		db.Create(&model.HealthRecord{ElderID: elders[0].ID, Temperature: fp(36.6), Systolic: pi(132), Diastolic: pi(82), HeartRate: pi(78), Spo2: fp(97), Source: "iot", RecordTime: now, IsAbnormal: false})
+	}
+	return nil
+}
+
+func nursingFee(level int) float64 {
+	switch level {
+	case 1:
+		return 1200
+	case 2:
+		return 1800
+	case 3:
+		return 2400
+	case 4:
+		return 3000
+	default:
+		return 3600
+	}
+}
+
+func elderName(db *gorm.DB, id *uint) string {
+	if id == nil {
+		return "未知"
+	}
+	var e model.Elder
+	if err := db.First(&e, *id).Error; err != nil {
+		return "未知"
+	}
+	return e.Name
+}

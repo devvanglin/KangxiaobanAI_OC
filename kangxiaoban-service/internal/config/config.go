@@ -12,12 +12,24 @@ type Config struct {
 	Database DBConfig
 	JWT      JWTConfig
 	MQTT     MQTTConfig
+	AI       AIConfig
 }
 
 type ServerConfig struct {
 	Port string
 	// StaticDir 展示壳静态目录（落地页/大屏），空则不托管。
 	StaticDir string
+	// SeedDemo 首次启动是否播种演示数据（设备/告警/账单等），默认 true。
+	SeedDemo bool
+}
+
+// AIConfig AI 对话网关（可插拔 provider）。
+type AIConfig struct {
+	Enabled  bool
+	Provider string // local / http（http 走 BaseURL 真实模型）
+	BaseURL  string
+	Model    string
+	APIKey   string
 }
 
 type DBConfig struct {
@@ -52,6 +64,7 @@ func Load() *Config {
 		Server: ServerConfig{
 			Port:      env("KXB_SERVER_PORT", "8080"),
 			StaticDir: env("KXB_STATIC_DIR", "../showcase"),
+			SeedDemo:  env("KXB_SEED_DEMO", "true") == "true",
 		},
 		Database: DBConfig{
 			Driver:     env("KXB_DB_DRIVER", "sqlite"), // 默认 sqlite，开发即跑
@@ -70,6 +83,13 @@ func Load() *Config {
 			Password: os.Getenv("KXB_MQTT_PASSWORD"),
 			TopicSP:  "/Radar60SP/+/sys/property/post",
 			TopicFL:  "/Radar60FL/+/sys/property/post",
+		},
+		AI: AIConfig{
+			Enabled:  env("KXB_AI_ENABLED", "true") == "true",
+			Provider: env("KXB_AI_PROVIDER", "local"),
+			BaseURL:  env("KXB_AI_BASE_URL", ""),
+			Model:    env("KXB_AI_MODEL", "kxb-local"),
+			APIKey:   os.Getenv("KXB_AI_API_KEY"),
 		},
 	}
 }

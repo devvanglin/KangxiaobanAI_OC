@@ -116,6 +116,7 @@ func (s *IotService) StartOfflineScanner() {
 }
 
 const (
-	offlineAfter = 60 * time.Second
-	offlineWindow = "60s"
+	offlineAfter   = 60 * time.Second
+	offlineWindow  = "60s"
+	escalationAfter = 60 * time.Second
 )

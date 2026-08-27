@@ -24,6 +24,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	financeSvc *service.FinanceService, medicationSvc *service.MedicationService,
 	auditSvc *service.AuditService, auditRepo *repository.AuditRepository,
 	supplySvc *service.SupplyService, familySvc *service.FamilyService,
+	aiSvc *service.AIService,
 ) *gin.Engine {
 	r := gin.Default()
 	r.Use(middleware.CORS())
@@ -43,6 +44,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	m4Handler := handler.NewM4Handler(scheduleSvc, financeSvc, medicationSvc, auditSvc, familySvc)
 	supplyHandler := handler.NewSupplyHandler(supplySvc)
 	familyHandler := handler.NewFamilyManageHandler(familySvc)
+	aiHandler := handler.NewAIHandler(aiSvc)
 
 	// 访问校验封装
 	perm := func(code string) gin.HandlerFunc { return middleware.RequirePermission(userRepo, code) }
@@ -128,6 +130,9 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		authed.POST("/families", perm("admin:all"), familyHandler.CreateMember)
 		authed.GET("/families", perm("admin:all"), familyHandler.ListBindings)
 		authed.DELETE("/families", perm("admin:all"), familyHandler.Unbind)
+
+		// ---- 照护 AI（登录即可问）----
+		authed.POST("/ai/chat", aiHandler.Chat)
 	}
 
 	return r
