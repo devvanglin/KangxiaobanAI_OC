@@ -1,0 +1,7 @@
+# 本地开发数据与运行时产物
+kangxiaoban.db
+kangxiaoban.db.*
+*.log
+
+# 本机环境（勿提交真实密钥）
+.env

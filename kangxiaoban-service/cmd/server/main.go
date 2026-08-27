@@ -1,0 +1,33 @@
+package main
+
+import (
+	"log"
+
+	"kangxiaoban-service/internal/config"
+	"kangxiaoban-service/internal/database"
+	"kangxiaoban-service/internal/repository"
+	"kangxiaoban-service/internal/router"
+	"kangxiaoban-service/internal/service"
+)
+
+func main() {
+	cfg := config.Load()
+
+	db, err := database.Connect(&cfg.Database)
+	if err != nil {
+		log.Fatalf("数据库连接失败: %v", err)
+	}
+	if err := database.AutoMigrateAndSeed(db); err != nil {
+		log.Fatalf("数据库初始化失败: %v", err)
+	}
+
+	userRepo := repository.NewUserRepository(db)
+	authSvc := service.NewAuthService(userRepo, &cfg.JWT)
+
+	r := router.New(cfg, userRepo, authSvc)
+
+	log.Printf("Kangxiaoban 后端服务启动: http://0.0.0.0:%s (db=%s)", cfg.Server.Port, cfg.Database.Driver)
+	if err := r.Run(":" + cfg.Server.Port); err != nil {
+		log.Fatalf("服务启动失败: %v", err)
+	}
+}
