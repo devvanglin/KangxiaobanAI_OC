@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"kangxiaoban-service/internal/config"
 	"kangxiaoban-service/internal/handler"
@@ -15,7 +16,7 @@ import (
 )
 
 // New 组装路由。
-func New(cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
+func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	userRepo *repository.UserRepository,
 	authSvc *service.AuthService, elderSvc *service.ElderService,
 	resourceSvc *service.ResourceService, taskSvc *service.TaskService,
@@ -32,7 +33,7 @@ func New(cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	})
 
 	authHandler := handler.NewAuthHandler(authSvc)
-	dashboardHandler := handler.NewDashboardHandler()
+	dashboardHandler := handler.NewDashboardHandler(db)
 	elderHandler := handler.NewElderHandler(elderSvc, familySvc)
 	resourceHandler := handler.NewResourceHandler(resourceSvc)
 	taskHandler := handler.NewTaskHandler(taskSvc, hub)

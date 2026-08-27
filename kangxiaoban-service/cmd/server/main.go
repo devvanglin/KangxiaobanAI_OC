@@ -56,7 +56,7 @@ func main() {
 	}
 	go iotSvc.StartOfflineScanner()
 
-	r := router.New(cfg, hub, iotSvc, userRepo, authSvc, elderSvc, resourceSvc, taskSvc, healthSvc,
+	r := router.New(db, cfg, hub, iotSvc, userRepo, authSvc, elderSvc, resourceSvc, taskSvc, healthSvc,
 		scheduleSvc, financeSvc, medicationSvc, auditSvc, auditRepo, supplySvc, familySvc)
 
 	log.Printf("Kangxiaoban 后端服务启动: http://0.0.0.0:%s (db=%s)", cfg.Server.Port, cfg.Database.Driver)
