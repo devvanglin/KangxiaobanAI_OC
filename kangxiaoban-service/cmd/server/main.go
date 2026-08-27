@@ -33,6 +33,7 @@ func main() {
 	medicationRepo := repository.NewMedicationRepository(db)
 	auditRepo := repository.NewAuditRepository(db)
 	supplyRepo := repository.NewSupplyRepository(db)
+	familyRepo := repository.NewFamilyRepository(db)
 
 	authSvc := service.NewAuthService(userRepo, &cfg.JWT)
 	elderSvc := service.NewElderService(elderRepo)
@@ -44,6 +45,7 @@ func main() {
 	medicationSvc := service.NewMedicationService(medicationRepo)
 	auditSvc := service.NewAuditService(auditRepo)
 	supplySvc := service.NewSupplyService(supplyRepo)
+	familySvc := service.NewFamilyService(familyRepo)
 
 	hub := ws.NewHub()
 	go hub.Run()
@@ -55,7 +57,7 @@ func main() {
 	go iotSvc.StartOfflineScanner()
 
 	r := router.New(cfg, hub, iotSvc, userRepo, authSvc, elderSvc, resourceSvc, taskSvc, healthSvc,
-		scheduleSvc, financeSvc, medicationSvc, auditSvc, auditRepo, supplySvc)
+		scheduleSvc, financeSvc, medicationSvc, auditSvc, auditRepo, supplySvc, familySvc)
 
 	log.Printf("Kangxiaoban 后端服务启动: http://0.0.0.0:%s (db=%s)", cfg.Server.Port, cfg.Database.Driver)
 	if err := r.Run(":" + cfg.Server.Port); err != nil {

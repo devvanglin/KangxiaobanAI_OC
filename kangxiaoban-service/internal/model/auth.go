@@ -61,5 +61,5 @@ func AutoMigrate(db *gorm.DB) error {
 func AutoMigrateAll(db *gorm.DB) error {
 	return db.AutoMigrate(&User{}, &Role{}, &Permission{}, &AuditLog{}, &Elder{}, &Room{}, &Bed{}, &CareTask{}, &HealthRecord{}, &IotDevice{}, &SignalRecord{}, &Alert{},
 		&Schedule{}, &ShiftHandover{}, &Bill{}, &FundFlow{}, &MedicationRecord{},
-		&MedicineStock{}, &DiningOrder{})
+		&MedicineStock{}, &DiningOrder{}, &FamilyElder{})
 }

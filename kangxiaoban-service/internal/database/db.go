@@ -85,6 +85,8 @@ func seed(db *gorm.DB) error {
 		{"caregiver", "护工", "现场护理", []string{
 			"dash:read", "elder:read", "health:read", "health:write",
 			"task:read", "task:write", "alert:read"}},
+		{"family", "家属", "仅查看绑定长者", []string{
+			"elder:read", "health:read", "task:read", "alert:read"}},
 	}
 	for _, r := range roles {
 		var role model.Role
@@ -122,6 +124,27 @@ func seed(db *gorm.DB) error {
 		}
 	}
 	_ = admin
+
+	// 演示家属账号 family_demo / Family@123456，角色 family
+	var family model.User
+	if err := db.Where("username = ?", "family_demo").First(&family).Error; err != nil {
+		hash, err2 := bcrypt.GenerateFromPassword([]byte("Family@123456"), bcrypt.DefaultCost)
+		if err2 != nil {
+			return err2
+		}
+		family = model.User{Username: "family_demo", PasswordHash: string(hash), RealName: "张伟", Status: 1}
+		if err := db.Create(&family).Error; err != nil {
+			return err
+		}
+		var famRole model.Role
+		if err := db.Where("code = ?", "family").First(&famRole).Error; err != nil {
+			return err
+		}
+		if err := db.Model(&family).Association("Roles").Replace([]model.Role{famRole}); err != nil {
+			return err
+		}
+	}
+	_ = family
 	return nil
 }
 
@@ -180,6 +203,12 @@ func seedBusiness(db *gorm.DB) error {
 
 	db.Create(&model.CareTask{ElderID: binding[0].ID, Title: "早间翻身", Kind: "turnover", Assignee: "李护工", Status: "todo", Remark: "两小时一次"})
 	db.Create(&model.CareTask{ElderID: binding[1].ID, Title: "服用降压药", Kind: "medication", Assignee: "刘护工", Status: "todo"})
+
+	// 家属演示绑定：family_demo 仅绑定长者1，用于验证数据隔离
+	var fam model.User
+	if err := db.Where("username = ?", "family_demo").First(&fam).Error; err == nil {
+		db.FirstOrCreate(&model.FamilyElder{UserID: fam.ID, ElderID: binding[0].ID}, model.FamilyElder{UserID: fam.ID, ElderID: binding[0].ID})
+	}
 
 	now := time.Now()
 	db.Create(&model.HealthRecord{ElderID: binding[0].ID, Temperature: fp(36.6), Systolic: pi(132), Diastolic: pi(82), HeartRate: pi(78), Spo2: fp(97), Source: "manual", RecordTime: now, IsAbnormal: false})

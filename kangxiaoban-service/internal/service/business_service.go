@@ -17,6 +17,9 @@ func NewElderService(repo *repository.ElderRepository) *ElderService {
 func (s *ElderService) List(keyword string, status, careLevel, page, size int) ([]model.Elder, int64, error) {
 	return s.repo.List(keyword, status, careLevel, page, size)
 }
+func (s *ElderService) ListScoped(keyword string, status, careLevel, page, size int, allowed []uint) ([]model.Elder, int64, error) {
+	return s.repo.ListScoped(keyword, status, careLevel, page, size, allowed)
+}
 func (s *ElderService) Get(id uint) (*model.Elder, error) { return s.repo.Get(id) }
 func (s *ElderService) Create(e *model.Elder) error       { return s.repo.Create(e) }
 func (s *ElderService) Update(e *model.Elder) error       { return s.repo.Update(e) }

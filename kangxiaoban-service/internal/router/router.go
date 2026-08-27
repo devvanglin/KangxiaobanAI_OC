@@ -22,7 +22,7 @@ func New(cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	healthSvc *service.HealthService, scheduleSvc *service.ScheduleService,
 	financeSvc *service.FinanceService, medicationSvc *service.MedicationService,
 	auditSvc *service.AuditService, auditRepo *repository.AuditRepository,
-	supplySvc *service.SupplyService,
+	supplySvc *service.SupplyService, familySvc *service.FamilyService,
 ) *gin.Engine {
 	r := gin.Default()
 	r.Use(middleware.CORS())
@@ -33,7 +33,7 @@ func New(cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 
 	authHandler := handler.NewAuthHandler(authSvc)
 	dashboardHandler := handler.NewDashboardHandler()
-	elderHandler := handler.NewElderHandler(elderSvc)
+	elderHandler := handler.NewElderHandler(elderSvc, familySvc)
 	resourceHandler := handler.NewResourceHandler(resourceSvc)
 	taskHandler := handler.NewTaskHandler(taskSvc, hub)
 	healthHandler := handler.NewHealthHandler(healthSvc, hub)
