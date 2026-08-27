@@ -46,7 +46,8 @@ func NewTaskService(repo *repository.TaskRepository) *TaskService {
 func (s *TaskService) List(elderID uint, status string, page, size int) ([]model.CareTask, int64, error) {
 	return s.repo.List(elderID, status, page, size)
 }
-func (s *TaskService) Create(t *model.CareTask) error { return s.repo.Create(t) }
+func (s *TaskService) Get(id uint) (*model.CareTask, error) { return s.repo.Get(id) }
+func (s *TaskService) Create(t *model.CareTask) error        { return s.repo.Create(t) }
 func (s *TaskService) SetStatus(id uint, status string) error {
 	t, err := s.repo.Get(id)
 	if err != nil {

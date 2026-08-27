@@ -8,12 +8,18 @@ import (
 
 	"kangxiaoban-service/internal/model"
 	"kangxiaoban-service/internal/service"
+	"kangxiaoban-service/internal/ws"
 )
 
 // TaskHandler 护理任务。
-type TaskHandler struct{ svc *service.TaskService }
+type TaskHandler struct {
+	svc *service.TaskService
+	hub *ws.Hub
+}
 
-func NewTaskHandler(svc *service.TaskService) *TaskHandler { return &TaskHandler{svc: svc} }
+func NewTaskHandler(svc *service.TaskService, hub *ws.Hub) *TaskHandler {
+	return &TaskHandler{svc: svc, hub: hub}
+}
 
 func (h *TaskHandler) List(c *gin.Context) {
 	page, size := parsePage(c)
@@ -63,6 +69,10 @@ func (h *TaskHandler) SetStatus(c *gin.Context) {
 	if err := h.svc.SetStatus(uint(id), req.Status); err != nil {
 		Fail(c, http.StatusNotFound, 404, "任务不存在")
 		return
+	}
+	// 实时广播任务状态变化
+	if t, err := h.svc.Get(uint(id)); err == nil {
+		h.hub.BroadcastEvent("task.updated", gin.H{"id": t.ID, "elder_id": t.ElderID, "title": t.Title, "status": t.Status})
 	}
 	OK(c, gin.H{"id": id, "status": req.Status})
 }

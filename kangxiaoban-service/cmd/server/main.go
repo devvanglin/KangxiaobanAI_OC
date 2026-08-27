@@ -8,6 +8,7 @@ import (
 	"kangxiaoban-service/internal/repository"
 	"kangxiaoban-service/internal/router"
 	"kangxiaoban-service/internal/service"
+	"kangxiaoban-service/internal/ws"
 )
 
 func main() {
@@ -33,7 +34,10 @@ func main() {
 	taskSvc := service.NewTaskService(taskRepo)
 	healthSvc := service.NewHealthService(healthRepo)
 
-	r := router.New(cfg, userRepo, authSvc, elderSvc, resourceSvc, taskSvc, healthSvc)
+	hub := ws.NewHub()
+	go hub.Run()
+
+	r := router.New(cfg, hub, userRepo, authSvc, elderSvc, resourceSvc, taskSvc, healthSvc)
 
 	log.Printf("Kangxiaoban 后端服务启动: http://0.0.0.0:%s (db=%s)", cfg.Server.Port, cfg.Database.Driver)
 	if err := r.Run(":" + cfg.Server.Port); err != nil {

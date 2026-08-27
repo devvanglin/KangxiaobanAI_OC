@@ -1,0 +1,87 @@
+package ws
+
+import (
+	"encoding/json"
+	"sync"
+
+	"github.com/gorilla/websocket"
+)
+
+// Hub 管理所有连接客户端并负责广播事件。
+type Hub struct {
+	clients    map[*Client]bool
+	register   chan *Client
+	unregister chan *Client
+	broadcast  chan []byte
+	mu         sync.RWMutex
+}
+
+// NewHub 创建 Hub。
+func NewHub() *Hub {
+	return &Hub{
+		clients:    make(map[*Client]bool),
+		register:   make(chan *Client),
+		unregister: make(chan *Client),
+		broadcast:  make(chan []byte, 256),
+	}
+}
+
+// Run 协程循环：处理注册/注销/广播。
+func (h *Hub) Run() {
+	for {
+		select {
+		case c := <-h.register:
+			h.mu.Lock()
+			h.clients[c] = true
+			h.mu.Unlock()
+		case c := <-h.unregister:
+			h.mu.Lock()
+			if _, ok := h.clients[c]; ok {
+				delete(h.clients, c)
+				close(c.Send)
+			}
+			h.mu.Unlock()
+		case msg := <-h.broadcast:
+			h.mu.RLock()
+			for c := range h.clients {
+				select {
+				case c.Send <- msg:
+				default:
+					// 发送缓冲区满则丢弃该慢客户端
+				}
+			}
+			h.mu.RUnlock()
+		}
+	}
+}
+
+// Register 注册连接。
+func (h *Hub) Register(c *Client) { h.register <- c }
+
+// Unregister 注销连接。
+func (h *Hub) Unregister(c *Client) { h.unregister <- c }
+
+// BroadcastEvent 序列化并广播 {type, data} 事件。
+func (h *Hub) BroadcastEvent(eventType string, data interface{}) {
+	payload, _ := json.Marshal(map[string]interface{}{"type": eventType, "data": data})
+	select {
+	case h.broadcast <- payload:
+	default:
+		select {
+		case <-h.broadcast: // 队列满则丢弃最旧，保证实时性
+		default:
+		}
+		h.broadcast <- payload
+	}
+}
+
+// Client 单个 WebSocket 连接。
+type Client struct {
+	Hub   *Hub
+	Conn  *websocket.Conn
+	Send  chan []byte
+	UserID uint
+	Roles  []string
+
+	writeMu sync.Mutex
+}

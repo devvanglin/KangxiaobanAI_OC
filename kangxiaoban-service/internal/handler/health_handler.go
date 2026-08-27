@@ -8,13 +8,17 @@ import (
 
 	"kangxiaoban-service/internal/model"
 	"kangxiaoban-service/internal/service"
+	"kangxiaoban-service/internal/ws"
 )
 
 // HealthHandler 健康体征。
-type HealthHandler struct{ svc *service.HealthService }
+type HealthHandler struct {
+	svc *service.HealthService
+	hub *ws.Hub
+}
 
-func NewHealthHandler(svc *service.HealthService) *HealthHandler {
-	return &HealthHandler{svc: svc}
+func NewHealthHandler(svc *service.HealthService, hub *ws.Hub) *HealthHandler {
+	return &HealthHandler{svc: svc, hub: hub}
 }
 
 // ListByElder GET /api/v1/elders/:id/health-records
@@ -44,5 +48,11 @@ func (h *HealthHandler) Create(c *gin.Context) {
 		Fail(c, http.StatusInternalServerError, 500, "录入体征失败")
 		return
 	}
+	// 实时广播体征（前端据此刷新曲线/告警）
+	event := "vital.record"
+	if req.IsAbnormal {
+		event = "vital.abnormal"
+	}
+	h.hub.BroadcastEvent(event, req)
 	OK(c, req)
 }

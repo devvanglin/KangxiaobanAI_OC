@@ -18,6 +18,9 @@ import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { StorageKey } from '../common/CommonConstants';
 import Logger from '../util/Logger';
 import { WindowUtil } from '../util/WindowUtil';
+import ApiClient from '../network/ApiClient';
+import AuthStore from '../network/AuthStore';
+import { LoginResp, RoleInfo } from '../network/Dto';
 
 const TAG: string = '[LoginPage]';
 const ROLE_CAREGIVER: string = '护工';
@@ -74,6 +77,20 @@ struct LoginPage {
       return;
     }
     this.isLoading = true;
+    // 优先真实后端登录；后端不可达或被拒时回退本地 mock，保证离线仍可演示
+    try {
+      const resp = await ApiClient.post<LoginResp>('/auth/login', { username: this.account, password: this.password });
+      if (resp.code === 0 && resp.data && resp.data.token.length > 0) {
+        AuthStore.setSession(resp.data.token, resp.data.user);
+        this.globalInfoModel.role = this.roleFromCodes(resp.data.user.roles.map((r: RoleInfo): string => r.code));
+        Logger.info(TAG, 'backend login ok');
+        await this.getUIContext().getRouter().replaceUrl({ url: 'pages/MainPage' });
+        return;
+      }
+      Logger.warn(TAG, `backend login rejected(${resp.code}): ${resp.msg}, fallback to demo`);
+    } catch (err) {
+      Logger.warn(TAG, `backend unreachable, fallback to demo: ${JSON.stringify(err)}`);
+    }
     setTimeout(async () => {
       this.isLoading = false;
       this.globalInfoModel.role = this.selectedRole;
@@ -83,6 +100,19 @@ struct LoginPage {
         Logger.error(TAG, `login route failed: ${JSON.stringify(err)}`);
       }
     }, 800);
+  }
+
+  private roleFromCodes(codes: string[]): string {
+    if (codes.indexOf('caregiver') >= 0) {
+      return ROLE_CAREGIVER;
+    }
+    if (codes.indexOf('doctor') >= 0) {
+      return ROLE_DOCTOR;
+    }
+    if (codes.indexOf('admin') >= 0) {
+      return ROLE_ADMIN;
+    }
+    return ROLE_CAREGIVER;
   }
 
   private roleOptions: string[] = [ROLE_CAREGIVER, ROLE_DOCTOR, ROLE_ADMIN];

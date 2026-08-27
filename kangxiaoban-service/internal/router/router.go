@@ -10,10 +10,11 @@ import (
 	"kangxiaoban-service/internal/middleware"
 	"kangxiaoban-service/internal/repository"
 	"kangxiaoban-service/internal/service"
+	"kangxiaoban-service/internal/ws"
 )
 
 // New 组装路由。
-func New(cfg *config.Config, userRepo *repository.UserRepository,
+func New(cfg *config.Config, hub *ws.Hub, userRepo *repository.UserRepository,
 	authSvc *service.AuthService, elderSvc *service.ElderService,
 	resourceSvc *service.ResourceService, taskSvc *service.TaskService,
 	healthSvc *service.HealthService,
@@ -28,14 +29,17 @@ func New(cfg *config.Config, userRepo *repository.UserRepository,
 	dashboardHandler := handler.NewDashboardHandler()
 	elderHandler := handler.NewElderHandler(elderSvc)
 	resourceHandler := handler.NewResourceHandler(resourceSvc)
-	taskHandler := handler.NewTaskHandler(taskSvc)
-	healthHandler := handler.NewHealthHandler(healthSvc)
+	taskHandler := handler.NewTaskHandler(taskSvc, hub)
+	healthHandler := handler.NewHealthHandler(healthSvc, hub)
+	wsHandler := handler.NewWSHandler(hub, cfg.JWT.Secret)
 
 	// 访问校验封装
 	perm := func(code string) gin.HandlerFunc { return middleware.RequirePermission(userRepo, code) }
 
 	// 公开：登录
 	r.POST("/api/v1/auth/login", authHandler.Login)
+	// WebSocket 实时推送：token 经 query 或 Authorization 头，由 WSHandler 自行校验
+	r.GET("/api/v1/ws", wsHandler.Serve)
 
 	// 需认证
 	authed := r.Group("/api/v1")
@@ -68,6 +72,9 @@ func New(cfg *config.Config, userRepo *repository.UserRepository,
 
 		// 体征录入（查看在 /elders/:id/health-records）
 		authed.POST("/health-records", perm("health:write"), healthHandler.Create)
+
+		// 演示/测试：向所有客户端广播事件（admin）
+		authed.POST("/demo/push", perm("admin:all"), wsHandler.DemoPush)
 	}
 
 	return r
