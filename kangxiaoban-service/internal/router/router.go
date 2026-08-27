@@ -22,6 +22,7 @@ func New(cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	healthSvc *service.HealthService,
 ) *gin.Engine {
 	r := gin.Default()
+	r.Use(middleware.CORS())
 
 	r.GET("/api/v1/healthz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
