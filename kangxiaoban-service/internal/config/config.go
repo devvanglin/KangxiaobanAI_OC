@@ -16,6 +16,8 @@ type Config struct {
 
 type ServerConfig struct {
 	Port string
+	// StaticDir 展示壳静态目录（落地页/大屏），空则不托管。
+	StaticDir string
 }
 
 type DBConfig struct {
@@ -48,7 +50,8 @@ func Load() *Config {
 	_ = godotenv.Load()
 	return &Config{
 		Server: ServerConfig{
-			Port: env("KXB_SERVER_PORT", "8080"),
+			Port:      env("KXB_SERVER_PORT", "8080"),
+			StaticDir: env("KXB_STATIC_DIR", "../showcase"),
 		},
 		Database: DBConfig{
 			Driver:     env("KXB_DB_DRIVER", "sqlite"), // 默认 sqlite，开发即跑

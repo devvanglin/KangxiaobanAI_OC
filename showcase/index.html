@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>康小伴 · 智慧康养护理平台</title>
+<style>
+  :root{
+    --ink:#0d253d; --ink-2:#273951; --mute:#64748d; --primary:#533afd; --primary-soft:#665efd;
+    --primary-press:#2e2b8c; --brand-dark:#1c1e54; --primary-bg:#eef0ff; --primary-tag:#b9b9f9;
+    --canvas:#ffffff; --soft:#f6f9fc; --cream:#f5e9d4; --hairline:#e3e8ee;
+    --ruby:#ea2261; --magenta:#f96bee; --lemon:#9b6829; --green:#15803d;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}
+  html{scroll-behavior:smooth;}
+  body{
+    font-family:'Inter','PingFang SC','Microsoft YaHei',system-ui,-apple-system,sans-serif;
+    background:var(--canvas); color:var(--ink); font-weight:300; -webkit-font-smoothing:antialiased;
+  }
+  /* 网格光晕 hero（Stripe 标志性大气背景） */
+  .hero{position:relative;overflow:hidden;background:var(--canvas);}
+  .hero::before{
+    content:"";position:absolute;top:0;left:0;right:0;height:520px;z-index:0;
+    background:
+      radial-gradient(60% 90% at 12% 10%, #f5e9d4 0%, transparent 42%),
+      radial-gradient(55% 90% at 42% 0%, #f3dbe8 0%, transparent 48%),
+      radial-gradient(50% 90% at 72% 4%, #ede7ff 0%, transparent 55%),
+      radial-gradient(45% 90% at 90% -4%, #ffd9e6 0%, transparent 52%),
+      linear-gradient(180deg,#fdf8f0 0%, #fff 58%);
+    -webkit-mask-image:linear-gradient(180deg,#000 60%,transparent 100%);
+            mask-image:linear-gradient(180deg,#000 60%,transparent 100%);
+  }
+  .container{position:relative;z-index:1;max-width:1160px;margin:0 auto;padding:0 24px;}
+
+  header{display:flex;align-items:center;gap:24px;padding:18px 0;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand .mark{width:26px;height:26px;border-radius:8px;background:var(--primary);}
+  .brand .name{font-size:15px;font-weight:500;letter-spacing:-.2px;}
+  nav{display:flex;gap:26px;margin-left:8px;}
+  nav a{font-size:14px;color:var(--ink-2);text-decoration:none;font-weight:400;}
+  nav a:hover{color:var(--primary);}
+  .sp{flex:1;}
+  .pill{display:inline-block;padding:9px 18px;border-radius:999px;font-size:14px;font-weight:400;text-decoration:none;cursor:pointer;border:1px solid transparent;}
+  .pill.primary{background:var(--primary);color:#fff;}
+  .pill.primary:hover{background:var(--primary-soft);}
+  .pill.primary:active{background:var(--primary-press);}
+  .pill.outline{border-color:var(--hairline);color:var(--ink);}
+  .pill.outline:hover{border-color:var(--primary);color:var(--primary);}
+
+  .hero-main{padding:78px 0 40px;text-align:center;max-width:820px;margin:0 auto;}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:400;letter-spacing:.5px;color:var(--primary-press);
+    background:var(--primary-bg);padding:5px 12px;border-radius:999px;margin-bottom:22px;}
+  .hero-main h1{font-size:56px;font-weight:300;letter-spacing:-1.4px;line-height:1.06;}
+  .hero-main h1 em{font-style:normal;color:var(--primary);}
+  .hero-main p.lead{font-size:19px;color:var(--mute);margin:22px auto 0;max-width:620px;line-height:1.55;}
+  .cta{display:flex;gap:12px;justify-content:center;margin-top:34px;}
+
+  .mockup{margin:46px auto 0;max-width:980px;}
+  .mock{background:var(--brand-dark);border-radius:14px;padding:18px 20px;box-shadow:rgba(13,37,61,.18) 0 24px 60px;color:var(--soft);font-size:12px;}
+  .mock .bar{display:flex;gap:6px;margin-bottom:16px;}
+  .mock .bar i{width:10px;height:10px;border-radius:50%;display:inline-block;}
+  .mock .b1{background:#ff5f57;}.mock .b2{background:#febc2e;}.mock .b3{background:#28c840;}
+  .mockgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  .mock h5{font-size:12px;font-weight:400;color:#9aa7c0;letter-spacing:.4px;margin-bottom:10px;}
+  .mock .cell{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:12px;}
+  .mock .big{font-size:30px;font-weight:300;letter-spacing:-1px;color:#fff;font-variant-numeric:tabular-nums;}
+  .mock .lab{font-size:11px;color:#9aa7c0;margin-top:2px;}
+  .mock .row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px dashed rgba(255,255,255,.08);font-variant-numeric:tabular-nums;}
+  .mock .dotc{color:#65f0b0;} .mock .dotd{color:#ff6b81;}
+
+  .band{background:var(--canvas);padding:96px 0;}
+  .band.soft{background:var(--soft);}
+  .sechead{max-width:640px;margin:0 auto 48px;text-align:center;}
+  .sechead h2{font-size:36px;font-weight:300;letter-spacing:-.8px;line-height:1.1;}
+  .sechead p{font-size:16px;color:var(--mute);margin-top:12px;line-height:1.6;}
+
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  .card{background:#fff;border:1px solid var(--hairline);border-radius:12px;padding:26px;}
+  .card .ico{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--primary-bg);color:var(--primary);margin-bottom:16px;}
+  .card h3{font-size:17px;font-weight:500;letter-spacing:-.2px;margin-bottom:8px;}
+  .card p{font-size:14px;color:var(--mute);line-height:1.6;}
+
+  .arch{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center;}
+  .arch h2{font-size:36px;font-weight:300;letter-spacing:-.8px;line-height:1.1;}
+  .arch p{font-size:16px;color:var(--mute);margin-top:16px;line-height:1.65;}
+  .arch ul{list-style:none;margin-top:22px;display:flex;flex-direction:column;gap:14px;}
+  .arch li{display:flex;gap:12px;align-items:flex-start;font-size:15px;color:var(--ink-2);}
+  .arch li b{color:var(--primary);font-weight:400;}
+  .layers{display:flex;flex-direction:column;gap:12px;}
+  .layer{background:var(--brand-dark);border-radius:12px;padding:18px 20px;color:var(--soft);border:1px solid rgba(255,255,255,.06);}
+  .layer .k{font-size:11px;color:#9aa7c0;letter-spacing:.4px;}
+  .layer .v{font-size:15px;font-weight:400;margin-top:6px;}
+  .layer.hot{background:var(--primary);}
+  .layer.hot .k{color:#d9ddff;}
+
+  .cta-band{text-align:center;padding:96px 0;}
+  .cta-band h2{font-size:38px;font-weight:300;letter-spacing:-.9px;}
+  .cta-band p{color:var(--mute);margin:14px auto 30px;max-width:520px;font-size:16px;line-height:1.6;}
+
+  footer{border-top:1px solid var(--hairline);padding:40px 0 48px;}
+  .foot{display:flex;align-items:center;color:var(--mute);font-size:13px;}
+  .foot .dots{margin-left:auto;color:var(--mute);}
+  @media(max-width:900px){
+    .hero-main h1{font-size:38px;letter-spacing:-.8px;}
+    .cards{grid-template-columns:1fr;}
+    .arch{grid-template-columns:1fr;gap:36px;}
+    .mockgrid{grid-template-columns:1fr;}
+    nav{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="container">
+    <header>
+      <div class="brand"><div class="mark"></div><div class="name">康小伴</div></div>
+      <nav>
+        <a href="#features">能力</a>
+        <a href="#arch">架构</a>
+        <a href="#platform">多端</a>
+      </nav>
+      <div class="sp"></div>
+      <a class="pill primary" href="./dashboard.html">进入实时大屏</a>
+    </header>
+
+    <div class="hero-main">
+      <div class="eyebrow">毫米波非接触感知 · 国产 HarmonyOS 原生 · 院内私有化部署</div>
+      <h1>让每一次照护<br>都有据可依</h1>
+      <p class="lead">康小伴 · 智慧康养护理平台：以 60GHz 毫米波雷达成像、健康体征预警、护理任务闭环与多端协同，为养老机构提供一套真正跑起来的数字化照护中枢。</p>
+      <div class="cta">
+        <a class="pill primary" href="./dashboard.html">进入实时大屏</a>
+        <a class="pill outline" href="#features">了解平台能力</a>
+      </div>
+
+      <div class="mockup">
+        <div class="mock">
+          <div class="bar"><i class="b1"></i><i class="b2"></i><i class="b3"></i></div>
+          <div class="mockgrid">
+            <div class="cell"><h5>在院长者</h5><div class="big">68</div><div class="lab">照护中</div></div>
+            <div class="cell"><h5>在线设备</h5><div class="big">124</div><div class="lab">雷达 · 床垫 · SOS</div></div>
+            <div class="cell"><h5>今日告警</h5><div class="big">3</div><div class="lab">0 紧急已处置</div></div>
+          </div>
+          <div style="margin-top:12px">
+            <h5>实时告警流</h5>
+            <div class="row"><span>A-102 · 王建国</span><span class="dotc">● 呼吸异常 · 已处理</span></div>
+            <div class="row"><span>A-103 · 刘桂英</span><span class="dotd">● 离床超时 ← 立即处置</span></div>
+            <div class="row"><span>A-101 · 张素英</span><span class="dotc">● 体征正常</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 能力 -->
+<section class="band" id="features">
+  <div class="container">
+    <div class="sechead">
+      <h2>一个平台，覆盖照护全链路</h2>
+      <p>从毫米波无感监测到家属远程关怀，从排班交接到处方与收付费，数据一屏汇聚。</p>
+    </div>
+    <div class="cards">
+      <div class="card"><div class="ico">📡</div><h3>毫米波安全监护</h3><p>60GHz 雷达非接触感知：跌倒检测、离床告警、静息呼吸与心率，隐私友好、无需佩戴。</p></div>
+      <div class="card"><div class="ico">❤️</div><h3>健康体征预警</h3><p>体温 / 血压 / 心率自动分级判定，异常即触发告警，优先处置，循证据留痕。</p></div>
+      <div class="card"><div class="ico">✅</div><h3>护理任务闭环</h3><p>计划→任务→执行→打卡→交接，责任到人、进度可视、逾期自动提醒。</p></div>
+      <div class="card"><div class="ico">🧾</div><h3>费用与排班</h3><p>按照护等级自动出账，缴费流水透明；班组排班与交接班一处管理。</p></div>
+      <div class="card"><div class="ico">👨‍👩‍👧</div><h3>家属端关怀</h3><p>专属账号仅见绑定老人：实时状态、健康记录、费用账单与告警推送，安心在握。</p></div>
+      <div class="card"><div class="ico">📊</div><h3>实时数据大屏</h3><p>护士站 / 管理墙挂载大屏：全院在住、设备、告警、收付费一屏总览。</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 架构 -->
+<section class="band soft" id="arch">
+  <div class="container">
+    <div class="arch">
+      <div>
+        <h2>感知 → 归一 → 规则 → 处置</h2>
+        <p>雷达等设备经 MQTT 汇入边缘与云端，字段归一化后写入统一信号池；规则引擎按阈值分级出警，经 WebSocket 实时推送到护工端、家属端与护士站大屏，形成完整处置闭环。</p>
+        <ul>
+          <li><b>✓</b>毫米波 / 床垫 / SOS 等物联网设备统一接入</li>
+          <li><b>✓</b>疾病、事件、体征、告警一体化数据模型</li>
+          <li><b>✓</b>JWT + RBAC 细粒度权限与角色数据隔离</li>
+          <li><b>✓</b>全链路操作审计，敏感数据最小化留存</li>
+        </ul>
+      </div>
+      <div class="layers">
+        <div class="layer hot"><div class="k">展示层 · HarmonyOS 原生 + Web</div><div class="v">护工端 App · 家属端 App · 护士站数据大屏</div></div>
+        <div class="layer"><div class="k">平台层 · Go 后端</div><div class="v">REST + WebSocket · 规则引擎 · RBAC · 审计</div></div>
+        <div class="layer"><div class="k">接入层 · MQTT</div><div class="v">EMQX Broker · 设备—房间—长者台账 · 字段归一化</div></div>
+        <div class="layer"><div class="k">感知层 · 60GHz 毫米波</div><div class="v">跌倒雷达 · 睡眠呼吸心率雷达 · 卧室 / 卫生间无感覆盖</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="band" id="platform">
+  <div class="container">
+    <div class="cta-band">
+      <h2>到数据大屏亲眼看看</h2>
+      <p>这不是概念稿。登录演示账号，即可查看全院实时在住、设备在线与告警处置闭环。</p>
+      <a class="pill primary" href="./dashboard.html">进入实时大屏</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <div class="foot">
+      <span>康小伴 · 智慧康养护理平台 · 演示环境</span>
+      <span class="dots">登录 admin · 见实时大屏右上角连接状态</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
