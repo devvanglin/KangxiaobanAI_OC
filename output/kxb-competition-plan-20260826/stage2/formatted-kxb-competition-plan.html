@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="docx-page-size" content="A4">
+<title>康小伴AI智慧养老比赛展示方案</title>
+<style>
+@page { @bottom-center { content: counter(page); } }
+@page cover { @bottom-center { content: none; } }
+section[role="cover"] { page: cover; }
+
+:root {
+  --fs-h2: var(--typography-fontSize-sectionHeader, 13pt);
+  --fs-h3: var(--typography-fontSize-h3, 10pt);
+  --fs-body: var(--typography-fontSize-body, 9pt);
+  --fs-small: var(--typography-fontSize-small, 8pt);
+  --fs-tiny: var(--typography-fontSize-tiny, 7pt);
+  --fs-coverTitle: var(--typography-fontSize-coverTitle, 22pt);
+  --fs-subtitle: var(--typography-fontSize-subtitle, 18pt);
+  --fs-coverCategory: var(--typography-fontSize-coverCategory, 14pt);
+  --fs-dataLabel: var(--typography-fontSize-dataLabel, 10pt);
+  --fs-card-value: 1.6em;
+  --fs-code: 0.95em;
+  --ff-heading: var(--typography-fontFamily-heading, "微软雅黑", sans-serif);
+  --ff-body: var(--typography-fontFamily-body, "微软雅黑", sans-serif);
+  --ff-mono: var(--typography-fontFamily-code, Consolas, monospace);
+  --lh-body: var(--typography-lineHeight-body, 1.6);
+  --fw-heading: var(--typography-fontWeight-heading, 600);
+  --fw-bold: 700;
+  --color-primary: #1565C0;
+  --color-secondary: #0288D1;
+  --color-accent: #00897B;
+  --color-text: #212121;
+  --color-textSecondary: #616161;
+  --color-heading: #1A237E;
+  --color-divider: #E0E0E0;
+  --color-background: #FFFFFF;
+  --color-surface: #F5F7FA;
+  --color-emphasis: #C62828;
+  --color-warn-bg: #FDF6EC;
+  --color-warn-border: #EAD9C0;
+  --color-warn-accent: #E65100;
+  --spacing-paragraph: var(--spacing-paragraph, 0.75em);
+  --spacing-section: var(--spacing-sectionGap, 2.5em);
+  --spacing-block: 1em;
+  --margin-page: 2.5cm;
+  --page-content-width: 15.6cm;
+  --heading-borderWidth: var(--decoration-headingBorderWidth, 4px);
+  --sp-3xs: 0.2em;
+  --sp-2xs: 0.3em;
+  --sp-xs: 0.35em;
+  --sp-s: 0.4em;
+  --sp-sm: 0.5em;
+  --sp-m: 0.6em;
+  --sp-mm: 0.7em;
+  --sp-l: 0.8em;
+  --sp-lm: 0.9em;
+  --sp-ml: 1em;
+  --sp-xl: 1.2em;
+  --sp-x2: 1.5em;
+  --sp-x3: 1.6em;
+  --sp-x4: 2em;
+  --sp-x5: 2.5em;
+  --sp-x6: 3em;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--ff-body); font-size: var(--fs-body); line-height: var(--lh-body); color: var(--color-text); background: var(--color-background); max-width: var(--page-content-width); margin: 0 auto; }
+
+/* ===== 封面 ===== */
+section[role="cover"] { background: var(--color-surface); padding: 4cm 2.5cm 3cm 2.5cm; }
+.cover-eyebrow { text-align: center; font-size: var(--fs-dataLabel); color: var(--color-textSecondary); letter-spacing: 0.4em; margin-bottom: var(--sp-x2); }
+section[role="cover"] > h1 { text-align: center; font-family: var(--ff-heading); font-size: var(--fs-coverTitle); font-weight: var(--fw-heading); color: var(--color-primary); margin-bottom: var(--sp-m); }
+.cover-subtitle { text-align: center; font-size: var(--fs-coverCategory); color: var(--color-textSecondary); margin-bottom: var(--sp-x6); }
+.cover-meta { width: 70%; margin: 0 auto; border-collapse: collapse; }
+.cover-meta td { padding: var(--sp-xs) var(--sp-lm); font-size: var(--fs-small); color: var(--color-textSecondary); border: 1px solid var(--color-divider); }
+.cover-meta td.meta-key { text-align: right; color: var(--color-text); font-weight: var(--fw-heading); background: var(--color-background); width: 40%; }
+.cover-meta td.meta-val { text-align: left; background: var(--color-background); }
+
+/* ===== 正文节 ===== */
+section[role="body"] { padding: var(--sp-x2) 0 var(--sp-x4) 0; }
+
+/* 目录 */
+.doc-toc { background: var(--color-surface); padding: var(--sp-xl) var(--sp-x3); margin-bottom: var(--spacing-section); border-left: var(--heading-borderWidth) solid var(--color-primary); }
+.doc-toc .toc-title { font-family: var(--ff-heading); font-size: var(--fs-dataLabel); font-weight: var(--fw-heading); color: var(--color-heading); margin-bottom: var(--sp-sm); }
+.doc-toc ol { padding-left: var(--sp-x3); }
+.doc-toc li { font-size: var(--fs-small); color: var(--color-text); line-height: 2; }
+
+/* 执行摘要 */
+.executive-summary { border-left: var(--heading-borderWidth) solid var(--color-primary); background: var(--color-surface); padding: var(--sp-x2) var(--sp-x3); margin-bottom: var(--spacing-section); }
+.executive-summary h2 { font-family: var(--ff-heading); font-size: var(--fs-h2); font-weight: var(--fw-heading); color: var(--color-background); background: var(--color-primary); padding: var(--sp-s) var(--sp-lm); margin-bottom: var(--sp-ml); }
+.executive-summary p { font-size: var(--fs-body); margin-bottom: var(--spacing-paragraph); }
+
+/* 指标卡表格 */
+.metric-cards { width: 100%; border-collapse: separate; border-spacing: var(--sp-s); margin-bottom: var(--sp-xl); }
+.metric-cards td { background: var(--color-background); border: 1px solid var(--color-divider); text-align: center; padding: var(--sp-l) var(--sp-s); width: 25%; }
+.metric-cards .card-value { display: block; font-family: var(--ff-heading); font-size: var(--fs-card-value); font-weight: var(--fw-bold); color: var(--color-primary); margin-bottom: var(--sp-3xs); }
+.metric-cards .card-label { display: block; font-size: var(--fs-tiny); color: var(--color-textSecondary); }
+
+/* 章节标题：深底白字横带 */
+.report-body h2 { font-family: var(--ff-heading); font-size: var(--fs-h2); font-weight: var(--fw-heading); color: var(--color-background); background: var(--color-primary); padding: var(--sp-s) var(--sp-lm); margin-top: var(--spacing-section); margin-bottom: var(--sp-ml); }
+.report-body h3 { font-family: var(--ff-heading); font-size: var(--fs-h3); font-weight: var(--fw-heading); color: var(--color-primary); border-left: var(--heading-borderWidth) solid var(--color-primary); padding-left: var(--sp-m); margin-top: var(--sp-x3); margin-bottom: var(--sp-m); }
+.report-body p { font-size: var(--fs-body); margin-bottom: var(--spacing-paragraph); text-align: justify; }
+.report-body ul, .report-body ol { padding-left: var(--sp-x3); margin-bottom: var(--spacing-paragraph); }
+.report-body li { font-size: var(--fs-body); margin-bottom: var(--sp-xs); text-align: justify; }
+.report-body strong { font-weight: var(--fw-bold); color: var(--color-heading); }
+
+/* 表格 */
+.report-table { width: 100%; border-collapse: collapse; margin: var(--sp-m) 0 var(--sp-xl) 0; }
+.report-table th { background: var(--color-surface); color: var(--color-heading); font-family: var(--ff-heading); font-size: var(--fs-small); font-weight: var(--fw-heading); text-align: left; padding: var(--sp-sm) var(--sp-mm); border: 1px solid var(--color-divider); }
+.report-table td { font-size: var(--fs-small); padding: var(--sp-sm) var(--sp-mm); border: 1px solid var(--color-divider); vertical-align: top; }
+.report-table tr:nth-child(even) td { background: var(--color-background); }
+
+/* 提示组件（单列表格承载多段落） */
+.callout-info { border-collapse: collapse; width: 100%; margin: var(--sp-l) 0 var(--sp-xl) 0; }
+.callout-info td { background: var(--color-surface); border: 1px solid var(--color-divider); border-left: var(--heading-borderWidth) solid var(--color-primary); padding: var(--sp-l) var(--sp-ml); font-size: var(--fs-body); }
+.callout-warning { border-collapse: collapse; width: 100%; margin: var(--sp-l) 0 var(--sp-xl) 0; }
+.callout-warning td { background: var(--color-warn-bg); border: 1px solid var(--color-warn-border); border-left: var(--heading-borderWidth) solid var(--color-warn-accent); padding: var(--sp-l) var(--sp-ml); font-size: var(--fs-body); }
+
+/* 数据链路流程条 */
+.flow-line { width: 100%; border-collapse: collapse; margin: var(--sp-m) 0 var(--sp-xl) 0; }
+.flow-line td { background: var(--color-surface); border: 1px dashed var(--color-divider); text-align: center; font-family: var(--ff-mono); font-size: var(--fs-small); color: var(--color-heading); padding: var(--sp-mm) var(--sp-sm); }
+
+/* 强调数据 */
+.data-emphasis { color: var(--color-emphasis); font-weight: var(--fw-bold); }
+code { font-family: var(--ff-mono); font-size: var(--fs-code); background: var(--color-surface); padding: 0 var(--sp-2xs); }
+
+/* 结语卡 */
+.closing-card { border-collapse: collapse; width: 100%; margin-top: var(--sp-x2); }
+.closing-card td { background: var(--color-surface); border-top: 2px solid var(--color-primary); padding: var(--sp-ml) var(--sp-xl); font-size: var(--fs-body); }
+</style>
+</head>
+<body>
+
+<section role="cover">
+  <p class="cover-eyebrow">KANGXIAOBAN AI · COMPETITION SHOWCASE</p>
+  <h1>康小伴AI智慧养老<br>比赛展示方案</h1>
+  <p class="cover-subtitle">AI 入院评估 · 照护计划选择 · 毫米波生命体征监护 · 视觉行为识别</p>
+  <table class="cover-meta">
+    <tbody>
+      <tr><td class="meta-key">项目</td><td class="meta-val">KangxiaobanAI（康小伴AI）· HarmonyOS NEXT 智慧养老工作台</td></tr>
+      <tr><td class="meta-key">版本</td><td class="meta-val">V1.0（比赛展示方案）</td></tr>
+      <tr><td class="meta-key">日期</td><td class="meta-val">2026年8月26日</td></tr>
+      <tr><td class="meta-key">密级</td><td class="meta-val">内部资料</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section role="body" data-page-restart="1">
+
+<nav class="doc-toc" aria-label="文档目录">
+  <p class="toc-title">目 录</p>
+  <ol>
+    <li>执行摘要</li>
+    <li>项目现状准信（2026-08-26 扫描）</li>
+    <li>总体架构与展示叙事主线</li>
+    <li>场景一：AI 入院评估对话与照护计划选择</li>
+    <li>场景二：毫米波雷达持续监护（防跌倒/呼吸/心率）</li>
+    <li>场景三：摄像头 + VL 模型行为识别</li>
+    <li>端到端工作流设计</li>
+    <li>安全与隐私合规方案</li>
+    <li>数据集方案</li>
+    <li>比赛演示路线图与风险预案</li>
+  </ol>
+</nav>
+
+<section class="executive-summary">
+  <h2>一、执行摘要</h2>
+  <p>本方案回答一个问题：<strong>拿什么上场比赛，怎么演，怎么落地。</strong></p>
+  <p>比赛展示一条完整叙事线：<strong>AI 入院评估 → 照护计划选择 → 毫米波持续监护（跌倒/呼吸/心率）→ 摄像头+VL 模型行为识别 → 告警处置闭环</strong>。四个环节串成"从入院到日常守护"的完整故事。</p>
+  <table class="metric-cards">
+    <tbody>
+    <tr>
+      <td><span class="card-value">4</span><span class="card-label">演示场景全链路</span></td>
+      <td><span class="card-value">2×3</span><span class="card-label">毫米波雷达·监测项</span></td>
+      <td><span class="card-value">6</span><span class="card-label">阶段工作流闭环</span></td>
+      <td><span class="card-value">&lt;3s</span><span class="card-label">告警延迟目标</span></td>
+    </tr>
+    </tbody>
+  </table>
+  <p>三个关键准信：</p>
+  <ol>
+    <li><strong>UI 底座已就绪。</strong>鸿蒙端 App（手机+平板/2in1 宽屏三形态）已具备登录、工作台、老人档案、健康列表、设备列表、消息、AI 对话页、医生入院评估工作台（含评估→建议→计划选择→知情确认的完整 UI 骨架）。当前为高保真本地原型，数据全部为 mock。</li>
+    <li><strong>毫米波是现成的真家伙。</strong>工作区已沉淀海凌科 60GHz 雷达（R60ABD1 睡眠呼吸心率 + R60AFD1 跌倒检测）完整 MQTT 协议、Python 接入 Demo、养老院多房间部署方案。比赛现场可跑真数据。</li>
+    <li><strong>摄像头+VL 行为识别是增量模块。</strong>采用边缘部署开源视觉语言模型（Qwen2.5-VL 类）做行为识别，与毫米波交叉验证降低误报。按本方案路线图赛前完成演示级部署。</li>
+  </ol>
+  <p>文档覆盖：现状准信（第二章）、三大场景设计（第四至六章）、端到端工作流（第七章）、安全与隐私合规（第八章）、数据集建设（第九章）、演示路线图与风险预案（第十章）。</p>
+</section>
+
+<main class="report-body">
+
+<h2 id="section-2">二、项目现状准信（2026-08-26 扫描）</h2>
+<p>本章先给地基：基于对工作区源码的实际扫描，给出可验证的现状盘点、可复用资产清单与赛前必须补齐的缺口。所有结论可追溯到具体文件。</p>
+<p>按工作区工程纪律，完成度分五级：<strong>Implemented</strong>（代码路径存在可追溯）/ <strong>Build-verified</strong>（本地构建通过）/ <strong>Device-verified</strong>（真机验证）/ <strong>Service-verified</strong>（对真实服务验证）/ <strong>Planned</strong>（仅规划）。比赛答辩沿用此口径，不把原型说成生产系统。</p>
+
+<h3>2.1 KangxiaobanAI 主产品现状</h3>
+<table class="report-table">
+  <thead><tr><th>模块</th><th>现状</th><th>完成度</th></tr></thead>
+  <tbody>
+    <tr><td>应用壳</td><td>HarmonyOS NEXT，bundleName <code>com.gxoc.kxbai</code>，phone/tablet/2in1 三形态，API 24</td><td>Implemented</td></tr>
+    <tr><td>登录</td><td>非空账号密码 + 定时器模拟通过，无真实鉴权</td><td>Implemented（原型）</td></tr>
+    <tr><td>手机端 Tab 工作台</td><td>首页/老人/消息/我的 + 沉浸响应式布局</td><td>Implemented（原型）</td></tr>
+    <tr><td>AI 对话页</td><td>1676 行，本地确定性回复 + Preference 历史存储，预设提示词含"当班护理工作计划"</td><td>Implemented（mock 回复）</td></tr>
+    <tr><td>医生宽屏工作台</td><td>入院评估组件 1797 行：多维初筛（0-4 分级）、护理计划结构、建议推荐、计划选择、知情确认</td><td>Implemented（原型，UI 骨架完整）</td></tr>
+    <tr><td>老人/健康/设备/消息</td><td>本地 mock 数据驱动卡片与列表</td><td>Implemented（原型）</td></tr>
+    <tr><td>网络层/后端/数据库</td><td>无。未声明 INTERNET 权限，无 Repository、无 RDB、无会话鉴权</td><td>Planned</td></tr>
+  </tbody>
+</table>
+
+<h3>2.2 可复用资产盘点</h3>
+<table class="report-table">
+  <thead><tr><th>资产</th><th>位置</th><th>比赛中的用途</th></tr></thead>
+  <tbody>
+    <tr><td>毫米波雷达协议与部署资料</td><td><code>MTQQ/</code></td><td>场景二真数据接入：MQTT 协议、房间路由 Demo、部署方案、台账模板</td></tr>
+    <tr><td>hermes AI 客户端移植</td><td><code>hermes/</code></td><td>场景一接真模型的工程范式：Repository 边界、HTTP 聊天桥接、token 安全模式</td></tr>
+    <tr><td>HarmonyOS 官方样例语料</td><td>工作区多个样例项目</td><td>UI/UX 与 Kit 能力参考（只读，不拷贝）</td></tr>
+  </tbody>
+</table>
+
+<h3>2.3 缺口清单（比赛前必须补）</h3>
+<ol>
+  <li>App 无网络权限与网络层 → 需声明 INTERNET + 建 Repository。</li>
+  <li>AI 对话是本地固定文本 → 需接局域网部署的真实大模型服务。</li>
+  <li>设备/健康卡片是 mock → 需后端把雷达 MQTT 数据转发为 WebSocket 实时推送。</li>
+  <li>摄像头+VL 行为识别模块不存在 → 需新建边缘推理服务 + App 展示链路。</li>
+</ol>
+
+<h2 id="section-3">三、总体架构与展示叙事主线</h2>
+<p>本章定义系统分层与评委视角的六分钟叙事时序，是全部演示环节的总纲。</p>
+
+<h3>3.1 一句话架构</h3>
+<p><strong>鸿蒙端（三形态 App）+ 边缘感知层（毫米波雷达×2 + 摄像头）+ 局域网服务层（EMQX 消息总线 + 后端网关 + AI 推理服务）</strong>，全部跑在比赛局域网内，不依赖公网，演示稳定可控。</p>
+
+<h3>3.2 系统分层</h3>
+<table class="report-table">
+  <thead><tr><th>层</th><th>组件</th><th>职责</th></tr></thead>
+  <tbody>
+    <tr><td>端侧</td><td>KangxiaobanAI（phone/tablet/2in1）</td><td>入院评估对话、计划选择、实时监护看板、告警处置</td></tr>
+    <tr><td>感知层</td><td>R60ABD1 睡眠雷达（卧室）、R60AFD1 跌倒雷达（卫生间）、网络摄像头</td><td>呼吸/心率/睡眠、跌倒检测、视觉行为识别</td></tr>
+    <tr><td>服务层</td><td>EMQX Broker（MQTT）、后端网关（Python/FastAPI）、VL 推理服务（GPU 主机）</td><td>设备数据汇聚、房间路由、告警判定、AI 对话代理</td></tr>
+    <tr><td>数据层</td><td>房间-设备绑定表、评估会话存储、事件库</td><td>台账、评估记录、告警留痕</td></tr>
+  </tbody>
+</table>
+
+<h3>3.3 比赛叙事主线（评委看到的六分钟故事）</h3>
+<ol>
+  <li>老人入住 → 护理员在鸿蒙平板打开医生工作台，AI 以对话方式完成入院评估（约 90 秒）。</li>
+  <li>AI 生成护理等级建议与 A/B/C 三套照护计划 → 医生选择并确认（约 60 秒）。</li>
+  <li>镜头切到卧室：毫米波雷达实时推送呼吸/心率/睡眠状态到 App 看板，数值滚动（约 60 秒）。</li>
+  <li>演示跌倒：志愿者在雷达下缓慢倒地 → fallStatus=1 → App 弹出红色告警 + 摄像头 VL 复核确认"跌倒姿态" → 双传感器交叉验证置信告警 → 护理员标记处置（约 90 秒）。</li>
+  <li>收尾：事件回流档案，计划自动生成复查建议，闭环（约 60 秒）。</li>
+</ol>
+
+<h2 id="section-4">四、场景一：AI 入院评估对话与照护计划选择</h2>
+<p>本场景展示 AI 评估从对话采集到计划确认的完整人机协同过程，核心原则是"AI 只建议、医生拍板"。</p>
+
+<h3>4.1 业务流程</h3>
+<p>入院评估采用<strong>对话式结构化采集</strong>：AI 扮演评估助手，按量表逐项提问，护理员代老人作答（老人参与度视认知状态调整）。评估维度对齐现行养老机构通行做法：</p>
+<table class="report-table">
+  <thead><tr><th>评估维度</th><th>参考量表</th><th>输出</th></tr></thead>
+  <tbody>
+    <tr><td>日常生活活动能力</td><td>Barthel 指数（进食、洗澡、修饰、穿衣、控便、如厕、转移、行走、上下楼梯）</td><td>0-100 分，四级分级</td></tr>
+    <tr><td>跌倒风险</td><td>Morse 跌倒评估</td><td>低/中/高危</td></tr>
+    <tr><td>认知状态</td><td>简易智能状态检查（MMSE，或简化版）</td><td>认知分级</td></tr>
+    <tr><td>营养与吞咽</td><td>简化营养初筛（对应现有"入住健康初筛"维度）</td><td>初筛标记</td></tr>
+  </tbody>
+</table>
+<table class="callout-info"><tbody><tr><td>
+  <p><strong>关键设计：AI 不直接下诊断结论，只输出结构化评估结果 + 分级建议 + 计划选项，最终由医生确认。</strong>这既是安全底线，也是答辩时"人机协同"的加分点。现有 <code>WideDoctorAdmission</code> 的评估维度（0-4 五级分级）已与此对齐，改造量集中在数据源从本地状态换成模型输出。</p>
+</td></tr></tbody></table>
+
+<h3>4.2 技术实现</h3>
+<ol>
+  <li><strong>模型接入</strong>：局域网部署开源对话模型（Qwen 系列 32B/72B 或比赛算力允许的规模），OpenAI 兼容 HTTP 接口。App 端走 hermes 已验证的工程范式：<code>page → viewmodel → use case → repository → HTTP data source</code>，AI 回复为非流式或 SSE 流式。</li>
+  <li><strong>提示词工程</strong>：系统提示词绑定量表模板，要求模型输出<strong>结构化 JSON</strong>（各维度得分、分级、依据、追问项），App 解析渲染成评估表单卡片。对话轮次控制在 8-12 轮内完成采集。</li>
+  <li><strong>计划生成</strong>：模型依据评估结果生成 A/B/C 三套计划（基础照护型 / 防跌加强型 / 康复促进型），每套含巡视频率、监测设备配置建议、活动安排。对应现有 <code>AdmissionCarePlan</code>/<code>CarePlanSuggestion</code> 数据结构，UI 已有推荐与知情确认字段。</li>
+  <li><strong>降级策略</strong>：模型服务不可用时，回落到内置规则引擎（阈值查表）生成计划，保证演示不中断。</li>
+</ol>
+
+<h3>4.3 演示要点</h3>
+<ul>
+  <li>平板宽屏演示医生工作台对话+评估表单联动（左对话右表单）。</li>
+  <li>手机端演示护理员视角查看已确认计划。</li>
+  <li>讲稿强调：量表对齐国标、AI 只建议医生拍板、全程留痕。</li>
+</ul>
+
+<h2 id="section-5">五、场景二：毫米波雷达持续监护（防跌倒/呼吸/心率）</h2>
+<p>本场景展示毫米波雷达非接触监护的真数据链路与告警闭环，是全场唯一全程真数据的环节。</p>
+
+<h3>5.1 设备与点位</h3>
+<table class="report-table">
+  <thead><tr><th>点位</th><th>设备</th><th>核心数据</th></tr></thead>
+  <tbody>
+    <tr><td>卧室（床头对侧墙上）</td><td>R60ABD1 睡眠呼吸心率雷达</td><td>呼吸值（0-40 次/min，正常 10-25）、心率（60-120 次/min）、睡眠状态（深睡/浅睡/清醒/离床）、睡眠评分、呼吸暂停次数、体动</td></tr>
+    <tr><td>卫生间（顶装）</td><td>R60AFD1 跌倒检测雷达</td><td>跌倒状态 fallStatus、跌倒位置 fallPosition、静止驻留 residentStatus、灵敏度 0-3</td></tr>
+  </tbody>
+</table>
+<p>毫米波相对摄像头的核心优势（答辩必讲）：<strong>非接触、无隐私暴露、不受光照影响、卫生间可用</strong>——恰好补足摄像头不能装的场所。</p>
+
+<h3>5.2 数据链路</h3>
+<table class="flow-line"><tbody><tr><td>雷达（每房间） → EMQX Broker（1883） → 后端网关（订阅 + 房间路由） → WebSocket → 鸿蒙 App 实时看板</td></tr></tbody></table>
+<ol>
+  <li><strong>协议要点</strong>（来自 <code>MTQQ/</code> 厂商文档，已本地验证）：睡眠雷达 topic <code>/Radar60SP/{设备ID}/sys/property/post</code>，跌倒雷达 <code>/Radar60FL/{设备ID}/sys/property/post</code>；数值字段为字符串需转换；波形类字段为数组。</li>
+  <li><strong>房间路由</strong>：复用 <code>mqtt_bridge_demo.py</code> 的路由逻辑（topic 取设备 ID → 查绑定表 → 定房间/老人）。生产化时把 <code>room_device_map.json</code> 换成数据库表，比赛演示用 JSON 即可。</li>
+  <li><strong>设备初始化</strong>：按 <code>init_commands.txt</code> 下发 sceneMode（卧室=2、卫生间=3）与 installHeight，保证算法匹配场景，压低误报——这是厂商文档明确强调的步骤。</li>
+  <li><strong>App 端接入</strong>：声明 INTERNET 权限，<code>@ohos.net.webSocket</code> 订阅网关。现有 DeviceListCard/HealthListCard 的 mock 字段名与雷达协议<strong>同名</strong>（humanDistance/motionStatus 等），替换成本低。</li>
+</ol>
+
+<h3>5.3 告警规则（演示版）</h3>
+<table class="report-table">
+  <thead><tr><th>触发条件</th><th>级别</th><th>动作</th></tr></thead>
+  <tbody>
+    <tr><td>fallStatus=1</td><td>紧急</td><td>App 红色弹窗 + 蜂鸣 + 推送摄像头 VL 复核</td></tr>
+    <tr><td>呼吸 &lt;10 或 &gt;25 次/min</td><td>高</td><td>App 橙色告警，值班护理员确认</td></tr>
+    <tr><td>心率 &lt;50 或 &gt;120 次/min</td><td>高</td><td>同上</td></tr>
+    <tr><td>夜间离床 &gt;15 分钟未归</td><td>中</td><td>提醒巡逻查看</td></tr>
+    <tr><td>卫生间静止驻留超阈值</td><td>中</td><td>提醒查看</td></tr>
+  </tbody>
+</table>
+<p>所有告警进入事件库，处置结果（到场/误报/处理）回填，形成留痕闭环。</p>
+
+<h2 id="section-6">六、场景三：摄像头 + VL 模型行为识别</h2>
+<p>本场景展示视觉行为识别与多模态交叉验证设计，差异化亮点是"视频不出边缘主机"的隐私架构。</p>
+
+<h3>6.1 方案定位</h3>
+<p>摄像头装在<strong>公共活动区与卧室门口</strong>（卫生间只用毫米波，伦理红线）。视频流<strong>不出边缘主机</strong>：抽帧推理、只输出结构化行为事件，原始画面仅本地循环存储，这是隐私架构的核心卖点。</p>
+
+<h3>6.2 模型选型</h3>
+<table class="report-table">
+  <thead><tr><th>候选</th><th>规格</th><th>优劣</th></tr></thead>
+  <tbody>
+    <tr><td>Qwen2.5-VL-7B（首选）</td><td>单卡消费级 GPU 可跑量化版</td><td>中文强、图像+视频理解、Apache 2.0 可商用</td></tr>
+    <tr><td>MiniCPM-V 2.6（备选）</td><td>8B，端侧友好</td><td>更轻，复杂行为判别弱一档</td></tr>
+    <tr><td>InternVL2.5-8B（备选）</td><td>8B</td><td>综合均衡</td></tr>
+  </tbody>
+</table>
+<p>推理服务封装为：<strong>输入</strong>=抽帧序列（1-2 fps）+ 受控行为类别表；<strong>输出</strong>=JSON（行为类别、置信度、时间戳、房间）。用受控类别表（closed-set）+ JSON Schema 约束输出，压制模型幻觉。</p>
+
+<h3>6.3 行为类别体系（v1 演示版）</h3>
+<table class="report-table">
+  <thead><tr><th>类别组</th><th>行为</th><th>响应</th></tr></thead>
+  <tbody>
+    <tr><td>正常</td><td>行走、坐立、卧床、进食、如厕（判为卫生间停留）</td><td>看板静默记录</td></tr>
+    <tr><td>关注</td><td>久坐不动 &gt;30min、夜间离床未归、徘徊（认知障碍特征）</td><td>中级提醒</td></tr>
+    <tr><td>告警</td><td>跌倒疑似、剧烈挣扎</td><td>触发交叉验证</td></tr>
+  </tbody>
+</table>
+
+<h3>6.4 与毫米波交叉验证（多模态融合，答辩亮点）</h3>
+<p>单传感器误报是行业公认痛点（跌倒检测误报会让护理员麻木）。融合规则：</p>
+<ol>
+  <li><strong>毫米波 fallStatus=1</strong> → 边缘服务推送对应房间摄像头最近 5 秒关键帧给 VL 复核 → VL 判定"跌倒姿态" → <strong>高置信告警</strong>（双确认）。</li>
+  <li>VL 疑似跌倒 + 毫米波无检测 → <strong>低置信提醒</strong>（人工复核队列）。</li>
+  <li>两者皆无 → 静默。持续记录"行为-生命体征"关联基线，用于计划修订（如夜间频繁离床 → 调整计划）。</li>
+</ol>
+
+<h3>6.5 演示降级预案</h3>
+<p>时间不允许部署 GPU 时：预录行为识别视频 + 现场跑离线推理回放；架构图讲清部署路径。毫米波场景不受此影响，始终真数据。</p>
+
+<h2 id="section-7">七、端到端工作流设计</h2>
+<p>本章把三个场景串成可运转的端到端流程，并给出演示版的接口契约。</p>
+
+<h3>7.1 六阶段闭环</h3>
+<ol>
+  <li><strong>入院受理</strong>：建档、设备绑定（房间台账登记设备 ID）。</li>
+  <li><strong>AI 评估</strong>：对话式量表采集 → 结构化评估结果。</li>
+  <li><strong>计划生成与选择</strong>：A/B/C 计划 → 医生确认 → 下发监测配置（雷达灵敏度、告警阈值随计划档位联动）。</li>
+  <li><strong>持续监护</strong>：毫米波生命体征 + VL 行为事件实时汇聚，看板呈现。</li>
+  <li><strong>事件处置</strong>：分级告警 → VL 交叉复核 → 护理员处置 → 结果回填。</li>
+  <li><strong>数据回流</strong>：周报自动生成（睡眠评分趋势、跌倒风险动态、计划执行率）→ 触发计划复查建议 → 回到阶段 3，形成闭环。</li>
+</ol>
+
+<h3>7.2 关键接口约定（演示版）</h3>
+<table class="report-table">
+  <thead><tr><th>接口</th><th>方向</th><th>协议</th><th>内容</th></tr></thead>
+  <tbody>
+    <tr><td>设备属性上报</td><td>雷达→Broker</td><td>MQTT</td><td>JSON，topic 按设备 ID 路由</td></tr>
+    <tr><td>实时数据推送</td><td>网关→App</td><td>WebSocket</td><td>心跳/数值/事件帧，按房间+老人聚合</td></tr>
+    <tr><td>对话请求</td><td>App→推理服务</td><td>HTTP(S)</td><td>评估上下文 + 量表模板</td></tr>
+    <tr><td>行为事件</td><td>VL 服务→网关</td><td>HTTP</td><td>JSON（类别/置信度/时间戳/房间）</td></tr>
+    <tr><td>告警确认</td><td>App→网关</td><td>WebSocket</td><td>处置结果回填</td></tr>
+  </tbody>
+</table>
+
+<h3>7.3 演示时序（四设备同屏）</h3>
+<p>平板（医生评估）→ 手机（护理员告警处置）→ 大屏（看板：雷达数值滚动 + 摄像头行为事件流）→ 讲解端（架构图随场景高亮）。</p>
+
+<h2 id="section-8">八、安全与隐私合规方案</h2>
+<p>本章给出数据分级、合规基线与技术措施三层安全设计，涉老是涉敏场景，这一章是评委必问项。</p>
+
+<h3>8.1 数据分级</h3>
+<table class="report-table">
+  <thead><tr><th>级别</th><th>数据</th><th>处置原则</th></tr></thead>
+  <tbody>
+    <tr><td>L4 高敏</td><td>摄像头画面</td><td>边缘处理不出内网、循环覆写 ≤7 天、App 默认骨架化/区域框展示、物理遮挡开关</td></tr>
+    <tr><td>L3 敏感</td><td>生命体征、健康评估、位置</td><td>加密存储、授权可见、家属按知情范围查看</td></tr>
+    <tr><td>L2 业务</td><td>任务、排班、告警记录</td><td>角色权限控制</td></tr>
+    <tr><td>L1 公开</td><td>界面文案、科普内容</td><td>常规管理</td></tr>
+  </tbody>
+</table>
+
+<h3>8.2 合规基线</h3>
+<table class="callout-warning"><tbody><tr><td>
+  <p><strong>合规红线：</strong>对标《个人信息保护法》《数据安全法》及 GB/T 35273-2020《个人信息安全规范》：健康与行踪数据属敏感个人信息，处理需<strong>单独同意</strong>；入院协议中列明监测项、数据用途、家属可见范围、退出机制（一键降级为仅毫米波模式）。</p>
+</td></tr></tbody></table>
+
+<h3>8.3 技术措施</h3>
+<ol>
+  <li><strong>传输</strong>：MQTT 启用账号鉴权，演示局域网内明文可接受但需 UI 标注（沿用 hermes 的"明文仅限可信局域网"警告模式）；生产化上 TLS。</li>
+  <li><strong>存储</strong>：评估记录与告警留痕本地加密；token 仅进程内存不落盘（hermes 已验证模式）。</li>
+  <li><strong>权限最小化</strong>：App 仅声明 INTERNET；摄像头不进端侧权限链路。</li>
+  <li><strong>审计</strong>：告警确认、计划修改、数据导出全留痕。</li>
+  <li><strong>比赛演示伦理</strong>：所有"老人"由志愿者扮演，跌倒用安全垫+慢动作，现场向评委说明知情同意流程，演示数据赛后清除。</li>
+</ol>
+
+<h2 id="section-9">九、数据集方案</h2>
+<p>本章给出公开数据集、自建数据集与评估基准三层数据方案，回答"模型怎么练、效果怎么量"。</p>
+
+<h3>9.1 公开数据集（预训练与评估基准）</h3>
+<table class="report-table">
+  <thead><tr><th>数据集</th><th>用途</th></tr></thead>
+  <tbody>
+    <tr><td>NTU RGB+D 120（动作识别基准）</td><td>行为识别预训练与动作词汇对齐</td></tr>
+    <tr><td>UR Fall Detection / Le2i Fall</td><td>跌倒检测基线复现与阈值标定</td></tr>
+    <tr><td>Toyota Smarthome（老年人日常活动）</td><td>老年人行为分布参考、越域评估协议</td></tr>
+    <tr><td>MultiMoDA（深度+毫米波+红外多模态跌倒）</td><td>多模态融合方法验证</td></tr>
+  </tbody>
+</table>
+<p>以各数据集官方许可为准，仅用于研究评估，商用前复核授权。</p>
+
+<h3>9.2 自建数据集（赛后规模化，比赛讲规划）</h3>
+<ol>
+  <li><strong>类别体系</strong>：按第六章 v1 行为表，扩展至 20 类（含细分姿态与过渡动作）。</li>
+  <li><strong>采集协议</strong>：多房型（单人间/双人间）、多光照（昼夜）、多视角；志愿者+受训演员在安全垫上模拟跌倒；每段 30-120 秒，同步记录毫米波 JSON 流（fallStatus 天然弱标注）。</li>
+  <li><strong>标注规范</strong>：时间段级标注 + 抽帧复核；双人独立标注，Cohen's Kappa ≥0.8 仲裁；边界帧逐帧裁定。</li>
+  <li><strong>规模路线</strong>：演示级 2000 段 → 半年 10000 段；毫米波数据随部署持续积累，与视觉样本按设备 ID+时间戳对齐。</li>
+  <li><strong>数据治理</strong>：采集全程书面知情同意；人脸区域默认模糊化；数据分级入库，与第八章对齐。</li>
+</ol>
+
+<h3>9.3 评估基准</h3>
+<table class="report-table">
+  <thead><tr><th>指标</th><th>目标（演示→产品）</th></tr></thead>
+  <tbody>
+    <tr><td>跌倒召回率（灵敏度）</td><td><span class="data-emphasis">≥95%</span>（双模融合）</td></tr>
+    <tr><td>误报率</td><td><span class="data-emphasis">&lt;2 次/房间/天</span>（融合后较单模降一个数量级）</td></tr>
+    <tr><td>端到端告警延迟</td><td><span class="data-emphasis">&lt;3 秒</span>（事件→App 弹窗）</td></tr>
+    <tr><td>呼吸/心率误差</td><td>与厂商规格一致（±1 次/min 量级，引用厂商标称）</td></tr>
+  </tbody>
+</table>
+
+<h2 id="section-10">十、比赛演示路线图与风险预案</h2>
+<p>本章把方案落到赛前执行：任务清单按优先级排序，每项标注可复用资产；风险全部给出预案。</p>
+
+<h3>10.1 赛前开发清单（按优先级排序）</h3>
+<table class="report-table">
+  <thead><tr><th>序</th><th>任务</th><th>复用资产</th><th>优先级</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>App 声明 INTERNET + 建立 Repository/HTTP 层</td><td>hermes 工程范式</td><td>P0</td></tr>
+    <tr><td>2</td><td>AiChatPage 接局域网模型服务（评估对话提示词+结构化输出）</td><td>hermes 聊天桥接</td><td>P0</td></tr>
+    <tr><td>3</td><td>后端网关：MQTT 订阅 → 房间路由 → WebSocket 推送</td><td>mqtt_bridge_demo.py</td><td>P0</td></tr>
+    <tr><td>4</td><td>设备/健康看板接真实数据流</td><td>现有卡片组件（字段同名）</td><td>P0</td></tr>
+    <tr><td>5</td><td>评估对话与 WideDoctorAdmission 联动（AI 输出→表单→计划选择）</td><td>现有评估 UI</td><td>P1</td></tr>
+    <tr><td>6</td><td>告警弹窗 + 处置回填闭环</td><td>现有消息/事件组件</td><td>P1</td></tr>
+    <tr><td>7</td><td>VL 推理服务 + 交叉验证逻辑</td><td>公开模型</td><td>P2（可降级）</td></tr>
+    <tr><td>8</td><td>真机签名与设备准备</td><td>—</td><td>P0（流程性）</td></tr>
+  </tbody>
+</table>
+
+<h3>10.2 风险与预案</h3>
+<table class="report-table">
+  <thead><tr><th>风险</th><th>概率</th><th>预案</th></tr></thead>
+  <tbody>
+    <tr><td>现场网络不可控</td><td>中</td><td>全套局域网：路由器+Broker+模型服务自带，不依赖会场网络</td></tr>
+    <tr><td>模型服务故障</td><td>中</td><td>规则引擎降级（评估走查表，计划照常生成）</td></tr>
+    <tr><td>雷达数据不出现场</td><td>低</td><td>已有内网验证记录；备录屏兜底</td></tr>
+    <tr><td>VL 部署不及</td><td>中</td><td>预录视频+离线回放，架构讲解</td></tr>
+    <tr><td>演示设备问题</td><td>低</td><td>双手机+双平板热备</td></tr>
+  </tbody>
+</table>
+
+<h3>10.3 答辩口径（诚实分级）</h3>
+<ul>
+  <li><strong>现场真实演示</strong>：App 三形态 UI、AI 评估对话（真模型）、毫米波真数据看板、跌倒告警闭环。</li>
+  <li><strong>讲解+录屏</strong>：VL 行为识别部署路径与融合逻辑。</li>
+  <li><strong>规划呈现</strong>：数据集建设、生产化路线（TLS、数据库、机构对接）。</li>
+</ul>
+
+<table class="closing-card"><tbody><tr><td>
+  <p><strong>结语：</strong>这套方案的可信度来自"每个环节都有已验证的资产托底"——UI 骨架在产品代码里，毫米波协议在内网跑通，AI 对话工程范式在 hermes 里验证过。比赛展示的不是概念片，是<strong>"把已有真部件接成一条完整链路"的工程能力</strong>。</p>
+</td></tr></tbody></table>
+
+</main>
+</section>
+
+</body>
+</html>

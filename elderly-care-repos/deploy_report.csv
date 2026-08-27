@@ -1,0 +1,126 @@
+﻿序号,仓库,平台,类型,状态,端口,访问URL,登录信息,说明
+1,3188628462-cmd/smart-elderly-platform,github,,error,8001,http://192.168.100.104:8001,,异常: [Errno 13] Permission denied
+2,LQ-500__yikang-companion,?,,error,8002,http://192.168.100.104:8002,,异常: [Errno 13] Permission denied
+3,Mratos__nursinghome-vue,?,,error,8003,http://192.168.100.104:8003,,异常: [Errno 13] Permission denied
+4,QQ767172261__Smart-elderly-carefall-detection-and-alarm-for-the-elderlyintelligent-elderly-care-fall-detection-an,?,,error,8004,http://192.168.100.104:8004,,异常: [Errno 13] Permission denied
+5,Tang1705__Intelligent-Elderly-Care,?,,error,8005,http://192.168.100.104:8005,,异常: [Errno 13] Permission denied
+6,a2131467/ceshi,gitee,springboot,build_fail,8006,http://192.168.100.104:8006,,"Maven 构建无 jar: [sudo] password for pve:OR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MissingProjectException"
+7,beginroad/bishe,gitee,,error,8007,http://192.168.100.104:8007,,异常: [Errno 13] Permission denied
+8,biukiu/disability-housing-system,gitee,,error,8008,http://192.168.100.104:8008,,异常: [Errno 13] Permission denied
+9,chen-xiaoyang1/smart_pension,gitee,,error,8009,http://192.168.100.104:8009,,异常: [Errno 13] Permission denied
+10,cyb830/smart-elderly-care,gitee,,error,8010,http://192.168.100.104:8010,,异常: [Errno 13] Permission denied
+11,elfbobo_admin_admin__KinEcho,?,,error,8011,http://192.168.100.104:8011,,异常: [Errno 13] Permission denied
+12,fate-friend/elder-care-suite,gitee,,error,8012,http://192.168.100.104:8012,,异常: [Errno 13] Permission denied
+13,gaosc2001/elderly-medical-care-system,gitee,,error,8013,http://192.168.100.104:8013,,异常: [Errno 13] Permission denied
+14,geekit/ruchu-care,gitee,,error,8014,http://192.168.100.104:8014,,异常: [Errno 13] Permission denied
+15,hepengfei-xy/ai-xhzb-vue-ai3,gitee,frontend,build_fail,8015,http://192.168.100.104:8015,,前端构建无 dist(可能无 build 脚本): [sudo] password for pve:
+16,hngcadmin/nursing_home,gitee,springboot,build_fail,8016,http://192.168.100.104:8016,,"Maven 构建无 jar: [sudo] password for pve:OR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MissingProjectException"
+17,huang-zejian04/elderly_service_platform,gitee,,error,8017,http://192.168.100.104:8017,,异常: [Errno 13] Permission denied
+18,huichar/zzyl,gitee,springboot,build_fail,8018,http://192.168.100.104:8018,,"Maven 构建无 jar: [sudo] password for pve:OR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MissingProjectException"
+19,imfinefku/gerocomium,github,,error,8019,http://192.168.100.104:8019,,异常: [Errno 13] Permission denied
+20,itxinfei/zzyl,gitee,springboot,build_fail,8020,http://192.168.100.104:8020,,"Maven 构建无 jar: [sudo] password for pve:OR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MissingProjectException"
+21,itxinfei/zzyl-web,gitee,,error,8021,http://192.168.100.104:8021,,异常: [Errno 13] Permission denied
+22,jerrylzh/aged-stage-platform,gitee,,error,8022,http://192.168.100.104:8022,,异常: [Errno 13] Permission denied
+23,kangxihuang__src-K089,?,,error,8023,http://192.168.100.104:8023,,异常: [Errno 13] Permission denied
+24,kangxihuang__src-K264,?,,error,8024,http://192.168.100.104:8024,,异常: [Errno 13] Permission denied
+25,lioyishiki/qushi,gitee,springboot,build_fail,8025,http://192.168.100.104:8025,,"Maven 构建无 jar: [sudo] password for pve:OR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MissingProjectException"
+26,lk506667090/kyl-sanatorium,gitee,,error,8026,http://192.168.100.104:8026,,异常: [Errno 13] Permission denied
+27,marspal-ai/smart-elderly-care,github,,error,8027,http://192.168.100.104:8027,,异常: [Errno 13] Permission denied
+28,memcacheon/zhiyi-tong,gitee,springboot,build_fail,8028,http://192.168.100.104:8028,,"Maven 构建无 jar: [sudo] password for pve:OR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MissingProjectException"
+29,mohaos/backend-of-e-guard,gitee,,error,8029,http://192.168.100.104:8029,,异常: [Errno 13] Permission denied
+30,mohaos/e-guarded-backend,gitee,springboot,build_fail,8030,http://192.168.100.104:8030,,"Maven 构建无 jar: [sudo] password for pve:OR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MissingProjectException"
+31,mohaos__e-shouhu-UI,?,springboot,build_fail,8031,http://192.168.100.104:8031,,"Maven 构建无 jar: [sudo] password for pve:OR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MissingProjectException"
+32,onion119__Elderly_Care_System,?,,error,8032,http://192.168.100.104:8032,,异常: [Errno 13] Permission denied
+33,profpund/ymw-heal,gitee,,error,8033,http://192.168.100.104:8033,,异常: [Errno 13] Permission denied
+34,r05e__EMS,?,,error,8034,http://192.168.100.104:8034,,异常: [Errno 13] Permission denied
+35,r05e/elder_-monitor_-system,gitee,,error,8035,http://192.168.100.104:8035,,异常: [Errno 13] Permission denied
+36,rai-end__Smart-Elderly-Care-System,?,,error,8036,http://192.168.100.104:8036,,异常: [Errno 13] Permission denied
+37,rainweb521__nursingHome,?,,error,8037,http://192.168.100.104:8037,,异常: [Errno 13] Permission denied
+38,ruichengtec/aged-service,gitee,,error,8038,http://192.168.100.104:8038,,异常: [Errno 13] Permission denied
+39,shuangyulin/springboot160_zihuiyanglao,github,,error,8039,http://192.168.100.104:8039,,异常: [Errno 13] Permission denied
+40,small-bears/beadhouse,github,springboot,build_fail,8040,http://192.168.100.104:8040,,"Maven 构建无 jar: [sudo] password for pve:OR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MissingProjectException"
+41,small-bears/yanglaoyuan,github,springboot,build_fail,8041,http://192.168.100.104:8041,,"Maven 构建无 jar: [sudo] password for pve:OR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MissingProjectException"
+42,snow_zx/zzyl,gitee,springboot,build_fail,8042,http://192.168.100.104:8042,,"Maven 构建无 jar: [sudo] password for pve:OR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MissingProjectException"
+43,sun-anzhi/smart-elderly-care-system,gitee,,error,8043,http://192.168.100.104:8043,,异常: [Errno 13] Permission denied
+44,tuowei_1_0/zzyl,gitee,springboot,build_fail,8044,http://192.168.100.104:8044,,"Maven 构建无 jar: [sudo] password for pve:OR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MissingProjectException"
+45,tuowei_1/zzyl,gitee,springboot,build_fail,8045,http://192.168.100.104:8045,,"Maven 构建无 jar: [sudo] password for pve:OR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MissingProjectException"
+46,tuowei_1/zzyl-web,gitee,frontend,build_fail,8046,http://192.168.100.104:8046,,前端构建无 dist(可能无 build 脚本): [sudo] password for pve:
+47,venti-klee/elder-ease,github,frontend,build_fail,8047,http://192.168.100.104:8047,,前端构建无 dist(可能无 build 脚本): [sudo] password for pve:
+48,wwqking__Community-Elderly-Care-Service-Platform,?,springboot,build_fail,8048,http://192.168.100.104:8048,,"Maven 构建无 jar: [sudo] password for pve:OR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MissingProjectException"
+49,wwqking__Smart-elderly-care-monitoring-management,?,springboot,build_fail,8049,http://192.168.100.104:8049,,"Maven 构建无 jar: [sudo] password for pve:OR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MissingProjectException"
+50,xbmt/ruchu-care,gitee,,error,8050,http://192.168.100.104:8050,,异常: [Errno 13] Permission denied
+51,yijie8/digital-elderly-care-system,gitee,,error,8051,http://192.168.100.104:8051,,异常: [Errno 13] Permission denied
+52,zhangsan594226632__Elderly-Care-Management-System,?,,error,8052,http://192.168.100.104:8052,,异常: [Errno 13] Permission denied
+53,zhaoruiqing123/flask_elderly_care,gitee,,error,8053,http://192.168.100.104:8053,,异常: [Errno 13] Permission denied
+54,ziyanlingxi/zhilao,gitee,,error,8054,http://192.168.100.104:8054,,异常: [Errno 13] Permission denied
+55,767172261__Fall-recognition-and-fall-detection-based-on-deep-learning-Intelligent-monitoring-smart-elderly-care,?,,error,8055,http://192.168.100.104:8055,,异常: [Errno 13] Permission denied
+56,Fankekeke__elderly_care_service_cos,?,,error,8056,http://192.168.100.104:8056,,异常: [Errno 13] Permission denied
+57,HadesTYT__zhihuiyanglao,?,,error,8057,http://192.168.100.104:8057,,异常: [Errno 13] Permission denied
+58,Jilaoda__nursing-home,?,,error,8058,http://192.168.100.104:8058,,异常: [Errno 13] Permission denied
+59,Lee401127__Smart-Elderly-Care-Monitoring-System,?,,error,8059,http://192.168.100.104:8059,,异常: [Errno 13] Permission denied
+60,XueX258000__Intelligent-Emotional-Interaction-Assistant-for-the-Elderly,?,,error,8060,http://192.168.100.104:8060,,异常: [Errno 13] Permission denied
+61,YPYT1__Nursing-home-health-management,?,,error,8061,http://192.168.100.104:8061,,异常: [Errno 13] Permission denied
+62,adpanru/smart-elderly-care,github,,error,8062,http://192.168.100.104:8062,,异常: [Errno 13] Permission denied
+63,b912232471-droid__Smart-Senior-Care-Cente,?,,error,8063,http://192.168.100.104:8063,,异常: [Errno 13] Permission denied
+64,liubaijiangde-bot/26-wkyl-elderly-care,github,,error,8064,http://192.168.100.104:8064,,异常: [Errno 13] Permission denied
+65,lizheznr/zhihuiyanglaoshequpingtai,github,springboot,build_fail,8065,http://192.168.100.104:8065,,"Maven 构建无 jar: [sudo] password for pve:OR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MissingProjectException"
+66,nature924__No100Smart-Elderly-Care-Center-Management-System,?,springboot,build_fail,8066,http://192.168.100.104:8066,,"Maven 构建无 jar: [sudo] password for pve:OR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MissingProjectException"
+67,sbgumen/zhihui-yiyang,github,frontend,build_fail,8067,http://192.168.100.104:8067,,前端构建无 dist(可能无 build 脚本): [sudo] password for pve:
+68,sjr666666/ai-elderly-health-assistant,github,,error,8068,http://192.168.100.104:8068,,异常: [Errno 13] Permission denied
+69,small-bears/beadhouses,github,springboot,build_fail,8069,http://192.168.100.104:8069,,"Maven 构建无 jar: [sudo] password for pve:OR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MissingProjectException"
+70,telawang91-dotcom/elderly-health-management,github,,error,8070,http://192.168.100.104:8070,,异常: [Errno 13] Permission denied
+71,wang-buer__Nursing-home-management-system-based-on-spring-boot1,?,,error,8071,http://192.168.100.104:8071,,异常: [Errno 13] Permission denied
+72,wangtianrui__OldPeopleHome,?,,error,8072,http://192.168.100.104:8072,,异常: [Errno 13] Permission denied
+73,AwesomeWong__elder-care,?,,error,8073,http://192.168.100.104:8073,,异常: [Errno 13] Permission denied
+74,Chen01020304__elderly-care-backend,?,,error,8074,http://192.168.100.104:8074,,异常: [Errno 13] Permission denied
+75,Johan535__Smart-Community-Elderly-Care-Mini-Program,?,,error,8075,http://192.168.100.104:8075,,异常: [Errno 13] Permission denied
+76,YuLin-Coder__No115CommunityElderlyCareComprehensive,?,springboot,build_fail,8076,http://192.168.100.104:8076,,"Maven 构建无 jar: [sudo] password for pve:OR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MissingProjectException"
+77,Zhidian2024__zhihuiyanglao-peizhen00,?,,error,8077,http://192.168.100.104:8077,,异常: [Errno 13] Permission denied
+78,baizhi958216__Nursing-Home-Management-System,?,frontend,build_fail,8078,http://192.168.100.104:8078,,前端构建无 dist(可能无 build 脚本): [sudo] password for pve:
+79,javacode443__Community-Smart-Healthcare-and-Elderly-Care-System,?,,error,8079,http://192.168.100.104:8079,,异常: [Errno 13] Permission denied
+80,luoci1213/smart_elderly_care,github,,error,8080,http://192.168.100.104:8080,,异常: [Errno 13] Permission denied
+81,mmm-collab__yanglaoAPP,?,,error,8081,http://192.168.100.104:8081,,异常: [Errno 13] Permission denied
+82,wanghao234/eldercare-system-web,github,frontend,build_fail,8082,http://192.168.100.104:8082,,前端构建无 dist(可能无 build 脚本): [sudo] password for pve:
+83,zhanghongyu04/smart-nursing-house,github,,error,8083,http://192.168.100.104:8083,,异常: [Errno 13] Permission denied
+84,zhaofuchen99/eldercare-system,github,,error,8084,http://192.168.100.104:8084,,异常: [Errno 13] Permission denied
+85,zongjixiaoai66__ElderlyCareMonitoringPlatform,?,,error,8085,http://192.168.100.104:8085,,异常: [Errno 13] Permission denied
+86,zongjixiaoai66__NursingHomeManagementSystem2,?,,error,8086,http://192.168.100.104:8086,,异常: [Errno 13] Permission denied
+87,zspeter1902/aged-stage-platform,github,,error,8087,http://192.168.100.104:8087,,异常: [Errno 13] Permission denied

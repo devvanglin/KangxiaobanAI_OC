@@ -15,3 +15,13 @@
 # Hvigor-generated files and dependency locks from local sample builds.
 MusicHome/**/BuildProfile.ets
 MusicHome/**/oh-package-lock.json5
+
+# Secrets / credentials - never commit
+elderly-care-repos/.ghtoken
+eldercare-projects-100-20260820/private/ACCESS-CREDENTIALS.md
+
+# Deploy / server scripts that may embed credentials
+elderly-care-repos/ssh_check_*.py
+elderly-care-repos/deploy_all.py
+elderly-care-repos/setup_infra.py
+elderly-care-repos/probe_server.py

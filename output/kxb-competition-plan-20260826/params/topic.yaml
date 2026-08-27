@@ -1,0 +1,12 @@
+detected_doc_type: "技术实施方案（比赛展示）"
+target_length: 10000
+target_tone: "正式、工程化、结论先行，正式度★★★★☆"
+target_reader: "比赛评委 + 项目团队"
+core_points:
+  - 项目现状准信：KangxiaobanAI 为高保真原型，入院评估/计划选择 UI 骨架已存在，AI 对话为本地 mock
+  - 毫米波（海凌科 R60ABD1/R60AFD1）接入资料齐备，MTQQ 目录含完整 MQTT 协议与 Python Demo
+  - hermes 项目提供可复用的真实 AI 对话 HTTP Repository 模式
+  - 摄像头 + VL 模型（Qwen2.5-VL 等）行为识别为新增模块，走边缘部署
+  - 工作流六阶段闭环 + 安全隐私合规 + 数据集建设方案
+critic_decision: "skip (genre=general 低风险档)"
+research_source: "本地项目扫描（非网络检索）：KangxiaobanAI 源码、MTQQ 毫米波资料库、hermes AGENTS.md、工作区 AGENTS.md 基线"

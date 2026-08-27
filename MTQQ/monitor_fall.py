@@ -17,7 +17,7 @@ import json
 import time
 
 BROKER = "192.168.100.110"      # MQTT 服务器
-DEVICE = "E438192587C3"          # 设备 ID(改这里可换成别的设备)
+DEVICE = "E438192584AA"          # 设备 ID(改这里可换成别的设备)
 
 FIELD_LABELS = {
     "online": "在线",

@@ -1,0 +1,57 @@
+current_stage: completed
+request_id: kxb-competition-plan-20260826
+consistency_check:
+  overall_status: success
+  final_deliverable: "stage3/output.docx (康小伴AI智慧养老比赛展示方案 V1.0)"
+entry_type: full_pipeline
+intent_summary: "比赛展示方案：AI入院评估对话+照护计划选择+毫米波(跌倒/呼吸/心率)+摄像头VL行为识别，含工作流/安全/数据集，输出Word"
+stage_0:
+  status: completed
+  decision: "无既有文档，属从零创作 → full_pipeline (S1→S2→S3)"
+stage_1:
+  status: completed
+  completed_at: "2026-08-26T16:15"
+  executor: doc-writer
+  route: general_writing
+  genre: general
+  expert_used: general-writer
+  critic_decision: null
+  output_path: "stage1/final_draft.md"
+stage_2:
+  status: completed
+  completed_at: "2026-08-26T16:30"
+  executor: doc-formatter
+  route: html
+  html_sub: template
+  genre: business-report
+  template_used: business-report.html
+  output_path: "stage2/formatted-kxb-competition-plan.html"
+  output_format: html
+  skills_invoked: [design-token, doc-typeset, html-review]
+  design_tokens_path: "stage2/design_tokens.json"
+  html_review_attempts: 1
+  html_review_note: "首轮 score 39 → 修正裸值/tbody/章节导语 → score 75；剩余 SI-02 为布局表(封面meta/指标卡/callout/flow/结语卡)无表头语义，按 doc-typeset SKILL.md §d 裸单列卡片表规范豁免(官方示例本身无thead)；14个数据表全部合规"
+stage_3:
+  status: completed
+  completed_at: "2026-08-26T16:19"
+  executor: doc-converter
+  input_format: html
+  input_path: "stage2/formatted-kxb-competition-plan.html"
+  output_path: "stage3/output.docx"
+  skill_used: ["html-to-docx"]
+  success: true
+  present_files_opened: true
+  fallback: false
+  fallback_reason: null
+  warnings: ["Nested <section> demoted to plain blocks (expected: exec-summary inner section)"]
+stage_2:
+  status: pending
+  executor: doc-formatter
+  input: stage1/final_draft.md
+  intermediate_dir: output/kxb-competition-plan-20260826/stage2/intermediate/
+  output: output/kxb-competition-plan-20260826/stage2/formatted-kxb-competition-plan.html
+stage_3:
+  status: pending
+  executor: doc-converter
+  input: stage2 html
+  output: output/kxb-competition-plan-20260826/stage3/output.docx
