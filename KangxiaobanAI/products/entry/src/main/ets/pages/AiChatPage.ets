@@ -1171,60 +1171,80 @@ export struct AiChatPage {
           this.inputText = value;
         })
 
-      Row({ space: 4 }) {
-        Button({ type: ButtonType.Circle, stateEffect: true }) {
-          SymbolGlyph($r('sys.symbol.plus'))
-            .fontSize(21)
-            .fontColor([$r('sys.color.icon_primary')])
+      Row({ space: 12 }) {
+        Scroll() {
+          Row({ space: 4 }) {
+            Button({ type: ButtonType.Circle, stateEffect: true }) {
+              SymbolGlyph($r('sys.symbol.plus'))
+                .fontSize(21)
+                .fontColor([$r('sys.color.icon_primary')])
+            }
+            .buttonStyle(ButtonStyleMode.TEXTUAL)
+            .width(36)
+            .height(36)
+            .accessibilityText('更多工具')
+
+            Divider()
+              .vertical(true)
+              .height(22)
+              .strokeWidth(0.5)
+              .color($r('sys.color.comp_divider'))
+
+            this.embeddedComposerTool($r('sys.symbol.message_on_message_fill'), '对话')
+            this.embeddedComposerTool($r('sys.symbol.paintpalette'), '图像生成')
+            this.embeddedComposerTool($r('sys.symbol.doc_text'), 'PPT 生成')
+            this.embeddedComposerTool($r('sys.symbol.pencil_line'), '帮我写作')
+            this.embeddedComposerTool($r('sys.symbol.square_on_square_fill'), '视频生成')
+            this.embeddedComposerTool($r('sys.symbol.waveform_path_ecg_square'), '录音转写')
+            this.embeddedComposerTool($r('sys.symbol.checkmark_circle_fill'), '解题答疑')
+            this.embeddedComposerTool($r('sys.symbol.square_grid_2x2'), '更多')
+          }
+          .height(42)
+          .alignItems(VerticalAlign.Center)
         }
-        .buttonStyle(ButtonStyleMode.TEXTUAL)
-        .width(36)
-        .height(36)
-        .accessibilityText('更多工具')
+        .layoutWeight(1)
+        .height(42)
+        .scrollable(ScrollDirection.Horizontal)
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
+        .align(Alignment.Start)
+        .clip(true)
 
-        Divider()
-          .vertical(true)
-          .height(22)
-          .strokeWidth(0.5)
-          .color($r('sys.color.comp_divider'))
+        Row({ space: 8 }) {
+          Text('康小伴·快速')
+            .fontSize($r('sys.float.Body_S'))
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
 
-        this.embeddedComposerTool($r('sys.symbol.message_on_message_fill'), '对话')
-        this.embeddedComposerTool($r('sys.symbol.paintpalette'), '图像生成')
-        this.embeddedComposerTool($r('sys.symbol.doc_text'), 'PPT 生成')
-        this.embeddedComposerTool($r('sys.symbol.pencil_line'), '帮我写作')
-        this.embeddedComposerTool($r('sys.symbol.square_on_square_fill'), '视频生成')
-        this.embeddedComposerTool($r('sys.symbol.waveform_path_ecg_square'), '录音转写')
-        this.embeddedComposerTool($r('sys.symbol.checkmark_circle_fill'), '解题答疑')
-        this.embeddedComposerTool($r('sys.symbol.square_grid_2x2'), '更多')
-
-        Blank().layoutWeight(1)
-
-        Text('豆包·快速')
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_primary'))
-
-        Button({ type: ButtonType.Circle, stateEffect: true }) {
-          SymbolGlyph($r('sys.symbol.arrow_up'))
-            .fontSize(19)
-            .fontColor([$r('app.color.text_on_brand')])
+          Button({ type: ButtonType.Circle, stateEffect: true }) {
+            SymbolGlyph($r('sys.symbol.arrow_up'))
+              .fontSize(19)
+              .fontColor([$r('app.color.text_on_brand')])
+          }
+          .buttonStyle(ButtonStyleMode.NORMAL)
+          .width(40)
+          .height(40)
+          .backgroundColor(this.inputText.trim().length > 0 && !this.isGenerating ?
+            $r('app.color.brand_blue') : 0xFFB7C8F8)
+          .enabled(this.inputText.trim().length > 0 && !this.isGenerating)
+          .accessibilityText('发送')
+          .onClick(() => {
+            this.sendMessage();
+          })
         }
-        .buttonStyle(ButtonStyleMode.NORMAL)
-        .width(40)
-        .height(40)
-        .backgroundColor(this.inputText.trim().length > 0 && !this.isGenerating ?
-          $r('app.color.brand_blue') : 0xFFB7C8F8)
-        .enabled(this.inputText.trim().length > 0 && !this.isGenerating)
-        .accessibilityText('发送')
-        .onClick(() => {
-          this.sendMessage();
-        })
+        .constraintSize({ minWidth: 168 })
+        .height(42)
+        .justifyContent(FlexAlign.End)
+        .alignItems(VerticalAlign.Center)
       }
       .width('100%')
       .height(42)
       .alignItems(VerticalAlign.Center)
     }
     .width('100%')
-    .padding({ left: 18, right: 10, top: 12, bottom: 10 })
+    .constraintSize({ maxWidth: 760 })
+    .padding({ left: 18, right: 16, top: 12, bottom: 10 })
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(28)
     .border({ width: 0.5, color: $r('sys.color.comp_divider') })
@@ -1420,26 +1440,45 @@ export struct AiChatPage {
   private newConversationButton() {
     Row() {
       if (this.isEmbeddedWideHistory()) {
-        SymbolGlyph($r('sys.symbol.plus_circle'))
-          .fontSize(21)
-          .fontColor([$r('sys.color.icon_primary')])
-      }
-      Text('新对话')
-        .fontSize($r('sys.float.Body_S'))
-        .fontColor($r('sys.color.font_primary'))
-        .fontWeight(FontWeight.Medium)
-      if (this.isEmbeddedWideHistory()) {
-        Blank()
+        Row() {
+          Blank()
+            .width(64)
+
+          Row({ space: 8 }) {
+            SymbolGlyph($r('sys.symbol.plus_circle'))
+              .fontSize(21)
+              .fontColor([$r('sys.color.icon_primary')])
+            Text('新对话')
+              .fontSize($r('sys.float.Body_S'))
+              .fontColor($r('sys.color.font_primary'))
+              .fontWeight(FontWeight.Medium)
+          }
           .layoutWeight(1)
+          .justifyContent(FlexAlign.Center)
+          .alignItems(VerticalAlign.Center)
+
           Text('Ctrl + J')
             .fontSize($r('sys.float.Caption_M'))
             .fontColor($r('sys.color.font_tertiary'))
+            .maxLines(1)
+            .width(64)
+            .textAlign(TextAlign.End)
+        }
+        .width('100%')
+        .height('100%')
+        .alignItems(VerticalAlign.Center)
+      } else {
+        Text('新对话')
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_primary'))
+          .fontWeight(FontWeight.Medium)
       }
     }
     .width('100%')
     .height(this.isEmbeddedWideHistory() ? 52 : 42)
     .padding({ left: this.isEmbeddedWideHistory() ? 18 : 0, right: this.isEmbeddedWideHistory() ? 18 : 0 })
     .justifyContent(this.isEmbeddedWideHistory() ? FlexAlign.Start : FlexAlign.Center)
+    .alignItems(VerticalAlign.Center)
     .borderRadius(this.isEmbeddedWideHistory() ? 26 : 21)
     .border({ width: 0.5, color: $r('sys.color.comp_divider') })
     .backgroundColor(this.isEmbeddedWideHistory() ?
@@ -1492,7 +1531,7 @@ export struct AiChatPage {
 
   @Builder
   private historySessionItem(session: ChatSession) {
-    Row() {
+    Row({ space: 8 }) {
       Text(session.title)
         .fontSize($r('sys.float.Body_S'))
         .fontColor(session.id === this.historyStore.activeSessionId ?
@@ -1500,16 +1539,18 @@ export struct AiChatPage {
         .fontWeight(session.id === this.historyStore.activeSessionId ? FontWeight.Medium : FontWeight.Regular)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .width('100%')
+        .layoutWeight(1)
       if (this.isEmbeddedWideHistory() && session.id === this.historyStore.activeSessionId) {
         SymbolGlyph($r('sys.symbol.ellipsis_message_fill'))
           .fontSize(18)
           .fontColor([$r('sys.color.icon_tertiary')])
+          .margin({ right: 4 })
       }
     }
     .width('100%')
     .height(this.isEmbeddedWideHistory() ? 48 : 40)
     .padding({ left: this.isEmbeddedWideHistory() ? 14 : 10, right: this.isEmbeddedWideHistory() ? 14 : 10 })
+    .alignItems(VerticalAlign.Center)
     .borderRadius(this.isEmbeddedWideHistory() ? 14 : 9)
     .backgroundColor(session.id === this.historyStore.activeSessionId ?
       $r('sys.color.comp_background_tertiary') : Color.Transparent)
