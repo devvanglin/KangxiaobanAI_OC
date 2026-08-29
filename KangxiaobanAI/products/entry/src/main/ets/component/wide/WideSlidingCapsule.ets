@@ -33,6 +33,7 @@ export struct WideSlidingCapsule {
   @Param @Require itemWidth: number;
   @Param fillWidth: boolean = false;
   @Param iconOnly: boolean = false;
+  @Param deferSelectionUntilAnimation: boolean = false;
   @Event onSelect: (index: number) => void = (_index: number) => {};
   @Local hoveredIndex: number = -1;
   @Local focusedIndex: number = -1;
@@ -87,6 +88,7 @@ export struct WideSlidingCapsule {
       return;
     }
     this.selectionRequestToken += 1;
+    const requestToken: number = this.selectionRequestToken;
     this.visualSelectedIndex = index;
     this.getUIContext().animateTo({
       duration: 280,
@@ -94,7 +96,15 @@ export struct WideSlidingCapsule {
     }, () => {
       this.animatedPosition = position;
     });
-    this.onSelect(index);
+    if (!this.deferSelectionUntilAnimation) {
+      this.onSelect(index);
+      return;
+    }
+    setTimeout(() => {
+      if (requestToken === this.selectionRequestToken) {
+        this.onSelect(index);
+      }
+    }, 280);
   }
 
   private containerWidth(): number {

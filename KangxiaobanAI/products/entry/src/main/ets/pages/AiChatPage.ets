@@ -1422,18 +1422,18 @@ export struct AiChatPage {
       if (this.isEmbeddedWideHistory()) {
         SymbolGlyph($r('sys.symbol.plus_circle'))
           .fontSize(21)
-          .fontColor([Color.White])
+          .fontColor([$r('sys.color.icon_primary')])
       }
       Text('新对话')
         .fontSize($r('sys.float.Body_S'))
-        .fontColor(this.isEmbeddedWideHistory() ? Color.White : $r('sys.color.font_primary'))
+        .fontColor($r('sys.color.font_primary'))
         .fontWeight(FontWeight.Medium)
       if (this.isEmbeddedWideHistory()) {
         Blank()
           .layoutWeight(1)
-        Text('Ctrl + J')
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor('#A2A3A7')
+          Text('Ctrl + J')
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('sys.color.font_tertiary'))
       }
     }
     .width('100%')
@@ -1441,10 +1441,9 @@ export struct AiChatPage {
     .padding({ left: this.isEmbeddedWideHistory() ? 18 : 0, right: this.isEmbeddedWideHistory() ? 18 : 0 })
     .justifyContent(this.isEmbeddedWideHistory() ? FlexAlign.Start : FlexAlign.Center)
     .borderRadius(this.isEmbeddedWideHistory() ? 26 : 21)
-    .border({ width: 0.5, color: this.isEmbeddedWideHistory() ? '#5B5C61' : $r('sys.color.comp_divider') })
-    .backgroundColor(this.isEmbeddedWideHistory() ? '#4A4B50' : $r('sys.color.comp_background_primary'))
-    .shadow(this.isEmbeddedWideHistory() ? { radius: 0, color: Color.Transparent } :
-      { radius: 8, color: 'rgba(0,0,0,0.06)', offsetY: 2 })
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .shadow({ radius: 8, color: 'rgba(0,0,0,0.06)', offsetY: 2 })
     .focusable(true)
     .focusOnTouch(true)
     .onClick(() => {
@@ -1485,7 +1484,7 @@ export struct AiChatPage {
   private sessionGroupTitle(label: string) {
     Text(label)
       .fontSize($r('sys.float.Caption_S'))
-      .fontColor(this.isEmbeddedWideHistory() ? '#A6A7AA' : $r('sys.color.font_tertiary'))
+      .fontColor($r('sys.color.font_tertiary'))
       .width('100%')
       .padding({ left: this.isEmbeddedWideHistory() ? 14 : 8, top: 14, bottom: 6 })
   }
@@ -1495,9 +1494,8 @@ export struct AiChatPage {
     Row() {
       Text(session.title)
         .fontSize($r('sys.float.Body_S'))
-        .fontColor(this.isEmbeddedWideHistory() ? Color.White :
-          (session.id === this.historyStore.activeSessionId ?
-            $r('app.color.brand_blue') : $r('sys.color.font_primary')))
+        .fontColor(session.id === this.historyStore.activeSessionId ?
+          $r('app.color.brand_blue') : $r('sys.color.font_primary'))
         .fontWeight(session.id === this.historyStore.activeSessionId ? FontWeight.Medium : FontWeight.Regular)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -1505,7 +1503,7 @@ export struct AiChatPage {
       if (this.isEmbeddedWideHistory() && session.id === this.historyStore.activeSessionId) {
         SymbolGlyph($r('sys.symbol.ellipsis_message_fill'))
           .fontSize(18)
-          .fontColor(['#C4C5C8'])
+          .fontColor([$r('sys.color.icon_tertiary')])
       }
     }
     .width('100%')
@@ -1513,7 +1511,7 @@ export struct AiChatPage {
     .padding({ left: this.isEmbeddedWideHistory() ? 14 : 10, right: this.isEmbeddedWideHistory() ? 14 : 10 })
     .borderRadius(this.isEmbeddedWideHistory() ? 14 : 9)
     .backgroundColor(session.id === this.historyStore.activeSessionId ?
-      (this.isEmbeddedWideHistory() ? '#3A3B3F' : $r('sys.color.comp_background_tertiary')) : Color.Transparent)
+      $r('sys.color.comp_background_tertiary') : Color.Transparent)
     .focusable(true)
     .focusOnTouch(true)
     .onClick(() => {
@@ -1526,10 +1524,10 @@ export struct AiChatPage {
     Column({ space: 8 }) {
       SymbolGlyph($r('sys.symbol.AI_message'))
         .fontSize(30)
-        .fontColor([this.isEmbeddedWideHistory() ? '#77787D' : $r('sys.color.icon_tertiary')])
+        .fontColor([$r('sys.color.icon_tertiary')])
       Text('暂无对话记录')
         .fontSize($r('sys.float.Body_S'))
-        .fontColor(this.isEmbeddedWideHistory() ? '#A6A7AA' : $r('sys.color.font_secondary'))
+        .fontColor($r('sys.color.font_secondary'))
     }
     .width('100%')
     .padding({ top: 28 })
@@ -1815,13 +1813,13 @@ export struct AiChatPage {
         Column({ space: 16 }) {
           SymbolGlyph($r('sys.symbol.AI_message'))
             .fontSize(24)
-            .fontColor(['#6F94FF'])
+            .fontColor([$r('app.color.brand_blue')])
 
           Column({ space: 2 }) {
             Button({ type: ButtonType.Circle, stateEffect: true }) {
               SymbolGlyph($r('sys.symbol.open_sidebar'))
                 .fontSize(21)
-                .fontColor(['#F0F1F3'])
+                .fontColor([$r('sys.color.icon_primary')])
             }
             .buttonStyle(ButtonStyleMode.NORMAL)
             .width(44)
@@ -1835,7 +1833,7 @@ export struct AiChatPage {
             Button({ type: ButtonType.Circle, stateEffect: true }) {
               SymbolGlyph($r('sys.symbol.magnifyingglass'))
                 .fontSize(21)
-                .fontColor(['#F0F1F3'])
+                .fontColor([$r('sys.color.icon_primary')])
             }
             .buttonStyle(ButtonStyleMode.NORMAL)
             .width(44)
@@ -1846,7 +1844,7 @@ export struct AiChatPage {
             Button({ type: ButtonType.Circle, stateEffect: true }) {
               SymbolGlyph($r('sys.symbol.plus_circle'))
                 .fontSize(21)
-                .fontColor(['#F0F1F3'])
+                .fontColor([$r('sys.color.icon_primary')])
             }
             .buttonStyle(ButtonStyleMode.NORMAL)
             .width(44)
@@ -1858,7 +1856,8 @@ export struct AiChatPage {
             })
           }
           .padding({ top: 4, bottom: 4 })
-          .backgroundColor('#3A3B3F')
+          .backgroundColor($r('sys.color.comp_background_primary'))
+          .border({ width: 0.5, color: $r('sys.color.comp_divider') })
           .borderRadius(26)
         }
         .width('100%')
@@ -1868,15 +1867,15 @@ export struct AiChatPage {
           Text('康小伴 AI')
             .fontSize(20)
             .fontWeight(FontWeight.Bold)
-            .fontColor(Color.White)
+            .fontColor($r('sys.color.font_primary'))
             .layoutWeight(1)
           SymbolGlyph($r('sys.symbol.magnifyingglass'))
             .fontSize(21)
-            .fontColor(['#B8B9BD'])
+            .fontColor([$r('sys.color.icon_secondary')])
             .accessibilityText('搜索会话')
           SymbolGlyph($r('sys.symbol.close_sidebar'))
             .fontSize(21)
-            .fontColor(['#B8B9BD'])
+            .fontColor([$r('sys.color.icon_secondary')])
             .accessibilityText('收起会话栏')
             .onClick(() => {
               this.toggleEmbeddedHistory();
@@ -1907,7 +1906,7 @@ export struct AiChatPage {
     .width('100%')
     .height('100%')
     .padding({ top: this.globalInfoModel.statusBarHeight + 12 })
-    .backgroundColor('#1F2022')
+    .backgroundColor($r('sys.color.background_secondary'))
   }
 
   @Builder

@@ -80,6 +80,7 @@ export struct WideCaregiverTitleActions {
         selectedIndex: this.activeTabIndex(),
         itemWidth: this.iconOnlyNavigation ? 48 : (this.compactWidth ? 112 : 118),
         iconOnly: this.iconOnlyNavigation,
+        deferSelectionUntilAnimation: true,
         onSelect: (index: number) => {
           if (index === 3) {
             this.onOpenAiChat();
