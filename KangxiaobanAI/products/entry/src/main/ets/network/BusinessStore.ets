@@ -44,7 +44,6 @@ export class BusinessStore {
   @Trace eldersLoaded: boolean = false;
   @Trace loaded: boolean = false;
   @Trace error: string = '';
-  private eldersLoadTimer: number = 0;
 
   public static getShared(): BusinessStore {
     return BusinessStore.shared;
@@ -55,19 +54,12 @@ export class BusinessStore {
       return;
     }
     this.loading = true;
-    this.eldersLoaded = false;
+    // 长者区域独立于后续业务接口，不能被整批同步过程长期阻塞。
+    this.eldersLoaded = true;
     this.error = '';
-    this.eldersLoadTimer = setTimeout((): void => {
-      if (!this.eldersLoaded) {
-        this.eldersLoaded = true;
-        this.error = '长者数据请求超时';
-      }
-    }, 12000);
     try {
       const elderResp = await ApiClient.get<Paged<Elder>>('/elders?size=100');
       this.elders = elderResp.data?.list ?? [];
-      this.eldersLoaded = true;
-      clearTimeout(this.eldersLoadTimer);
       const roomResp = await ApiClient.get<Paged<Room>>('/rooms?size=100');
       this.rooms = roomResp.data?.list ?? [];
       const bedResp = await ApiClient.get<Paged<Bed>>('/beds?size=200');
@@ -114,7 +106,6 @@ export class BusinessStore {
     } catch (_error) {
       this.error = '业务数据加载失败';
       this.eldersLoaded = true;
-      clearTimeout(this.eldersLoadTimer);
     }
     this.loading = false;
   }
