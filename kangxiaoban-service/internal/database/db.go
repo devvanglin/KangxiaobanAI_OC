@@ -178,6 +178,38 @@ func seed(db *gorm.DB) error {
 		}
 	}
 	_ = family
+
+	// 客户端角色选择对应的演示账号，便于测试真实后端权限；生产环境应立即改密或删除。
+	demoUsers := []struct {
+		username, password, realName, roleCode string
+	}{
+		{"caregiver_demo", "123456", "演示护工", "caregiver"},
+		{"doctor_demo", "123456", "演示医师", "doctor"},
+		{"admin_demo", "123456", "演示管理员", "admin"},
+	}
+	for _, demo := range demoUsers {
+		var u model.User
+		if err := db.Where("username = ?", demo.username).First(&u).Error; err == nil {
+			continue
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(demo.password), bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
+		u = model.User{Username: demo.username, PasswordHash: string(hash), RealName: demo.realName, Status: 1}
+		if err := db.Create(&u).Error; err != nil {
+			return err
+		}
+		var role model.Role
+		if err := db.Where("code = ?", demo.roleCode).First(&role).Error; err != nil {
+			return err
+		}
+		if err := db.Model(&u).Association("Roles").Replace([]model.Role{role}); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
