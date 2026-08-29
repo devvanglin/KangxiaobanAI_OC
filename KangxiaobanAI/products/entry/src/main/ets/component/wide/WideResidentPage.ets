@@ -617,17 +617,34 @@ export struct WideResidentPage {
 
   @Builder
   private detailPane() {
-    if (this.selectedResidentId === 'r2') {
-      this.residentDetailPane(this.allResidents()[1])
-    } else if (this.selectedResidentId === 'r3') {
-      this.residentDetailPane(this.allResidents()[2])
-    } else if (this.selectedResidentId === 'r4') {
-      this.residentDetailPane(this.allResidents()[3])
-    } else if (this.selectedResidentId === 'r5') {
-      this.residentDetailPane(this.allResidents()[4])
+    if (this.allResidents().length === 0) {
+      this.emptyResidentDetail()
     } else {
-      this.residentDetailPane(this.allResidents()[0])
+      this.residentDetailPane(this.selectedResidentOrFirst())
     }
+  }
+
+  private selectedResidentOrFirst(): ResidentData {
+    const residents: ResidentData[] = this.allResidents();
+    const selected: ResidentData | undefined = residents.find(
+      (resident: ResidentData): boolean => resident.id === this.selectedResidentId);
+    return selected ?? residents[0];
+  }
+
+  @Builder
+  private emptyResidentDetail() {
+    Column({ space: 10 }) {
+      LoadingProgress()
+        .width(36)
+        .height(36)
+      Text(this.businessStore.loading ? '正在加载长者数据' : '暂无长者数据')
+        .fontSize($r('sys.float.Body_M'))
+        .fontColor($r('sys.color.font_secondary'))
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
   }
 
   @Builder
