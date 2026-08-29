@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+import { curves } from '@kit.ArkUI';
 import { KeyCode } from '@kit.InputKit';
 
 export interface WideSlidingCapsuleItem {
@@ -69,7 +70,12 @@ export struct WideSlidingCapsule {
     if (position < 0 || position === this.animatedPosition) {
       return;
     }
-    this.animatedPosition = position;
+    this.getUIContext().animateTo({
+      duration: 280,
+      curve: curves.interpolatingSpring(0, 1, 320, 34)
+    }, () => {
+      this.animatedPosition = position;
+    });
   }
 
   private slideTo(index: number): void {
@@ -82,7 +88,12 @@ export struct WideSlidingCapsule {
     }
     this.selectionRequestToken += 1;
     this.visualSelectedIndex = index;
-    this.animatedPosition = position;
+    this.getUIContext().animateTo({
+      duration: 280,
+      curve: curves.interpolatingSpring(0, 1, 320, 34)
+    }, () => {
+      this.animatedPosition = position;
+    });
     this.onSelect(index);
   }
 

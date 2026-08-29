@@ -145,6 +145,7 @@ export struct AiChatPage {
   @Local keyboardOffset: number = 0;
   @Local isGenerating: boolean = false;
   @Local historyDrawerOpen: boolean = false;
+  @Local embeddedHistoryCollapsed: boolean = false;
   private listScroller: ListScroller = new ListScroller();
   private historyScroller: Scroller = new Scroller();
   private focusController = this.getUIContext().getFocusController();
@@ -349,6 +350,14 @@ export struct AiChatPage {
 
   private usesWideImmersiveInset(): boolean {
     return this.caregiverWideImmersive;
+  }
+
+  private isEmbeddedWideHistory(): boolean {
+    return this.embeddedCaregiverWide && this.isWideLayout();
+  }
+
+  private toggleEmbeddedHistory(): void {
+    this.embeddedHistoryCollapsed = !this.embeddedHistoryCollapsed;
   }
 
   aboutToAppear(): void {
@@ -1216,18 +1225,32 @@ export struct AiChatPage {
   @Builder
   private newConversationButton() {
     Row() {
+      if (this.isEmbeddedWideHistory()) {
+        SymbolGlyph($r('sys.symbol.plus_circle'))
+          .fontSize(21)
+          .fontColor([Color.White])
+      }
       Text('新对话')
         .fontSize($r('sys.float.Body_S'))
-        .fontColor($r('sys.color.font_primary'))
+        .fontColor(this.isEmbeddedWideHistory() ? Color.White : $r('sys.color.font_primary'))
         .fontWeight(FontWeight.Medium)
+      if (this.isEmbeddedWideHistory()) {
+        Blank()
+          .layoutWeight(1)
+        Text('Ctrl + J')
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor('#A2A3A7')
+      }
     }
     .width('100%')
-    .height(42)
-    .justifyContent(FlexAlign.Center)
-    .borderRadius(21)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .shadow({ radius: 8, color: 'rgba(0,0,0,0.06)', offsetY: 2 })
+    .height(this.isEmbeddedWideHistory() ? 52 : 42)
+    .padding({ left: this.isEmbeddedWideHistory() ? 18 : 0, right: this.isEmbeddedWideHistory() ? 18 : 0 })
+    .justifyContent(this.isEmbeddedWideHistory() ? FlexAlign.Start : FlexAlign.Center)
+    .borderRadius(this.isEmbeddedWideHistory() ? 26 : 21)
+    .border({ width: 0.5, color: this.isEmbeddedWideHistory() ? '#5B5C61' : $r('sys.color.comp_divider') })
+    .backgroundColor(this.isEmbeddedWideHistory() ? '#4A4B50' : $r('sys.color.comp_background_primary'))
+    .shadow(this.isEmbeddedWideHistory() ? { radius: 0, color: Color.Transparent } :
+      { radius: 8, color: 'rgba(0,0,0,0.06)', offsetY: 2 })
     .focusable(true)
     .focusOnTouch(true)
     .onClick(() => {
@@ -1268,9 +1291,9 @@ export struct AiChatPage {
   private sessionGroupTitle(label: string) {
     Text(label)
       .fontSize($r('sys.float.Caption_S'))
-      .fontColor($r('sys.color.font_tertiary'))
+      .fontColor(this.isEmbeddedWideHistory() ? '#A6A7AA' : $r('sys.color.font_tertiary'))
       .width('100%')
-      .padding({ left: 8, top: 8, bottom: 3 })
+      .padding({ left: this.isEmbeddedWideHistory() ? 14 : 8, top: 14, bottom: 6 })
   }
 
   @Builder
@@ -1278,19 +1301,25 @@ export struct AiChatPage {
     Row() {
       Text(session.title)
         .fontSize($r('sys.float.Body_S'))
-        .fontColor(session.id === this.historyStore.activeSessionId ?
-          $r('app.color.brand_blue') : $r('sys.color.font_primary'))
+        .fontColor(this.isEmbeddedWideHistory() ? Color.White :
+          (session.id === this.historyStore.activeSessionId ?
+            $r('app.color.brand_blue') : $r('sys.color.font_primary')))
         .fontWeight(session.id === this.historyStore.activeSessionId ? FontWeight.Medium : FontWeight.Regular)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .width('100%')
+      if (this.isEmbeddedWideHistory() && session.id === this.historyStore.activeSessionId) {
+        SymbolGlyph($r('sys.symbol.ellipsis_message_fill'))
+          .fontSize(18)
+          .fontColor(['#C4C5C8'])
+      }
     }
     .width('100%')
-    .height(40)
-    .padding({ left: 10, right: 10 })
-    .borderRadius(9)
+    .height(this.isEmbeddedWideHistory() ? 48 : 40)
+    .padding({ left: this.isEmbeddedWideHistory() ? 14 : 10, right: this.isEmbeddedWideHistory() ? 14 : 10 })
+    .borderRadius(this.isEmbeddedWideHistory() ? 14 : 9)
     .backgroundColor(session.id === this.historyStore.activeSessionId ?
-      $r('sys.color.comp_background_tertiary') : Color.Transparent)
+      (this.isEmbeddedWideHistory() ? '#3A3B3F' : $r('sys.color.comp_background_tertiary')) : Color.Transparent)
     .focusable(true)
     .focusOnTouch(true)
     .onClick(() => {
@@ -1303,10 +1332,10 @@ export struct AiChatPage {
     Column({ space: 8 }) {
       SymbolGlyph($r('sys.symbol.AI_message'))
         .fontSize(30)
-        .fontColor([$r('sys.color.icon_tertiary')])
+        .fontColor([this.isEmbeddedWideHistory() ? '#77787D' : $r('sys.color.icon_tertiary')])
       Text('暂无对话记录')
         .fontSize($r('sys.float.Body_S'))
-        .fontColor($r('sys.color.font_secondary'))
+        .fontColor(this.isEmbeddedWideHistory() ? '#A6A7AA' : $r('sys.color.font_secondary'))
     }
     .width('100%')
     .padding({ top: 28 })
@@ -1587,50 +1616,104 @@ export struct AiChatPage {
 
   @Builder
   private embeddedHistoryPane() {
-    Stack({ alignContent: Alignment.TopStart }) {
-      Column() {
-        Row()
-          .width('100%')
-          .height(this.embeddedPaneTopOffset())
+    Column({ space: 12 }) {
+      if (this.embeddedHistoryCollapsed) {
+        Column({ space: 16 }) {
+          SymbolGlyph($r('sys.symbol.AI_message'))
+            .fontSize(24)
+            .fontColor(['#6F94FF'])
 
-        Column()
-          .width('100%')
-          .layoutWeight(1)
-          .backgroundColor($r('sys.color.comp_background_primary'))
-          .borderRadius(20)
-      }
-      .width('100%')
-      .height('100%')
-      .hitTestBehavior(HitTestMode.None)
+          Column({ space: 2 }) {
+            Button({ type: ButtonType.Circle, stateEffect: true }) {
+              SymbolGlyph($r('sys.symbol.open_sidebar'))
+                .fontSize(21)
+                .fontColor(['#F0F1F3'])
+            }
+            .buttonStyle(ButtonStyleMode.NORMAL)
+            .width(44)
+            .height(44)
+            .backgroundColor(Color.Transparent)
+            .accessibilityText('展开会话栏')
+            .onClick(() => {
+              this.toggleEmbeddedHistory();
+            })
 
-      Scroll(this.historyScroller) {
-        Column({ space: 10 }) {
-          Row() {
-            Text('对话记录')
-              .fontSize($r('sys.float.Title_S'))
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_primary'))
+            Button({ type: ButtonType.Circle, stateEffect: true }) {
+              SymbolGlyph($r('sys.symbol.magnifyingglass'))
+                .fontSize(21)
+                .fontColor(['#F0F1F3'])
+            }
+            .buttonStyle(ButtonStyleMode.NORMAL)
+            .width(44)
+            .height(44)
+            .backgroundColor(Color.Transparent)
+            .accessibilityText('搜索会话')
+
+            Button({ type: ButtonType.Circle, stateEffect: true }) {
+              SymbolGlyph($r('sys.symbol.plus_circle'))
+                .fontSize(21)
+                .fontColor(['#F0F1F3'])
+            }
+            .buttonStyle(ButtonStyleMode.NORMAL)
+            .width(44)
+            .height(44)
+            .backgroundColor(Color.Transparent)
+            .accessibilityText('开启新对话')
+            .onClick(() => {
+              this.startNewConversation();
+            })
           }
-          .width('100%')
-          .height(42)
-          .alignItems(VerticalAlign.Center)
-
-          this.newConversationButton()
-          this.historyItems()
+          .padding({ top: 4, bottom: 4 })
+          .backgroundColor('#3A3B3F')
+          .borderRadius(26)
         }
         .width('100%')
-        .padding({ left: 16, right: 16, top: this.embeddedPaneTopOffset() + 16, bottom: 16 })
+        .alignItems(HorizontalAlign.Center)
+      } else {
+        Row({ space: 12 }) {
+          Text('康小伴 AI')
+            .fontSize(20)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(Color.White)
+            .layoutWeight(1)
+          SymbolGlyph($r('sys.symbol.magnifyingglass'))
+            .fontSize(21)
+            .fontColor(['#B8B9BD'])
+            .accessibilityText('搜索会话')
+          SymbolGlyph($r('sys.symbol.close_sidebar'))
+            .fontSize(21)
+            .fontColor(['#B8B9BD'])
+            .accessibilityText('收起会话栏')
+            .onClick(() => {
+              this.toggleEmbeddedHistory();
+            })
+        }
+        .width('100%')
+        .height(44)
+        .padding({ left: 14, right: 14 })
+        .alignItems(VerticalAlign.Center)
+
+        Scroll(this.historyScroller) {
+          Column({ space: 12 }) {
+            this.newConversationButton()
+            this.historyItems()
+          }
+          .width('100%')
+          .padding({ left: 14, right: 14, bottom: 16 })
+        }
+        .layoutWeight(1)
+        .width('100%')
+        .contentEndOffset(Math.max(18, this.globalInfoModel.naviIndicatorHeight + 8))
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
+        .align(Alignment.TopStart)
+        .clip(true)
       }
-      .width('100%')
-      .height('100%')
-      .contentEndOffset(Math.max(18, this.globalInfoModel.naviIndicatorHeight + 8))
-      .scrollBar(BarState.Off)
-      .edgeEffect(EdgeEffect.Spring)
-      .clip(true)
     }
     .width('100%')
     .height('100%')
-    .backgroundColor($r('sys.color.background_secondary'))
+    .padding({ top: this.globalInfoModel.statusBarHeight + 12 })
+    .backgroundColor('#1F2022')
   }
 
   @Builder
@@ -1660,8 +1743,11 @@ export struct AiChatPage {
       Column() {
         this.embeddedHistoryPane()
       }
-      .width('30%')
-      .constraintSize({ minWidth: 360, maxWidth: 440 })
+      .width(this.embeddedHistoryCollapsed ? 76 : '30%')
+      .constraintSize({
+        minWidth: this.embeddedHistoryCollapsed ? 76 : 360,
+        maxWidth: this.embeddedHistoryCollapsed ? 76 : 440
+      })
       .height('100%')
 
       Column() {

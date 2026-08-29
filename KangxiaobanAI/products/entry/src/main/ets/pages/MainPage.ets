@@ -167,7 +167,8 @@ struct MainPage {
 
   private wideCaregiverPageTitle(): string {
     if (this.isAiChatShow) {
-      return '康小伴 AI';
+      // The embedded AI workspace owns its dark sidebar brand title.
+      return '';
     }
     const titles: string[] = ['首页', '长者', '消息'];
     return titles[this.wideCaregiverActiveTabIndex()] ?? titles[0];
@@ -189,7 +190,7 @@ struct MainPage {
   private showCaregiverLocalBackButton(): boolean {
     return this.isCaregiverWideWorkspace() &&
       this.pathStack.size() === 0 &&
-      (this.isAiChatShow || (this.useCompactCaregiverWorkspace() && this.caregiverHasLocalBackLayer));
+      (this.useCompactCaregiverWorkspace() && this.caregiverHasLocalBackLayer);
   }
 
   private wideCaregiverTitleBarPadding(): number {
@@ -223,17 +224,7 @@ struct MainPage {
         menu: { value: [] },
         stackBuilder: (): void => this.wideCaregiverTitleActions()
       };
-      if (this.isAiChatShow) {
-        content.backIcon = {
-          label: '返回首页',
-          icon: $r('sys.symbol.chevron_left'),
-          type: IconStyleMode.SMALL,
-          isEnabled: true,
-          action: (): void => {
-            this.closeAiChat();
-          }
-        };
-      } else if (this.showCaregiverLocalBackButton()) {
+      if (this.showCaregiverLocalBackButton()) {
         content.backIcon = {
           label: this.wideCaregiverBackLabel(),
           icon: $r('sys.symbol.chevron_left'),
