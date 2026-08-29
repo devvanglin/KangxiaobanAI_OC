@@ -36,6 +36,7 @@ import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { StorageKey } from '../common/CommonConstants';
 import { BreakpointUtil } from '../util/BreakpointSystem';
 import { AI_BRAND_NAME, AiTitleLabel } from '../component/AiTitleLabel';
+import { WideSlidingCapsule, WideSlidingCapsuleItem } from '../component/wide/WideSlidingCapsule';
 
 const CONTENT_TOP_OFFSET: number = 56;
 const AI_CHAT_HISTORY_KEY: string = 'aiChatHistoryStore';
@@ -147,6 +148,7 @@ export struct AiChatPage {
   @Local isGenerating: boolean = false;
   @Local historyDrawerOpen: boolean = false;
   @Local embeddedHistoryCollapsed: boolean = false;
+  @Local embeddedAssistantMode: number = 0;
   private historyScroller: Scroller = new Scroller();
   private focusController = this.getUIContext().getFocusController();
   private previousKeyboardAvoidMode: KeyboardAvoidMode = KeyboardAvoidMode.OFFSET;
@@ -358,6 +360,21 @@ export struct AiChatPage {
 
   private toggleEmbeddedHistory(): void {
     this.embeddedHistoryCollapsed = !this.embeddedHistoryCollapsed;
+  }
+
+  private embeddedSuggestionWidth(title: string): number {
+    return Math.min(560, Math.max(300, title.length * 19 + 44));
+  }
+
+  private embeddedSuggestions(): AiInformationFeedItem[] {
+    return this.embeddedAssistantMode === 0 ? AI_INFORMATION_FEED_ROWS[0] : AI_INFORMATION_FEED_ROWS[2];
+  }
+
+  private embeddedModeItems(): WideSlidingCapsuleItem[] {
+    return [
+      { title: '对话', index: 0 },
+      { title: '工作', index: 1 }
+    ];
   }
 
   aboutToAppear(): void {
@@ -1046,6 +1063,175 @@ export struct AiChatPage {
   }
 
   @Builder
+  private embeddedModeSwitcher() {
+    WideSlidingCapsule({
+      items: this.embeddedModeItems(),
+      selectedIndex: this.embeddedAssistantMode,
+      itemWidth: 168,
+      onSelect: (index: number) => {
+        this.embeddedAssistantMode = index;
+      }
+    })
+    .width(360)
+  }
+
+  @Builder
+  private embeddedSuggestionItem(item: AiInformationFeedItem) {
+    Button({ type: ButtonType.Capsule, stateEffect: true }) {
+      Text(item.title)
+        .fontSize($r('sys.float.Body_S'))
+        .fontColor($r('sys.color.font_primary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .buttonStyle(ButtonStyleMode.NORMAL)
+    .width(this.embeddedSuggestionWidth(item.title))
+    .height(46)
+    .padding({ left: 18, right: 18 })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .borderRadius(23)
+    .focusable(true)
+    .focusOnTouch(true)
+    .onClick(() => {
+      this.usePromptShortcut(item.prompt);
+    })
+  }
+
+  @Builder
+  private embeddedAssistantStart() {
+    Column({ space: 28 }) {
+      Text('有什么我能帮你的吗？')
+        .fontSize($r('sys.float.Title_L'))
+        .fontColor($r('sys.color.font_primary'))
+        .fontWeight(FontWeight.Bold)
+        .textAlign(TextAlign.Center)
+        .width('100%')
+
+      this.embeddedModeSwitcher()
+
+      Column({ space: 12 }) {
+        Text('为你推荐')
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_tertiary'))
+          .width('100%')
+
+        Column({ space: 10 }) {
+          ForEach(this.embeddedSuggestions(), (item: AiInformationFeedItem) => {
+            this.embeddedSuggestionItem(item)
+          }, (item: AiInformationFeedItem) => `embedded-${item.id}`)
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+    }
+    .width('100%')
+    .constraintSize({ maxWidth: 720 })
+    .alignItems(HorizontalAlign.Center)
+  }
+
+  @Builder
+  private embeddedComposerTool(symbol: Resource, label: string) {
+    Row({ space: 5 }) {
+      SymbolGlyph(symbol)
+        .fontSize(18)
+        .fontColor([$r('sys.color.icon_primary')])
+      Text(label)
+        .fontSize($r('sys.float.Body_S'))
+        .fontColor($r('sys.color.font_primary'))
+    }
+    .height(34)
+    .padding({ left: 6, right: 6 })
+    .borderRadius(8)
+    .onClick(() => {
+      this.showToast(`${label}功能接入中`);
+    })
+  }
+
+  @Builder
+  private embeddedComposer() {
+    Column({ space: 8 }) {
+      TextArea({ text: this.inputText, placeholder: '发消息或按住空格说话...' })
+        .enterKeyType(EnterKeyType.NEW_LINE)
+        .fontSize($r('sys.float.Body_L'))
+        .fontColor($r('sys.color.font_primary'))
+        .lineHeight(24)
+        .placeholderFont({ size: $r('sys.float.Body_L') })
+        .placeholderColor($r('sys.color.font_tertiary'))
+        .backgroundColor(Color.Transparent)
+        .padding({ left: 8, right: 8, top: 8, bottom: 4 })
+        .minLines(1)
+        .maxLines(4, { overflowMode: MaxLinesMode.SCROLL })
+        .textOverflow(TextOverflow.Clip)
+        .barState(BarState.Off)
+        .width('100%')
+        .onChange((value: string) => {
+          this.inputText = value;
+        })
+
+      Row({ space: 4 }) {
+        Button({ type: ButtonType.Circle, stateEffect: true }) {
+          SymbolGlyph($r('sys.symbol.plus'))
+            .fontSize(21)
+            .fontColor([$r('sys.color.icon_primary')])
+        }
+        .buttonStyle(ButtonStyleMode.TEXTUAL)
+        .width(36)
+        .height(36)
+        .accessibilityText('更多工具')
+
+        Divider()
+          .vertical(true)
+          .height(22)
+          .strokeWidth(0.5)
+          .color($r('sys.color.comp_divider'))
+
+        this.embeddedComposerTool($r('sys.symbol.message_on_message_fill'), '对话')
+        this.embeddedComposerTool($r('sys.symbol.paintpalette'), '图像生成')
+        this.embeddedComposerTool($r('sys.symbol.doc_text'), 'PPT 生成')
+        this.embeddedComposerTool($r('sys.symbol.pencil_line'), '帮我写作')
+        this.embeddedComposerTool($r('sys.symbol.square_on_square_fill'), '视频生成')
+        this.embeddedComposerTool($r('sys.symbol.waveform_path_ecg_square'), '录音转写')
+        this.embeddedComposerTool($r('sys.symbol.checkmark_circle_fill'), '解题答疑')
+        this.embeddedComposerTool($r('sys.symbol.square_grid_2x2'), '更多')
+
+        Blank().layoutWeight(1)
+
+        Text('豆包·快速')
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_primary'))
+
+        Button({ type: ButtonType.Circle, stateEffect: true }) {
+          SymbolGlyph($r('sys.symbol.arrow_up'))
+            .fontSize(19)
+            .fontColor([$r('app.color.text_on_brand')])
+        }
+        .buttonStyle(ButtonStyleMode.NORMAL)
+        .width(40)
+        .height(40)
+        .backgroundColor(this.inputText.trim().length > 0 && !this.isGenerating ?
+          $r('app.color.brand_blue') : 0xFFB7C8F8)
+        .enabled(this.inputText.trim().length > 0 && !this.isGenerating)
+        .accessibilityText('发送')
+        .onClick(() => {
+          this.sendMessage();
+        })
+      }
+      .width('100%')
+      .height(42)
+      .alignItems(VerticalAlign.Center)
+    }
+    .width('100%')
+    .padding({ left: 18, right: 10, top: 12, bottom: 10 })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(28)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .shadow({ radius: 14, color: 'rgba(0,0,0,0.08)', offsetY: 4 })
+  }
+
+  @Builder
   private wideEmptyInformationHero() {
     Column({ space: 26 }) {
       Column({ space: 6 }) {
@@ -1090,7 +1276,11 @@ export struct AiChatPage {
   @Builder
   private wideEmptyConversationPage(transparentBackground: boolean = false) {
     Column() {
-      this.wideEmptyInformationHero()
+      if (transparentBackground && this.embeddedCaregiverWide) {
+        this.embeddedAssistantStart()
+      } else {
+        this.wideEmptyInformationHero()
+      }
 
       Blank()
         .layoutWeight(1)
@@ -1201,7 +1391,11 @@ export struct AiChatPage {
   @Builder
   private inputArea(showDisclaimer: boolean, transparentBackground: boolean = false) {
     Column({ space: 6 }) {
-      this.composer()
+      if (transparentBackground && this.embeddedCaregiverWide) {
+        this.embeddedComposer()
+      } else {
+        this.composer()
+      }
       if (showDisclaimer && this.keyboardOffset === 0) {
         Text('内容由 AI 生成，请仔细甄别')
           .fontSize($r('sys.float.Caption_M'))
