@@ -51,6 +51,7 @@ import Logger from '../util/Logger';
 import { BreakpointUtil } from '../util/BreakpointSystem';
 import { WindowUtil } from '../util/WindowUtil';
 import AuthStore from '../network/AuthStore';
+import { BusinessStore } from '../network/BusinessStore';
 
 const TAG: string = '[MainPage]';
 const CAREGIVER_FULL_WORKSPACE_MIN_WIDTH: number = 1180;
@@ -127,6 +128,9 @@ struct MainPage {
   private wideMessageChatScroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
+    if (AuthStore.getToken().length > 0) {
+      BusinessStore.getShared().load();
+    }
     if (AuthStore.getToken().length === 0) {
       this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
       return;
@@ -333,6 +337,7 @@ struct MainPage {
   private async handleLogout(): Promise<void> {
     try {
       AuthStore.clear();
+      BusinessStore.getShared().clear();
       await WindowUtil.setImmersiveMode(false);
       await this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
     } catch (error) {

@@ -41,6 +41,8 @@ import {
 } from '../model/DetailTypes';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { StorageKey } from '../common/CommonConstants';
+import { BusinessStore } from '../network/BusinessStore';
+import { Alert, CareTask, HealthRecord, IotDevice, MedicationRecord } from '../network/Dto';
 import {
   RESIDENT_SUMMARY_DETAIL_HEIGHT,
   RESIDENT_SUMMARY_DETAIL_NO_ALLERGY_HEIGHT,
@@ -73,6 +75,11 @@ export struct ResidentDetailPage {
   @Local expansionStore: ResidentDetailExpansionStore =
     AppStorageV2.connect(ResidentDetailExpansionStore, RESIDENT_DETAIL_EXPANSION_STORE_KEY,
       () => new ResidentDetailExpansionStore()) ?? new ResidentDetailExpansionStore();
+  @Local businessStore: BusinessStore = BusinessStore.getShared();
+
+  aboutToAppear(): void {
+    this.businessStore.load();
+  }
 
   private get expandedMask(): number {
     return this.expansionStore.expandedMask;
@@ -1039,14 +1046,9 @@ export struct ResidentDetailPage {
   }
 
   private vitalTrend(): VitalTrendRow[] {
-    return [
-      { time: '今天 10:24', heartRate: 72, bp: '138/85' },
-      { time: '今天 06:00', heartRate: 68, bp: '132/82' },
-      { time: '昨天 22:00', heartRate: 75, bp: '140/88' },
-      { time: '昨天 18:00', heartRate: 80, bp: '136/84' },
-      { time: '昨天 14:00', heartRate: 76, bp: '130/80' },
-      { time: '昨天 10:00', heartRate: 74, bp: '128/78' }
-    ];
+    return this.businessStore.healthRecords.filter((item: HealthRecord) => item.elder_id === Number(this.resident.id))
+      .map((item: HealthRecord): VitalTrendRow => ({ time: item.record_time.slice(0, 16), heartRate: item.heart_rate ?? 0,
+        bp: `${item.systolic ?? 0}/${item.diastolic ?? 0}` }));
   }
 
   private monitors(): MonitorSnapshot[] {
@@ -1057,17 +1059,10 @@ export struct ResidentDetailPage {
   }
 
   private residentDevices(): RoomDeviceData[] {
-    const all: RoomDeviceData[] = [
-      { id: 'd1', name: '智能床垫', type: '睡眠体征', room: this.resident.room, status: '数据异常', level: 'warning', battery: 78, lastUpdate: '10:24' },
-      { id: 'd2', name: '毫米波雷达', type: '离床跌倒', room: this.resident.room, status: '离线', level: 'danger', battery: 0, lastUpdate: '14:20' },
-      { id: 'd3', name: '紧急呼叫器', type: '主动求助', room: this.resident.room, status: '在线', level: 'normal', battery: 45, lastUpdate: '09:50' },
-      { id: 'd4', name: '智能床垫', type: '睡眠体征', room: this.resident.room, status: '在线', level: 'normal', battery: 90, lastUpdate: '09:40' },
-      { id: 'd5', name: '毫米波雷达', type: '离床跌倒', room: this.resident.room, status: '在线', level: 'normal', battery: 92, lastUpdate: '10:20' },
-      { id: 'd6', name: '紧急呼叫器', type: '主动求助', room: this.resident.room, status: '在线', level: 'normal', battery: 45, lastUpdate: '09:50' },
-      { id: 'd7', name: '门磁传感器', type: '出入监测', room: this.resident.room, status: '在线', level: 'normal', battery: 88, lastUpdate: '08:30' },
-      { id: 'd8', name: '温湿度计', type: '环境监测', room: this.resident.room, status: '在线', level: 'normal', battery: 76, lastUpdate: '10:00' }
-    ];
-    return all.filter((d: RoomDeviceData) => this.resident.deviceIds.includes(d.id));
+    return this.businessStore.devices.filter((item: IotDevice) => item.elder_id === Number(this.resident.id))
+      .map((item: IotDevice): RoomDeviceData => ({ id: item.device_id, name: item.product, type: item.protocol,
+        room: this.resident.room, status: item.online === 1 ? '在线' : '离线', level: item.online === 1 ? 'normal' : 'danger',
+        battery: 0, lastUpdate: item.last_seen ? item.last_seen.slice(11, 16) : '--' }));
   }
 
   private moodRecords(): MoodRecord[] {
@@ -1093,11 +1088,10 @@ export struct ResidentDetailPage {
   }
 
   private medications(): Medication[] {
-    return [
-      { id: 'med1', name: '硝苯地平控释片', dose: '30mg', frequency: '每日 1 次', route: '口服', nextTime: '今日 14:00', todayTotal: 1, todayDone: 0, level: 'warning' },
-      { id: 'med2', name: '二甲双胍', dose: '500mg', frequency: '每日 3 次', route: '口服', nextTime: '今日 12:00', todayTotal: 3, todayDone: 2, level: 'normal' },
-      { id: 'med3', name: '舍曲林', dose: '50mg', frequency: '每日 1 次', route: '口服', nextTime: '今日 20:00', todayTotal: 1, todayDone: 1, level: 'normal' }
-    ];
+    return this.businessStore.medications.filter((item: MedicationRecord) => item.elder_id === Number(this.resident.id))
+      .map((item: MedicationRecord): Medication => ({ id: `${item.id}`, name: item.medicine_name, dose: item.dosage,
+        frequency: '按医嘱', route: '口服', nextTime: item.plan_time ? item.plan_time.slice(11, 16) : '--',
+        todayTotal: 1, todayDone: item.status === 'taken' ? 1 : 0, level: item.status === 'taken' ? 'normal' : 'warning' }));
   }
 
   private nextMedicationTime(): string {
@@ -1114,13 +1108,10 @@ export struct ResidentDetailPage {
   }
 
   private careTasks(): CareTaskItem[] {
-    return [
-      { id: 'ct1', time: '14:00', project: '翻身叩背', state: 'todo', assignee: '刘婷', note: '预防压疮' },
-      { id: 'ct2', time: '12:00', project: '协助服药', state: 'doing', assignee: '王倩' },
-      { id: 'ct3', time: '10:30', project: '情绪关怀', state: 'done', assignee: '刘婷', note: 'AI 预警触达' },
-      { id: 'ct4', time: '09:00', project: '早巡', state: 'done', assignee: '王倩' },
-      { id: 'ct5', time: '08:00', project: '早餐协助', state: 'done', assignee: '赵晨' }
-    ];
+    return this.businessStore.tasks.filter((item: CareTask) => item.elder_id === Number(this.resident.id))
+      .map((item: CareTask): CareTaskItem => ({ id: `${item.id}`, time: item.due_at ? item.due_at.slice(11, 16) : '--',
+        project: item.title, state: item.status === 'done' ? 'done' : item.status === 'doing' ? 'doing' : 'todo',
+        assignee: item.assignee ?? '', note: item.remark ?? '' }));
   }
 
   private meals(): MealRecord[] {
@@ -1147,10 +1138,9 @@ export struct ResidentDetailPage {
   }
 
   private alertEvents(): AlertEvent[] {
-    return [
-      { time: '今天 10:24', type: 'AI 情绪预警', level: 'danger', status: 'open', detail: '活动量下降 41%，语调低沉' },
-      { time: '昨天 22:30', type: '离床报警', level: 'warning', status: 'resolved', handler: '王倩', detail: '夜间离床 8 分钟，已协助回床' },
-      { time: '前天 14:00', type: '呼叫器', level: 'normal', status: 'resolved', handler: '刘婷', detail: '主动呼叫，已处理' }
-    ];
+    return this.businessStore.alerts.filter((item: Alert) => item.elder_id === Number(this.resident.id))
+      .map((item: Alert): AlertEvent => ({ time: item.create_time.slice(0, 16), type: item.type,
+        level: item.level === 'emergency' ? 'danger' : item.level === 'important' ? 'warning' : 'normal',
+        status: item.status === 'new' ? 'open' : 'resolved', handler: item.handled_by, detail: item.content }));
   }
 }

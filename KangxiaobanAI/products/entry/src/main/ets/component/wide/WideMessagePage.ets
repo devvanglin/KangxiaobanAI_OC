@@ -16,6 +16,10 @@
 import { ColorMetrics, KeyboardAvoidMode, LengthMetrics } from '@kit.ArkUI';
 import { KeyCode } from '@kit.InputKit';
 import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule';
+import { MessageApi } from '../../network/MessageApi';
+import AuthStore from '../../network/AuthStore';
+import { MessageContact, UserMessage } from '../../network/Dto';
+import { WsClient } from '../../network/WsClient';
 
 type WideConversationKind = 'family' | 'work' | 'system';
 type WideMessageFilter = 'all' | 'unread' | WideConversationKind;
@@ -23,6 +27,7 @@ type WideChatRole = 'incoming' | 'outgoing' | 'system';
 
 interface WideConversationData {
   id: string;
+  peerId?: number;
   kind: WideConversationKind;
   title: string;
   subtitle: string;
@@ -52,262 +57,6 @@ const MESSAGE_FILTER_ITEMS: WideSlidingCapsuleItem[] = [
 
 const MESSAGE_FILTER_VALUES: WideMessageFilter[] = ['all', 'unread', 'family', 'work', 'system'];
 
-const DEMO_CONVERSATIONS: WideConversationData[] = [
-  {
-    id: 'family-zhou',
-    kind: 'family',
-    title: '周敏',
-    subtitle: '周奶奶家属 · 2F-215 · 已授权联系人',
-    avatar: '周',
-    preview: '收到，谢谢您。午休后有变化再和我说。',
-    time: '10:32',
-    replyable: true
-  },
-  {
-    id: 'station-east-2f',
-    kind: 'work',
-    title: '2F 东区护理站',
-    subtitle: '当班协作群 · 8人',
-    avatar: '护',
-    preview: '肖爷爷关怀任务已派给你，请在 10:40 前反馈。',
-    time: '10:18',
-    replyable: true
-  },
-  {
-    id: 'care-department',
-    kind: 'work',
-    title: '护理部',
-    subtitle: '工作通知 · 32人',
-    avatar: '护',
-    preview: '课前案例已经更新，请在培训前完成阅读。',
-    time: '09:46',
-    replyable: true
-  },
-  {
-    id: 'family-xiao',
-    kind: 'family',
-    title: '肖先生',
-    subtitle: '肖爷爷家属 · 3F-302 · 已授权联系人',
-    avatar: '肖',
-    preview: '好的，完成关怀后我会把情况同步给您。',
-    time: '09:36',
-    replyable: true
-  },
-  {
-    id: 'family-lin',
-    kind: 'family',
-    title: '林涛',
-    subtitle: '林爷爷家属 · 3F-306 · 已授权联系人',
-    avatar: '林',
-    preview: '周六下午我过来，辛苦帮我登记一下。',
-    time: '09:18',
-    replyable: true
-  },
-  {
-    id: 'system',
-    kind: 'system',
-    title: '系统通知',
-    subtitle: '康小伴 AI 服务',
-    avatar: '系',
-    preview: '2 条离线护理记录已同步完成，无需重复提交。',
-    time: '昨天',
-    replyable: false
-  }
-];
-
-const DEMO_CHAT_RECORDS: WideChatRecord[] = [
-  {
-    id: 'zhou-1',
-    conversationId: 'family-zhou',
-    role: 'incoming',
-    author: '周敏',
-    content: '刘护工您好，我妈妈昨晚休息得怎么样？她早上说左膝有点酸。',
-    time: '09:54',
-    dayLabel: '今天'
-  },
-  {
-    id: 'zhou-2',
-    conversationId: 'family-zhou',
-    role: 'outgoing',
-    author: '刘婷',
-    content: '您好，周奶奶昨晚起身两次，晨间状态平稳。我已经安排午休前做疼痛评估。',
-    time: '10:02'
-  },
-  {
-    id: 'zhou-3',
-    conversationId: 'family-zhou',
-    role: 'incoming',
-    author: '周敏',
-    content: '好的，她午饭后通常会睡一会儿，麻烦评估后告诉我。',
-    time: '10:06'
-  },
-  {
-    id: 'zhou-4',
-    conversationId: 'family-zhou',
-    role: 'outgoing',
-    author: '刘婷',
-    content: '刚完成评估，左膝轻度酸胀，没有红肿。已经协助热敷并做好记录，午休后会继续观察。',
-    time: '10:27'
-  },
-  {
-    id: 'zhou-5',
-    conversationId: 'family-zhou',
-    role: 'incoming',
-    author: '周敏',
-    content: '收到，谢谢您。午休后有变化再和我说。',
-    time: '10:32'
-  },
-  {
-    id: 'station-1',
-    conversationId: 'station-east-2f',
-    role: 'incoming',
-    author: '王倩',
-    content: '周奶奶昨夜 2:10 和 4:35 两次离床，晨间说左膝酸胀，交班记录已补。',
-    time: '07:46',
-    dayLabel: '今天'
-  },
-  {
-    id: 'station-2',
-    conversationId: 'station-east-2f',
-    role: 'outgoing',
-    author: '刘婷',
-    content: '收到，我午休前复评并同步家属。',
-    time: '07:50'
-  },
-  {
-    id: 'station-3',
-    conversationId: 'station-east-2f',
-    role: 'incoming',
-    author: '护理站',
-    content: '3F-306 林爷爷房间毫米波雷达离线，维修组已接单。巡房时请先人工确认。',
-    time: '09:40'
-  },
-  {
-    id: 'station-4',
-    conversationId: 'station-east-2f',
-    role: 'outgoing',
-    author: '刘婷',
-    content: '已确认，林爷爷状态稳定，设备等待检修。',
-    time: '09:43'
-  },
-  {
-    id: 'station-5',
-    conversationId: 'station-east-2f',
-    role: 'incoming',
-    author: '护理站',
-    content: '肖爷爷关怀任务已派给你，请在 10:40 前反馈接触情况。',
-    time: '10:18'
-  },
-  {
-    id: 'department-1',
-    conversationId: 'care-department',
-    role: 'incoming',
-    author: '护理部',
-    content: '本周五 16:00 在二楼培训室开展压疮预防培训，请提前 10 分钟签到。',
-    time: '16:20',
-    dayLabel: '昨天'
-  },
-  {
-    id: 'department-2',
-    conversationId: 'care-department',
-    role: 'outgoing',
-    author: '刘婷',
-    content: '收到，已确认参加。',
-    time: '16:31'
-  },
-  {
-    id: 'department-3',
-    conversationId: 'care-department',
-    role: 'incoming',
-    author: '护理部',
-    content: '课前案例已经更新，请在培训前完成阅读。',
-    time: '09:46',
-    dayLabel: '今天'
-  },
-  {
-    id: 'xiao-1',
-    conversationId: 'family-xiao',
-    role: 'incoming',
-    author: '肖先生',
-    content: '刘护工您好，我父亲今天还是不太愿意参加活动吗？',
-    time: '09:08',
-    dayLabel: '今天'
-  },
-  {
-    id: 'xiao-2',
-    conversationId: 'family-xiao',
-    role: 'outgoing',
-    author: '刘婷',
-    content: '上午用餐正常，但情绪有些低落。我准备先陪他聊一会儿，再邀请他去熟悉的活动区。',
-    time: '09:16'
-  },
-  {
-    id: 'xiao-3',
-    conversationId: 'family-xiao',
-    role: 'incoming',
-    author: '肖先生',
-    content: '他最近会想家，您可以和他聊聊以前在厂里的事情。',
-    time: '09:24'
-  },
-  {
-    id: 'xiao-4',
-    conversationId: 'family-xiao',
-    role: 'outgoing',
-    author: '刘婷',
-    content: '好的，完成关怀后我会把情况同步给您。',
-    time: '09:36'
-  },
-  {
-    id: 'lin-1',
-    conversationId: 'family-lin',
-    role: 'incoming',
-    author: '林涛',
-    content: '您好，我爸爸今天有去书法角吗？',
-    time: '08:36',
-    dayLabel: '今天'
-  },
-  {
-    id: 'lin-2',
-    conversationId: 'family-lin',
-    role: 'outgoing',
-    author: '刘婷',
-    content: '上午设备检修期间先做了人工巡房，林爷爷状态稳定。书法活动安排在下午两点。',
-    time: '08:42'
-  },
-  {
-    id: 'lin-3',
-    conversationId: 'family-lin',
-    role: 'outgoing',
-    author: '刘婷',
-    content: '如果您周末来院，我可以提前登记探视信息。',
-    time: '09:02'
-  },
-  {
-    id: 'lin-4',
-    conversationId: 'family-lin',
-    role: 'incoming',
-    author: '林涛',
-    content: '周六下午我过来，辛苦帮我登记一下。',
-    time: '09:18'
-  },
-  {
-    id: 'system-1',
-    conversationId: 'system',
-    role: 'system',
-    author: '排班更新',
-    content: '7月19日早班安排已更新，请前往首页查看。',
-    time: '昨天 18:30',
-    dayLabel: '昨天'
-  },
-  {
-    id: 'system-2',
-    conversationId: 'system',
-    role: 'system',
-    author: '离线记录已同步',
-    content: '2 条离线护理记录已同步完成，无需重复提交。',
-    time: '昨天 18:42'
-  }
-];
 
 @ComponentV2
 export struct WideMessagePage {
@@ -323,20 +72,19 @@ export struct WideMessagePage {
   @Event onChatScrollerActive: () => void = () => {};
   @Local searchText: string = '';
   @Local activeFilterIndex: number = 0;
-  @Local selectedConversationId: string = 'family-zhou';
-  @Local unreadConversationIds: string[] = [
-    'station-east-2f',
-    'care-department',
-    'family-xiao'
-  ];
+  @Local selectedConversationId: string = '';
+  @Local unreadConversationIds: string[] = [];
   @Local hoveredConversationId: string = '';
   @Local focusedConversationId: string = '';
   @Local replyText: string = '';
   @Local sentRecords: WideChatRecord[] = [];
+  @Local backendConversations: WideConversationData[] = [];
+  @Local backendRecords: WideChatRecord[] = [];
   @Local compactDetailVisible: boolean = false;
   private scrollTimerId: number = -1;
   private previousKeyboardAvoidMode: KeyboardAvoidMode = KeyboardAvoidMode.OFFSET;
   private composerHasFocus: boolean = false;
+  private wsClient: WsClient = new WsClient();
 
   @Monitor('backRequestToken')
   onBackRequestTokenChange(): void {
@@ -368,6 +116,12 @@ export struct WideMessagePage {
   }
 
   aboutToAppear(): void {
+    this.loadBackendMessages();
+    this.wsClient.connect((payload: string): void => {
+      if (payload.indexOf('message.created') >= 0) {
+        this.loadBackendMessages();
+      }
+    });
     this.reportUnreadCount();
     this.reportVisibleScrollerOwner();
     if (!this.compactWidth) {
@@ -375,7 +129,71 @@ export struct WideMessagePage {
     }
   }
 
+  private async loadBackendMessages(): Promise<void> {
+    const resp = await MessageApi.contacts();
+    if (resp.code !== 0 || !resp.data) {
+      return;
+    }
+    const currentUserId: number = AuthStore.getUser()?.id ?? 0;
+    const conversations: WideConversationData[] = resp.data.list.map((contact: MessageContact): WideConversationData => {
+      const role: string = contact.roles.length > 0 ? contact.roles[0].code : 'work';
+      const kind: WideConversationKind = role === 'family' ? 'family' : 'work';
+      return {
+        id: `user-${contact.id}`,
+        peerId: contact.id,
+        kind: kind,
+        title: contact.real_name.length > 0 ? contact.real_name : contact.username,
+        subtitle: `${contact.username} · ${kind === 'family' ? '家属沟通' : '工作协作'}`,
+        avatar: (contact.real_name.length > 0 ? contact.real_name : contact.username).slice(0, 1),
+        preview: '暂无消息',
+        time: '--',
+        replyable: true
+      };
+    });
+    const records: WideChatRecord[] = [];
+    for (const conversation of conversations) {
+      const messageResp = await MessageApi.list(conversation.peerId ?? 0);
+      if (messageResp.code !== 0 || !messageResp.data) {
+        continue;
+      }
+      for (const message of messageResp.data.list) {
+        records.push(this.toChatRecord(message, currentUserId, conversation.id));
+      }
+      const latest: UserMessage | undefined = messageResp.data.list.length > 0 ?
+        messageResp.data.list[messageResp.data.list.length - 1] : undefined;
+      if (latest) {
+        conversation.preview = latest.content;
+        conversation.time = this.messageTime(latest.sent_at);
+      }
+    }
+    this.backendConversations = conversations;
+    this.backendRecords = records;
+    if (conversations.length > 0 && this.selectedConversationId.indexOf('user-') !== 0) {
+      this.selectedConversationId = conversations[0].id;
+    }
+    this.reportUnreadCount();
+    this.scheduleScrollToBottom();
+  }
+
+  private messageTime(value: string): string {
+    const parsed: Date = new Date(value);
+    if (isNaN(parsed.getTime())) { return '--'; }
+    return `${parsed.getHours().toString().padStart(2, '0')}:${parsed.getMinutes().toString().padStart(2, '0')}`;
+  }
+
+  private toChatRecord(message: UserMessage, currentUserId: number, conversationId: string): WideChatRecord {
+    return {
+      id: `message-${message.id}`,
+      conversationId: conversationId,
+      role: message.sender_id === currentUserId ? 'outgoing' : 'incoming',
+      author: message.sender_id === currentUserId ? (AuthStore.getUser()?.real_name ?? '我') : '联系人',
+      content: message.content,
+      time: this.messageTime(message.sent_at)
+    };
+  }
+
   aboutToDisappear(): void {
+    this.wsClient.close();
     this.restoreKeyboardAvoidMode();
     if (this.scrollTimerId !== -1) {
       clearTimeout(this.scrollTimerId);
@@ -445,7 +263,7 @@ export struct WideMessagePage {
   private filteredConversations(): WideConversationData[] {
     const filter: WideMessageFilter = this.activeFilter();
     const query: string = this.searchText.trim().toLowerCase();
-    return DEMO_CONVERSATIONS.filter((item: WideConversationData) => {
+    return this.backendConversations.filter((item: WideConversationData) => {
       const matchesFilter: boolean = filter === 'all' ||
         (filter === 'unread' && this.isUnread(item.id)) || item.kind === filter;
       if (!matchesFilter) {
@@ -460,7 +278,7 @@ export struct WideMessagePage {
   }
 
   private selectedConversation(): WideConversationData | undefined {
-    return DEMO_CONVERSATIONS.find((item: WideConversationData) => item.id === this.selectedConversationId);
+    return this.backendConversations.find((item: WideConversationData) => item.id === this.selectedConversationId);
   }
 
   private reportVisibleScrollerOwner(): void {
@@ -472,7 +290,7 @@ export struct WideMessagePage {
   }
 
   private currentChatRecords(): WideChatRecord[] {
-    const presetRecords: WideChatRecord[] = DEMO_CHAT_RECORDS.filter((item: WideChatRecord) =>
+    const presetRecords: WideChatRecord[] = this.backendRecords.filter((item: WideChatRecord) =>
       item.conversationId === this.selectedConversationId);
     const localRecords: WideChatRecord[] = this.sentRecords.filter((item: WideChatRecord) =>
       item.conversationId === this.selectedConversationId);
@@ -556,21 +374,17 @@ export struct WideMessagePage {
     return `${hour}:${minute}`;
   }
 
-  private sendReply(): void {
+  private async sendReply(): Promise<void> {
     const conversation: WideConversationData | undefined = this.selectedConversation();
     const content: string = this.replyText.trim();
     if (!conversation || !conversation.replyable || content === '') {
       return;
     }
-    const record: WideChatRecord = {
-      id: `local-${Date.now()}`,
-      conversationId: conversation.id,
-      role: 'outgoing',
-      author: '刘婷',
-      content: content,
-      time: this.currentTimeText()
-    };
-    this.sentRecords = [...this.sentRecords, record];
+    const resp = await MessageApi.send(conversation.peerId ?? 0, content);
+    if (resp.code !== 0 || !resp.data) { return; }
+    this.backendRecords = [...this.backendRecords, this.toChatRecord(resp.data, AuthStore.getUser()?.id ?? 0, conversation.id)];
+    conversation.preview = content;
+    conversation.time = this.currentTimeText();
     this.replyText = '';
     this.scheduleScrollToBottom();
   }

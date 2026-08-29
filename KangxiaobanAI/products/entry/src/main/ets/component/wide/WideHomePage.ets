@@ -18,6 +18,8 @@ import { deviceInfo } from '@kit.BasicServicesKit';
 import { KeyCode } from '@kit.InputKit';
 import { AiTitleLabel } from '../AiTitleLabel';
 import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule';
+import { BusinessStore } from '../../network/BusinessStore';
+import { CareTask as BackendCareTask, Elder, Room } from '../../network/Dto';
 
 const HOME_LG_MIN_WIDTH: number = 840;
 const HOME_SUMMARY_SPLIT_MIN_WIDTH: number = 960;
@@ -98,217 +100,14 @@ export struct WideHomePage {
   @Local completedTaskIds: string[] = [];
   @Local noteDrafts: Map<string, string> = new Map<string, string>();
   @Local validationTaskId: string = '';
+  @Local backendTaskData: CareTaskData[] = [];
+  @Local businessStore: BusinessStore = BusinessStore.getShared();
 
-  private taskData: CareTaskData[] = [
-    {
-      id: 'care-emotion', category: 'todo', title: '情绪安抚与人工接手', residentId: 'r1', resident: '肖爷爷',
-      room: '3F-302',
-      summary: '活动量下降 41%，拒绝交流，建议由熟悉的护理员优先接手', time: '现在', owner: '刘婷',
-      priority: 'danger', state: 'pending'
-    },
-    {
-      id: 'med-blood-pressure', category: 'medication', title: '晨间降压药复核', residentId: 'r5',
-      resident: '李秀英', room: '3F-305',
-      summary: '服药后复测血压并补充执行记录', time: '08:00', owner: '刘婷',
-      priority: 'warning', state: 'pending'
-    },
-    {
-      id: 'care-night-review', category: 'todo', title: '夜间不适评估', residentId: 'r2', resident: '周奶奶',
-      room: '2F-215',
-      summary: '夜间离床次数增加，午休前完成疼痛和睡眠观察', time: '09:46', owner: '王倩',
-      priority: 'warning', state: 'pending'
-    },
-    {
-      id: 'report-device', category: 'report', title: '床旁呼叫设备离线', residentId: 'r3', resident: '林爷爷',
-      room: '3F-306',
-      summary: '设备离线 18 分钟，需现场确认并向值班负责人反馈', time: '10:12', owner: '刘婷',
-      priority: 'danger', state: 'pending'
-    },
-    {
-      id: 'record-vital', category: 'record', title: '上午体征记录', residentId: 'r1', resident: '肖爷爷',
-      room: '3F-302',
-      summary: '血压、心率和血氧已同步，等待护理观察补充', time: '10:24', owner: '王倩',
-      priority: 'normal', state: 'doing'
-    },
-    {
-      id: 'family-callback', category: 'family', title: '家属回访 · 张建国', residentId: 'r5', resident: '李秀英',
-      room: '3F-305',
-      summary: '沟通近期睡眠和康复训练情况，记录后续诉求', time: '14:30', owner: '刘婷',
-      priority: 'warning', state: 'pending'
-    },
-    {
-      id: 'med-calcium', category: 'medication', title: '钙片 · 2片', residentId: 'r4', resident: '王德林',
-      room: '2F-201',
-      summary: '早餐后服用，执行时关注吞咽情况', time: '08:00', owner: '刘婷',
-      priority: 'normal', state: 'done'
-    },
-    {
-      id: 'record-turnover', category: 'record', title: '翻身护理记录', residentId: 'r2', resident: '周奶奶',
-      room: '2F-215',
-      summary: '翻身护理完成，皮肤状态无异常', time: '09:18', owner: '刘婷',
-      priority: 'normal', state: 'done'
-    },
-    {
-      id: 'family-confirm', category: 'family', title: '疼痛评估安排确认', residentId: 'r2', resident: '周奶奶',
-      room: '2F-215',
-      summary: '安排已向家属说明并完成确认', time: '09:46', owner: '王倩',
-      priority: 'normal', state: 'done'
-    },
-    {
-      id: 'report-handoff', category: 'report', title: '夜班异常交接', residentId: '', resident: '东区长者',
-      room: '2F 东区',
-      summary: '夜间巡查无新增高风险事件，交接摘要已整理', time: '07:20', owner: '夜班组',
-      priority: 'normal', state: 'done'
-    },
-    {
-      id: 'care-hydration', category: 'todo', title: '补水与吞咽观察', residentId: 'r3', resident: '林爷爷',
-      room: '3F-306', summary: '上午饮水量偏低，补水时同步观察呛咳和吞咽状态',
-      time: '11:00', owner: '刘婷', priority: 'warning', state: 'pending'
-    },
-    {
-      id: 'med-noon-review', category: 'medication', title: '午间用药前复核', residentId: 'r4', resident: '王德林',
-      room: '2F-201', summary: '核对血糖记录、用药剂量与进食情况',
-      time: '11:30', owner: '王倩', priority: 'danger', state: 'pending'
-    },
-    {
-      id: 'record-lunch', category: 'record', title: '午餐摄入记录', residentId: 'r2', resident: '周奶奶',
-      room: '2F-215', summary: '记录主食、饮水和特殊饮食完成情况',
-      time: '12:30', owner: '王倩', priority: 'normal', state: 'pending'
-    },
-    {
-      id: 'family-visit', category: 'family', title: '家属探访前沟通', residentId: 'r1', resident: '肖爷爷',
-      room: '3F-302', summary: '提前说明近期情绪和活动量变化，统一陪伴方式',
-      time: '15:00', owner: '刘婷', priority: 'warning', state: 'pending'
-    },
-    {
-      id: 'report-fall-risk', category: 'report', title: '走廊防跌环境上报', residentId: '', resident: '东区长者',
-      room: '2F 东区', summary: '走廊临时物品占用扶手区域，需要清理并复查',
-      time: '15:20', owner: '刘婷', priority: 'danger', state: 'pending'
-    },
-    {
-      id: 'care-rehabilitation', category: 'todo', title: '下午康复训练陪护', residentId: 'r5', resident: '李秀英',
-      room: '3F-305', summary: '按当日计划完成下肢活动，记录疲劳与疼痛反馈',
-      time: '16:00', owner: '刘婷', priority: 'normal', state: 'pending'
-    },
-    {
-      id: 'care-evening-round', category: 'todo', title: '晚餐前安全巡视', residentId: '', resident: '东区长者',
-      room: '3F 东区', summary: '复查床边动线、呼叫设备和高风险长者状态',
-      time: '17:10', owner: '刘婷', priority: 'warning', state: 'pending'
-    },
-    {
-      id: 'record-evening-handoff', category: 'record', title: '晚班交接摘要整理', residentId: '', resident: '东区长者',
-      room: '2F/3F', summary: '整理未完成事项、异常观察和后续复查节点',
-      time: '17:30', owner: '王倩', priority: 'normal', state: 'pending'
-    }
-  ];
+  private taskData: CareTaskData[] = [];
 
-  private aiFocusItems: AiFocusItem[] = [
-    {
-      id: 'ai-focus-emotion', taskId: 'care-emotion', name: '肖爷爷', location: '3F-302',
-      detail: '活动量下降且拒绝交流，建议 20 分钟内由熟悉人员接手',
-      signal: '近 2 小时活动量较个人基线下降 41%，两次交流未获回应。',
-      suggestion: '由熟悉的护理人员面对面确认情绪、疼痛和不适，避免连续追问。',
-      timeLabel: '立即关注', priority: 'danger'
-    },
-    {
-      id: 'ai-focus-sleep', taskId: 'care-night-review', name: '周奶奶', location: '2F-215',
-      detail: '夜间离床次数增加，午休前补充疼痛与睡眠观察',
-      signal: '昨夜离床 4 次，高于近 7 日夜间平均水平。',
-      suggestion: '午休前完成疼痛、睡眠和排泄情况询问，并记录变化。',
-      timeLabel: '午休前', priority: 'warning'
-    },
-    {
-      id: 'ai-focus-device', taskId: 'report-device', name: '东区设备', location: '3F-306',
-      detail: '1 台床旁呼叫设备离线，先现场确认再上报',
-      signal: '床旁呼叫设备已连续 18 分钟未上报心跳。',
-      suggestion: '现场确认电源、网络和呼叫按键，无法恢复时按机构流程上报。',
-      timeLabel: '18 分钟', priority: 'warning'
-    },
-    {
-      id: 'ai-focus-pressure', taskId: 'med-blood-pressure', name: '李秀英', location: '3F-305',
-      detail: '降压药服用后尚未补充复测记录',
-      signal: '当前用药记录已完成，但复测字段仍为空。',
-      suggestion: '按护理规范复测并记录，如有不适及时报告。',
-      timeLabel: '08:20 前', priority: 'warning'
-    },
-    {
-      id: 'ai-focus-vital', taskId: 'record-vital', name: '肖爷爷', location: '3F-302',
-      detail: '上午体征数据已同步，护理观察尚未补充',
-      signal: '血压、心率和血氧数据完整，主观观察项为空。',
-      suggestion: '结合精神、饮食和活动状态补充人工观察。',
-      timeLabel: '进行中', priority: 'normal'
-    },
-    {
-      id: 'ai-focus-family', taskId: 'family-callback', name: '李秀英', location: '3F-305',
-      detail: '家属回访需要同步近期睡眠和康复进度',
-      signal: '家属上次沟通距今已 6 天，期间康复记录有更新。',
-      suggestion: '按已记录事实说明变化，将家属诉求写入回访记录。',
-      timeLabel: '14:30', priority: 'warning'
-    },
-    {
-      id: 'ai-focus-hydration', taskId: 'care-hydration', name: '林爷爷', location: '3F-306',
-      detail: '上午饮水量偏低，补水时需同步观察吞咽',
-      signal: '上午记录饮水量 180ml，低于当日分时计划。',
-      suggestion: '少量分次补水，出现呛咳或声音变化时暂停并人工评估。',
-      timeLabel: '11:00', priority: 'warning'
-    },
-    {
-      id: 'ai-focus-medication', taskId: 'med-noon-review', name: '王德林', location: '2F-201',
-      detail: '午间用药前需要复核血糖、进食与剂量',
-      signal: '今日早间血糖记录存在波动，午间核对项尚未完成。',
-      suggestion: '依照已确认的用药要求完成双人复核，不由 AI 调整剂量。',
-      timeLabel: '11:30', priority: 'danger'
-    },
-    {
-      id: 'ai-focus-lunch', taskId: 'record-lunch', name: '周奶奶', location: '2F-215',
-      detail: '午餐记录需要补充主食、饮水和特殊饮食',
-      signal: '当日饮食记录尚缺午餐时段数据。',
-      suggestion: '餐后按实际摄入量记录，不使用预估值代替。',
-      timeLabel: '12:30', priority: 'normal'
-    },
-    {
-      id: 'ai-focus-visit', taskId: 'family-visit', name: '肖爷爷', location: '3F-302',
-      detail: '家属探访前建议先统一情绪陪伴和沟通方式',
-      signal: '近期对陌生话题和连续询问的响应较弱。',
-      suggestion: '提前向家属说明当日状态，建议简短、熟悉的陪伴活动。',
-      timeLabel: '15:00', priority: 'warning'
-    },
-    {
-      id: 'ai-focus-corridor', taskId: 'report-fall-risk', name: '东区走廊', location: '2F 东区',
-      detail: '扶手区域有临时物品占用，需要清理并复查',
-      signal: '环境巡查记录标记一处扶手动线受阻。',
-      suggestion: '先恢复通行和扶手使用条件，再按流程完成环境风险上报。',
-      timeLabel: '15:20', priority: 'danger'
-    },
-    {
-      id: 'ai-focus-rehabilitation', taskId: 'care-rehabilitation', name: '李秀英', location: '3F-305',
-      detail: '下午康复训练需要关注疲劳和疼痛反馈',
-      signal: '上次训练后记录有轻度疲劳，今日计划尚未开始。',
-      suggestion: '按既定计划陪护完成，过程中询问不适并如实记录。',
-      timeLabel: '16:00', priority: 'normal'
-    },
-    {
-      id: 'ai-focus-evening-round', taskId: 'care-evening-round', name: '东区巡视', location: '3F 东区',
-      detail: '晚餐前需要复查动线、呼叫设备和高风险长者',
-      signal: '当日存在设备离线和环境风险记录，需在晚班前确认状态。',
-      suggestion: '按区域顺序完成巡视，将未关闭事项明确交接给晚班。',
-      timeLabel: '17:10', priority: 'warning'
-    },
-    {
-      id: 'ai-focus-handoff', taskId: 'record-evening-handoff', name: '晚班交接', location: '2F/3F',
-      detail: '交接摘要需要覆盖未完成事项和后续复查节点',
-      signal: '当前班次仍有多项待处理和进行中工作。',
-      suggestion: '按人员、位置、时限和风险等级整理，避免只记录模糊描述。',
-      timeLabel: '17:30', priority: 'normal'
-    }
-  ];
+  private aiFocusItems: AiFocusItem[] = [];
 
-  private checkpoints: CareCheckpoint[] = [
-    { id: 'checkpoint-handoff', time: '07:30', title: '早班交接', note: '重点风险已阅读', completed: true },
-    { id: 'checkpoint-medication', time: '08:00', title: '晨间用药', note: '剩余 1 项待复核', completed: false },
-    { id: 'checkpoint-round', time: '10:30', title: '东区巡房', note: '即将开始', completed: false },
-    { id: 'checkpoint-family', time: '14:30', title: '家属沟通', note: '2 项待联系', completed: false }
-  ];
+  private checkpoints: CareCheckpoint[] = [];
 
   @Styles
   keyboardFocusStyle() {
@@ -331,7 +130,28 @@ export struct WideHomePage {
   }
 
   aboutToAppear(): void {
+    this.loadBackendTasks();
     this.reportTaskProgress();
+  }
+
+  private async loadBackendTasks(): Promise<void> {
+    await this.businessStore.load();
+    if (!this.businessStore.loaded) {
+      return;
+    }
+    this.backendTaskData = this.businessStore.tasks.map((task: BackendCareTask): CareTaskData => {
+      const elder: Elder | undefined = this.businessStore.elders.find((item: Elder) => item.id === task.elder_id);
+      const room: Room | undefined = elder?.bed?.room;
+      const state: CareTaskState = task.status === 'doing' ? 'doing' : task.status === 'done' ? 'done' : 'pending';
+      return { id: `${task.id}`, category: task.kind === 'medication' ? 'medication' : 'todo', title: task.title,
+        residentId: `${task.elder_id}`, resident: elder?.name ?? '未知长者', room: room ? `${room.floor}F-${room.room_no}` : '未分配',
+        summary: task.remark ?? '', time: task.due_at ? task.due_at.slice(11, 16) : '--', owner: task.assignee ?? '', priority: 'normal', state: state };
+    });
+    this.reportTaskProgress();
+  }
+
+  private activeTaskData(): CareTaskData[] {
+    return this.backendTaskData;
   }
 
   private activateWithKeyboard(event: KeyEvent, action: () => void): void {
@@ -478,16 +298,16 @@ export struct WideHomePage {
 
   private tasksForFilter(filter: CareWorkFilter): CareTaskData[] {
     if (filter === 'todo') {
-      return this.taskData.filter((task: CareTaskData) => this.effectiveTaskState(task) !== 'done');
+      return this.activeTaskData().filter((task: CareTaskData) => this.effectiveTaskState(task) !== 'done');
     }
     if (filter === 'priority') {
-      return this.taskData.filter((task: CareTaskData) =>
+      return this.activeTaskData().filter((task: CareTaskData) =>
         this.effectiveTaskState(task) !== 'done' && task.priority === 'danger');
     }
     if (filter === 'completed') {
-      return this.taskData.filter((task: CareTaskData) => this.effectiveTaskState(task) === 'done');
+      return this.activeTaskData().filter((task: CareTaskData) => this.effectiveTaskState(task) === 'done');
     }
-    return this.taskData.filter((task: CareTaskData) => task.category === filter);
+    return this.activeTaskData().filter((task: CareTaskData) => task.category === filter);
   }
 
   private visibleTasks(): CareTaskData[] {
@@ -594,7 +414,7 @@ export struct WideHomePage {
   }
 
   private pendingCount(): number {
-    return this.taskData.filter((task: CareTaskData) => this.effectiveTaskState(task) !== 'done').length;
+    return this.activeTaskData().filter((task: CareTaskData) => this.effectiveTaskState(task) !== 'done').length;
   }
 
   private urgentCount(): number {
@@ -606,15 +426,15 @@ export struct WideHomePage {
   }
 
   private progressPercent(): number {
-    return Math.round(this.completedCount() / this.taskData.length * 100);
+    return Math.round(this.completedCount() / this.activeTaskData().length * 100);
   }
 
   private reportTaskProgress(): void {
-    this.onTaskProgressChange(this.completedCount(), this.taskData.length);
+    this.onTaskProgressChange(this.completedCount(), this.activeTaskData().length);
   }
 
   private selectedTask(): CareTaskData | undefined {
-    return this.taskData.find((task: CareTaskData) => task.id === this.selectedTaskId);
+    return this.activeTaskData().find((task: CareTaskData) => task.id === this.selectedTaskId);
   }
 
   private selectedAiFocus(): AiFocusItem | undefined {
@@ -625,7 +445,7 @@ export struct WideHomePage {
     if (this.selectedAiFocus() === undefined) {
       return undefined;
     }
-    return this.taskData.find((task: CareTaskData) => task.id === this.selectedAiFocus()!.taskId);
+    return this.activeTaskData().find((task: CareTaskData) => task.id === this.selectedAiFocus()!.taskId);
   }
 
   private priorityText(priority: CarePriority): string {
@@ -803,7 +623,7 @@ export struct WideHomePage {
             .fontSize($r('sys.float.Caption_M'))
             .fontColor($r('sys.color.font_secondary'))
           Blank()
-          Text(this.completedCount() + ' / ' + this.taskData.length + ' 项完成')
+          Text(this.completedCount() + ' / ' + this.activeTaskData().length + ' 项完成')
             .fontSize($r('sys.float.Caption_M'))
             .fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary'))

@@ -75,7 +75,7 @@ func ensureDefaultTenant(db *gorm.DB) error {
 		}
 	}
 	// GORM 默认值通常会填充历史行；显式修复可能遗留的 0 值。
-	for _, table := range []interface{}{&model.User{}, &model.Role{}, &model.Permission{}, &model.AuditLog{}, &model.Elder{}, &model.Room{}, &model.Bed{}, &model.CareTask{}, &model.HealthRecord{}, &model.Assessment{}, &model.CarePlan{}, &model.CarePlanItem{}, &model.CareExecution{}, &model.Incident{}, &model.IotDevice{}, &model.SignalRecord{}, &model.Alert{}, &model.AlertAction{}, &model.Notification{}, &model.Schedule{}, &model.ShiftHandover{}, &model.Bill{}, &model.FundFlow{}, &model.MedicationRecord{}, &model.MedicineStock{}, &model.DiningOrder{}, &model.FamilyElder{}} {
+	for _, table := range []interface{}{&model.User{}, &model.Role{}, &model.Permission{}, &model.AuditLog{}, &model.Elder{}, &model.Room{}, &model.Bed{}, &model.CareTask{}, &model.HealthRecord{}, &model.Assessment{}, &model.CarePlan{}, &model.CarePlanItem{}, &model.CareExecution{}, &model.Incident{}, &model.IotDevice{}, &model.SignalRecord{}, &model.Alert{}, &model.AlertAction{}, &model.Notification{}, &model.Schedule{}, &model.ShiftHandover{}, &model.Bill{}, &model.FundFlow{}, &model.MedicationRecord{}, &model.MedicineStock{}, &model.DiningOrder{}, &model.FamilyElder{}, &model.Message{}} {
 		if err := db.Model(table).Where("tenant_id = 0").Update("tenant_id", 1).Error; err != nil {
 			return err
 		}
@@ -361,7 +361,7 @@ func seedDemoData(db *gorm.DB) error {
 		alerts := []model.Alert{
 			{ElderID: bind(0), DeviceID: "E438192584AA", Type: "fall", Level: "emergency", Content: "长者[" + elderName(db, bind(0)) + "] 检测到跌倒", Status: "new", CreateTime: now},
 			{ElderID: bind(1), DeviceID: "E438192584F5", Type: "breath_abnormal", Level: "important", Content: "长者[" + elderName(db, bind(1)) + "] 呼吸异常(次/分=28)", Status: "new", CreateTime: now.Add(-2 * time.Minute)},
-			{ElderID: bind(0), DeviceID: "E438192584AA", Type: "offline", Level: "info", Content: "设备离线(超过60s无上报)", Status: "handled", HandledBy: "演示", CreateTime: now.Add(-3 * time.Hour)},
+			{ElderID: bind(0), DeviceID: "E438192584AA", Type: "offline", Level: "info", Content: "设备离线(超过60s无上报)", Status: "handled", HandledBy: "系统自动处置", CreateTime: now.Add(-3 * time.Hour)},
 		}
 		for i := range alerts {
 			if err := db.Create(&alerts[i]).Error; err != nil {
@@ -530,6 +530,23 @@ func seedDemoData(db *gorm.DB) error {
 			{UserID: familyID, Channel: "in_app", Type: "health", Title: "家人健康更新", Content: "张素英今日体征已记录，请查看长者状态", Severity: "info", SentAt: &sent},
 		}
 		if err := db.Create(&notifications).Error; err != nil {
+			return err
+		}
+	}
+
+	var messageCount int64
+	if err := db.Model(&model.Message{}).Count(&messageCount).Error; err != nil {
+		return err
+	}
+	if messageCount == 0 && caregiverID > 0 && familyID > 0 && len(elders) > 0 {
+		firstElder := elders[0].ID
+		messages := []model.Message{
+			{SenderID: familyID, ReceiverID: caregiverID, ElderID: &firstElder, Content: "您好，想了解一下张素英今天的状态。", Type: "chat", SentAt: now.Add(-35 * time.Minute)},
+			{SenderID: caregiverID, ReceiverID: familyID, ElderID: &firstElder, Content: "您好，今天体征平稳，早间护理已完成，午休前会继续观察。", Type: "chat", SentAt: now.Add(-30 * time.Minute)},
+			{SenderID: caregiverID, ReceiverID: doctorID, ElderID: &firstElder, Content: "张素英今日体征已录入，请协助关注左膝酸胀情况。", Type: "care_handoff", SentAt: now.Add(-18 * time.Minute)},
+			{SenderID: doctorID, ReceiverID: caregiverID, ElderID: &firstElder, Content: "收到，按基础照护计划执行，异常时及时上报。", Type: "care_handoff", SentAt: now.Add(-12 * time.Minute)},
+		}
+		if err := db.Create(&messages).Error; err != nil {
 			return err
 		}
 	}

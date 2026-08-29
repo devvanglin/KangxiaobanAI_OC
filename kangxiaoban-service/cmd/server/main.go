@@ -52,6 +52,7 @@ func main() {
 	familyRepo := repository.NewFamilyRepository(db)
 	careRepo := repository.NewCareRepository(db)
 	notificationRepo := repository.NewNotificationRepository(db)
+	messageRepo := repository.NewMessageRepository(db)
 
 	authSvc := service.NewAuthService(userRepo, &cfg.JWT)
 	elderSvc := service.NewElderService(elderRepo)
@@ -66,6 +67,7 @@ func main() {
 	familySvc := service.NewFamilyService(familyRepo, db)
 	careSvc := service.NewCareService(careRepo)
 	notificationSvc := service.NewNotificationService(notificationRepo)
+	messageSvc := service.NewMessageService(messageRepo)
 	aiSvc := service.NewAIService(&cfg.AI, db)
 
 	hub := ws.NewHub()
@@ -80,7 +82,7 @@ func main() {
 	go iotSvc.StartEscalationScanner()
 
 	r := router.New(db, cfg, hub, iotSvc, userRepo, authSvc, elderSvc, resourceSvc, taskSvc, healthSvc,
-		scheduleSvc, financeSvc, medicationSvc, auditSvc, auditRepo, supplySvc, familySvc, careSvc, notificationSvc, aiSvc)
+		scheduleSvc, financeSvc, medicationSvc, auditSvc, auditRepo, supplySvc, familySvc, careSvc, notificationSvc, messageSvc, aiSvc)
 
 	// 展示壳静态托管：落地页(/)与大屏(/dashboard.html)（API 路由优先，未匹配路径回落到静态）
 	if cfg.Server.StaticDir != "" {

@@ -26,6 +26,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	supplySvc *service.SupplyService, familySvc *service.FamilyService,
 	careSvc *service.CareService,
 	notificationSvc *service.NotificationService,
+	messageSvc *service.MessageService,
 	aiSvc *service.AIService,
 ) *gin.Engine {
 	r := gin.Default()
@@ -38,7 +39,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	authHandler := handler.NewAuthHandler(authSvc)
 	dashboardHandler := handler.NewDashboardHandler(db)
 	elderHandler := handler.NewElderHandler(elderSvc, familySvc)
-	resourceHandler := handler.NewResourceHandler(resourceSvc)
+	resourceHandler := handler.NewResourceHandler(resourceSvc, familySvc)
 	taskHandler := handler.NewTaskHandler(taskSvc, hub, familySvc)
 	healthHandler := handler.NewHealthHandler(healthSvc, hub, familySvc)
 	wsHandler := handler.NewWSHandler(hub, cfg.JWT.Secret)
@@ -49,6 +50,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	aiHandler := handler.NewAIHandler(aiSvc)
 	careHandler := handler.NewCareHandler(careSvc, familySvc)
 	notificationHandler := handler.NewNotificationHandler(notificationSvc)
+	messageHandler := handler.NewMessageHandler(messageSvc, familySvc, hub, userRepo)
 
 	// 访问校验封装
 	perm := func(code string) gin.HandlerFunc { return middleware.RequirePermission(userRepo, code) }
@@ -102,6 +104,10 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		authed.PATCH("/care-executions/:id/review", perm("task:write"), careHandler.ReviewExecution)
 		authed.GET("/notifications", notificationHandler.List)
 		authed.PATCH("/notifications/:id/read", notificationHandler.MarkRead)
+		authed.GET("/messages", messageHandler.List)
+		authed.POST("/messages", messageHandler.Send)
+		authed.PATCH("/messages/:id/read", messageHandler.MarkRead)
+		authed.GET("/message-contacts", messageHandler.Contacts)
 
 		// 物联网：设备/告警读写
 		authed.GET("/iot/devices", perm("alert:read"), iotHandler.ListDevices)
@@ -110,9 +116,6 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		authed.POST("/alerts/:id/actions", perm("task:write"), iotHandler.CreateAlertAction)
 		authed.PATCH("/alerts/:id/handle", perm("admin:all"), iotHandler.HandleAlert)
 		authed.POST("/iot/ingest", perm("admin:all"), iotHandler.Ingest)
-
-		// 演示/测试：向所有客户端广播事件（admin）
-		authed.POST("/demo/push", perm("admin:all"), wsHandler.DemoPush)
 
 		// ---- M4 排班/交接班 ----
 		authed.GET("/schedules", perm("task:read"), m4Handler.ListSchedules)

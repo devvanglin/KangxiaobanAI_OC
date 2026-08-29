@@ -29,6 +29,28 @@ export interface LoginResp {
   user: LoginUser;
 }
 
+/** 可联系的正式用户。 */
+export interface MessageContact {
+  id: number;
+  username: string;
+  real_name: string;
+  phone: string;
+  status: number;
+  roles: RoleInfo[];
+}
+
+/** 用户间消息。 */
+export interface UserMessage {
+  id: number;
+  sender_id: number;
+  receiver_id: number;
+  elder_id?: number;
+  content: string;
+  type: string;
+  sent_at: string;
+  read_at?: string;
+}
+
 /** 分页响应。 */
 export interface Paged<T> {
   list: T[];
@@ -40,6 +62,7 @@ export interface Paged<T> {
 /** 长者档案。 */
 export interface Elder {
   id: number;
+  created_at?: string;
   name: string;
   id_card?: string;
   gender: string;
@@ -51,6 +74,7 @@ export interface Elder {
   emergency_contacts?: ElderContact[];
   image?: string;
   remark?: string;
+  bed?: Bed;
 }
 
 export interface ElderContact {
@@ -78,6 +102,7 @@ export interface Bed {
   bed_no: string;
   status: string;
   elder_id?: number;
+  room?: Room;
 }
 
 /** 护理任务。 */
@@ -153,4 +178,75 @@ export interface ShiftHandover {
   work_date: string;
   summary?: string;
   issues?: string;
+}
+
+export interface IotDevice {
+  id: number;
+  device_id: string;
+  product: string;
+  building: string;
+  room: string;
+  bed: string;
+  elder_id?: number;
+  online: number;
+  last_seen?: string;
+  protocol: string;
+}
+
+export interface Alert {
+  id: number;
+  elder_id?: number;
+  device_id: string;
+  type: string;
+  level: string;
+  content: string;
+  status: string;
+  handled_by: string;
+  create_time: string;
+  close_time?: string;
+}
+
+export interface MedicationRecord {
+  id: number;
+  elder_id: number;
+  medicine_name: string;
+  dosage: string;
+  plan_time?: string;
+  taken_time?: string;
+  status: string;
+}
+
+export interface NotificationRecord {
+  id: number;
+  user_id: number;
+  role: string;
+  channel: string;
+  type: string;
+  title: string;
+  content: string;
+  severity: string;
+  read_at?: string;
+  sent_at?: string;
+}
+
+export interface DiningOrder {
+  id: number;
+  elder_id: number;
+  meal_time: string;
+  items: string;
+  qty: number;
+  unit_price: number;
+  total_amount: number;
+  status: string;
+}
+
+export interface Assessment {
+  id: number;
+  elder_id: number;
+  assessor_id: number;
+  assessment_type: string;
+  score?: number;
+  risk_level: string;
+  notes: string;
+  assessed_at: string;
 }

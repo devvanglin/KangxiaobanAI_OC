@@ -25,6 +25,9 @@ import {
 } from '@kit.UIDesignKit';
 import { StorageKey } from '../common/CommonConstants';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
+import AuthStore from '../network/AuthStore';
+import { MessageApi } from '../network/MessageApi';
+import { UserMessage } from '../network/Dto';
 
 type PhoneChatRole = 'incoming' | 'outgoing' | 'system';
 
@@ -58,10 +61,31 @@ export struct PhoneMessageChatPage {
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
   @Local replyText: string = '';
+  @Local backendRecords: PhoneChatRecord[] = [];
   private chatScroller: Scroller = new Scroller();
   private scrollTimerId: number = -1;
 
   aboutToAppear(): void {
+    this.loadMessages();
+    this.scheduleScrollToBottom();
+  }
+
+  private peerId(): number {
+    return this.conversationId.indexOf('user-') === 0 ? Number(this.conversationId.slice(5)) : 0;
+  }
+
+  private async loadMessages(): Promise<void> {
+    const peerId: number = this.peerId();
+    if (peerId <= 0) {
+      return;
+    }
+    const response = await MessageApi.list(peerId);
+    const currentUserId: number = AuthStore.getUser()?.id ?? 0;
+    this.backendRecords = response.data.list.map((message: UserMessage): PhoneChatRecord => {
+      return { id: `${message.id}`, role: message.sender_id === currentUserId ? 'outgoing' : 'incoming',
+        author: message.sender_id === currentUserId ? (AuthStore.getUser()?.real_name ?? '我') : this.title,
+        content: message.content, time: message.sent_at.slice(11, 16) };
+    });
     this.scheduleScrollToBottom();
   }
 
@@ -92,70 +116,6 @@ export struct PhoneMessageChatPage {
     return 0xFFEAF1FF;
   }
 
-  private presetRecords(): PhoneChatRecord[] {
-    if (this.conversationId === 'msg-family-health') {
-      return [
-        {
-          id: 'phone-family-1', role: 'incoming', author: '张明华家属',
-          content: '刘护工您好，张爷爷今天精神怎么样？早上的血压还稳定吗？', time: '09:48', dayLabel: '今天'
-        },
-        {
-          id: 'phone-family-2', role: 'outgoing', author: '刘婷',
-          content: '您好，张爷爷上午精神状态稳定，血压记录已经复核，我会继续观察。', time: '10:05'
-        },
-        {
-          id: 'phone-family-3', role: 'incoming', author: '张明华家属',
-          content: this.initialContent, time: '10:32'
-        }
-      ];
-    }
-    if (this.conversationId === 'msg-handoff-night') {
-      return [
-        {
-          id: 'phone-handoff-1', role: 'incoming', author: '护理站',
-          content: '周奶奶夜间两次离床，晨间反馈膝部不适，交班记录已补充。', time: '07:46', dayLabel: '今天'
-        },
-        {
-          id: 'phone-handoff-2', role: 'outgoing', author: '刘婷',
-          content: '收到，我会在午休前完成复评，并在交班时同步。', time: '07:52'
-        },
-        {
-          id: 'phone-handoff-3', role: 'incoming', author: '护理站',
-          content: this.initialContent, time: '10:08'
-        }
-      ];
-    }
-    if (this.conversationId === 'msg-family-visit') {
-      return [
-        {
-          id: 'phone-visit-1', role: 'incoming', author: '李秀英家属',
-          content: '您好，我们准备周六下午去看望李奶奶，可以帮忙登记吗？', time: '09:02', dayLabel: '今天'
-        },
-        {
-          id: 'phone-visit-2', role: 'outgoing', author: '刘婷',
-          content: '可以，已经为您登记周六下午三点探视，到院后在前台确认即可。', time: '09:12'
-        },
-        {
-          id: 'phone-visit-3', role: 'incoming', author: '李秀英家属',
-          content: this.initialContent, time: '09:18'
-        }
-      ];
-    }
-    if (this.kind === 'notice') {
-      return [{
-        id: `phone-${this.conversationId}-notice`, role: 'system', author: this.title,
-        content: this.initialContent, time: this.conversationId === 'msg-notice-update' ? '昨天' : '09:46',
-        dayLabel: this.conversationId === 'msg-notice-update' ? '昨天' : '今天'
-      }];
-    }
-    return [
-      {
-        id: `phone-${this.conversationId}-1`, role: 'incoming', author: this.title,
-        content: this.initialContent, time: '08:52', dayLabel: '今天'
-      }
-    ];
-  }
-
   private currentRecords(): PhoneChatRecord[] {
     const local: PhoneChatRecord[] = this.localRecords
       .filter((item: PhoneLocalMessageRecord) => item.conversationId === this.conversationId)
@@ -169,7 +129,7 @@ export struct PhoneMessageChatPage {
         };
         return record;
       });
-    return [...this.presetRecords(), ...local];
+    return [...this.backendRecords, ...local];
   }
 
   private currentTimeText(): string {
@@ -188,9 +148,24 @@ export struct PhoneMessageChatPage {
       content: content,
       time: this.currentTimeText()
     };
-    this.onSend(record);
+    if (this.peerId() > 0) {
+      this.persistReply(content);
+    } else {
+      this.onSend(record);
+    }
     this.replyText = '';
     this.scheduleScrollToBottom();
+  }
+
+  private async persistReply(content: string): Promise<void> {
+    const peerId: number = this.peerId();
+    if (peerId <= 0) {
+      return;
+    }
+    const response = await MessageApi.send(peerId, content);
+    if (response.code === 0) {
+      await this.loadMessages();
+    }
   }
 
   private scheduleScrollToBottom(): void {

@@ -54,6 +54,16 @@ func (r *UserRepository) FindByID(id uint) (*model.User, error) {
 	return &u, nil
 }
 
+// ListContacts 返回当前租户可用于护理沟通的正式账号，不包含密码哈希。
+func (r *UserRepository) ListContacts(tenantID, excludeID uint) ([]model.User, error) {
+	var users []model.User
+	err := r.db.Preload("Roles").Where("tenant_id = ? AND id <> ? AND deleted_at IS NULL AND status = 1", tenantID, excludeID).Order("id asc").Find(&users).Error
+	for i := range users {
+		users[i].PasswordHash = ""
+	}
+	return users, err
+}
+
 // PermissionsByRoleCodes 汇总给定角色集合的权限码（去重）。
 func (r *UserRepository) PermissionsByRoleCodes(codes []string) ([]string, error) {
 	if len(codes) == 0 {

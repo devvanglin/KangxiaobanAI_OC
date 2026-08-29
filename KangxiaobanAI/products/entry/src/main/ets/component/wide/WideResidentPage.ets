@@ -22,6 +22,8 @@ import {
   VitalSign
 } from '../../model/DetailTypes';
 import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule';
+import { BusinessStore } from '../../network/BusinessStore';
+import { Alert, Bed, CareTask, Elder, HealthRecord, IotDevice, MedicationRecord, Room } from '../../network/Dto';
 
 type ResidentFilter = 'all' | 'warning' | 'danger';
 type ResidentDetailTab = 'overview' | 'vitals' | 'care' | 'devices';
@@ -49,6 +51,7 @@ interface RiskRow {
 
 @ComponentV2
 export struct WideResidentPage {
+  @Local businessStore: BusinessStore = BusinessStore.getShared();
   @Param compactWidth: boolean = false;
   @Param topBarHeight: number = 0;
   @Param @Require masterScroller: Scroller;
@@ -138,6 +141,7 @@ export struct WideResidentPage {
   }
 
   aboutToAppear(): void {
+    this.businessStore.load();
     this.reportVisibleScrollerOwner();
   }
 
@@ -172,88 +176,87 @@ export struct WideResidentPage {
   }
 
   private allResidents(): ResidentData[] {
-    return [
-      {
-        id: 'r1', name: '肖爷爷', age: 82, gender: 'male', room: '3F-302', bed: 'A床',
-        level: 'danger', status: '情绪低落 · 拒交流',
-        emergencyContact: '肖先生（子）', emergencyPhone: '138****1201',
-        admissionDate: '2022-03-15', careLevel: '一级护理',
-        diagnosis: ['高血压', '2型糖尿病', '轻度抑郁'], allergies: ['青霉素'],
-        deviceIds: ['d1', 'd5', 'd6'], avatarText: '肖'
-      },
-      {
-        id: 'r2', name: '周奶奶', age: 78, gender: 'female', room: '2F-215', bed: 'B床',
-        level: 'warning', status: '夜间离床增加',
-        emergencyContact: '周女士（女）', emergencyPhone: '139****2202',
-        admissionDate: '2021-08-20', careLevel: '二级护理',
-        diagnosis: ['冠心病', '骨质疏松'], allergies: ['海鲜'],
-        deviceIds: ['d3', 'd4'], avatarText: '周'
-      },
-      {
-        id: 'r3', name: '林爷爷', age: 85, gender: 'male', room: '3F-306', bed: 'C床',
-        level: 'warning', status: '社交回避',
-        emergencyContact: '林先生（子）', emergencyPhone: '137****3303',
-        admissionDate: '2020-11-02', careLevel: '一级护理',
-        diagnosis: ['脑梗后遗症', '高血压'], allergies: [],
-        deviceIds: ['d2', 'd6'], avatarText: '林'
-      },
-      {
-        id: 'r4', name: '王德林', age: 79, gender: 'male', room: '2F-201', bed: 'A床',
-        level: 'normal', status: '稳定观察',
-        emergencyContact: '王女士（女）', emergencyPhone: '136****4404',
-        admissionDate: '2023-01-10', careLevel: '三级护理',
-        diagnosis: ['骨质疏松'], allergies: [],
-        deviceIds: ['d7'], avatarText: '王'
-      },
-      {
-        id: 'r5', name: '李秀英', age: 81, gender: 'female', room: '3F-305', bed: 'B床',
-        level: 'normal', status: '术后康复稳定',
-        emergencyContact: '张先生（子）', emergencyPhone: '135****5505',
-        admissionDate: '2022-09-28', careLevel: '二级护理',
-        diagnosis: ['高血压', '术后康复'], allergies: [],
-        deviceIds: ['d8'], avatarText: '李'
-      }
-    ];
+    return this.businessStore.elders.map((elder: Elder): ResidentData => {
+      const bed: Bed | undefined = this.businessStore.beds.find((item: Bed) => item.id === elder.bed_id);
+      const room: Room | undefined = bed ?
+        this.businessStore.rooms.find((item: Room) => item.id === bed.room_id) : undefined;
+      const contactName: string = elder.emergency_contacts && elder.emergency_contacts.length > 0 ?
+        `${elder.emergency_contacts[0].name}（${elder.emergency_contacts[0].relation}）` : '未登记';
+      const contactPhone: string = elder.emergency_contacts && elder.emergency_contacts.length > 0 ?
+        elder.emergency_contacts[0].phone : '';
+      const abnormal: boolean = this.businessStore.healthRecords.some((item: HealthRecord) =>
+        item.elder_id === elder.id && item.is_abnormal);
+      const hasOpenAlert: boolean = this.businessStore.alerts.some((item) =>
+        item.elder_id === elder.id && item.status !== 'handled' && item.status !== 'closed');
+      const level: StatusLevel = hasOpenAlert ? 'danger' : abnormal ? 'warning' : 'normal';
+      const location: string = room ? `${room.floor}F-${room.room_no}` : '未分配房间';
+      return {
+        id: `${elder.id}`,
+        name: elder.name,
+        age: this.ageFromBirthDate(elder.birth_date),
+        gender: elder.gender === 'F' ? 'female' : 'male',
+        room: location,
+        bed: bed ? `${bed.bed_no}床` : '未分配床位',
+        level: level,
+        status: hasOpenAlert ? '存在待处理告警' : abnormal ? '体征需要关注' : '状态稳定',
+        emergencyContact: contactName,
+        emergencyPhone: contactPhone,
+        admissionDate: elder.created_at ?? '',
+        careLevel: `${elder.care_level}级护理`,
+        diagnosis: elder.remark ? elder.remark.split('；') : [],
+        allergies: [],
+        deviceIds: this.businessStore.devices
+          .filter((item: IotDevice) => item.elder_id === elder.id)
+          .map((item: IotDevice): string => item.device_id),
+        avatarText: elder.name.slice(0, 1)
+      };
+    });
+  }
+
+  private ageFromBirthDate(birthDate?: string): number {
+    if (!birthDate || birthDate.length < 4) {
+      return 0;
+    }
+    return new Date().getFullYear() - Number(birthDate.slice(0, 4));
+  }
+
+  private timeText(value: string): string {
+    return value.length >= 16 ? value.slice(11, 16) : value;
   }
 
   private residentVitalSign(resident: ResidentData): VitalSign {
-    const map: Record<string, VitalSign> = {
-      'r1': {
-        heartRate: 72, systolic: 138, diastolic: 85, oxygen: 96,
-        temperature: 36.5, respiratory: 18, steps: 1240, sleepHours: 5.2, measuredAt: '10:24'
-      },
-      'r2': {
-        heartRate: 78, systolic: 125, diastolic: 80, oxygen: 97,
-        temperature: 36.4, respiratory: 17, steps: 2100, sleepHours: 6.8, measuredAt: '09:46'
-      },
-      'r3': {
-        heartRate: 70, systolic: 142, diastolic: 88, oxygen: 95,
-        temperature: 36.6, respiratory: 19, steps: 380, sleepHours: 4.5, measuredAt: '09:12'
-      },
-      'r4': {
-        heartRate: 68, systolic: 118, diastolic: 76, oxygen: 98,
-        temperature: 36.3, respiratory: 16, steps: 3200, sleepHours: 7.2, measuredAt: '08:30'
-      },
-      'r5': {
-        heartRate: 75, systolic: 122, diastolic: 78, oxygen: 98,
-        temperature: 36.4, respiratory: 17, steps: 2800, sleepHours: 7.0, measuredAt: '08:15'
-      }
-    };
-    return map[resident.id] ?? {
-      heartRate: 0, systolic: 0, diastolic: 0, oxygen: 0,
-      temperature: 0, respiratory: 0, steps: 0, sleepHours: 0, measuredAt: '--'
+    const elderId: number = Number(resident.id);
+    const records: HealthRecord[] = this.businessStore.healthRecords
+      .filter((item: HealthRecord) => item.elder_id === elderId)
+      .sort((left: HealthRecord, right: HealthRecord): number => right.record_time.localeCompare(left.record_time));
+    if (records.length === 0) {
+      return {
+        heartRate: 0, systolic: 0, diastolic: 0, oxygen: 0,
+        temperature: 0, respiratory: 0, steps: 0, sleepHours: 0, measuredAt: '--'
+      };
+    }
+    const latest: HealthRecord = records[0];
+    return {
+      heartRate: latest.heart_rate ?? 0,
+      systolic: latest.systolic ?? 0,
+      diastolic: latest.diastolic ?? 0,
+      oxygen: latest.spo2 ?? 0,
+      temperature: latest.temperature ?? 0,
+      respiratory: 0,
+      steps: 0,
+      sleepHours: 0,
+      measuredAt: this.timeText(latest.record_time)
     };
   }
 
   private residentMedicationProgress(resident: ResidentData): MedicationProgress {
-    const map: Record<string, MedicationProgress> = {
-      'r1': { done: 3, total: 5 },
-      'r2': { done: 4, total: 4 },
-      'r3': { done: 2, total: 6 },
-      'r4': { done: 2, total: 3 },
-      'r5': { done: 3, total: 3 }
+    const elderId: number = Number(resident.id);
+    const records: MedicationRecord[] = this.businessStore.medications
+      .filter((item: MedicationRecord) => item.elder_id === elderId);
+    return {
+      done: records.filter((item: MedicationRecord) => item.status === 'taken').length,
+      total: records.length
     };
-    return map[resident.id] ?? { done: 0, total: 0 };
   }
 
   private filteredResidents(): ResidentData[] {
@@ -376,61 +379,45 @@ export struct WideResidentPage {
   }
 
   private trendRows(resident: ResidentData): VitalTrendRow[] {
-    const vital: VitalSign = this.residentVitalSign(resident);
-    return [
-      { time: '06:00', heartRate: vital.heartRate - 4, systolic: vital.systolic - 6, diastolic: vital.diastolic - 3 },
-      { time: '08:00', heartRate: vital.heartRate + 1, systolic: vital.systolic - 3, diastolic: vital.diastolic - 1 },
-      { time: '10:00', heartRate: vital.heartRate - 2, systolic: vital.systolic + 2, diastolic: vital.diastolic + 1 },
-      { time: '12:00', heartRate: vital.heartRate + 5, systolic: vital.systolic + 4, diastolic: vital.diastolic + 2 },
-      { time: '14:00', heartRate: vital.heartRate + 2, systolic: vital.systolic - 1, diastolic: vital.diastolic },
-      { time: '当前', heartRate: vital.heartRate, systolic: vital.systolic, diastolic: vital.diastolic }
-    ];
+    return this.businessStore.healthRecords
+      .filter((item: HealthRecord) => item.elder_id === Number(resident.id))
+      .sort((left: HealthRecord, right: HealthRecord): number => left.record_time.localeCompare(right.record_time))
+      .map((item: HealthRecord): VitalTrendRow => {
+        return { time: this.timeText(item.record_time), heartRate: item.heart_rate ?? 0,
+          systolic: item.systolic ?? 0, diastolic: item.diastolic ?? 0 };
+      });
   }
 
   private careRecords(resident: ResidentData): CareRecordRow[] {
-    return [
-      { time: '10:30', project: '情绪关怀', operator: '刘婷', result: `${resident.status}，已持续跟进`, level: resident.level },
-      { time: '10:24', project: '体征测量', operator: '王倩', result: '体征数据已同步', level: 'normal' },
-      { time: '09:00', project: '晨间巡房', operator: '王倩', result: '环境与安全检查完成', level: 'normal' },
-      { time: '08:00', project: '早餐协助', operator: '刘婷', result: '进食约八成', level: 'normal' },
-      { time: '07:30', project: '起床护理', operator: '刘婷', result: '洗漱与更衣完成', level: 'normal' }
-    ];
+    return this.businessStore.tasks
+      .filter((item: CareTask) => item.elder_id === Number(resident.id))
+      .map((item: CareTask): CareRecordRow => {
+        return { time: item.due_at ? this.timeText(item.due_at) : '--', project: item.title,
+          operator: item.assignee ?? '', result: item.remark ?? item.status,
+          level: item.status === 'done' ? 'normal' : 'warning' };
+      });
   }
 
   private riskRows(resident: ResidentData): RiskRow[] {
-    if (resident.id === 'r1') {
-      return [
-        { label: '跌倒风险', value: '高风险', level: 'danger' },
-        { label: '压疮风险', value: '需关注', level: 'warning' },
-        { label: '走失风险', value: '低风险', level: 'normal' }
-      ];
+    const alerts: Alert[] = this.businessStore.alerts.filter((item: Alert) =>
+      item.elder_id === Number(resident.id));
+    if (alerts.length === 0) {
+      return [{ label: '综合风险', value: '暂无未处理风险', level: 'normal' }];
     }
-    if (resident.id === 'r2' || resident.id === 'r3') {
-      return [
-        { label: '跌倒风险', value: '需关注', level: 'warning' },
-        { label: '压疮风险', value: '低风险', level: 'normal' },
-        { label: '走失风险', value: '低风险', level: 'normal' }
-      ];
-    }
-    return [
-      { label: '跌倒风险', value: '低风险', level: 'normal' },
-      { label: '压疮风险', value: '低风险', level: 'normal' },
-      { label: '走失风险', value: '低风险', level: 'normal' }
-    ];
+    return alerts.map((item: Alert): RiskRow => {
+      const level: StatusLevel = item.level === 'emergency' ? 'danger' : item.level === 'important' ? 'warning' : 'normal';
+      return { label: item.type, value: item.content, level: level };
+    });
   }
 
   private residentDevices(resident: ResidentData): RoomDeviceData[] {
-    const devices: RoomDeviceData[] = [
-      { id: 'd1', name: '智能床垫', type: '睡眠体征', room: resident.room, status: '数据异常', level: 'warning', battery: 78, lastUpdate: '10:24' },
-      { id: 'd2', name: '毫米波雷达', type: '离床跌倒', room: resident.room, status: '离线', level: 'danger', battery: 0, lastUpdate: '14:20' },
-      { id: 'd3', name: '紧急呼叫器', type: '主动求助', room: resident.room, status: '在线', level: 'normal', battery: 45, lastUpdate: '09:50' },
-      { id: 'd4', name: '智能床垫', type: '睡眠体征', room: resident.room, status: '在线', level: 'normal', battery: 90, lastUpdate: '09:40' },
-      { id: 'd5', name: '房间雷达', type: '活动监测', room: resident.room, status: '在线', level: 'normal', battery: 86, lastUpdate: '10:23' },
-      { id: 'd6', name: '随身定位卡', type: '位置安全', room: resident.room, status: '在线', level: 'normal', battery: 62, lastUpdate: '10:22' },
-      { id: 'd7', name: '健康手环', type: '生命体征', room: resident.room, status: '在线', level: 'normal', battery: 71, lastUpdate: '08:30' },
-      { id: 'd8', name: '血糖仪', type: '血糖监测', room: resident.room, status: '在线', level: 'normal', battery: 84, lastUpdate: '08:15' }
-    ];
-    return devices.filter((item: RoomDeviceData) => resident.deviceIds.includes(item.id));
+    return this.businessStore.devices
+      .filter((item: IotDevice) => item.elder_id === Number(resident.id))
+      .map((item: IotDevice): RoomDeviceData => {
+        return { id: item.device_id, name: item.product, type: item.protocol, room: resident.room,
+          status: item.online === 1 ? '在线' : '离线', level: item.online === 1 ? 'normal' : 'danger',
+          battery: 0, lastUpdate: item.last_seen ? this.timeText(item.last_seen) : '--' };
+      });
   }
 
   build() {

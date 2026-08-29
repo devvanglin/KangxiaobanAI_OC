@@ -75,11 +75,27 @@ func (h *Hub) BroadcastEvent(eventType string, data interface{}) {
 	}
 }
 
+// SendToUser 向指定用户的所有在线连接发送事件。
+func (h *Hub) SendToUser(userID uint, eventType string, data interface{}) {
+	payload, _ := json.Marshal(map[string]interface{}{"type": eventType, "data": data})
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for c := range h.clients {
+		if c.UserID != userID {
+			continue
+		}
+		select {
+		case c.Send <- payload:
+		default:
+		}
+	}
+}
+
 // Client 单个 WebSocket 连接。
 type Client struct {
-	Hub   *Hub
-	Conn  *websocket.Conn
-	Send  chan []byte
+	Hub    *Hub
+	Conn   *websocket.Conn
+	Send   chan []byte
 	UserID uint
 	Roles  []string
 

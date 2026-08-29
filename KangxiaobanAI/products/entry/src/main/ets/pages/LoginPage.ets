@@ -26,14 +26,6 @@ const TAG: string = '[LoginPage]';
 const ROLE_CAREGIVER: string = '护工';
 const ROLE_DOCTOR: string = '医师';
 const ROLE_ADMIN: string = '管理';
-const CAREGIVER_PASSWORD: string = '123456';
-const DOCTOR_PASSWORD: string = '123456';
-const ADMIN_PASSWORD: string = 'Admin@123456';
-
-interface RoleCredential {
-  account: string;
-  password: string;
-}
 
 interface LoginRequest {
   username: string;
@@ -43,8 +35,8 @@ interface LoginRequest {
 @Entry
 @ComponentV2
 struct LoginPage {
-  @Local account: string = 'caregiver';
-  @Local password: string = CAREGIVER_PASSWORD;
+  @Local account: string = '';
+  @Local password: string = '';
   @Local showPassword: boolean = false;
   @Local isLoading: boolean = false;
   @Local rememberMe: boolean = false;
@@ -120,22 +112,6 @@ struct LoginPage {
 
   private roleOptions: string[] = [ROLE_CAREGIVER, ROLE_DOCTOR, ROLE_ADMIN];
 
-  private credentialForRole(role: string): RoleCredential {
-    if (role === ROLE_DOCTOR) {
-      return { account: 'doctor', password: DOCTOR_PASSWORD };
-    }
-    if (role === ROLE_ADMIN) {
-      return { account: 'admin', password: ADMIN_PASSWORD };
-    }
-    return { account: 'caregiver', password: CAREGIVER_PASSWORD };
-  }
-
-  private applyCredential(role: string): void {
-    const credential: RoleCredential = this.credentialForRole(role);
-    this.account = credential.account;
-    this.password = credential.password;
-  }
-
   @Builder
   private roleSelector() {
     Row({ space: 4 }) {
@@ -156,7 +132,6 @@ struct LoginPage {
       action: () => {
         this.selectedRole = role;
         this.globalInfoModel.role = role;
-        this.applyCredential(role);
       }
     })))
   }

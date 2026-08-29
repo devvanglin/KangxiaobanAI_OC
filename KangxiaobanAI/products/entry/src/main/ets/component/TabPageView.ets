@@ -35,6 +35,8 @@ import { TabPageConfig } from '../model/TabPageModel';
 import { BreakpointType, BreakpointUtil } from '../util/BreakpointSystem';
 import { WindowUtil } from '../util/WindowUtil';
 import AuthStore from '../network/AuthStore';
+import { BusinessStore } from '../network/BusinessStore';
+import { Alert, Bed, CareTask as BackendCareTask, Elder, HealthRecord, IotDevice, MedicationRecord, MessageContact, Room, UserMessage } from '../network/Dto';
 import { HealthListCard, HealthListCardData, HealthListCardRow } from './HealthListCard';
 
 import { EventListCard, EventListCardData, EventListCardRow } from './EventListCard';
@@ -210,6 +212,13 @@ export struct TabPageView {
   @Local selectedQuickActionIndex: number = 0;
   @Local isHealthExpandShow: boolean = false;
   @Local isTaskExpandShow: boolean = false;
+  @Local businessStore: BusinessStore = BusinessStore.getShared();
+
+  aboutToAppear(): void {
+    if (AuthStore.getToken().length > 0) {
+      this.businessStore.load();
+    }
+  }
 
   private openAiChat(): void {
     this.onOpenAiChat();
@@ -449,6 +458,12 @@ export struct TabPageView {
   // ---------------- home data ----------------
 
   private bedSummary(): BedSummary {
+    if (this.businessStore.loaded) {
+      const total: number = this.businessStore.beds.length;
+      const occupied: number = this.businessStore.beds.filter((item: Bed) => item.status === 'occupied').length;
+      const maintenance: number = this.businessStore.beds.filter((item: Bed) => item.status === 'maintenance').length;
+      return { total: total, occupied: occupied, empty: Math.max(0, total - occupied - maintenance), maintenance: maintenance };
+    }
     return { total: 156, occupied: 128, empty: 24, maintenance: 4 };
   }
 
@@ -463,33 +478,30 @@ export struct TabPageView {
   }
 
   private healthRows(): HealthRowData[] {
-    return [
-      {
-        id: 'r1', name: '肖爷爷', age: 82, room: '3F-302', bed: 'A床',
-        level: 'danger', status: '情绪低落 · 拒交流', mood: '低落', moodLevel: 'danger',
-        lastUpdate: '10:24'
-      },
-      {
-        id: 'r2', name: '周奶奶', age: 78, room: '2F-215', bed: 'B床',
-        level: 'warning', status: '夜间离床增加', mood: '焦虑', moodLevel: 'warning',
-        lastUpdate: '09:46'
-      },
-      {
-        id: 'r3', name: '林爷爷', age: 85, room: '3F-306', bed: 'C床',
-        level: 'warning', status: '社交回避', mood: '回避', moodLevel: 'warning',
-        lastUpdate: '09:12'
-      },
-      {
-        id: 'r4', name: '王爷爷', age: 80, room: '2F-201', bed: 'A床',
-        level: 'normal', status: '稳定观察', mood: '平静', moodLevel: 'normal',
-        lastUpdate: '08:30'
-      },
-      {
-        id: 'r5', name: '赵奶奶', age: 76, room: '2F-208', bed: 'A床',
-        level: 'normal', status: '稳定观察', mood: '愉快', moodLevel: 'normal',
-        lastUpdate: '08:15'
-      }
-    ];
+    if (this.businessStore.loaded) {
+      return this.businessStore.elders.map((elder: Elder): HealthRowData => this.healthRowFromElder(elder));
+    }
+    return [];
+  }
+
+  private healthRowFromElder(elder: Elder): HealthRowData {
+    const bed: Bed | undefined = this.businessStore.beds.find((item: Bed) => item.id === elder.bed_id);
+    const room: Room | undefined = bed ? this.businessStore.rooms.find((item: Room) => item.id === bed.room_id) : undefined;
+    const latest: HealthRecord | undefined = this.businessStore.healthRecords
+      .filter((item: HealthRecord) => item.elder_id === elder.id)
+      .sort((left: HealthRecord, right: HealthRecord): number => right.record_time.localeCompare(left.record_time))[0];
+    const abnormal: boolean = latest?.is_abnormal ?? false;
+    return {
+      id: `${elder.id}`, name: elder.name, age: this.ageFromBirthDate(elder.birth_date),
+      room: room ? `${room.floor}F-${room.room_no}` : '未分配', bed: bed ? `${bed.bed_no}床` : '未分配',
+      level: abnormal ? 'warning' : 'normal', status: abnormal ? '体征需要关注' : '稳定观察',
+      mood: abnormal ? '需关注' : '平稳', moodLevel: abnormal ? 'warning' : 'normal',
+      lastUpdate: latest ? latest.record_time.slice(11, 16) : '--'
+    };
+  }
+
+  private ageFromBirthDate(value?: string): number {
+    return value && value.length >= 4 ? new Date().getFullYear() - Number(value.slice(0, 4)) : 0;
   }
 
   private healthCardData(): HealthListCardData {
@@ -526,135 +538,76 @@ export struct TabPageView {
   }
 
   private deviceRows(): DeviceRowData[] {
-    return [
-      {
-        id: 'd1', name: '智能床垫', room: '3F-302', type: '睡眠体征',
-        status: '数据异常', level: 'warning', lastUpdate: '10:24'
-      },
-      {
-        id: 'd2', name: '毫米波雷达', room: '3F-306', type: '离床跌倒',
-        status: '离线', level: 'danger', lastUpdate: '14:20'
-      },
-      {
-        id: 'd3', name: '紧急呼叫器', room: '2F-215', type: '主动求助',
-        status: '在线', level: 'normal', lastUpdate: '09:46'
-      },
-      {
-        id: 'd4', name: '智能床垫', room: '2F-215', type: '睡眠体征',
-        status: '在线', level: 'normal', lastUpdate: '09:40'
-      }
-    ];
+    if (this.businessStore.loaded) {
+      return this.businessStore.devices.map((device: IotDevice): DeviceRowData => {
+        const elder: Elder | undefined = this.businessStore.elders.find((item: Elder) => item.id === device.elder_id);
+        return { id: `${device.id}`, name: device.product, room: device.room || elder?.name || '未绑定',
+          type: device.protocol, status: device.online === 1 ? '在线' : '离线',
+          level: device.online === 1 ? 'normal' : 'danger', lastUpdate: device.last_seen ? device.last_seen.slice(11, 16) : '--' };
+      });
+    }
+    return [];
   }
 
   private eventRows(): EventRowData[] {
-    return [
-      { time: '10:24', type: 'ai', title: 'AI 情绪预警', detail: '3F-302 肖爷爷活动量下降 41%，建议人工接手' },
-      { time: '09:46', type: 'alert', title: '呼叫器触发', detail: '2F-215 周奶奶反馈夜间不适，已生成评估任务' },
-      { time: '09:30', type: 'care', title: '早巡完成', detail: '2F 东区 36 位长者体征正常' },
-      { time: '09:12', type: 'family', title: '家属回访', detail: '3F-306 林爷爷家属电话未接通' },
-      { time: '08:45', type: 'ai', title: 'AI 睡眠摘要', detail: '3F-306 林爷爷深睡时长低于均值 23%' },
-      { time: '08:00', type: 'care', title: '用药提醒', detail: '3F 西区早间用药已完成' }
-    ];
+    if (this.businessStore.loaded) {
+      return this.businessStore.alerts.map((alert: Alert): EventRowData => {
+        const elder: Elder | undefined = this.businessStore.elders.find((item: Elder) => item.id === alert.elder_id);
+        const type: EventType = alert.level === 'emergency' ? 'alert' : alert.type.indexOf('offline') >= 0 ? 'alert' : 'ai';
+        return { time: alert.create_time.slice(11, 16), type: type, title: alert.type, detail: `${elder?.name ?? '机构设备'}：${alert.content}` };
+      });
+    }
+    return [];
   }
 
   private medicationItems(): QuickListRow[] {
-    return [
-      { id: 'med-1', title: '降压药', sub: '李秀英 · 1片', time: '08:00', tag: '待服用', tagColor: $r('app.color.brand_blue'),
-        tagBg: $r('app.color.status_normal_bg') },
-      { id: 'med-2', title: '钙片', sub: '王德林 · 2片', time: '08:00', tag: '待服用', tagColor: $r('app.color.brand_blue'),
-        tagBg: $r('app.color.status_normal_bg') },
-      { id: 'med-3', title: '二甲双胍', sub: '张明华 · 0.5g', time: '12:00', tag: '待服用', tagColor: $r('app.color.brand_blue'),
-        tagBg: $r('app.color.status_normal_bg') },
-      { id: 'med-4', title: '维生素D', sub: '肖爷爷 · 1粒', time: '07:00', tag: '已完成', tagColor: $r('sys.color.font_tertiary'),
-        tagBg: $r('sys.color.comp_background_tertiary') }
-    ];
+    if (this.businessStore.loaded) {
+      return this.businessStore.medications.map((medication: MedicationRecord): QuickListRow => {
+        const elder: Elder | undefined = this.businessStore.elders.find((item: Elder) => item.id === medication.elder_id);
+        return { id: `${medication.id}`, title: medication.medicine_name, sub: `${elder?.name ?? '未知长者'} · ${medication.dosage}`,
+          time: medication.plan_time ? medication.plan_time.slice(11, 16) : '--', tag: medication.status === 'taken' ? '已完成' : medication.status,
+          tagColor: medication.status === 'taken' ? $r('sys.color.font_tertiary') : $r('app.color.brand_blue'),
+          tagBg: medication.status === 'taken' ? $r('sys.color.comp_background_tertiary') : $r('app.color.status_normal_bg') };
+      });
+    }
+    return [];
   }
 
   private recordItems(): QuickListRow[] {
-    return [
-      { id: 'rec-1', title: '体征测量', sub: '3F-302 肖爷爷', time: '10:24', tag: '已记录',
-        tagColor: $r('app.color.status_normal'), tagBg: $r('app.color.status_normal_bg') },
-      { id: 'rec-2', title: '翻身护理', sub: '2F-215 周奶奶', time: '09:46', tag: '已记录',
-        tagColor: $r('app.color.status_normal'), tagBg: $r('app.color.status_normal_bg') },
-      { id: 'rec-3', title: '用药执行', sub: '3F-306 林爷爷', time: '09:12', tag: '已记录',
-        tagColor: $r('app.color.status_normal'), tagBg: $r('app.color.status_normal_bg') },
-      { id: 'rec-4', title: '夜间巡查', sub: '2F 东区', time: '06:30', tag: '已记录',
-        tagColor: $r('app.color.status_normal'), tagBg: $r('app.color.status_normal_bg') }
-    ];
+    return [];
   }
 
   private familyItems(): QuickListRow[] {
-    return [
-      { id: 'fam-1', title: '张建国', sub: '李秀英儿子 · 13800138000' },
-      { id: 'fam-2', title: '李秀兰', sub: '王德林女儿 · 13900139000' },
-      { id: 'fam-3', title: '林涛', sub: '林爷爷儿子 · 13700137000' },
-      { id: 'fam-4', title: '周敏', sub: '周奶奶女儿 · 13600136000' }
-    ];
+    return [];
   }
 
   private reportItems(): QuickListRow[] {
-    return [
-      { id: 'rep-1', title: '智能床垫离线', sub: '3F-306', time: '14:20', tag: '待处理',
-        tagColor: $r('app.color.status_danger'), tagBg: $r('app.color.status_danger_bg') },
-      { id: 'rep-2', title: '血压异常偏高', sub: '3F-302 肖爷爷', time: '10:24', tag: '已跟进',
-        tagColor: $r('app.color.status_normal'), tagBg: $r('app.color.status_normal_bg') },
-      { id: 'rep-3', title: '离床频次增加', sub: '2F-215 周奶奶', time: '09:46', tag: '已跟进',
-        tagColor: $r('app.color.status_normal'), tagBg: $r('app.color.status_normal_bg') },
-      { id: 'rep-4', title: '卫生间滞留超时', sub: '3F-308', time: '08:15', tag: '待处理',
-        tagColor: $r('app.color.status_danger'), tagBg: $r('app.color.status_danger_bg') }
-    ];
+    if (this.businessStore.loaded) {
+      return this.businessStore.alerts.map((alert: Alert): QuickListRow => {
+        const elder: Elder | undefined = this.businessStore.elders.find((item: Elder) => item.id === alert.elder_id);
+        const handled: boolean = alert.status === 'handled' || alert.status === 'closed';
+        return { id: `${alert.id}`, title: alert.content, sub: elder?.name ?? alert.device_id, time: alert.create_time.slice(11, 16),
+          tag: handled ? '已跟进' : '待处理', tagColor: handled ? $r('app.color.status_normal') : $r('app.color.status_danger'),
+          tagBg: handled ? $r('app.color.status_normal_bg') : $r('app.color.status_danger_bg') };
+      });
+    }
+    return [];
   }
 
   // ---------------- residents data ----------------
 
   private allResidents(): ResidentData[] {
-    return [
-      {
-        id: 'r1', name: '肖爷爷', age: 82, gender: 'male', room: '3F-302', bed: 'A床',
-        level: 'danger', status: '情绪低落 · 拒交流',
-        emergencyContact: '肖先生（子）', emergencyPhone: '138****1201',
-        admissionDate: '2022-03-15', careLevel: '一级护理',
-        diagnosis: ['高血压', '2型糖尿病', '轻度抑郁'],
-        allergies: ['青霉素'],
-        deviceIds: ['d1', 'd5', 'd6'], avatarText: '肖'
-      },
-      {
-        id: 'r2', name: '周奶奶', age: 78, gender: 'female', room: '2F-215', bed: 'B床',
-        level: 'warning', status: '夜间离床增加',
-        emergencyContact: '周女士（女）', emergencyPhone: '139****2202',
-        admissionDate: '2021-08-20', careLevel: '二级护理',
-        diagnosis: ['冠心病', '骨质疏松'],
-        allergies: ['海鲜'],
-        deviceIds: ['d3', 'd4'], avatarText: '周'
-      },
-      {
-        id: 'r3', name: '林爷爷', age: 85, gender: 'male', room: '3F-306', bed: 'C床',
-        level: 'warning', status: '社交回避',
-        emergencyContact: '林先生（子）', emergencyPhone: '137****3303',
-        admissionDate: '2020-11-02', careLevel: '一级护理',
-        diagnosis: ['脑梗后遗症', '高血压'],
-        allergies: [],
-        deviceIds: ['d2', 'd6'], avatarText: '林'
-      },
-      {
-        id: 'r4', name: '王爷爷', age: 80, gender: 'male', room: '2F-201', bed: 'A床',
-        level: 'normal', status: '稳定观察',
-        emergencyContact: '王女士（女）', emergencyPhone: '136****4404',
-        admissionDate: '2023-01-10', careLevel: '三级护理',
-        diagnosis: ['高血压'],
-        allergies: [],
-        deviceIds: ['d7'], avatarText: '王'
-      },
-      {
-        id: 'r5', name: '赵奶奶', age: 76, gender: 'female', room: '2F-208', bed: 'A床',
-        level: 'normal', status: '稳定观察',
-        emergencyContact: '赵先生（子）', emergencyPhone: '135****5505',
-        admissionDate: '2022-09-28', careLevel: '三级护理',
-        diagnosis: ['2型糖尿病'],
-        allergies: ['坚果'],
-        deviceIds: ['d8'], avatarText: '赵'
-      }
-    ];
+    if (this.businessStore.loaded) {
+      return this.businessStore.elders.map((elder: Elder): ResidentData => {
+        const row: HealthRowData = this.healthRowFromElder(elder);
+        return { id: row.id, name: row.name, age: row.age, gender: elder.gender === 'F' ? 'female' : 'male', room: row.room, bed: row.bed,
+          level: row.level, status: row.status, emergencyContact: elder.emergency_contacts?.[0]?.name ?? '未登记',
+          emergencyPhone: elder.emergency_contacts?.[0]?.phone ?? '', admissionDate: elder.created_at ?? '',
+          careLevel: `${elder.care_level}级护理`, diagnosis: elder.remark ? elder.remark.split('；') : [], allergies: [],
+          deviceIds: this.businessStore.devices.filter((device: IotDevice) => device.elder_id === elder.id).map((device: IotDevice): string => device.device_id), avatarText: elder.name.slice(0, 1) };
+      });
+    }
+    return [];
   }
 
   private filteredResidents(): ResidentData[] {
@@ -670,50 +623,16 @@ export struct TabPageView {
   // ---------------- tasks data ----------------
 
   private allTasks(): CareTask[] {
-    return [
-      {
-        id: 't1', source: 'ai', priority: 'danger', status: 'todo',
-        title: '情绪安抚与人工接手', elder: '肖爷爷', room: '3F-302',
-        time: '现在', assignee: '刘婷',
-        detail: 'AI 识别到肖爷爷语调低沉、活动量下降 41%，已由语音关怀过渡，需要熟悉护工人工接手，避免重复询问。'
-      },
-      {
-        id: 't2', source: 'elder', priority: 'warning', status: 'todo',
-        title: '夜间不适评估', elder: '周奶奶', room: '2F-215',
-        time: '09:46', assignee: '王倩',
-        detail: '周奶奶通过床头呼叫器反馈昨晚没睡好，希望安排午休和疼痛评估。'
-      },
-      {
-        id: 't3', source: 'staff', priority: 'normal', status: 'doing',
-        title: '组织书法角活动', elder: '林爷爷', room: '3F-306',
-        time: '15:40', assignee: '赵晨',
-        detail: '确认活动人数，安排护工陪同，重点鼓励低社交长者参与。'
-      },
-      {
-        id: 't4', source: 'ai', priority: 'warning', status: 'doing',
-        title: '毫米波雷达离线巡检', elder: '林爷爷', room: '3F-306',
-        time: '14:20', assignee: '维修组',
-        detail: '3F-306 毫米波雷达 14:20 离线，已派巡检，需确认设备电源与网络。'
-      },
-      {
-        id: 't5', source: 'elder', priority: 'normal', status: 'done',
-        title: '活动报名确认', elder: '林爷爷', room: '3F-306',
-        time: '09:12', assignee: '赵晨',
-        detail: '林爷爷主动要求参加书法角活动，已确认并安排陪同。'
-      },
-      {
-        id: 't6', source: 'plan', priority: 'normal', status: 'todo',
-        title: '半护理上午巡房', elder: '李奶奶', room: '2F-208',
-        time: '10:00', assignee: '刘婷',
-        detail: '半护理套餐包含每日上午巡房、血压测量与用药提醒。'
-      },
-      {
-        id: 't7', source: 'plan', priority: 'normal', status: 'doing',
-        title: '全护理翻身护理', elder: '王爷爷', room: '3F-309',
-        time: '09:00', assignee: '刘婷',
-        detail: '全护理套餐包含每两小时翻身一次，预防压疮。'
-      }
-    ];
+    if (this.businessStore.loaded) {
+      return this.businessStore.tasks.map((task: BackendCareTask): CareTask => {
+        const elder: Elder | undefined = this.businessStore.elders.find((item: Elder) => item.id === task.elder_id);
+        const status: TaskStatus = task.status === 'doing' || task.status === 'done' ? task.status : 'todo';
+        return { id: `${task.id}`, source: task.kind === 'medication' ? 'plan' : 'elder', priority: 'normal', status: status,
+          title: task.title, elder: elder?.name ?? '未知长者', room: '未分配', time: task.due_at ? task.due_at.slice(11, 16) : '--',
+          assignee: task.assignee ?? '', detail: task.remark ?? '' };
+      });
+    }
+    return [];
   }
 
   private filteredTasks(): CareTask[] {
@@ -727,11 +646,7 @@ export struct TabPageView {
   }
 
   private taskTimeline(): TaskTimelineItem[] {
-    return [
-      { time: '10:24', actor: 'AI 关怀系统', action: '识别异常并发起语音关怀' },
-      { time: '10:25', actor: '护理站', action: '自动派单给责任护工刘婷' },
-      { time: '10:30', actor: '刘婷', action: '接单，准备进入房间' }
-    ];
+    return [];
   }
 
   // ---------------- shared builders ----------------
@@ -884,28 +799,7 @@ export struct TabPageView {
   // ---------------- home: AI reminders ----------------
 
   private aiReminders(): AiReminder[] {
-    return [
-      {
-        id: 'ai-reminder-blood-pressure',
-        level: 'danger',
-        location: '302-1',
-        name: '张明华',
-        title: '血压连续3天偏高',
-        detail: '建议今日重点观察',
-        signal: '近 3 日早间记录均高于个人近期基线。',
-        suggestion: '按护理要求复测并记录伴随不适，异常时及时人工上报。'
-      },
-      {
-        id: 'ai-reminder-rehabilitation',
-        level: 'normal',
-        location: '305-2',
-        name: '李秀英',
-        title: '康复训练完成率87%',
-        detail: '继续保持',
-        signal: '本周已完成 6 次计划中的 5 次，记录连续。',
-        suggestion: '按既定计划继续，同时关注疲劳、疼痛和训练后恢复。'
-      }
-    ];
+    return [];
   }
 
   @Builder
@@ -2044,62 +1938,22 @@ export struct TabPageView {
   }
 
   private inboxMessages(): InboxMessage[] {
-    return [
-      {
-        id: 'msg-family-health',
-        kind: 'family',
-        sender: '张明华家属',
-        preview: '已回复今日健康情况，晚些时候会来电沟通。',
-        content: '您好，张爷爷上午精神状态稳定，家属已经了解近期血压变化。晚些时候会来电与护理站进一步沟通，请保持电话畅通。',
-        time: '10:32',
-        unread: true
-      },
-      {
-        id: 'msg-handoff-night',
-        kind: 'handoff',
-        sender: '护理站',
-        preview: '夜间不适评估记录已补充，请交班时重点说明。',
-        content: '周奶奶夜间不适评估记录已经补充。下午交班时请重点说明休息情况、进食状态和最近一次生命体征。',
-        time: '10:08',
-        unread: true
-      },
-      {
-        id: 'msg-notice-training',
-        kind: 'notice',
-        sender: '护理部',
-        preview: '压疮预防培训调整至本周五 16:00。',
-        content: '本周压疮预防培训调整至周五 16:00，在二楼培训室进行。请提前十分钟签到，并携带个人学习记录。',
-        time: '09:46',
-        unread: true
-      },
-      {
-        id: 'msg-family-visit',
-        kind: 'family',
-        sender: '李秀英家属',
-        preview: '已确认周六下午三点到院探视。',
-        content: '家属已确认周六下午三点到院探视，并已了解探视登记和陪同要求。',
-        time: '09:18',
-        unread: false
-      },
-      {
-        id: 'msg-handoff-record',
-        kind: 'handoff',
-        sender: '刘婷',
-        preview: '晨间护理记录已经同步完成。',
-        content: '305-2 李秀英的晨间护理记录已经同步，康复训练完成情况和饮水记录均已补充。',
-        time: '08:52',
-        unread: false
-      },
-      {
-        id: 'msg-notice-update',
-        kind: 'notice',
-        sender: '系统通知',
-        preview: '消息同步和离线缓存能力已更新。',
-        content: '应用服务已更新完成。消息同步和离线缓存能力已经恢复，可以继续正常使用。',
-        time: '昨天',
-        unread: false
-      }
-    ];
+    if (this.businessStore.loaded) {
+      const currentUserId: number = AuthStore.getUser()?.id ?? 0;
+      return this.businessStore.messageContacts.map((contact: MessageContact): InboxMessage => {
+        const related: UserMessage[] = this.businessStore.messages
+          .filter((message: UserMessage) =>
+            (message.sender_id === currentUserId && message.receiver_id === contact.id) ||
+            (message.sender_id === contact.id && message.receiver_id === currentUserId));
+        const latest: UserMessage | undefined = related.length > 0 ? related[related.length - 1] : undefined;
+        const kind: MessageKind = contact.roles.some((role) => role.code === 'family') ? 'family' : 'handoff';
+        return { id: `user-${contact.id}`, kind: kind,
+          sender: contact.real_name || contact.username, preview: latest?.content ?? '暂无消息',
+          content: latest?.content ?? '暂无消息', time: latest ? latest.sent_at.slice(11, 16) : '--',
+          unread: related.some((message: UserMessage) => message.receiver_id === currentUserId && !message.read_at) };
+      });
+    }
+    return [];
   }
 
   private messageFilterOptions(): MessageFilterOption[] {
@@ -2657,6 +2511,7 @@ export struct TabPageView {
   private async handleLogout(): Promise<void> {
     try {
       AuthStore.clear();
+      BusinessStore.getShared().clear();
       await WindowUtil.setImmersiveMode(false);
       await this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
     } catch (err) {

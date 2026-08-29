@@ -75,5 +75,5 @@ func AutoMigrateAll(db *gorm.DB) error {
 		&Assessment{}, &CarePlan{}, &CarePlanItem{}, &CareExecution{}, &Incident{},
 		&IotDevice{}, &SignalRecord{}, &Alert{}, &AlertAction{}, &Notification{},
 		&Schedule{}, &ShiftHandover{}, &Bill{}, &FundFlow{}, &MedicationRecord{},
-		&MedicineStock{}, &DiningOrder{}, &FamilyElder{})
+		&MedicineStock{}, &DiningOrder{}, &FamilyElder{}, &Message{})
 }
