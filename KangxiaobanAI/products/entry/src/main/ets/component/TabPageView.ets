@@ -34,6 +34,7 @@ import { PageKeyEnum, PAGE_SCROLLER_MAP } from '../model/TabsBarModel';
 import { TabPageConfig } from '../model/TabPageModel';
 import { BreakpointType, BreakpointUtil } from '../util/BreakpointSystem';
 import { WindowUtil } from '../util/WindowUtil';
+import AuthStore from '../network/AuthStore';
 import { HealthListCard, HealthListCardData, HealthListCardRow } from './HealthListCard';
 
 import { EventListCard, EventListCardData, EventListCardRow } from './EventListCard';
@@ -2654,8 +2655,8 @@ export struct TabPageView {
   }
 
   private async handleLogout(): Promise<void> {
-    // 预留：清空登录态、token、缓存
     try {
+      AuthStore.clear();
       await WindowUtil.setImmersiveMode(false);
       await this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
     } catch (err) {

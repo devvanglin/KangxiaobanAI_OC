@@ -50,6 +50,7 @@ import { TAB_PAGE_CONFIGS, TabPageConfig } from '../model/TabPageModel';
 import Logger from '../util/Logger';
 import { BreakpointUtil } from '../util/BreakpointSystem';
 import { WindowUtil } from '../util/WindowUtil';
+import AuthStore from '../network/AuthStore';
 
 const TAG: string = '[MainPage]';
 const CAREGIVER_FULL_WORKSPACE_MIN_WIDTH: number = 1180;
@@ -126,6 +127,10 @@ struct MainPage {
   private wideMessageChatScroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
+    if (AuthStore.getToken().length === 0) {
+      this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
+      return;
+    }
     WindowUtil.setImmersiveMode(true);
   }
 
@@ -327,6 +332,7 @@ struct MainPage {
 
   private async handleLogout(): Promise<void> {
     try {
+      AuthStore.clear();
       await WindowUtil.setImmersiveMode(false);
       await this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
     } catch (error) {
