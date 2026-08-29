@@ -23,7 +23,7 @@ import {
 } from '../../model/DetailTypes';
 import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule';
 import { BusinessStore } from '../../network/BusinessStore';
-import { Alert, Bed, CareTask, Elder, HealthRecord, IotDevice, MedicationRecord, Room } from '../../network/Dto';
+import { Alert, Bed, CareExecution, CareTask, Elder, HealthRecord, IotDevice, MedicationRecord, Room } from '../../network/Dto';
 
 type ResidentFilter = 'all' | 'warning' | 'danger';
 type ResidentDetailTab = 'overview' | 'vitals' | 'care' | 'devices';
