@@ -168,6 +168,30 @@ func TestAdmissionAdjustmentRejectsUnknownTargetLevel(t *testing.T) {
 	}
 }
 
+func TestAdmissionPreviewCompletionCountsRequiredQuestionsOnly(t *testing.T) {
+	template := &model.AssessmentTemplate{
+		MaxScore:   10,
+		LevelRules: []model.AbilityLevelRule{{Code: "ok", Label: "完成", MinScore: 0, MaxScore: 10, CareLevel: 1}},
+		Questions: []model.AssessmentQuestion{
+			{Base: model.Base{ID: 1}, Code: "REQUIRED", Required: true, MaxScore: 10,
+				Options: []model.AssessmentOption{{Base: model.Base{ID: 11}, Code: "yes", Score: 10}}},
+			{Base: model.Base{ID: 2}, Code: "OPTIONAL", Required: false, MaxScore: 0,
+				Options: []model.AssessmentOption{{Base: model.Base{ID: 12}, Code: "recorded", Score: 0}}},
+		},
+	}
+	requiredOption, optionalOption := uint(11), uint(12)
+	preview, err := calculateAbilityResult(template, &model.AdmissionAssessment{}, []model.AdmissionAssessmentAnswer{
+		{QuestionID: 1, OptionID: &requiredOption},
+		{QuestionID: 2, OptionID: &optionalOption},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !preview.Complete || preview.AnsweredCount != 1 || preview.RequiredCount != 1 {
+		t.Fatalf("optional answer changed completion: %+v", preview)
+	}
+}
+
 func TestAdmissionPermissions(t *testing.T) {
 	_, db, _, _ := newAdmissionTestService(t)
 	userRepo := repository.NewUserRepository(db)
@@ -217,6 +241,7 @@ func TestAdmissionSubmitIsIdempotentAndTraceable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
+	completePrimaryScreenings(t, svc, db, doctorID, ctx, draft.ID, 5)
 	if _, err := svc.Update(ctx, AdmissionActor{UserID: doctorID + 999}, draft.ID, input); !errors.Is(err, ErrAdmissionForbidden) {
 		t.Fatalf("non-owner Update error = %v, want forbidden", err)
 	}
@@ -332,6 +357,7 @@ func TestAdmissionSubmitBindsFamilyByContactPhone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	completePrimaryScreenings(t, svc, db, doctorID, ctx, draft.ID, 5)
 	result, err := svc.Submit(ctx, AdmissionActor{UserID: doctorID}, draft.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -353,6 +379,7 @@ func TestAdmissionSubmitKeepsTasksUnassignedWithoutCaregiver(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	completePrimaryScreenings(t, svc, db, doctorID, ctx, draft.ID, 5)
 	result, err := svc.Submit(ctx, AdmissionActor{UserID: doctorID}, draft.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -382,10 +409,12 @@ func TestAdmissionSubmitBedConflict(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	completePrimaryScreenings(t, svc, db, doctorID, ctx, firstDraft.ID, 5)
 	secondDraft, err := svc.Create(ctx, AdmissionActor{UserID: doctorID}, secondInput)
 	if err != nil {
 		t.Fatal(err)
 	}
+	completePrimaryScreenings(t, svc, db, doctorID, ctx, secondDraft.ID, 5)
 	if _, err := svc.Submit(ctx, AdmissionActor{UserID: doctorID}, firstDraft.ID); err != nil {
 		t.Fatalf("first submit: %v", err)
 	}

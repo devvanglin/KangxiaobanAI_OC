@@ -79,6 +79,7 @@ func TestAdmissionRejectsLinkedElderIdentityConflict(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	completePrimaryScreenings(t, svc, db, doctorID, ctx, draft.ID, 5)
 	_, err = svc.Submit(ctx, AdmissionActor{UserID: doctorID}, draft.ID)
 	if !errors.Is(err, ErrAdmissionElderConflict) {
 		t.Fatalf("linked elder identity conflict = %v, want ErrAdmissionElderConflict", err)

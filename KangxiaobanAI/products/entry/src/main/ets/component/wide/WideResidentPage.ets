@@ -495,12 +495,30 @@ export struct WideResidentPage {
   }
 
   private careRecords(resident: ResidentData): CareRecordRow[] {
-    return this.businessStore.tasks
-      .filter((item: CareTask) => item.elder_id === Number(resident.id))
-      .map((item: CareTask): CareRecordRow => {
-        return { time: item.due_at ? this.timeText(item.due_at) : '--', project: item.title,
-          operator: item.assignee ?? '', result: item.remark ?? item.status,
-          level: item.status === 'done' ? 'normal' : 'warning' };
+    const elderId: number = Number(resident.id);
+    return this.businessStore.careExecutions
+      .filter((execution: CareExecution): boolean => execution.elder_id === elderId)
+      .slice()
+      .sort((left: CareExecution, right: CareExecution): number =>
+        right.executed_at.localeCompare(left.executed_at))
+      .map((execution: CareExecution): CareRecordRow => {
+        const task: CareTask | undefined = this.businessStore.tasks.find((item: CareTask): boolean =>
+          item.elder_id === elderId && item.plan_item_id !== undefined &&
+          item.plan_item_id === execution.plan_item_id);
+        const abnormal: string = (execution.abnormal ?? '').trim();
+        const resultText: string = (execution.result ?? '').trim();
+        const statusText: string = abnormal.length > 0 || execution.status === 'abnormal' ? `异常：${abnormal || '需关注'}` :
+          resultText.length > 0 ? resultText : execution.status === 'reviewed' ? '护理执行已复核' :
+            execution.status === 'skipped' ? '护理项目已跳过' : '护理项目已完成';
+        const level: StatusLevel = abnormal.length > 0 || execution.status === 'abnormal' ? 'danger' :
+          execution.status === 'completed' || execution.status === 'reviewed' ? 'normal' : 'warning';
+        return {
+          time: execution.executed_at ? this.timeText(execution.executed_at) : '--',
+          project: task?.title ?? `护理项目 #${execution.plan_item_id}`,
+          operator: execution.executor || '服务器记录',
+          result: statusText,
+          level: level
+        };
       });
   }
 

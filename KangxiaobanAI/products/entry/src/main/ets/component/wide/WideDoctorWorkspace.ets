@@ -7,8 +7,8 @@ import { WideDoctorAdmission } from './WideDoctorAdmission';
 import ApiClient from '../../network/ApiClient';
 import AuthStore from '../../network/AuthStore';
 import { BusinessStore } from '../../network/BusinessStore';
-import { AiChatRequest, AiChatResponse, Alert, Assessment, Bed, CareTask, Elder, HealthRecord, MedicationRecord,
-  Room } from '../../network/Dto';
+import { AiChatRequest, AiChatResponse, Alert, Assessment, Bed, CareTask, Elder, HealthRecord, MessageContact,
+  MedicationRecord, Room, UserMessage } from '../../network/Dto';
 
 interface DoctorNavItem {
   id: string;
@@ -291,6 +291,40 @@ export struct WideDoctorWorkspace {
     }));
   }
 
+  /** Convert tenant-scoped user messages into the collaboration table rows. */
+  private consultationRows(): DoctorModuleRow[] {
+    const currentUserId: number | undefined = AuthStore.getUser()?.id;
+    const messages: UserMessage[] = this.businessStore.messages
+      .filter((message: UserMessage) => currentUserId === undefined ||
+        message.sender_id === currentUserId || message.receiver_id === currentUserId)
+      .sort((left: UserMessage, right: UserMessage): number => right.sent_at.localeCompare(left.sent_at));
+    return messages.map((message: UserMessage): DoctorModuleRow => {
+      const counterpartId: number = currentUserId !== undefined && message.sender_id === currentUserId ?
+        message.receiver_id : message.sender_id;
+      const contact: MessageContact | undefined = this.businessStore.messageContacts
+        .find((item: MessageContact) => item.id === counterpartId);
+      const elderId: number | undefined = message.elder_id;
+      const patient: string = elderId === undefined ?
+        (contact?.real_name || contact?.username || '协同联系人') : this.elderName(elderId);
+      const bed: string = elderId === undefined ?
+        (contact?.real_name || contact?.username || '未关联长者') : this.elderBed(elderId);
+      const messageType: string = message.type.trim().length > 0 ? message.type : '协同消息';
+      const isIncomingUnread: boolean = currentUserId !== undefined && message.receiver_id === currentUserId &&
+        (message.read_at === undefined || message.read_at.trim().length === 0);
+      return {
+        id: `message-${message.id}`,
+        elderId: elderId,
+        patient: patient,
+        bed: bed,
+        item: message.content.trim().length > 0 ? message.content : '服务器未提供消息内容',
+        source: `${contact?.real_name || contact?.username || messageType} · ${messageType}`,
+        updatedAt: this.timeText(message.sent_at),
+        status: isIncomingUnread ? '待处理' : '已更新',
+        tone: isIncomingUnread ? 'warning' : 'normal'
+      };
+    });
+  }
+
   private rowsForCurrentModule(): DoctorModuleRow[] {
     let rows: DoctorModuleRow[] = this.selectedNavId === 'patients' ? this.patientRows : this.moduleRows;
     if (this.selectedNavId === 'judgment') {
@@ -304,7 +338,7 @@ export struct WideDoctorWorkspace {
     } else if (this.selectedNavId === 'results') {
       rows = this.moduleRows;
     } else if (this.selectedNavId === 'consultation') {
-      rows = [];
+      rows = this.consultationRows();
     } else if (this.selectedNavId === 'patients' && this.patientSearchQuery.length > 0) {
       rows = rows.filter((row: DoctorModuleRow) => {
         const searchText: string = `${row.patient} ${row.bed} ${row.item} ${row.source}`.toLowerCase();

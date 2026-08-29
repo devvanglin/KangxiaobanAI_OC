@@ -53,11 +53,6 @@ func seedAdmissionTenant(db *gorm.DB) error {
 
 	var template model.AssessmentTemplate
 	err := db.Where("code = ? AND version = ?", admissionTemplateCode, "2022").First(&template).Error
-	attrs := model.AssessmentTemplate{
-		Name: "老年人能力评估 A/B/C 入住评估", Description: "依据老年人能力评估基本信息表、26项能力评估表和能力评估报告建立的入住评估流程",
-		Category: "admission_ability", MaxScore: 90, Required: true, Enabled: true, SortOrder: 1,
-		LevelRules: rules, AdjustmentRules: adjustments, ScoringNotes: scoringNotes,
-	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		template = model.AssessmentTemplate{
 			Code: admissionTemplateCode, Name: "老年人能力评估 A/B/C 入住评估", Version: "2022",
@@ -76,10 +71,6 @@ func seedAdmissionTenant(db *gorm.DB) error {
 		// enablement after an administrator has edited them.
 		updates := map[string]interface{}{}
 		if len(template.LevelRules) == 0 {
-			updates["level_rules"] = rules
-		} else if isLegacyDefaultAbilityRules(template.LevelRules) {
-			// The original seed shipped without explicit care-level ordering in
-			// some installations. This narrow migration preserves custom rules.
 			updates["level_rules"] = rules
 		}
 		if !hasExecutableAdjustmentRules(template.AdjustmentRules) {
@@ -147,18 +138,12 @@ func seedAdmissionTenant(db *gorm.DB) error {
 		var plan model.AdmissionCarePlanTemplate
 		err := db.Where("template_id = ? AND code = ?", template.ID, planSeed.Code).First(&plan).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			plan = planSeed
-			if err := db.Create(&plan).Error; err != nil {
-				return err
-			}
-		} else if err != nil {
-			return err
-		}
-		if plan.ID == 0 {
 			planSeed.SortOrder = order + 1
 			if err := db.Create(&planSeed).Error; err != nil {
 				return err
 			}
+		} else if err != nil {
+			return err
 		}
 	}
 	return seedAdmissionScreeningTemplates(db)

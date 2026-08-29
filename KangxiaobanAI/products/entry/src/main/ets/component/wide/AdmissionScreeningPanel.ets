@@ -17,7 +17,7 @@ import AdmissionRepository, { AdmissionFailureKind, AdmissionResult } from '../.
 
 /**
  * 入住评估筛查。量表、题目、选项和评分均来自服务器。
- * GDS-15 与 Mini-Cog 是首阶段必做项目；Mini-Cog <= 2 时才开放 MMSE/MoCA。
+ * Mini-Cog 是首阶段必做项目；Mini-Cog <= 2 时才开放并要求 MMSE/MoCA。
  */
 @ComponentV2
 export struct AdmissionScreeningPanel {
@@ -37,7 +37,7 @@ export struct AdmissionScreeningPanel {
   @Local errorMessage: string = '';
   @Local dirty: boolean = false;
 
-  private readonly primaryCodes: string[] = ['GDS15', 'MINI_COG'];
+  private readonly primaryCodes: string[] = ['MINI_COG'];
   private readonly furtherCodes: string[] = ['MMSE', 'MOCA_BEIJING'];
 
   private templateFor(code: string): AdmissionScreeningTemplate | undefined {
@@ -55,7 +55,7 @@ export struct AdmissionScreeningPanel {
   }
 
   private primaryComplete(): boolean {
-    return this.isCompleted('GDS15') && this.isCompleted('MINI_COG');
+    return this.isCompleted('MINI_COG');
   }
 
   private miniCogScore(): number | undefined {
@@ -82,9 +82,6 @@ export struct AdmissionScreeningPanel {
   }
 
   private gateMessage(): string {
-    if (!this.isCompleted('GDS15')) {
-      return '首阶段：请先完成老年抑郁量表（GDS-15）。';
-    }
     if (!this.isCompleted('MINI_COG')) {
       return '首阶段：请完成 Mini-Cog 简易认知筛查。';
     }
@@ -96,6 +93,10 @@ export struct AdmissionScreeningPanel {
       if (!this.isCompleted('MOCA_BEIJING')) {
         return `Mini-Cog ${score} 分：请完成 MoCA 北京版逐项复核。`;
       }
+      return `Mini-Cog ${score} 分：MMSE 和 MoCA 复核已完成，可继续入住评估。`;
+    }
+    if (score !== undefined) {
+      return `Mini-Cog ${score} 分：无需进一步认知量表，可继续入住评估。`;
     }
     return '首阶段筛查已完成，可继续入住评估。';
   }
@@ -128,6 +129,9 @@ export struct AdmissionScreeningPanel {
   }
 
   private canOpenTemplate(code: string): boolean {
+    if (code === 'GDS15') {
+      return true;
+    }
     if (this.isPrimary(code)) {
       return true;
     }
@@ -142,7 +146,7 @@ export struct AdmissionScreeningPanel {
   private lockReason(code: string): string {
     if (this.isFurther(code)) {
       if (!this.primaryComplete()) {
-        return '请先完成 GDS-15 和 Mini-Cog 首阶段筛查。';
+        return '请先完成 Mini-Cog 首阶段筛查。';
       }
       const score: number | undefined = this.miniCogScore();
       return score === undefined ? '完成 Mini-Cog 后才能判断是否需要进一步筛查。' :
@@ -215,7 +219,8 @@ export struct AdmissionScreeningPanel {
     this.loading = false;
     if (this.templates.length > 0) {
       const initialCode: string = this.selectedCode.length > 0 ? this.selectedCode :
-        (this.templateFor('GDS15') !== undefined ? 'GDS15' : this.templates[0].code);
+        (this.templateFor('MINI_COG') !== undefined ? 'MINI_COG' :
+          (this.templateFor('GDS15') !== undefined ? 'GDS15' : this.templates[0].code));
       this.hydrate(initialCode);
       if (!screeningResult.ok) {
         this.setError(screeningResult.kind, `已加载量表，但历史筛查记录读取失败：${screeningResult.message}`);
@@ -606,11 +611,11 @@ export struct AdmissionScreeningPanel {
           .fontColor($r('app.color.doctor_workspace_text_secondary'))
           .lineHeight(14)
           .width('100%')
-        Text('首阶段：GDS-15 + Mini-Cog（必做）')
+        Text('首阶段：Mini-Cog（必做）；GDS-15 为可选筛查')
           .fontSize(8)
           .fontColor($r('app.color.doctor_workspace_text_tertiary'))
           .width('100%')
-        Text('进一步评估：Mini-Cog ≤2 分时完成 MMSE + MoCA')
+        Text('进一步评估：Mini-Cog ≤2 分时完成 MMSE + MoCA（必做）')
           .fontSize(8)
           .fontColor($r('app.color.doctor_workspace_text_tertiary'))
           .width('100%')
@@ -973,7 +978,7 @@ export struct AdmissionScreeningPanel {
             .fontSize(14)
             .fontWeight(FontWeight.Bold)
             .fontColor($r('app.color.doctor_workspace_text_primary'))
-          Text('GDS-15 与 Mini-Cog 首阶段必做；低分时继续完成 MMSE、MoCA')
+          Text('Mini-Cog 首阶段必做；低分时继续完成 MMSE、MoCA，GDS-15 可选')
             .fontSize(10)
             .fontColor($r('app.color.doctor_workspace_text_secondary'))
         }

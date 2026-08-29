@@ -21,7 +21,7 @@ import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule
 import { BusinessStore } from '../../network/BusinessStore';
 import ApiClient from '../../network/ApiClient';
 import AuthStore from '../../network/AuthStore';
-import { Bed, CareTask as BackendCareTask, Elder, Room, Schedule, TaskStatusRequest } from '../../network/Dto';
+import { Alert, Bed, CareTask as BackendCareTask, Elder, Room, Schedule, TaskStatusRequest } from '../../network/Dto';
 
 const HOME_LG_MIN_WIDTH: number = 840;
 const HOME_SUMMARY_SPLIT_MIN_WIDTH: number = 960;
@@ -108,9 +108,11 @@ export struct WideHomePage {
 
   private taskData: CareTaskData[] = [];
 
-  private aiFocusItems: AiFocusItem[] = [];
+  @Local aiFocusItems: AiFocusItem[] = [];
 
-  private checkpoints: CareCheckpoint[] = [];
+  @Local checkpoints: CareCheckpoint[] = [];
+  @Local riskTrendValues: number[] = [];
+  @Local closureTrendValues: number[] = [];
 
   @Styles
   keyboardFocusStyle() {
@@ -132,7 +134,8 @@ export struct WideHomePage {
     }
   }
 
-  @Monitor('businessStore.tasks', 'businessStore.elders', 'businessStore.beds', 'businessStore.rooms')
+  @Monitor('businessStore.tasks', 'businessStore.elders', 'businessStore.beds', 'businessStore.rooms',
+    'businessStore.alerts', 'businessStore.schedules')
   onBusinessDataChange(): void {
     this.syncBackendTasks();
   }
@@ -190,7 +193,154 @@ export struct WideHomePage {
         time: task.due_at ? task.due_at.slice(11, 16) : '--', owner: task.assignee ?? '',
         priority: this.serverTaskPriority(task.priority), state: state };
     });
+    this.syncSupportCards();
     this.reportTaskProgress();
+  }
+
+  /** Build the supporting cards from the same tenant-scoped records as the task queue. */
+  private syncSupportCards(): void {
+    const openAlerts: Alert[] = this.businessStore.alerts
+      .filter((item: Alert) => item.status !== 'handled' && item.status !== 'closed')
+      .sort((left: Alert, right: Alert): number => right.create_time.localeCompare(left.create_time));
+    this.aiFocusItems = openAlerts.map((alert: Alert): AiFocusItem => {
+      const relatedTask: BackendCareTask | undefined = alert.elder_id === undefined ? undefined :
+        this.businessStore.tasks.find((task: BackendCareTask) => task.elder_id === alert.elder_id && task.status !== 'done');
+      const priority: CarePriority = this.serverAlertPriority(alert.level);
+      const sourceParts: string[] = [];
+      if (alert.type.trim().length > 0) {
+        sourceParts.push(alert.type.trim());
+      }
+      if (alert.device_id.trim().length > 0) {
+        sourceParts.push(alert.device_id.trim());
+      }
+      return {
+        id: `alert-${alert.id}`,
+        taskId: relatedTask === undefined ? '' : `${relatedTask.id}`,
+        name: alert.elder_id === undefined ? '机构设备' : this.elderName(alert.elder_id),
+        location: alert.elder_id === undefined ? (alert.device_id || '机构范围') : this.elderLocation(alert.elder_id),
+        detail: alert.content.trim().length > 0 ? alert.content : '服务器未提供告警详情',
+        signal: sourceParts.length > 0 ? sourceParts.join(' · ') : '服务器告警记录',
+        suggestion: priority === 'danger' ? '请立即核实现场，并按机构应急流程完成处置记录。' :
+          '请在本班次内核实现场并记录处置结果。',
+        timeLabel: this.serverTimeLabel(alert.create_time),
+        priority: priority
+      };
+    });
+
+    const scheduledTasks: BackendCareTask[] = this.businessStore.tasks
+      .filter((task: BackendCareTask) => task.due_at !== undefined && task.due_at.trim().length > 0 &&
+        this.trendDayKey(task.due_at) === this.dateValue())
+      .sort((left: BackendCareTask, right: BackendCareTask): number =>
+        (left.due_at ?? '').localeCompare(right.due_at ?? ''));
+    this.checkpoints = scheduledTasks.map((task: BackendCareTask): CareCheckpoint => {
+      const elder: Elder | undefined = this.businessStore.elders.find((item: Elder) => item.id === task.elder_id);
+      const location: string = this.elderLocation(task.elder_id);
+      const noteParts: string[] = [];
+      if (elder !== undefined) {
+        noteParts.push(elder.name);
+      }
+      if (location !== '未分配') {
+        noteParts.push(location);
+      }
+      if ((task.remark ?? '').trim().length > 0) {
+        noteParts.push((task.remark ?? '').trim());
+      }
+      return {
+        id: `task-${task.id}`,
+        time: this.serverTimeOnly(task.due_at),
+        title: task.title,
+        note: noteParts.length > 0 ? noteParts.join(' · ') : '服务器任务记录',
+        completed: task.status === 'done'
+      };
+    });
+    this.riskTrendValues = this.buildAlertTrend(openAlerts);
+    this.closureTrendValues = this.buildTaskTrend(this.businessStore.tasks);
+  }
+
+  private serverAlertPriority(value: string): CarePriority {
+    if (value === 'emergency' || value === 'critical' || value === 'high') {
+      return 'danger';
+    }
+    if (value === 'important' || value === 'warning' || value === 'medium') {
+      return 'warning';
+    }
+    return 'normal';
+  }
+
+  private elderName(elderId: number): string {
+    return this.businessStore.elders.find((item: Elder) => item.id === elderId)?.name ?? '未知长者';
+  }
+
+  private elderLocation(elderId: number): string {
+    const elder: Elder | undefined = this.businessStore.elders.find((item: Elder) => item.id === elderId);
+    const bed: Bed | undefined = this.businessStore.beds.find((item: Bed) => item.id === elder?.bed_id);
+    const room: Room | undefined = bed === undefined ? undefined :
+      this.businessStore.rooms.find((item: Room) => item.id === bed.room_id);
+    return bed !== undefined && room !== undefined ? `${room.floor}F-${room.room_no}-${bed.bed_no}` : '未分配';
+  }
+
+  private serverTimeLabel(value: string): string {
+    const normalized: string = value.replace('T', ' ');
+    return normalized.length >= 16 ? normalized.slice(5, 16) : (normalized || '--');
+  }
+
+  private serverTimeOnly(value?: string): string {
+    if (value === undefined || value.trim().length === 0) {
+      return '--';
+    }
+    const normalized: string = value.replace('T', ' ');
+    return normalized.length >= 16 ? normalized.slice(11, 16) : normalized;
+  }
+
+  private trendDayKey(value: string): string {
+    const parsed: Date = new Date(value.replace('T', ' '));
+    if (isNaN(parsed.getTime())) {
+      return '';
+    }
+    const month: string = (parsed.getMonth() + 1).toString().padStart(2, '0');
+    const day: string = parsed.getDate().toString().padStart(2, '0');
+    return `${parsed.getFullYear()}-${month}-${day}`;
+  }
+
+  private recentDayKeys(): string[] {
+    const keys: string[] = [];
+    const today: Date = new Date();
+    for (let offset: number = 6; offset >= 0; offset--) {
+      const date: Date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - offset);
+      const month: string = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day: string = date.getDate().toString().padStart(2, '0');
+      keys.push(`${date.getFullYear()}-${month}-${day}`);
+    }
+    return keys;
+  }
+
+  private scaleTrend(counts: number[]): number[] {
+    const maxCount: number = Math.max(...counts);
+    if (maxCount <= 0) {
+      return [];
+    }
+    return counts.map((count: number): number => count === 0 ? 0 : Math.max(8, Math.round(count / maxCount * 100)));
+  }
+
+  private buildAlertTrend(alerts: Alert[]): number[] {
+    const keys: string[] = this.recentDayKeys();
+    const counts: number[] = keys.map((key: string): number => alerts.filter((item: Alert) =>
+      this.trendDayKey(item.create_time) === key).length);
+    return this.scaleTrend(counts);
+  }
+
+  private buildTaskTrend(tasks: BackendCareTask[]): number[] {
+    const keys: string[] = this.recentDayKeys();
+    const counts: number[] = keys.map((key: string): number => {
+      const dayTasks: BackendCareTask[] = tasks.filter((item: BackendCareTask) =>
+        this.trendDayKey(item.due_at ?? '') === key);
+      if (dayTasks.length === 0) {
+        return 0;
+      }
+      const completed: number = dayTasks.filter((item: BackendCareTask) => item.status === 'done').length;
+      return Math.round(completed / dayTasks.length * 100);
+    });
+    return this.scaleTrend(counts);
   }
 
   private activeTaskData(): CareTaskData[] {
@@ -869,14 +1019,23 @@ export struct WideHomePage {
       .padding({ left: 22, right: 22, top: 22, bottom: 16 })
       .alignItems(VerticalAlign.Top)
 
-      Column({ space: 4 }) {
-        ForEach(this.pagedAiFocusItems(), (item: AiFocusItem, index: number) => {
-          this.aiFocusRow(item, index === this.pagedAiFocusItems().length - 1)
-        }, (item: AiFocusItem) => item.id)
+      if (this.aiFocusItems.length === 0) {
+        Text(this.businessStore.loading ? '正在加载服务器告警' : '暂无未闭环风险告警')
+          .width('100%')
+          .height(150)
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor($r('sys.color.font_secondary'))
+          .textAlign(TextAlign.Center)
+      } else {
+        Column({ space: 4 }) {
+          ForEach(this.pagedAiFocusItems(), (item: AiFocusItem, index: number) => {
+            this.aiFocusRow(item, index === this.pagedAiFocusItems().length - 1)
+          }, (item: AiFocusItem) => item.id)
+        }
+        .width('100%')
+        .layoutWeight(this.useWorkSplitLayout() ? 1 : 0)
+        .padding({ left: 10, right: 10, bottom: 8 })
       }
-      .width('100%')
-      .layoutWeight(this.useWorkSplitLayout() ? 1 : 0)
-      .padding({ left: 10, right: 10, bottom: 8 })
 
       this.cardPagination(true)
     }
@@ -1377,9 +1536,18 @@ export struct WideHomePage {
       .width('100%')
       .padding({ left: 20, right: 20, top: 20, bottom: 12 })
 
-      ForEach(this.checkpoints, (checkpoint: CareCheckpoint, index: number) => {
-        this.checkpointRow(checkpoint, index === this.checkpoints.length - 1)
-      }, (checkpoint: CareCheckpoint) => checkpoint.id)
+      if (this.checkpoints.length === 0) {
+        Text(this.businessStore.loading ? '正在加载服务器任务' : '暂无今日护理任务')
+          .width('100%')
+          .height(120)
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor($r('sys.color.font_secondary'))
+          .textAlign(TextAlign.Center)
+      } else {
+        ForEach(this.checkpoints, (checkpoint: CareCheckpoint, index: number) => {
+          this.checkpointRow(checkpoint, index === this.checkpoints.length - 1)
+        }, (checkpoint: CareCheckpoint) => checkpoint.id)
+      }
     }
     .width('100%')
     .backgroundColor($r('sys.color.comp_background_primary'))

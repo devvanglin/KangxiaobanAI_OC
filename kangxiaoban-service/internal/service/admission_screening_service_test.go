@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -99,7 +100,6 @@ func TestAdmissionScreeningRejectsForgedOptionAndForeignActor(t *testing.T) {
 
 func TestAdmissionScreeningScoringRules(t *testing.T) {
 	svc, db, doctorID, ctx := newAdmissionTestService(t)
-	draft := createAdmissionDraftForScreening(t, svc, db, doctorID, ctx)
 
 	tests := []struct {
 		code           string
@@ -113,11 +113,15 @@ func TestAdmissionScreeningScoringRules(t *testing.T) {
 		{"GDS15", 1, nil, 15, 15, "score_recorded"},
 		{"SLEEP5", 1, nil, 0, 0, "recorded"},
 		{"MINI_COG", -1, nil, 5, 5, "negative"},
-		{"MMSE", -1, intPointer(6), 30, 30, "score_recorded"},
-		{"MOCA_BEIJING", 0, intPointer(12), 0, 1, "positive"},
+		{"MMSE", -1, intPointer(6), 30, 30, "normal_range"},
+		{"MOCA_BEIJING", 0, intPointer(12), 0, 1, "specialist_referral"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.code, func(t *testing.T) {
+			draft := createAdmissionDraftForScreening(t, svc, db, doctorID, ctx)
+			if tt.code == "MMSE" || tt.code == "MOCA_BEIJING" {
+				completePrimaryScreenings(t, svc, db, doctorID, ctx, draft.ID, 2)
+			}
 			template := screeningTemplate(t, svc, ctx, tt.code)
 			answers := screeningAnswers(template, tt.score)
 			result, err := svc.SaveScreening(ctx, AdmissionActor{UserID: doctorID}, draft.ID, template.Code, AdmissionScreeningInput{
@@ -136,11 +140,12 @@ func TestAdmissionScreeningScoringRules(t *testing.T) {
 func TestScreeningsWithoutPdfThresholdsOnlyRecordTotals(t *testing.T) {
 	svc, db, doctorID, ctx := newAdmissionTestService(t)
 	draft := createAdmissionDraftForScreening(t, svc, db, doctorID, ctx)
+	completePrimaryScreenings(t, svc, db, doctorID, ctx, draft.ID, 2)
 	tests := []struct {
 		code string
 		want string
 	}{
-		{"GAD7", "score_recorded"}, {"GDS15", "score_recorded"}, {"MMSE", "score_recorded"}, {"SLEEP5", "recorded"},
+		{"GAD7", "score_recorded"}, {"GDS15", "score_recorded"}, {"MMSE", "normal_range"}, {"SLEEP5", "recorded"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.code, func(t *testing.T) {
@@ -160,6 +165,7 @@ func TestScreeningsWithoutPdfThresholdsOnlyRecordTotals(t *testing.T) {
 func TestMoCAEducationRequiredOnlyOnCompletion(t *testing.T) {
 	svc, db, doctorID, ctx := newAdmissionTestService(t)
 	draft := createAdmissionDraftForScreening(t, svc, db, doctorID, ctx)
+	completePrimaryScreenings(t, svc, db, doctorID, ctx, draft.ID, 2)
 	template := screeningTemplate(t, svc, ctx, "MOCA_BEIJING")
 	answers := screeningAnswers(template, 0)
 	if _, err := svc.SaveScreening(ctx, AdmissionActor{UserID: doctorID}, draft.ID, template.Code, AdmissionScreeningInput{Answers: answers}); err != nil {
@@ -173,6 +179,7 @@ func TestMoCAEducationRequiredOnlyOnCompletion(t *testing.T) {
 func TestScreeningAdjustmentsAndLabelsComeFromTemplateRules(t *testing.T) {
 	svc, db, doctorID, ctx := newAdmissionTestService(t)
 	draft := createAdmissionDraftForScreening(t, svc, db, doctorID, ctx)
+	completePrimaryScreenings(t, svc, db, doctorID, ctx, draft.ID, 2)
 
 	moca := screeningTemplate(t, svc, ctx, "MOCA_BEIJING")
 	for i := range moca.AdjustmentRules {
@@ -228,6 +235,7 @@ func TestAdmissionSubmitKeepsScreeningsOptionalAndProjectsCompletedOnes(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
+	completePrimaryScreenings(t, svc, db, doctorID, ctx, draft.ID, 5)
 
 	gad7 := screeningTemplate(t, svc, ctx, "GAD7")
 	completed, err := svc.SaveScreening(ctx, AdmissionActor{UserID: doctorID}, draft.ID, gad7.Code, AdmissionScreeningInput{
@@ -278,21 +286,161 @@ func TestAdmissionSubmitKeepsScreeningsOptionalAndProjectsCompletedOnes(t *testi
 	}
 }
 
-func TestAdmissionSubmitWithoutScreeningsStillSucceeds(t *testing.T) {
+func TestAdmissionSubmitRequiresPrimaryScreenings(t *testing.T) {
 	svc, db, doctorID, ctx := newAdmissionTestService(t)
 	input := validAdmissionInput(t, svc, db, ctx)
 	draft, err := svc.Create(ctx, AdmissionActor{UserID: doctorID}, input)
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := svc.Submit(ctx, AdmissionActor{UserID: doctorID}, draft.ID)
+	if _, err := svc.Submit(ctx, AdmissionActor{UserID: doctorID}, draft.ID); !errors.Is(err, ErrAdmissionIncomplete) {
+		t.Fatalf("submit without primary screenings error = %v, want ErrAdmissionIncomplete", err)
+	}
+	reloaded, err := svc.Get(ctx, AdmissionActor{UserID: doctorID}, draft.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Admission.ElderID == nil {
-		t.Fatal("submitted admission has no elder")
+	if reloaded.Status != "draft" || reloaded.ElderID != nil {
+		t.Fatalf("incomplete admission was mutated: %+v", reloaded)
 	}
-	assertCount(t, db, &model.Assessment{}, "elder_id = ? AND assessment_type LIKE ?", 0, *result.Admission.ElderID, "admission_screening:%")
+}
+
+func TestAdmissionScreeningGateFollowsMiniCogFlow(t *testing.T) {
+	t.Run("missing Mini-Cog is blocked", func(t *testing.T) {
+		svc, db, doctorID, ctx := newAdmissionTestService(t)
+		draft := createAdmissionDraftForScreening(t, svc, db, doctorID, ctx)
+		if _, err := svc.Submit(ctx, AdmissionActor{UserID: doctorID}, draft.ID); !errors.Is(err, ErrAdmissionIncomplete) {
+			t.Fatalf("submit without Mini-Cog error = %v, want ErrAdmissionIncomplete", err)
+		}
+	})
+	t.Run("negative Mini-Cog requires both second-stage scales", func(t *testing.T) {
+		svc, db, doctorID, ctx := newAdmissionTestService(t)
+		draft := createAdmissionDraftForScreening(t, svc, db, doctorID, ctx)
+		completePrimaryScreenings(t, svc, db, doctorID, ctx, draft.ID, 2)
+		if _, err := svc.Submit(ctx, AdmissionActor{UserID: doctorID}, draft.ID); !errors.Is(err, ErrAdmissionIncomplete) {
+			t.Fatalf("submit without second-stage screens error = %v, want ErrAdmissionIncomplete", err)
+		}
+	})
+	t.Run("negative Mini-Cog with second-stage scales passes", func(t *testing.T) {
+		svc, db, doctorID, ctx := newAdmissionTestService(t)
+		draft := createAdmissionDraftForScreening(t, svc, db, doctorID, ctx)
+		completePrimaryScreenings(t, svc, db, doctorID, ctx, draft.ID, 2)
+		completeFurtherScreenings(t, svc, db, doctorID, ctx, draft.ID)
+		result, err := svc.Submit(ctx, AdmissionActor{UserID: doctorID}, draft.ID)
+		if err != nil || result.Admission.Status != "submitted" {
+			t.Fatalf("submit with second-stage screens = %+v, %v", result, err)
+		}
+	})
+	t.Run("negative Mini-Cog is not required when score is above threshold", func(t *testing.T) {
+		svc, db, doctorID, ctx := newAdmissionTestService(t)
+		draft := createAdmissionDraftForScreening(t, svc, db, doctorID, ctx)
+		completePrimaryScreenings(t, svc, db, doctorID, ctx, draft.ID, 3)
+		result, err := svc.Submit(ctx, AdmissionActor{UserID: doctorID}, draft.ID)
+		if err != nil || result.Admission.Status != "submitted" {
+			t.Fatalf("submit with Mini-Cog 3 = %+v, %v", result, err)
+		}
+	})
+}
+
+func TestFurtherScreeningCannotCompleteBeforeMiniCog(t *testing.T) {
+	svc, db, doctorID, ctx := newAdmissionTestService(t)
+	draft := createAdmissionDraftForScreening(t, svc, db, doctorID, ctx)
+	mmse := screeningTemplate(t, svc, ctx, "MMSE")
+	if _, err := svc.SaveScreening(ctx, AdmissionActor{UserID: doctorID}, draft.ID, mmse.Code, AdmissionScreeningInput{
+		Completed: true, Answers: screeningAnswers(mmse, -1),
+	}); !errors.Is(err, ErrAdmissionIncomplete) {
+		t.Fatalf("MMSE before Mini-Cog error = %v, want ErrAdmissionIncomplete", err)
+	}
+	// A partial draft is intentionally allowed so a clinician can resume later.
+	if _, err := svc.SaveScreening(ctx, AdmissionActor{UserID: doctorID}, draft.ID, mmse.Code, AdmissionScreeningInput{
+		Answers: screeningAnswers(mmse, -1)[:1],
+	}); err != nil {
+		t.Fatalf("MMSE draft before Mini-Cog: %v", err)
+	}
+}
+
+func TestCognitiveScreeningThresholds(t *testing.T) {
+	tests := []struct {
+		code       string
+		score      int
+		education  *int
+		wantResult string
+	}{
+		{code: "MMSE", score: 26, wantResult: "specialist_referral"},
+		{code: "MMSE", score: 27, wantResult: "normal_range"},
+		{code: "MMSE", score: 0, wantResult: "specialist_referral"},
+		{code: "MMSE", score: 30, wantResult: "normal_range"},
+		{code: "MOCA_BEIJING", score: 26, education: intPointer(30), wantResult: "specialist_referral"},
+		{code: "MOCA_BEIJING", score: 27, education: intPointer(30), wantResult: "normal_range"},
+		{code: "MOCA_BEIJING", score: 0, education: intPointer(30), wantResult: "specialist_referral"},
+		{code: "MOCA_BEIJING", score: 30, education: intPointer(30), wantResult: "normal_range"},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%s_%d", tt.code, tt.score), func(t *testing.T) {
+			svc, db, doctorID, ctx := newAdmissionTestService(t)
+			draft := createAdmissionDraftForScreening(t, svc, db, doctorID, ctx)
+			completePrimaryScreenings(t, svc, db, doctorID, ctx, draft.ID, 2)
+			template := screeningTemplate(t, svc, ctx, tt.code)
+			result, err := svc.SaveScreening(ctx, AdmissionActor{UserID: doctorID}, draft.ID, template.Code, AdmissionScreeningInput{
+				Completed: true, EducationYears: tt.education, Answers: screeningAnswersForTotal(template, tt.score),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.Screening.RawScore != tt.score || result.Screening.ResultCode != tt.wantResult {
+				t.Fatalf("threshold result = raw:%d code:%s, want raw:%d code:%s", result.Screening.RawScore, result.Screening.ResultCode, tt.score, tt.wantResult)
+			}
+		})
+	}
+}
+
+func TestScreeningEvidencePersistsAndCannotChangeScore(t *testing.T) {
+	svc, db, doctorID, ctx := newAdmissionTestService(t)
+	draft := createAdmissionDraftForScreening(t, svc, db, doctorID, ctx)
+	template := screeningTemplate(t, svc, ctx, "MINI_COG")
+	answers := screeningAnswersForTotal(template, 2)
+	answers[1].Evidence = []model.AdmissionScreeningEvidence{{
+		ItemCode: "recall_word_1", OptionCode: "score_0", AnswerText: "未回忆", Score: 999,
+	}}
+	result, err := svc.SaveScreening(ctx, AdmissionActor{UserID: doctorID}, draft.ID, template.Code, AdmissionScreeningInput{
+		Completed: true, Answers: answers,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Screening.RawScore != 2 || len(result.Screening.Answers) < 2 {
+		t.Fatalf("unexpected evidence screening result: %+v", result.Screening)
+	}
+	var stored model.AdmissionScreeningAnswer
+	if err := db.Where("screening_id = ? AND question_id = ?", result.Screening.ID, answers[1].QuestionID).First(&stored).Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(stored.Evidence) != 1 || stored.Evidence[0].ItemCode != "recall_word_1" || stored.Evidence[0].Score != 999 {
+		t.Fatalf("evidence was not persisted verbatim for audit: %+v", stored.Evidence)
+	}
+	// Corrupt both snapshots and the answer snapshot; server recalculation must
+	// still derive the same score from the selected option.
+	if err := db.Model(&model.AdmissionScreening{}).Where("id = ?", result.Screening.ID).Updates(map[string]interface{}{
+		"raw_score": -999, "adjusted_score": -999, "result_code": "forged",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&model.AdmissionScreeningAnswer{}).Where("screening_id = ?", result.Screening.ID).Update("score", -999).Error; err != nil {
+		t.Fatal(err)
+	}
+	listed, err := svc.ListScreenings(ctx, draft.ID)
+	if err != nil || len(listed) != 1 {
+		t.Fatalf("list screening = %d, %v", len(listed), err)
+	}
+	if listed[0].RawScore != 2 || listed[0].AdjustedScore != 2 || listed[0].ResultCode != "positive" {
+		t.Fatalf("list returned forged score snapshot: raw=%d adjusted=%d result=%s", listed[0].RawScore, listed[0].AdjustedScore, listed[0].ResultCode)
+	}
+	if listed[0].Answers[1].Evidence[0].Score != 999 {
+		t.Fatalf("evidence changed after snapshot tamper: %+v", listed[0].Answers[1].Evidence)
+	}
+	if listed[0].Answers[1].Score != 0 || listed[0].Answers[1].OptionCode != "score_0" {
+		t.Fatalf("list returned forged answer score snapshot: %+v", listed[0].Answers[1])
+	}
 }
 
 func TestAdmissionScreeningTenantIsolation(t *testing.T) {
@@ -361,3 +509,73 @@ func screeningAnswers(template *model.AssessmentTemplate, preferredScore int) []
 }
 
 func intPointer(value int) *int { return &value }
+
+// completePrimaryScreenings creates the mandatory first-stage Mini-Cog record
+// used by submission tests. GDS-15 remains an optional independent screen.
+// miniCogScore may be 0-5; scores <=2 exercise the second-stage gate and
+// therefore should be paired with MMSE/MoCA by callers.
+func completePrimaryScreenings(t *testing.T, svc *AdmissionService, db *gorm.DB, doctorID uint, ctx context.Context, admissionID uint, miniCogScore int) {
+	t.Helper()
+	miniCog := screeningTemplate(t, svc, ctx, "MINI_COG")
+	answers := screeningAnswersForTotal(miniCog, miniCogScore)
+	miniResult, err := svc.SaveScreening(ctx, AdmissionActor{UserID: doctorID}, admissionID, miniCog.Code, AdmissionScreeningInput{
+		Completed: true, Answers: answers,
+	})
+	if err != nil {
+		t.Fatalf("complete Mini-Cog: %v", err)
+	}
+	if miniResult.Screening.AdjustedScore != miniCogScore {
+		t.Fatalf("Mini-Cog helper score = %d, want %d (answers=%+v)", miniResult.Screening.AdjustedScore, miniCogScore, answers)
+	}
+}
+
+func completeFurtherScreenings(t *testing.T, svc *AdmissionService, db *gorm.DB, doctorID uint, ctx context.Context, admissionID uint) {
+	t.Helper()
+	mmse := screeningTemplate(t, svc, ctx, "MMSE")
+	if _, err := svc.SaveScreening(ctx, AdmissionActor{UserID: doctorID}, admissionID, mmse.Code, AdmissionScreeningInput{
+		Completed: true, Answers: screeningAnswers(mmse, -1),
+	}); err != nil {
+		t.Fatalf("complete MMSE: %v", err)
+	}
+	moca := screeningTemplate(t, svc, ctx, "MOCA_BEIJING")
+	if _, err := svc.SaveScreening(ctx, AdmissionActor{UserID: doctorID}, admissionID, moca.Code, AdmissionScreeningInput{
+		Completed: true, EducationYears: intPointer(30), Answers: screeningAnswers(moca, -1),
+	}); err != nil {
+		t.Fatalf("complete MoCA: %v", err)
+	}
+}
+
+func screeningAnswersForTotal(template *model.AssessmentTemplate, target int) []AdmissionScreeningAnswerInput {
+	if target < 0 {
+		return screeningAnswers(template, target)
+	}
+	required := make([]model.AssessmentQuestion, 0, len(template.Questions))
+	for _, question := range template.Questions {
+		if question.Required {
+			required = append(required, question)
+		}
+	}
+	result := make([]AdmissionScreeningAnswerInput, 0, len(required))
+	var visit func(int, int) bool
+	visit = func(index, score int) bool {
+		if index == len(required) {
+			return score == target
+		}
+		question := required[index]
+		for _, option := range question.Options {
+			if score+option.Score > target {
+				continue
+			}
+			result = append(result, AdmissionScreeningAnswerInput{QuestionID: question.ID, OptionID: option.ID})
+			if visit(index+1, score+option.Score) {
+				return true
+			}
+			result = result[:len(result)-1]
+		}
+		return false
+	}
+	if visit(0, 0) {
+		return result
+	}
+	return screeningAnswers(template, -1)
+}

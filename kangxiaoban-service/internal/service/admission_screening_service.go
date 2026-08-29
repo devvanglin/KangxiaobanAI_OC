@@ -14,9 +14,9 @@ import (
 
 // AdmissionScreeningAnswerInput contains a server-owned option and optional examiner notes.
 type AdmissionScreeningAnswerInput struct {
-	QuestionID uint                              `json:"question_id" binding:"required"`
-	OptionID   uint                              `json:"option_id" binding:"required"`
-	AnswerText string                            `json:"answer_text"`
+	QuestionID uint                               `json:"question_id" binding:"required"`
+	OptionID   uint                               `json:"option_id" binding:"required"`
+	AnswerText string                             `json:"answer_text"`
 	Evidence   []model.AdmissionScreeningEvidence `json:"evidence,omitempty"`
 }
 
@@ -43,6 +43,7 @@ type admissionScreeningScore struct {
 	complete      bool
 	resultCode    string
 	resultLabel   string
+	ruleContext   admissionRuleContext
 }
 
 func (s *AdmissionService) ScreeningTemplates(ctx context.Context) ([]model.AssessmentTemplate, error) {
@@ -63,7 +64,47 @@ func (s *AdmissionService) ListScreenings(ctx context.Context, admissionID uint)
 	var screenings []model.AdmissionScreening
 	err := db.Preload("Answers", func(q *gorm.DB) *gorm.DB { return q.Order("question_id asc, id asc") }).
 		Where("admission_id = ?", admissionID).Order("updated_at desc, id desc").Find(&screenings).Error
-	return screenings, err
+	if err != nil {
+		return nil, err
+	}
+	// Score columns and answer snapshots are denormalized audit fields. Rebuild
+	// them for every read so a stale or tampered snapshot cannot leak into the
+	// clinician UI; submission uses the same calculation path below.
+	for i := range screenings {
+		template, err := s.screeningTemplateByIDForRead(db, screenings[i].TemplateID)
+		if err != nil {
+			return nil, err
+		}
+		if !strings.EqualFold(screenings[i].TemplateCode, template.Code) {
+			return nil, fmt.Errorf("%w: screening template code does not match persisted template", ErrAdmissionValidation)
+		}
+		calculated, err := calculateAdmissionScreening(template, screenings[i].Answers, screenings[i].EducationYears, screenings[i].Status == "completed")
+		if err != nil {
+			return nil, err
+		}
+		if screenings[i].Status == "completed" && adjustmentRulesRequireEducationYears(template.AdjustmentRules, calculated.ruleContext) && screenings[i].EducationYears == nil {
+			return nil, fmt.Errorf("%w: education_years is required by screening %s adjustment rules", ErrAdmissionValidation, screenings[i].TemplateCode)
+		}
+		screenings[i].RawScore = calculated.rawScore
+		screenings[i].AdjustedScore = calculated.adjustedScore
+		screenings[i].ResultCode = calculated.resultCode
+		screenings[i].ResultLabel = calculated.resultLabel
+		for answerIndex := range screenings[i].Answers {
+			answer := &screenings[i].Answers[answerIndex]
+			question, ok := screeningQuestionByID(template, answer.QuestionID)
+			if !ok || answer.OptionID == nil {
+				return nil, fmt.Errorf("%w: saved screening answer does not match template", ErrAdmissionValidation)
+			}
+			option, ok := screeningOptionByID(question, *answer.OptionID)
+			if !ok {
+				return nil, fmt.Errorf("%w: saved screening option does not match template", ErrAdmissionValidation)
+			}
+			answer.QuestionCode = question.Code
+			answer.OptionCode = option.Code
+			answer.Score = option.Score
+		}
+	}
+	return screenings, nil
 }
 
 func (s *AdmissionService) SaveScreening(ctx context.Context, actor AdmissionActor, admissionID uint, templateCode string, input AdmissionScreeningInput) (*AdmissionScreeningSaveResult, error) {
@@ -134,7 +175,7 @@ func (s *AdmissionService) SaveScreening(ctx context.Context, actor AdmissionAct
 		if input.Completed && !score.complete {
 			return fmt.Errorf("%w: answered %d of %d required screening questions", ErrAdmissionIncomplete, score.answeredCount, score.requiredCount)
 		}
-		if input.Completed && adjustmentRulesRequireEducationYears(template.AdjustmentRules, screeningRuleContext(answers)) && input.EducationYears == nil {
+		if input.Completed && adjustmentRulesRequireEducationYears(template.AdjustmentRules, score.ruleContext) && input.EducationYears == nil {
 			return fmt.Errorf("%w: education_years is required by the screening adjustment rules", ErrAdmissionValidation)
 		}
 
@@ -191,6 +232,38 @@ func (s *AdmissionService) screeningTemplateByCode(db *gorm.DB, code string) (*m
 	return &template, err
 }
 
+// screeningTemplateByIDForRead loads a historical screening template even if
+// an administrator has since disabled it. Existing records must remain
+// inspectable, while their score is still interpreted from server-owned data.
+func (s *AdmissionService) screeningTemplateByIDForRead(db *gorm.DB, id uint) (*model.AssessmentTemplate, error) {
+	var template model.AssessmentTemplate
+	err := db.Preload("Questions", func(q *gorm.DB) *gorm.DB { return q.Order("sort_order asc, id asc") }).
+		Preload("Questions.Options", func(q *gorm.DB) *gorm.DB { return q.Order("sort_order asc, id asc") }).
+		Where("id = ? AND category = ?", id, "admission_screening").First(&template).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("%w: screening template not found", ErrAdmissionValidation)
+	}
+	return &template, err
+}
+
+func screeningQuestionByID(template *model.AssessmentTemplate, id uint) (model.AssessmentQuestion, bool) {
+	for _, question := range template.Questions {
+		if question.ID == id {
+			return question, true
+		}
+	}
+	return model.AssessmentQuestion{}, false
+}
+
+func screeningOptionByID(question model.AssessmentQuestion, id uint) (model.AssessmentOption, bool) {
+	for _, option := range question.Options {
+		if option.ID == id {
+			return option, true
+		}
+	}
+	return model.AssessmentOption{}, false
+}
+
 func (s *AdmissionService) getScreening(db *gorm.DB, id uint) (*model.AdmissionScreening, error) {
 	var screening model.AdmissionScreening
 	err := db.Preload("Answers", func(q *gorm.DB) *gorm.DB { return q.Order("question_id asc, id asc") }).First(&screening, id).Error
@@ -198,21 +271,6 @@ func (s *AdmissionService) getScreening(db *gorm.DB, id uint) (*model.AdmissionS
 		return nil, ErrAdmissionNotFound
 	}
 	return &screening, err
-}
-
-// screeningRuleContext converts persisted screening answers to the generic
-// rule-interpreter shape. It intentionally omits persisted scores because
-// those values are snapshots and are not authoritative.
-func screeningRuleContext(answers []model.AdmissionScreeningAnswer) admissionRuleContext {
-	normalized := make([]model.AdmissionAssessmentAnswer, 0, len(answers))
-	for _, answer := range answers {
-		normalized = append(normalized, model.AdmissionAssessmentAnswer{
-			QuestionID: answer.QuestionID, OptionID: answer.OptionID,
-			QuestionCode: answer.QuestionCode, OptionCode: answer.OptionCode,
-			AnswerText: answer.AnswerText,
-		})
-	}
-	return admissionRuleContext{Answers: normalized}
 }
 
 // loadAndCalculateScreening reads a screening by its persisted template code,
@@ -250,7 +308,7 @@ func loadAndCalculateScreening(tx *gorm.DB, admissionID uint, code string) (*mod
 	if !calculated.complete {
 		return &screening, &template, calculated, fmt.Errorf("%w: required screening %s answers are incomplete", ErrAdmissionIncomplete, code)
 	}
-	if adjustmentRulesRequireEducationYears(template.AdjustmentRules, screeningRuleContext(screening.Answers)) && screening.EducationYears == nil {
+	if adjustmentRulesRequireEducationYears(template.AdjustmentRules, calculated.ruleContext) && screening.EducationYears == nil {
 		return &screening, &template, calculated, fmt.Errorf("%w: education_years is required by screening %s adjustment rules", ErrAdmissionValidation, code)
 	}
 	return &screening, &template, calculated, nil
@@ -263,10 +321,6 @@ func validateFurtherScreeningPrerequisites(tx *gorm.DB, admissionID uint, code s
 	code = strings.ToUpper(strings.TrimSpace(code))
 	if code != "MMSE" && code != "MOCA_BEIJING" {
 		return nil
-	}
-	_, _, _, err := loadAndCalculateScreening(tx, admissionID, "GDS15")
-	if err != nil {
-		return err
 	}
 	_, _, miniCog, err := loadAndCalculateScreening(tx, admissionID, "MINI_COG")
 	if err != nil {
@@ -282,10 +336,6 @@ func validateFurtherScreeningPrerequisites(tx *gorm.DB, admissionID uint, code s
 // the submission transaction. This prevents a client from bypassing the gate
 // by editing status or score snapshots directly.
 func validateAdmissionScreeningGate(tx *gorm.DB, admissionID uint) error {
-	_, _, _, err := loadAndCalculateScreening(tx, admissionID, "GDS15")
-	if err != nil {
-		return err
-	}
 	_, _, miniCog, err := loadAndCalculateScreening(tx, admissionID, "MINI_COG")
 	if err != nil {
 		return err
@@ -424,9 +474,8 @@ func calculateAdmissionScreening(template *model.AssessmentTemplate, answers []m
 	if rawScore < 0 || rawScore > template.MaxScore {
 		return nil, fmt.Errorf("%w: screening score outside template range", ErrAdmissionValidation)
 	}
-	outcome := evaluateAdmissionAdjustmentRules(template.AdjustmentRules, admissionRuleContext{
-		Answers: normalizedAnswers, EducationYears: educationYears,
-	})
+	ruleContext := admissionRuleContext{Answers: normalizedAnswers, EducationYears: educationYears}
+	outcome := evaluateAdmissionAdjustmentRules(template.AdjustmentRules, ruleContext)
 	adjustedScore := rawScore + outcome.ScoreDelta
 	if adjustedScore < 0 {
 		adjustedScore = 0
@@ -442,6 +491,7 @@ func calculateAdmissionScreening(template *model.AssessmentTemplate, answers []m
 	return &admissionScreeningScore{
 		rawScore: rawScore, adjustedScore: adjustedScore, answeredCount: answeredRequired,
 		requiredCount: requiredCount, complete: complete, resultCode: resultCode, resultLabel: resultLabel,
+		ruleContext: ruleContext,
 	}, nil
 }
 

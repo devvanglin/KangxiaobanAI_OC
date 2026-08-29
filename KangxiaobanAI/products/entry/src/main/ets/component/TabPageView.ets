@@ -37,8 +37,8 @@ import { WindowUtil } from '../util/WindowUtil';
 import AuthStore from '../network/AuthStore';
 import ApiClient from '../network/ApiClient';
 import { BusinessStore } from '../network/BusinessStore';
-import { Alert, Bed, CareTask as BackendCareTask, Elder, HealthRecord, IotDevice, MedicationRecord, MessageContact,
-  MedicationTimePeriod, Room, TaskStatusRequest, UserMessage } from '../network/Dto';
+import { Alert, Bed, CareExecution, CareTask as BackendCareTask, Elder, HealthRecord, IotDevice, MedicationRecord,
+  MessageContact, MedicationTimePeriod, Room, TaskStatusRequest, UserMessage } from '../network/Dto';
 import { MessageApi } from '../network/MessageApi';
 import { HealthListCard, HealthListCardData, HealthListCardRow } from './HealthListCard';
 
@@ -604,11 +604,72 @@ export struct TabPageView {
   }
 
   private recordItems(): QuickListRow[] {
-    return [];
+    if (!this.businessStore.loaded) {
+      return [];
+    }
+    return this.businessStore.careExecutions
+      .slice()
+      .sort((left: CareExecution, right: CareExecution): number =>
+        right.executed_at.localeCompare(left.executed_at))
+      .map((execution: CareExecution): QuickListRow => {
+        const task: BackendCareTask | undefined = this.businessStore.tasks.find((item: BackendCareTask) =>
+          item.plan_item_id !== undefined && item.plan_item_id === execution.plan_item_id &&
+          item.elder_id === execution.elder_id);
+        const elder: Elder | undefined = this.businessStore.elders.find((item: Elder) => item.id === execution.elder_id);
+        const abnormal: string = execution.abnormal.trim();
+        const statusText: string = execution.status === 'reviewed' ? '已复核' :
+          execution.status === 'abnormal' || abnormal.length > 0 ? '异常' :
+            execution.status === 'skipped' ? '已跳过' : '已完成';
+        const statusLevel: StatusLevel = statusText === '异常' ? 'danger' :
+          statusText === '已复核' ? 'normal' : 'warning';
+        return {
+          id: `execution-${execution.id}`,
+          title: task?.title ?? '护理执行记录',
+          sub: `${elder?.name ?? '未知长者'} · ${execution.executor || '服务器记录'}${
+            execution.result.trim().length > 0 ? ` · ${execution.result.trim()}` : ''}`,
+          time: this.recordTime(execution.executed_at),
+          tag: statusText,
+          tagColor: this.statusColor(statusLevel),
+          tagBg: this.statusBg(statusLevel)
+        };
+      });
   }
 
   private familyItems(): QuickListRow[] {
-    return [];
+    if (!this.businessStore.loaded) {
+      return [];
+    }
+    const currentUserId: number | undefined = AuthStore.getUser()?.id;
+    return this.businessStore.messages
+      .filter((message: UserMessage) => currentUserId === undefined ||
+        message.sender_id === currentUserId || message.receiver_id === currentUserId)
+      .filter((message: UserMessage) => {
+        const peerId: number = currentUserId !== undefined && message.sender_id === currentUserId ?
+          message.receiver_id : message.sender_id;
+        const peer: MessageContact | undefined = this.businessStore.messageContacts
+          .find((contact: MessageContact) => contact.id === peerId);
+        return peer?.roles.some((role) => role.code === 'family') ?? false;
+      })
+      .sort((left: UserMessage, right: UserMessage): number => right.sent_at.localeCompare(left.sent_at))
+      .map((message: UserMessage): QuickListRow => {
+        const peerId: number = currentUserId !== undefined && message.sender_id === currentUserId ?
+          message.receiver_id : message.sender_id;
+        const peer: MessageContact | undefined = this.businessStore.messageContacts
+          .find((contact: MessageContact) => contact.id === peerId);
+        const elder: Elder | undefined = message.elder_id === undefined ? undefined :
+          this.businessStore.elders.find((item: Elder) => item.id === message.elder_id);
+        const incomingUnread: boolean = currentUserId !== undefined && message.receiver_id === currentUserId &&
+          (message.read_at === undefined || message.read_at.trim().length === 0);
+        return {
+          id: `message-${message.id}`,
+          title: peer?.real_name || peer?.username || '家属消息',
+          sub: `${elder?.name ?? '未关联长者'} · ${message.content.trim().length > 0 ? message.content : '服务器未提供消息内容'}`,
+          time: this.recordTime(message.sent_at),
+          tag: incomingUnread ? '未读' : '已读',
+          tagColor: incomingUnread ? $r('app.color.status_warning') : $r('sys.color.font_tertiary'),
+          tagBg: incomingUnread ? $r('app.color.status_warning_bg') : $r('sys.color.comp_background_tertiary')
+        };
+      });
   }
 
   private reportItems(): QuickListRow[] {
@@ -683,7 +744,50 @@ export struct TabPageView {
   }
 
   private taskTimeline(): TaskTimelineItem[] {
-    return [];
+    const selected: CareTask | undefined = this.selectedTask();
+    if (!selected || !this.businessStore.loaded || selected.id.length === 0) {
+      return [];
+    }
+    const taskId: number = Number(selected.id);
+    const backendTask: BackendCareTask | undefined = this.businessStore.tasks.find((item: BackendCareTask) =>
+      item.id === taskId);
+    if (backendTask === undefined || backendTask.plan_item_id === undefined) {
+      return [];
+    }
+    return this.businessStore.careExecutions
+      .filter((execution: CareExecution) => execution.elder_id === backendTask.elder_id &&
+        execution.plan_item_id === backendTask.plan_item_id)
+      .slice()
+      .sort((left: CareExecution, right: CareExecution): number =>
+        left.executed_at.localeCompare(right.executed_at))
+      .map((execution: CareExecution): TaskTimelineItem => ({
+        time: this.recordTime(execution.executed_at),
+        actor: execution.executor || '服务器记录',
+        action: this.executionAction(execution)
+      }));
+  }
+
+  private recordTime(value: string): string {
+    const normalized: string = value.replace('T', ' ');
+    return normalized.length >= 16 ? normalized.slice(5, 16) : (normalized || '--');
+  }
+
+  private executionAction(execution: CareExecution): string {
+    const result: string = execution.result.trim();
+    const abnormal: string = execution.abnormal.trim();
+    if (abnormal.length > 0) {
+      return `异常：${abnormal}`;
+    }
+    if (result.length > 0) {
+      return result;
+    }
+    if (execution.status === 'reviewed') {
+      return '护理执行已复核';
+    }
+    if (execution.status === 'skipped') {
+      return '护理项目已跳过';
+    }
+    return '护理项目已完成';
   }
 
   private async updateTaskStatus(task: CareTask, status: TaskStatus): Promise<void> {
@@ -900,7 +1004,36 @@ export struct TabPageView {
   // ---------------- home: AI reminders ----------------
 
   private aiReminders(): AiReminder[] {
-    return [];
+    if (!this.businessStore.loaded) {
+      return [];
+    }
+    return this.businessStore.alerts
+      .filter((alert: Alert) => alert.status !== 'handled' && alert.status !== 'closed')
+      .slice()
+      .sort((left: Alert, right: Alert): number => right.create_time.localeCompare(left.create_time))
+      .map((alert: Alert): AiReminder => {
+        const elder: Elder | undefined = alert.elder_id === undefined ? undefined :
+          this.businessStore.elders.find((item: Elder) => item.id === alert.elder_id);
+        const level: StatusLevel = this.serverRiskLevel(alert.level);
+        const signalParts: string[] = [];
+        if (alert.type.trim().length > 0) {
+          signalParts.push(alert.type.trim());
+        }
+        if (alert.device_id.trim().length > 0) {
+          signalParts.push(alert.device_id.trim());
+        }
+        return {
+          id: `alert-${alert.id}`,
+          level: level,
+          location: elder === undefined ? (alert.device_id || '机构范围') : '长者',
+          name: elder?.name ?? '机构设备',
+          title: alert.type.trim().length > 0 ? alert.type : '服务器风险告警',
+          detail: alert.content.trim().length > 0 ? alert.content : '服务器未提供告警详情',
+          signal: signalParts.length > 0 ? signalParts.join(' · ') : '服务器告警记录',
+          suggestion: level === 'danger' ? '请立即核实现场并按机构应急流程处置。' :
+            '请在本班次内核实并记录处置结果。'
+        };
+      });
   }
 
   @Builder

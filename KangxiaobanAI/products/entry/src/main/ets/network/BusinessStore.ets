@@ -5,6 +5,7 @@ import {
   Bed,
   Bill,
   CareTask,
+  CareExecution,
   Elder,
   DiningOrder,
   HealthRecord,
@@ -40,6 +41,7 @@ export class BusinessStore {
   @Trace rooms: Room[] = [];
   @Trace beds: Bed[] = [];
   @Trace tasks: CareTask[] = [];
+  @Trace careExecutions: CareExecution[] = [];
   @Trace devices: IotDevice[] = [];
   @Trace alerts: Alert[] = [];
   @Trace medications: MedicationRecord[] = [];
@@ -91,6 +93,8 @@ export class BusinessStore {
       this.beds = bedResp.data?.list ?? [];
       const taskResp = await ApiClient.getAll<CareTask>('/tasks');
       this.tasks = taskResp.data?.list ?? [];
+      const executionResp = await ApiClient.getAll<CareExecution>('/care-executions');
+      this.careExecutions = executionResp.data?.list ?? [];
       const deviceResp = await ApiClient.getAll<IotDevice>('/iot/devices');
       this.devices = deviceResp.data?.list ?? [];
       const alertResp = await ApiClient.getAll<Alert>('/alerts');
@@ -144,6 +148,7 @@ export class BusinessStore {
     this.rooms = [];
     this.beds = [];
     this.tasks = [];
+    this.careExecutions = [];
     this.devices = [];
     this.alerts = [];
     this.medications = [];

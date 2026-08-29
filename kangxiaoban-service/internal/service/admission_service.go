@@ -575,6 +575,7 @@ func calculateAbilityResult(template *model.AssessmentTemplate, admission *model
 	seen := map[uint]bool{}
 	groupScores := map[string]int{}
 	score := 0
+	answeredRequired := 0
 	normalizedAnswers := make([]model.AdmissionAssessmentAnswer, 0, len(answers))
 	for _, answer := range answers {
 		question, ok := questionByID[answer.QuestionID]
@@ -595,6 +596,9 @@ func calculateAbilityResult(template *model.AssessmentTemplate, admission *model
 			return nil, fmt.Errorf("%w: saved option does not belong to template question", ErrAdmissionValidation)
 		}
 		seen[answer.QuestionID] = true
+		if question.Required {
+			answeredRequired++
+		}
 		// The template option is authoritative. Stored/client snapshot scores are never trusted.
 		score += selected.Score
 		groupScores[question.GroupCode] += selected.Score
@@ -656,7 +660,7 @@ func calculateAbilityResult(template *model.AssessmentTemplate, admission *model
 		groups = append(groups, AdmissionGroupScore{Code: code, Label: groupLabels[code], Score: groupScores[code], MaxScore: groupMax[code]})
 	}
 	return &AdmissionPreview{
-		AbilityScore: score, AnsweredCount: len(seen), RequiredCount: required, Complete: len(seen) == required,
+		AbilityScore: score, AnsweredCount: answeredRequired, RequiredCount: required, Complete: answeredRequired == required,
 		InitialLevel: initial.Code, InitialLevelLabel: initial.Label, FinalLevel: final.Code, FinalLevelLabel: final.Label,
 		LevelChangeReasons: outcome.Reasons, GroupScores: groups,
 	}, nil
@@ -928,12 +932,18 @@ func createAdmissionScreeningAssessments(tx *gorm.DB, admissionID, elderID uint,
 			Where("id = ? AND category = ?", screening.TemplateID, "admission_screening").First(&template).Error; err != nil {
 			return err
 		}
+		if !strings.EqualFold(screening.TemplateCode, template.Code) {
+			return fmt.Errorf("%w: screening template code does not match persisted template", ErrAdmissionValidation)
+		}
 		calculated, err := calculateAdmissionScreening(&template, screening.Answers, screening.EducationYears, true)
 		if err != nil {
 			return err
 		}
 		if !calculated.complete {
 			return fmt.Errorf("%w: completed screening %s is incomplete", ErrAdmissionIncomplete, template.Code)
+		}
+		if adjustmentRulesRequireEducationYears(template.AdjustmentRules, calculated.ruleContext) && screening.EducationYears == nil {
+			return fmt.Errorf("%w: education_years is required by screening %s adjustment rules", ErrAdmissionValidation, template.Code)
 		}
 		if err := tx.Model(&screening).Updates(map[string]interface{}{
 			"raw_score": calculated.rawScore, "adjusted_score": calculated.adjustedScore,
@@ -1098,13 +1108,19 @@ func levelRuleByCode(rules []model.AbilityLevelRule, code string) (model.Ability
 }
 
 func worsenLevel(rules []model.AbilityLevelRule, current model.AbilityLevelRule) model.AbilityLevelRule {
-	targetCareLevel := current.CareLevel + 1
+	// Care levels are institution-configurable and need not be contiguous.
+	// Select the least severe configured level that is still worse than the
+	// current one instead of requiring an exact +1 value.
+	result := current
 	for _, rule := range rules {
-		if rule.CareLevel == targetCareLevel {
-			return rule
+		if rule.CareLevel <= current.CareLevel {
+			continue
+		}
+		if result.Code == current.Code || rule.CareLevel < result.CareLevel {
+			result = rule
 		}
 	}
-	return current
+	return result
 }
 
 func worsenLevelBy(rules []model.AbilityLevelRule, current model.AbilityLevelRule, delta int) model.AbilityLevelRule {

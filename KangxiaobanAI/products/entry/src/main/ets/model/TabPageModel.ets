@@ -13,258 +13,31 @@
  * limitations under the License.
  */
 
-export interface TabPageStat {
-  label: ResourceStr;
-  value: ResourceStr;
-  note: ResourceStr;
-}
-
-export interface TabPageListItem {
-  title: ResourceStr;
-  subtitle: ResourceStr;
-  tag: ResourceStr;
-}
-
-export interface TabPageSection {
-  title: ResourceStr;
-  description: ResourceStr;
-  items: TabPageListItem[];
-}
-
 export interface TabPageConfig {
   title: ResourceStr;
   subtitle: ResourceStr;
   heroSymbol: Resource;
-  heroValue: ResourceStr;
-  heroNote: ResourceStr;
-  stats: TabPageStat[];
-  primarySection: TabPageSection;
-  secondarySection: TabPageSection;
 }
 
 export const TAB_PAGE_CONFIGS: TabPageConfig[] = [
   {
     title: $r('app.string.tab_home'),
     subtitle: $r('app.string.page_home_subtitle'),
-    heroSymbol: $r('sys.symbol.house_fill'),
-    heroValue: $r('app.string.page_home_hero_value'),
-    heroNote: $r('app.string.page_home_hero_note'),
-    stats: [
-      {
-        label: $r('app.string.page_home_stat_1_label'),
-        value: $r('app.string.page_home_stat_1_value'),
-        note: $r('app.string.page_home_stat_1_note')
-      },
-      {
-        label: $r('app.string.page_home_stat_2_label'),
-        value: $r('app.string.page_home_stat_2_value'),
-        note: $r('app.string.page_home_stat_2_note')
-      }
-    ],
-    primarySection: {
-      title: $r('app.string.page_home_section_1_title'),
-      description: $r('app.string.page_home_section_1_desc'),
-      items: [
-        {
-          title: $r('app.string.page_home_section_1_item_1_title'),
-          subtitle: $r('app.string.page_home_section_1_item_1_subtitle'),
-          tag: $r('app.string.page_home_section_1_item_1_tag')
-        },
-        {
-          title: $r('app.string.page_home_section_1_item_2_title'),
-          subtitle: $r('app.string.page_home_section_1_item_2_subtitle'),
-          tag: $r('app.string.page_home_section_1_item_2_tag')
-        },
-        {
-          title: $r('app.string.page_home_section_1_item_3_title'),
-          subtitle: $r('app.string.page_home_section_1_item_3_subtitle'),
-          tag: $r('app.string.page_home_section_1_item_3_tag')
-        }
-      ]
-    },
-    secondarySection: {
-      title: $r('app.string.page_home_section_2_title'),
-      description: $r('app.string.page_home_section_2_desc'),
-      items: [
-        {
-          title: $r('app.string.page_home_section_2_item_1_title'),
-          subtitle: $r('app.string.page_home_section_2_item_1_subtitle'),
-          tag: $r('app.string.page_home_section_2_item_1_tag')
-        },
-        {
-          title: $r('app.string.page_home_section_2_item_2_title'),
-          subtitle: $r('app.string.page_home_section_2_item_2_subtitle'),
-          tag: $r('app.string.page_home_section_2_item_2_tag')
-        }
-      ]
-    }
+    heroSymbol: $r('sys.symbol.house_fill')
   },
   {
     title: $r('app.string.tab_music'),
     subtitle: $r('app.string.page_elder_subtitle'),
-    heroSymbol: $r('sys.symbol.person_2_fill'),
-    heroValue: $r('app.string.page_elder_hero_value'),
-    heroNote: $r('app.string.page_elder_hero_note'),
-    stats: [
-      {
-        label: $r('app.string.page_elder_stat_1_label'),
-        value: $r('app.string.page_elder_stat_1_value'),
-        note: $r('app.string.page_elder_stat_1_note')
-      },
-      {
-        label: $r('app.string.page_elder_stat_2_label'),
-        value: $r('app.string.page_elder_stat_2_value'),
-        note: $r('app.string.page_elder_stat_2_note')
-      }
-    ],
-    primarySection: {
-      title: $r('app.string.page_elder_section_1_title'),
-      description: $r('app.string.page_elder_section_1_desc'),
-      items: [
-        {
-          title: $r('app.string.page_elder_section_1_item_1_title'),
-          subtitle: $r('app.string.page_elder_section_1_item_1_subtitle'),
-          tag: $r('app.string.page_elder_section_1_item_1_tag')
-        },
-        {
-          title: $r('app.string.page_elder_section_1_item_2_title'),
-          subtitle: $r('app.string.page_elder_section_1_item_2_subtitle'),
-          tag: $r('app.string.page_elder_section_1_item_2_tag')
-        },
-        {
-          title: $r('app.string.page_elder_section_1_item_3_title'),
-          subtitle: $r('app.string.page_elder_section_1_item_3_subtitle'),
-          tag: $r('app.string.page_elder_section_1_item_3_tag')
-        }
-      ]
-    },
-    secondarySection: {
-      title: $r('app.string.page_elder_section_2_title'),
-      description: $r('app.string.page_elder_section_2_desc'),
-      items: [
-        {
-          title: $r('app.string.page_elder_section_2_item_1_title'),
-          subtitle: $r('app.string.page_elder_section_2_item_1_subtitle'),
-          tag: $r('app.string.page_elder_section_2_item_1_tag')
-        },
-        {
-          title: $r('app.string.page_elder_section_2_item_2_title'),
-          subtitle: $r('app.string.page_elder_section_2_item_2_subtitle'),
-          tag: $r('app.string.page_elder_section_2_item_2_tag')
-        }
-      ]
-    }
+    heroSymbol: $r('sys.symbol.person_2_fill')
   },
   {
     title: $r('app.string.tab_message'),
     subtitle: $r('app.string.page_task_subtitle'),
-    heroSymbol: $r('sys.symbol.message_on_message_fill'),
-    heroValue: $r('app.string.page_task_hero_value'),
-    heroNote: $r('app.string.page_task_hero_note'),
-    stats: [
-      {
-        label: $r('app.string.page_task_stat_1_label'),
-        value: $r('app.string.page_task_stat_1_value'),
-        note: $r('app.string.page_task_stat_1_note')
-      },
-      {
-        label: $r('app.string.page_task_stat_2_label'),
-        value: $r('app.string.page_task_stat_2_value'),
-        note: $r('app.string.page_task_stat_2_note')
-      }
-    ],
-    primarySection: {
-      title: $r('app.string.page_task_section_1_title'),
-      description: $r('app.string.page_task_section_1_desc'),
-      items: [
-        {
-          title: $r('app.string.page_task_section_1_item_1_title'),
-          subtitle: $r('app.string.page_task_section_1_item_1_subtitle'),
-          tag: $r('app.string.page_task_section_1_item_1_tag')
-        },
-        {
-          title: $r('app.string.page_task_section_1_item_2_title'),
-          subtitle: $r('app.string.page_task_section_1_item_2_subtitle'),
-          tag: $r('app.string.page_task_section_1_item_2_tag')
-        },
-        {
-          title: $r('app.string.page_task_section_1_item_3_title'),
-          subtitle: $r('app.string.page_task_section_1_item_3_subtitle'),
-          tag: $r('app.string.page_task_section_1_item_3_tag')
-        }
-      ]
-    },
-    secondarySection: {
-      title: $r('app.string.page_task_section_2_title'),
-      description: $r('app.string.page_task_section_2_desc'),
-      items: [
-        {
-          title: $r('app.string.page_task_section_2_item_1_title'),
-          subtitle: $r('app.string.page_task_section_2_item_1_subtitle'),
-          tag: $r('app.string.page_task_section_2_item_1_tag')
-        },
-        {
-          title: $r('app.string.page_task_section_2_item_2_title'),
-          subtitle: $r('app.string.page_task_section_2_item_2_subtitle'),
-          tag: $r('app.string.page_task_section_2_item_2_tag')
-        }
-      ]
-    }
+    heroSymbol: $r('sys.symbol.message_on_message_fill')
   },
   {
     title: $r('app.string.tab_mine'),
     subtitle: $r('app.string.page_mine_subtitle'),
-    heroSymbol: $r('sys.symbol.person_crop_circle_fill'),
-    heroValue: $r('app.string.page_mine_hero_value'),
-    heroNote: $r('app.string.page_mine_hero_note'),
-    stats: [
-      {
-        label: $r('app.string.page_mine_stat_1_label'),
-        value: $r('app.string.page_mine_stat_1_value'),
-        note: $r('app.string.page_mine_stat_1_note')
-      },
-      {
-        label: $r('app.string.page_mine_stat_2_label'),
-        value: $r('app.string.page_mine_stat_2_value'),
-        note: $r('app.string.page_mine_stat_2_note')
-      }
-    ],
-    primarySection: {
-      title: $r('app.string.page_mine_section_1_title'),
-      description: $r('app.string.page_mine_section_1_desc'),
-      items: [
-        {
-          title: $r('app.string.page_mine_section_1_item_1_title'),
-          subtitle: $r('app.string.page_mine_section_1_item_1_subtitle'),
-          tag: $r('app.string.page_mine_section_1_item_1_tag')
-        },
-        {
-          title: $r('app.string.page_mine_section_1_item_2_title'),
-          subtitle: $r('app.string.page_mine_section_1_item_2_subtitle'),
-          tag: $r('app.string.page_mine_section_1_item_2_tag')
-        },
-        {
-          title: $r('app.string.page_mine_section_1_item_3_title'),
-          subtitle: $r('app.string.page_mine_section_1_item_3_subtitle'),
-          tag: $r('app.string.page_mine_section_1_item_3_tag')
-        }
-      ]
-    },
-    secondarySection: {
-      title: $r('app.string.page_mine_section_2_title'),
-      description: $r('app.string.page_mine_section_2_desc'),
-      items: [
-        {
-          title: $r('app.string.page_mine_section_2_item_1_title'),
-          subtitle: $r('app.string.page_mine_section_2_item_1_subtitle'),
-          tag: $r('app.string.page_mine_section_2_item_1_tag')
-        },
-        {
-          title: $r('app.string.page_mine_section_2_item_2_title'),
-          subtitle: $r('app.string.page_mine_section_2_item_2_subtitle'),
-          tag: $r('app.string.page_mine_section_2_item_2_tag')
-        }
-      ]
-    }
+    heroSymbol: $r('sys.symbol.person_crop_circle_fill')
   }
 ];

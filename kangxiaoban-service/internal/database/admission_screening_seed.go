@@ -44,12 +44,13 @@ func seedAdmissionScreeningTemplates(db *gorm.DB) error {
 		} else if err != nil {
 			return err
 		} else {
-			updates := map[string]interface{}{
-				"name": attrs.Name, "description": attrs.Description, "category": attrs.Category,
-				"max_score": attrs.MaxScore, "required": attrs.Required, "enabled": attrs.Enabled,
-				"sort_order": attrs.SortOrder,
-			}
+			// Screening templates and their labels are institution-owned once
+			// created. Only fill an absent rules/notes payload, plus the narrow
+			// legacy MoCA threshold migration below.
+			updates := map[string]interface{}{}
 			if len(template.LevelRules) == 0 && len(seed.levelRules) > 0 {
+				updates["level_rules"] = seed.levelRules
+			} else if seed.code == "MOCA_BEIJING" && isLegacyMocaLevelRules(template.LevelRules) {
 				updates["level_rules"] = seed.levelRules
 			}
 			if !hasExecutableAdjustmentRules(template.AdjustmentRules) && len(seed.adjustmentRules) > 0 {
@@ -67,34 +68,30 @@ func seedAdmissionScreeningTemplates(db *gorm.DB) error {
 			var question model.AssessmentQuestion
 			err := db.Where("template_id = ? AND code = ?", template.ID, questionSeed.code).First(&question).Error
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				question = model.AssessmentQuestion{TemplateID: template.ID, Code: questionSeed.code}
+				question = model.AssessmentQuestion{
+					TemplateID: template.ID, Code: questionSeed.code, GroupCode: questionSeed.groupCode,
+					GroupName: questionSeed.groupName, Title: questionSeed.title, Guidance: questionSeed.guidance,
+					AnswerType: "choice", Required: questionSeed.required, MaxScore: questionSeed.maxScore,
+					SortOrder: order + 1,
+				}
 				if err := db.Create(&question).Error; err != nil {
 					return err
 				}
 			} else if err != nil {
 				return err
 			}
-			if err := db.Model(&question).Updates(map[string]interface{}{
-				"group_code": questionSeed.groupCode, "group_name": questionSeed.groupName,
-				"title": questionSeed.title, "guidance": questionSeed.guidance, "answer_type": "choice",
-				"required": questionSeed.required, "max_score": questionSeed.maxScore, "sort_order": order + 1,
-			}).Error; err != nil {
-				return err
-			}
 			for optionOrder, optionSeed := range questionSeed.options {
 				var option model.AssessmentOption
 				err := db.Where("question_id = ? AND code = ?", question.ID, optionSeed.code).First(&option).Error
 				if errors.Is(err, gorm.ErrRecordNotFound) {
-					option = model.AssessmentOption{QuestionID: question.ID, Code: optionSeed.code}
+					option = model.AssessmentOption{
+						QuestionID: question.ID, Code: optionSeed.code, Label: optionSeed.label,
+						Score: optionSeed.score, SortOrder: optionOrder + 1,
+					}
 					if err := db.Create(&option).Error; err != nil {
 						return err
 					}
 				} else if err != nil {
-					return err
-				}
-				if err := db.Model(&option).Updates(map[string]interface{}{
-					"label": optionSeed.label, "score": optionSeed.score, "sort_order": optionOrder + 1,
-				}).Error; err != nil {
 					return err
 				}
 			}
@@ -218,7 +215,11 @@ func mmseScreeningSeed() admissionScreeningTemplateSeed {
 	return admissionScreeningTemplateSeed{
 		code: "MMSE", name: "简明精神状态评估量表（MMSE）", version: "PDF_APPENDIX_9", description: "PDF 附表9，简明精神状态评估，总分30分。",
 		maxScore: 30, sortOrder: 14,
-		scoringNotes: []string{"各项目按附表正确项计分，总分0-30分。", "附表未提供教育分层诊断阈值，本流程仅记录总分。"},
+		levelRules: screeningRules([]screeningRuleSeed{
+			{"specialist_referral", "建议完善影像学检查并转专科进一步诊断", 0, 26},
+			{"normal_range", "未达到进一步检查阈值", 27, 30},
+		}),
+		scoringNotes: []string{"各项目按附表正确项计分，总分0-30分。", "校正分低于27分时建议完善影像学检查并转专科进一步诊断，不能替代临床诊断。"},
 		questions: []admissionScreeningQuestionSeed{
 			scoredScreeningQuestion("MMSE.TIME", "ORIENTATION", "定向力", "时间定向", "年、季节、月份、日期、星期各1分", 5),
 			scoredScreeningQuestion("MMSE.PLACE", "ORIENTATION", "定向力", "地点定向", "城市、区县、街道乡镇、楼层、具体地点各1分", 5),
@@ -246,9 +247,10 @@ func mocaScreeningSeed() admissionScreeningTemplateSeed {
 			ScoreDelta:  1,
 		}},
 		levelRules: screeningRules([]screeningRuleSeed{
-			{"positive", "认知功能受损筛查提示", 0, 25}, {"normal_range", "未见明显认知功能受损", 26, 30},
+			{"specialist_referral", "建议完善影像学检查并转专科进一步诊断", 0, 26},
+			{"normal_range", "未达到进一步检查阈值", 27, 30},
 		}),
-		scoringNotes: []string{"各项目原始总分0-30分。", "受教育年限不超过12年时加1分，校正后最高30分；完成量表必须提供 education_years。", "校正分低于26分为筛查提示，不能替代临床诊断。"},
+		scoringNotes: []string{"各项目原始总分0-30分。", "受教育年限不超过12年时加1分，校正后最高30分；完成量表必须提供 education_years。", "校正分低于27分时建议完善影像学检查并转专科进一步诊断，不能替代临床诊断。"},
 		questions: []admissionScreeningQuestionSeed{
 			scoredScreeningQuestion("MOCA.VIS_EXEC", "VISUAL", "视空间与执行功能", "视空间与执行功能", "交替连线1分、复制立方体1分、画钟轮廓/数字/指针各1分", 5),
 			scoredScreeningQuestion("MOCA.NAMING", "NAMING", "命名", "动物命名", "狮子、犀牛、骆驼各1分", 3),
@@ -263,6 +265,27 @@ func mocaScreeningSeed() admissionScreeningTemplateSeed {
 			scoredScreeningQuestion("MOCA.ORIENTATION", "ORIENTATION", "定向", "定向", "日期、月份、年代、星期、地点、城市各1分", 6),
 		},
 	}
+}
+
+// isLegacyMocaLevelRules recognizes only the original built-in 0-25/26-30
+// bands. An administrator's renamed, reordered, or otherwise customized
+// rules are left untouched on restart.
+func isLegacyMocaLevelRules(rules []model.AbilityLevelRule) bool {
+	if len(rules) != 2 {
+		return false
+	}
+	var positive, normal bool
+	for _, rule := range rules {
+		switch rule.Code {
+		case "positive":
+			positive = rule.MinScore == 0 && rule.MaxScore == 25 && rule.Label == "认知功能受损筛查提示"
+		case "normal_range":
+			normal = rule.MinScore == 26 && rule.MaxScore == 30 && rule.Label == "未见明显认知功能受损"
+		default:
+			return false
+		}
+	}
+	return positive && normal
 }
 
 type screeningRuleSeed struct {

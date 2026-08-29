@@ -209,6 +209,21 @@ export interface CareTask {
   plan_item?: CareTaskPlanItem;
 }
 
+/** 护理项目实际执行记录。 */
+export interface CareExecution {
+  id: number;
+  plan_item_id: number;
+  elder_id: number;
+  executor_id: number;
+  executor: string;
+  status: string;
+  executed_at: string;
+  result: string;
+  abnormal: string;
+  reviewed_by: number;
+  reviewed_at?: string;
+}
+
 /** 健康体征。 */
 export interface HealthRecord {
   id: number;

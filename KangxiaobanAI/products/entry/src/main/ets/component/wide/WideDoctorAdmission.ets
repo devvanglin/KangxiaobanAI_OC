@@ -694,7 +694,7 @@ export struct WideDoctorAdmission {
       return;
     }
     if (!this.screeningGateReady) {
-      this.setFailure('validation', '请先完成入住评估首阶段筛查；Mini-Cog ≤2 分时还需完成 MMSE 和 MoCA。');
+      this.setFailure('validation', '请先完成 Mini-Cog 首阶段筛查；Mini-Cog ≤2 分时还需完成 MMSE 和 MoCA。');
       return;
     }
     if (!await this.saveDraft(this.currentStep, false)) {
@@ -1746,15 +1746,6 @@ export struct WideDoctorAdmission {
         .width('100%')
         .alignItems(HorizontalAlign.Start)
       }
-      if (this.draftId > 0) {
-        AdmissionScreeningPanel({
-          admissionId: this.draftId,
-          compactWidth: this.compactWidth,
-          onGateChange: (ready: boolean) => {
-            this.screeningGateReady = ready;
-          }
-        })
-      }
       this.heading('护理计划', '选择服务器配置的计划；提交后由服务器生成正式关联记录')
       GridRow({ columns: 12, gutter: { x: 10, y: 10 } }) {
         ForEach(this.plans(), (plan: AdmissionCarePlanTemplate) => {
@@ -1866,7 +1857,7 @@ export struct WideDoctorAdmission {
         .width('100%')
       }
       if (!this.screeningGateReady) {
-        Text('请先完成 GDS-15 和 Mini-Cog 首阶段筛查；Mini-Cog ≤2 分时还需完成 MMSE、MoCA。')
+        Text('请先完成 Mini-Cog 首阶段筛查；Mini-Cog ≤2 分时还需完成 MMSE、MoCA。')
           .fontSize(10)
           .fontColor($r('app.color.doctor_workspace_warning'))
           .width('100%')
@@ -2095,6 +2086,17 @@ export struct WideDoctorAdmission {
           this.formHeader()
           this.errorBanner()
           this.stepContent()
+          // Keep the server-backed gate alive when a draft opens on confirmation.
+          if (this.draftId > 0) {
+            AdmissionScreeningPanel({
+              admissionId: this.draftId,
+              compactWidth: this.compactWidth,
+              onGateChange: (ready: boolean) => {
+                this.screeningGateReady = ready;
+              }
+            })
+              .visibility(this.currentStep === 2 ? Visibility.Visible : Visibility.None)
+          }
         }
         .width('100%')
         .constraintSize({ maxWidth: 1088 })
