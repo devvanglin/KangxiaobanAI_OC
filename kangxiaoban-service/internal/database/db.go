@@ -333,9 +333,6 @@ func seedDemoData(db *gorm.DB) error {
 	if err := db.Model(&model.IotDevice{}).Count(&devCount).Error; err != nil {
 		return err
 	}
-	if devCount > 0 {
-		return nil // 已播种过
-	}
 	now := time.Now()
 
 	// 设备（绑定在院长者）
@@ -348,26 +345,28 @@ func seedDemoData(db *gorm.DB) error {
 		}
 		return nil
 	}
-	devices := []model.IotDevice{
-		{DeviceID: "E438192584AA", Product: "fall_radar", Online: 1, ElderID: bind(0), Protocol: "MQTT", LastSeen: &now},
-		{DeviceID: "E438192584F5", Product: "breath_radar", Online: 1, ElderID: bind(1), Protocol: "MQTT", LastSeen: &now},
-		{DeviceID: "E438192587C3", Product: "fall_radar", Online: 0, Protocol: "MQTT"},
-	}
-	for i := range devices {
-		if err := db.Create(&devices[i]).Error; err != nil {
-			return err
+	if devCount == 0 {
+		devices := []model.IotDevice{
+			{DeviceID: "E438192584AA", Product: "fall_radar", Online: 1, ElderID: bind(0), Protocol: "MQTT", LastSeen: &now},
+			{DeviceID: "E438192584F5", Product: "breath_radar", Online: 1, ElderID: bind(1), Protocol: "MQTT", LastSeen: &now},
+			{DeviceID: "E438192587C3", Product: "fall_radar", Online: 0, Protocol: "MQTT"},
 		}
-	}
+		for i := range devices {
+			if err := db.Create(&devices[i]).Error; err != nil {
+				return err
+			}
+		}
 
-	// 告警（演示分级与状态）
-	alerts := []model.Alert{
-		{ElderID: bind(0), DeviceID: "E438192584AA", Type: "fall", Level: "emergency", Content: "长者[" + elderName(db, bind(0)) + "] 检测到跌倒", Status: "new", CreateTime: now},
-		{ElderID: bind(1), DeviceID: "E438192584F5", Type: "breath_abnormal", Level: "important", Content: "长者[" + elderName(db, bind(1)) + "] 呼吸异常(次/分=28)", Status: "new", CreateTime: now.Add(-2 * time.Minute)},
-		{ElderID: bind(0), DeviceID: "E438192584AA", Type: "offline", Level: "info", Content: "设备离线(超过60s无上报)", Status: "handled", HandledBy: "演示", CreateTime: now.Add(-3 * time.Hour)},
-	}
-	for i := range alerts {
-		if err := db.Create(&alerts[i]).Error; err != nil {
-			return err
+		// 告警（演示分级与状态）
+		alerts := []model.Alert{
+			{ElderID: bind(0), DeviceID: "E438192584AA", Type: "fall", Level: "emergency", Content: "长者[" + elderName(db, bind(0)) + "] 检测到跌倒", Status: "new", CreateTime: now},
+			{ElderID: bind(1), DeviceID: "E438192584F5", Type: "breath_abnormal", Level: "important", Content: "长者[" + elderName(db, bind(1)) + "] 呼吸异常(次/分=28)", Status: "new", CreateTime: now.Add(-2 * time.Minute)},
+			{ElderID: bind(0), DeviceID: "E438192584AA", Type: "offline", Level: "info", Content: "设备离线(超过60s无上报)", Status: "handled", HandledBy: "演示", CreateTime: now.Add(-3 * time.Hour)},
+		}
+		for i := range alerts {
+			if err := db.Create(&alerts[i]).Error; err != nil {
+				return err
+			}
 		}
 	}
 
@@ -382,12 +381,157 @@ func seedDemoData(db *gorm.DB) error {
 		db.Create(&model.Bill{ElderID: e.ID, BillMonth: month, BedFee: 1500, NursingFee: nursing, MealFee: 900, Amount: 1500 + nursing + 900, Status: "unpaid"})
 	}
 
-	// 排班 + 交接 + 体征演示
-	db.Create(&model.Schedule{Staff: "李护工", WorkDate: now.Format("2006-01-02"), Shift: "morning", RoomScope: "101-102"})
-	db.Create(&model.Schedule{Staff: "刘护工", WorkDate: now.Format("2006-01-02"), Shift: "night", RoomScope: "103"})
-	db.Create(&model.ShiftHandover{FromStaff: "李护工", ToStaff: "刘护工", WorkDate: now.Format("2006-01-02"), Summary: "长者情绪稳定，张素英需两小时翻身", Issues: ""})
-	if len(elders) > 0 {
-		db.Create(&model.HealthRecord{ElderID: elders[0].ID, Temperature: fp(36.6), Systolic: pi(132), Diastolic: pi(82), HeartRate: pi(78), Spo2: fp(97), Source: "iot", RecordTime: now, IsAbnormal: false})
+	var scheduleCount int64
+	if err := db.Model(&model.Schedule{}).Count(&scheduleCount).Error; err != nil {
+		return err
+	}
+	if scheduleCount == 0 {
+		if err := db.Create(&[]model.Schedule{
+			{Staff: "李护工", WorkDate: now.Format("2006-01-02"), Shift: "morning", RoomScope: "101-102"},
+			{Staff: "刘护工", WorkDate: now.Format("2006-01-02"), Shift: "night", RoomScope: "103"},
+		}).Error; err != nil {
+			return err
+		}
+		if err := db.Create(&model.ShiftHandover{FromStaff: "李护工", ToStaff: "刘护工", WorkDate: now.Format("2006-01-02"), Summary: "长者情绪稳定，张素英需两小时翻身", Issues: ""}).Error; err != nil {
+			return err
+		}
+	}
+	var iotHealthCount int64
+	if err := db.Model(&model.HealthRecord{}).Where("source = ?", "iot").Count(&iotHealthCount).Error; err != nil {
+		return err
+	}
+	if iotHealthCount == 0 && len(elders) > 0 {
+		if err := db.Create(&model.HealthRecord{ElderID: elders[0].ID, Temperature: fp(36.6), Systolic: pi(132), Diastolic: pi(82), HeartRate: pi(78), Spo2: fp(97), Source: "iot", RecordTime: now, IsAbnormal: false}).Error; err != nil {
+			return err
+		}
+	}
+
+	// 其余模块的可运行演示数据分别按表为空时播种，重复启动不会重复插入。
+	var flowCount int64
+	if err := db.Model(&model.FundFlow{}).Count(&flowCount).Error; err != nil {
+		return err
+	}
+	if flowCount == 0 && len(elders) > 0 {
+		month := now.Format("2006-01")
+		flows := []model.FundFlow{
+			{ElderID: elders[0].ID, Direction: "in", RelatedMonth: month, Reason: "住院预缴", Amount: 10000},
+			{ElderID: elders[0].ID, Direction: "out", RelatedMonth: month, Reason: "床位及护理费", Amount: 4200},
+			{ElderID: elders[1].ID, Direction: "in", RelatedMonth: month, Reason: "住院预缴", Amount: 8000},
+		}
+		if err := db.Create(&flows).Error; err != nil {
+			return err
+		}
+	}
+
+	var medicationCount int64
+	if err := db.Model(&model.MedicationRecord{}).Count(&medicationCount).Error; err != nil {
+		return err
+	}
+	if medicationCount == 0 && len(elders) > 0 {
+		planTime := now.Add(2 * time.Hour)
+		takenTime := now.Add(-2 * time.Hour)
+		medications := []model.MedicationRecord{
+			{ElderID: elders[0].ID, MedicineName: "硝苯地平缓释片", Dosage: "20mg 口服", PlanTime: &planTime, TakenTime: &takenTime, Status: "taken"},
+			{ElderID: elders[1].ID, MedicineName: "阿托伐他汀钙片", Dosage: "10mg 口服", PlanTime: &planTime, Status: "pending"},
+		}
+		if err := db.Create(&medications).Error; err != nil {
+			return err
+		}
+	}
+
+	var stockCount int64
+	if err := db.Model(&model.MedicineStock{}).Count(&stockCount).Error; err != nil {
+		return err
+	}
+	if stockCount == 0 {
+		stocks := []model.MedicineStock{
+			{MedicineName: "硝苯地平缓释片", Spec: "20mg*30片", Batch: "KXB20260801", Qty: 86, ExpireDate: now.AddDate(1, 0, 0).Format("2006-01-02"), Storage: "常温"},
+			{MedicineName: "阿托伐他汀钙片", Spec: "10mg*14片", Batch: "KXB20260715", Qty: 42, ExpireDate: now.AddDate(1, 2, 0).Format("2006-01-02"), Storage: "阴凉"},
+		}
+		if err := db.Create(&stocks).Error; err != nil {
+			return err
+		}
+	}
+
+	var diningCount int64
+	if err := db.Model(&model.DiningOrder{}).Count(&diningCount).Error; err != nil {
+		return err
+	}
+	if diningCount == 0 && len(elders) > 0 {
+		orders := []model.DiningOrder{
+			{ElderID: elders[0].ID, MealTime: "lunch", Items: "低盐软饭、清蒸鱼、时蔬", Qty: 1, UnitPrice: 28, TotalAmount: 28, Status: "ordered"},
+			{ElderID: elders[1].ID, MealTime: "dinner", Items: "杂粮粥、鸡蛋羹、南瓜", Qty: 1, UnitPrice: 24, TotalAmount: 24, Status: "served"},
+		}
+		if err := db.Create(&orders).Error; err != nil {
+			return err
+		}
+	}
+
+	var assessmentCount int64
+	if err := db.Model(&model.Assessment{}).Count(&assessmentCount).Error; err != nil {
+		return err
+	}
+	var doctorID, caregiverID, familyID uint
+	for _, item := range []struct {
+		name string
+		dest *uint
+	}{
+		{"doctor", &doctorID}, {"caregiver", &caregiverID}, {"family", &familyID},
+	} {
+		var u model.User
+		if err := db.Where("username = ?", item.name).First(&u).Error; err == nil {
+			*item.dest = u.ID
+		}
+	}
+	if assessmentCount == 0 && len(elders) > 0 {
+		score1, score2 := 72.0, 48.0
+		assessments := []model.Assessment{
+			{ElderID: elders[0].ID, AssessorID: doctorID, AssessmentType: "adl", Score: &score1, RiskLevel: "low", Notes: "日常活动基本独立，继续观察步态", AssessedAt: now.Add(-24 * time.Hour)},
+			{ElderID: elders[1].ID, AssessorID: doctorID, AssessmentType: "fall", Score: &score2, RiskLevel: "high", Notes: "近期有跌倒风险，需加强夜间巡视", AssessedAt: now.Add(-12 * time.Hour)},
+		}
+		if err := db.Create(&assessments).Error; err != nil {
+			return err
+		}
+	}
+
+	var planCount int64
+	if err := db.Model(&model.CarePlan{}).Count(&planCount).Error; err != nil {
+		return err
+	}
+	if planCount == 0 && len(elders) > 0 {
+		plans := []model.CarePlan{
+			{ElderID: elders[0].ID, Name: "基础生活照护计划", Status: "active", StartDate: now.Format("2006-01-02"), CreatedBy: doctorID},
+			{ElderID: elders[1].ID, Name: "跌倒风险干预计划", Status: "active", StartDate: now.Format("2006-01-02"), CreatedBy: doctorID},
+		}
+		if err := db.Create(&plans).Error; err != nil {
+			return err
+		}
+		items := []model.CarePlanItem{
+			{CarePlanID: plans[0].ID, Title: "晨间生命体征测量", Kind: "health", Frequency: "每日1次", Assignee: "李护工", RiskLevel: "low", Instructions: "记录体温、血压、心率", Active: true},
+			{CarePlanID: plans[1].ID, Title: "夜间防跌倒巡视", Kind: "round", Frequency: "每2小时", Assignee: "刘护工", RiskLevel: "high", Instructions: "确认床栏、呼叫器和地面安全", Active: true},
+		}
+		if err := db.Create(&items).Error; err != nil {
+			return err
+		}
+		if err := db.Create(&model.CareExecution{PlanItemID: items[0].ID, ElderID: elders[0].ID, ExecutorID: caregiverID, Executor: "李护工", Status: "completed", ExecutedAt: now.Add(-3 * time.Hour), Result: "体征平稳"}).Error; err != nil {
+			return err
+		}
+	}
+
+	var notificationCount int64
+	if err := db.Model(&model.Notification{}).Count(&notificationCount).Error; err != nil {
+		return err
+	}
+	if notificationCount == 0 {
+		sent := now.Add(-10 * time.Minute)
+		notifications := []model.Notification{
+			{Role: "caregiver", Channel: "in_app", Type: "task", Title: "护理任务提醒", Content: "张素英的早间翻身任务待处理", Severity: "info", SentAt: &sent},
+			{Role: "doctor", Channel: "in_app", Type: "alert", Title: "风险评估待复核", Content: "王建国存在跌倒风险，请查看评估记录", Severity: "warning", SentAt: &sent},
+			{UserID: familyID, Channel: "in_app", Type: "health", Title: "家人健康更新", Content: "张素英今日体征已记录，请查看长者状态", Severity: "info", SentAt: &sent},
+		}
+		if err := db.Create(&notifications).Error; err != nil {
+			return err
+		}
 	}
 	return nil
 }
