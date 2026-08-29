@@ -1,0 +1,6 @@
+.git
+*.db
+*.exe
+.env
+data
+README.md
