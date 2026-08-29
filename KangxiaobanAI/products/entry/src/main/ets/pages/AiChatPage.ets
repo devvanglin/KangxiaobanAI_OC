@@ -134,6 +134,7 @@ class AiChatHistoryStore {
 export struct AiChatPage {
   @Param caregiverWideImmersive: boolean = false;
   @Param embeddedCaregiverWide: boolean = false;
+  @Param @Require embeddedListScroller: ListScroller;
   @Event onClose: () => void = () => {};
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
@@ -146,7 +147,6 @@ export struct AiChatPage {
   @Local isGenerating: boolean = false;
   @Local historyDrawerOpen: boolean = false;
   @Local embeddedHistoryCollapsed: boolean = false;
-  private listScroller: ListScroller = new ListScroller();
   private historyScroller: Scroller = new Scroller();
   private focusController = this.getUIContext().getFocusController();
   private previousKeyboardAvoidMode: KeyboardAvoidMode = KeyboardAvoidMode.OFFSET;
@@ -564,11 +564,11 @@ export struct AiChatPage {
       return;
     }
     if (this.messages.length <= 2) {
-      this.listScroller.scrollToIndex(0, true, ScrollAlign.START);
+      this.embeddedListScroller.scrollToIndex(0, true, ScrollAlign.START);
       return;
     }
     const targetIndex: number = this.isGenerating ? this.messages.length : this.messages.length - 1;
-    this.listScroller.scrollToIndex(targetIndex, true, ScrollAlign.END);
+    this.embeddedListScroller.scrollToIndex(targetIndex, true, ScrollAlign.END);
   }
 
   private scheduleScrollToBottom(delay: number = 80): void {
@@ -1088,14 +1088,14 @@ export struct AiChatPage {
   }
 
   @Builder
-  private wideEmptyConversationPage() {
+  private wideEmptyConversationPage(transparentBackground: boolean = false) {
     Column() {
       this.wideEmptyInformationHero()
 
       Blank()
         .layoutWeight(1)
 
-      this.inputArea(true)
+      this.inputArea(true, transparentBackground)
     }
     .width('100%')
     .height('100%')
@@ -1199,7 +1199,7 @@ export struct AiChatPage {
   }
 
   @Builder
-  private inputArea(showDisclaimer: boolean) {
+  private inputArea(showDisclaimer: boolean, transparentBackground: boolean = false) {
     Column({ space: 6 }) {
       this.composer()
       if (showDisclaimer && this.keyboardOffset === 0) {
@@ -1218,7 +1218,7 @@ export struct AiChatPage {
       bottom: this.keyboardOffset > 0 ? 0 : 2
     })
     .margin({ bottom: this.inputBottomMargin() })
-    .backgroundColor($r('sys.color.background_primary'))
+    .backgroundColor(transparentBackground ? Color.Transparent : $r('sys.color.background_primary'))
     .alignItems(HorizontalAlign.Center)
   }
 
@@ -1448,7 +1448,7 @@ export struct AiChatPage {
 
   @Builder
   private messageList() {
-    List({ space: 0, scroller: this.listScroller }) {
+    List({ space: 0, scroller: this.embeddedListScroller }) {
       ForEach(this.messages, (message: ChatMessage, index: number) => {
         ListItem() {
           Row() {
@@ -1565,18 +1565,18 @@ export struct AiChatPage {
   }
 
   @Builder
-  private wideConversationContent() {
+  private wideConversationContent(transparentBackground: boolean = false) {
     Column() {
       if (this.messages.length === 0) {
-        this.wideEmptyConversationPage()
+        this.wideEmptyConversationPage(transparentBackground)
       } else {
         this.messageList()
-        this.inputArea(true)
+        this.inputArea(true, transparentBackground)
       }
     }
     .width('100%')
     .layoutWeight(1)
-    .backgroundColor($r('sys.color.background_primary'))
+    .backgroundColor(transparentBackground ? Color.Transparent : $r('sys.color.background_primary'))
   }
 
   @Builder
@@ -1724,11 +1724,11 @@ export struct AiChatPage {
         .height(this.embeddedPaneTopOffset())
 
       Column() {
-        this.wideConversationContent()
+        this.wideConversationContent(true)
       }
       .width('100%')
       .layoutWeight(1)
-      .backgroundColor($r('sys.color.comp_background_primary'))
+      .backgroundColor(Color.Transparent)
       .borderRadius(20)
       .clip(true)
     }
@@ -1781,7 +1781,7 @@ export struct AiChatPage {
       style: this.titleBarStyle(),
       content: this.caregiverWideTitleBarContent()
     })
-    .bindToScrollable([this.historyScroller, this.listScroller])
+    .bindToScrollable([this.historyScroller, this.embeddedListScroller])
     .backgroundColor($r('sys.color.background_primary'))
     .ignoreLayoutSafeArea(
       [LayoutSafeAreaType.SYSTEM],
@@ -1809,7 +1809,7 @@ export struct AiChatPage {
           style: this.titleBarStyle(),
           content: this.titleBarContent()
         })
-        .bindToScrollable([this.listScroller])
+        .bindToScrollable([this.embeddedListScroller])
 
         if (this.historyDrawerOpen) {
           this.drawerMask()

@@ -127,6 +127,7 @@ struct MainPage {
   private wideResidentDetailScroller: Scroller = new Scroller();
   private wideMessageListScroller: Scroller = new Scroller();
   private wideMessageChatScroller: Scroller = new Scroller();
+  private wideAiChatScroller: ListScroller = new ListScroller();
 
   aboutToAppear(): void {
     if (AuthStore.getToken().length > 0) {
@@ -265,7 +266,7 @@ struct MainPage {
     }
     if (this.isCaregiverWideWorkspace()) {
       if (this.isAiChatShow) {
-        return [];
+        return [this.wideAiChatScroller];
       }
       const activeTabIndex: number = this.wideCaregiverActiveTabIndex();
       if (activeTabIndex === 0) {
@@ -999,6 +1000,7 @@ struct MainPage {
         AiChatPage({
           caregiverWideImmersive: false,
           embeddedCaregiverWide: true,
+          embeddedListScroller: this.wideAiChatScroller,
           onClose: () => {
             this.closeAiChat();
           }
@@ -1026,6 +1028,7 @@ struct MainPage {
   private aiChatCover() {
     AiChatPage({
       caregiverWideImmersive: this.isCaregiverWideWorkspace(),
+      embeddedListScroller: this.wideAiChatScroller,
       onClose: () => {
         this.closeAiChat();
       }
