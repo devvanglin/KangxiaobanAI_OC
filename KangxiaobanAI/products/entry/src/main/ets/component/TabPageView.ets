@@ -844,7 +844,6 @@ export struct TabPageView {
     .padding({ left: 20, right: 20, top: 20, bottom: 12 })
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(16)
-    .geometryTransition('aiReminderCard', { follow: true })
     .bindSheet(this.isAiReminderSheetOpen, this.aiReminderSheetBuilder, this.aiReminderSheetOptions())
   }
 

@@ -23,6 +23,7 @@ import {
   HdsTabs,
   HdsTabsController,
   IconSize,
+  IconStyleMode,
   PrefixIcon,
   ScrollEffectType,
   SuffixArrow,
@@ -165,11 +166,17 @@ struct MainPage {
   }
 
   private wideCaregiverPageTitle(): string {
+    if (this.isAiChatShow) {
+      return '康小伴 AI';
+    }
     const titles: string[] = ['首页', '长者', '消息'];
     return titles[this.wideCaregiverActiveTabIndex()] ?? titles[0];
   }
 
   private wideCaregiverBackLabel(): string {
+    if (this.isAiChatShow) {
+      return '返回首页';
+    }
     const labels: string[] = ['返回首页', '返回长者列表', '返回会话列表'];
     return labels[this.wideCaregiverActiveTabIndex()] ?? labels[0];
   }
@@ -181,9 +188,8 @@ struct MainPage {
 
   private showCaregiverLocalBackButton(): boolean {
     return this.isCaregiverWideWorkspace() &&
-      this.useCompactCaregiverWorkspace() &&
       this.pathStack.size() === 0 &&
-      this.caregiverHasLocalBackLayer;
+      (this.isAiChatShow || (this.useCompactCaregiverWorkspace() && this.caregiverHasLocalBackLayer));
   }
 
   private wideCaregiverTitleBarPadding(): number {
@@ -217,10 +223,21 @@ struct MainPage {
         menu: { value: [] },
         stackBuilder: (): void => this.wideCaregiverTitleActions()
       };
-      if (this.showCaregiverLocalBackButton()) {
+      if (this.isAiChatShow) {
+        content.backIcon = {
+          label: '返回首页',
+          icon: $r('sys.symbol.chevron_left'),
+          type: IconStyleMode.SMALL,
+          isEnabled: true,
+          action: (): void => {
+            this.closeAiChat();
+          }
+        };
+      } else if (this.showCaregiverLocalBackButton()) {
         content.backIcon = {
           label: this.wideCaregiverBackLabel(),
           icon: $r('sys.symbol.chevron_left'),
+          type: IconStyleMode.SMALL,
           isEnabled: true,
           action: (): void => {
             this.caregiverBackRequestToken += 1;
@@ -256,6 +273,9 @@ struct MainPage {
       return PAGE_SCROLLER_MAP.get(PageKeyEnum.ADAPTIVE_TAB) ?? [];
     }
     if (this.isCaregiverWideWorkspace()) {
+      if (this.isAiChatShow) {
+        return [];
+      }
       const activeTabIndex: number = this.wideCaregiverActiveTabIndex();
       if (activeTabIndex === 0) {
         return [this.wideHomeScroller];
@@ -369,19 +389,11 @@ struct MainPage {
   }
 
   private openAiChat(): void {
-    this.getUIContext().animateTo({
-      curve: curves.interpolatingSpring(0, 1, 328, 36)
-    }, () => {
-      this.isAiChatShow = true;
-    })
+    this.isAiChatShow = true;
   }
 
   private closeAiChat(): void {
-    this.getUIContext().animateTo({
-      curve: curves.interpolatingSpring(0, 1, 342, 38)
-    }, () => {
-      this.isAiChatShow = false;
-    })
+    this.isAiChatShow = false;
   }
 
   private openResidentDetail(resident: ResidentData, vitalSign: VitalSign,
@@ -903,10 +915,14 @@ struct MainPage {
       currentTabIndex: this.currentTabIndex,
       primaryTabIndex: this.primaryTabIndex,
       unreadMessageCount: this.caregiverUnreadMessageCount,
+      aiChatVisible: this.isAiChatShow,
       compactWidth: this.useCompactCaregiverWorkspace(),
       iconOnlyNavigation: this.useIconOnlyCaregiverNavigation(),
       onSwitchTab: (index: number) => {
         this.switchTab(index);
+      },
+      onOpenAiChat: () => {
+        this.openAiChat();
       },
       onOpenAbout: () => {
         this.pathStack.pushPath({ name: 'AboutPage' });
@@ -954,35 +970,55 @@ struct MainPage {
         }
       })
     } else {
-      WideCaregiverWorkspace({
-        currentTabIndex: this.currentTabIndex,
-        primaryTabIndex: this.primaryTabIndex,
-        topBarHeight: this.wideCaregiverTopBarHeight(),
-        homeScroller: this.wideHomeScroller,
-        homeTaskDetailScroller: this.wideHomeTaskDetailScroller,
-        residentMasterScroller: this.wideResidentMasterScroller,
-        residentDetailScroller: this.wideResidentDetailScroller,
-        messageListScroller: this.wideMessageListScroller,
-        messageChatScroller: this.wideMessageChatScroller,
-        naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
-        compactWidth: this.useCompactCaregiverWorkspace(),
-        backRequestToken: this.caregiverBackRequestToken,
-        onSwitchTab: (index: number) => {
-          this.switchTab(index);
-        },
-        onLocalBackStateChange: (hasLocalLayer: boolean) => {
-          this.caregiverHasLocalBackLayer = hasLocalLayer;
-        },
-        onMaterialScrollerOwnerChange: (owner: CaregiverMaterialScrollerOwner) => {
-          this.caregiverMaterialScrollerOwner = owner;
-        },
-        onUnreadCountChange: (count: number) => {
-          this.caregiverUnreadMessageCount = count;
-        },
-        onOpenAiChat: () => {
-          this.openAiChat();
-        }
-      })
+      Stack({ alignContent: Alignment.TopStart }) {
+        WideCaregiverWorkspace({
+          currentTabIndex: this.currentTabIndex,
+          primaryTabIndex: this.primaryTabIndex,
+          topBarHeight: this.wideCaregiverTopBarHeight(),
+          homeScroller: this.wideHomeScroller,
+          homeTaskDetailScroller: this.wideHomeTaskDetailScroller,
+          residentMasterScroller: this.wideResidentMasterScroller,
+          residentDetailScroller: this.wideResidentDetailScroller,
+          messageListScroller: this.wideMessageListScroller,
+          messageChatScroller: this.wideMessageChatScroller,
+          naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
+          compactWidth: this.useCompactCaregiverWorkspace(),
+          backRequestToken: this.caregiverBackRequestToken,
+          onSwitchTab: (index: number) => {
+            this.switchTab(index);
+          },
+          onLocalBackStateChange: (hasLocalLayer: boolean) => {
+            this.caregiverHasLocalBackLayer = hasLocalLayer;
+          },
+          onMaterialScrollerOwnerChange: (owner: CaregiverMaterialScrollerOwner) => {
+            this.caregiverMaterialScrollerOwner = owner;
+          },
+          onUnreadCountChange: (count: number) => {
+            this.caregiverUnreadMessageCount = count;
+          },
+          onOpenAiChat: () => {
+            this.openAiChat();
+          }
+        })
+        .width('100%')
+        .height('100%')
+        .visibility(this.isAiChatShow ? Visibility.Hidden : Visibility.Visible)
+        .zIndex(this.isAiChatShow ? 0 : 1)
+
+        AiChatPage({
+          caregiverWideImmersive: false,
+          embeddedCaregiverWide: true,
+          onClose: () => {
+            this.closeAiChat();
+          }
+        })
+        .width('100%')
+        .height('100%')
+        .visibility(this.isAiChatShow ? Visibility.Visible : Visibility.Hidden)
+        .zIndex(this.isAiChatShow ? 1 : 0)
+      }
+      .width('100%')
+      .height('100%')
     }
   }
 
@@ -998,7 +1034,6 @@ struct MainPage {
   @Builder
   private aiChatCover() {
     AiChatPage({
-      geometryId: 'aiReminderCard',
       caregiverWideImmersive: this.isCaregiverWideWorkspace(),
       onClose: () => {
         this.closeAiChat();
@@ -1044,7 +1079,7 @@ struct MainPage {
         this.roleWipPanel()
       }
 
-      if (this.isAiChatShow) {
+      if (this.isAiChatShow && !this.isCaregiverWideWorkspace()) {
         this.aiChatCover()
       }
 

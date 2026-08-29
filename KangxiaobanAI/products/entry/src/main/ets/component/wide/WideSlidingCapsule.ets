@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 
-import { curves } from '@kit.ArkUI';
 import { KeyCode } from '@kit.InputKit';
 
 export interface WideSlidingCapsuleItem {
@@ -70,12 +69,7 @@ export struct WideSlidingCapsule {
     if (position < 0 || position === this.animatedPosition) {
       return;
     }
-    this.getUIContext().animateTo({
-      duration: 280,
-      curve: curves.interpolatingSpring(0, 1, 320, 34)
-    }, () => {
-      this.animatedPosition = position;
-    });
+    this.animatedPosition = position;
   }
 
   private slideTo(index: number): void {
@@ -87,19 +81,9 @@ export struct WideSlidingCapsule {
       return;
     }
     this.selectionRequestToken += 1;
-    const requestToken: number = this.selectionRequestToken;
     this.visualSelectedIndex = index;
-    this.getUIContext().animateTo({
-      duration: 280,
-      curve: curves.interpolatingSpring(0, 1, 320, 34)
-    }, () => {
-      this.animatedPosition = position;
-    });
-    setTimeout(() => {
-      if (requestToken === this.selectionRequestToken) {
-        this.onSelect(index);
-      }
-    }, 280);
+    this.animatedPosition = position;
+    this.onSelect(index);
   }
 
   private containerWidth(): number {
@@ -222,7 +206,6 @@ export struct WideSlidingCapsule {
     .accessibilityText(this.accessibilityLabel(item))
     .accessibilityRole(AccessibilityRoleType.BUTTON)
     .accessibilitySelected(this.visualSelectedIndex === item.index)
-    .animation({ duration: 180, curve: Curve.EaseOut })
     .onFocus(() => {
       this.focusedIndex = item.index;
     })

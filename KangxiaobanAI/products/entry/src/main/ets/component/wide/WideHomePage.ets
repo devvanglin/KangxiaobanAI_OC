@@ -776,7 +776,6 @@ export struct WideHomePage {
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(20)
     .clip(true)
-    .geometryTransition('aiReminderCard', { follow: true })
     .alignItems(HorizontalAlign.Start)
     .bindSheet(this.isAiFocusSheetOpen, this.aiFocusSheet, {
       detents: [SheetSize.MEDIUM, SheetSize.LARGE],
@@ -1344,25 +1343,17 @@ export struct WideHomePage {
   private mainWorkArea() {
     GridRow({ columns: 12, gutter: { x: this.sectionGap(), y: this.sectionGap() } }) {
       if (this.useWorkSplitLayout()) {
-        GridCol({ span: 7 }) {
+        GridCol({ span: this.isTabletDevice() ? 12 : 8 }) {
           this.taskQueueCard()
         }
         .height('100%')
-        GridCol({ span: 5 }) {
-          Column({ space: this.sectionGap() }) {
-            this.aiFocusCard()
-            if (!this.isTabletDevice()) {
-              this.checkpointCard()
-            }
+        if (!this.isTabletDevice()) {
+          GridCol({ span: 4 }) {
+            this.checkpointCard()
           }
-          .width('100%')
           .height('100%')
         }
-        .height('100%')
       } else {
-        GridCol({ span: 12 }) {
-          this.aiFocusCard()
-        }
         GridCol({ span: 12 }) {
           this.taskQueueCard()
         }

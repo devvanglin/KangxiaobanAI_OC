@@ -21,9 +21,11 @@ export struct WideCaregiverTitleActions {
   @Param @Require currentTabIndex: number;
   @Param @Require primaryTabIndex: number;
   @Param unreadMessageCount: number = 0;
+  @Param aiChatVisible: boolean = false;
   @Param compactWidth: boolean = false;
   @Param iconOnlyNavigation: boolean = false;
   @Event onSwitchTab: (index: number) => void = (_index: number) => {};
+  @Event onOpenAiChat: () => void = () => {};
   @Event onOpenAbout: () => void = () => {};
   @Event onOpenGeneral: () => void = () => {};
   @Event onLogout: () => void = () => {};
@@ -50,11 +52,15 @@ export struct WideCaregiverTitleActions {
         badgeTextColor: $r('app.color.text_on_brand'),
         badgeBackgroundColor: $r('app.color.status_danger'),
         badgeAtCorner: true
-      }
+      },
+      { title: '康小伴 AI', symbol: $r('sys.symbol.AI_message'), index: 3 }
     ];
   }
 
   private activeTabIndex(): number {
+    if (this.aiChatVisible) {
+      return 3;
+    }
     if (this.currentTabIndex >= 0 && this.currentTabIndex <= 2) {
       return this.currentTabIndex;
     }
@@ -72,9 +78,15 @@ export struct WideCaregiverTitleActions {
       WideSlidingCapsule({
         items: this.navigationItems(),
         selectedIndex: this.activeTabIndex(),
-        itemWidth: this.iconOnlyNavigation ? 48 : (this.compactWidth ? 96 : 104),
+        itemWidth: this.iconOnlyNavigation ? 48 : (this.compactWidth ? 112 : 118),
         iconOnly: this.iconOnlyNavigation,
-        onSelect: (index: number) => this.onSwitchTab(index)
+        onSelect: (index: number) => {
+          if (index === 3) {
+            this.onOpenAiChat();
+          } else {
+            this.onSwitchTab(index);
+          }
+        }
       })
     }
     .height(48)

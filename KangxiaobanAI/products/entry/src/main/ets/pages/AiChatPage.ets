@@ -132,8 +132,8 @@ class AiChatHistoryStore {
 
 @ComponentV2
 export struct AiChatPage {
-  @Param @Require geometryId: string;
   @Param caregiverWideImmersive: boolean = false;
+  @Param embeddedCaregiverWide: boolean = false;
   @Event onClose: () => void = () => {};
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
@@ -345,6 +345,10 @@ export struct AiChatPage {
 
   private caregiverWideTitleBarOffset(): number {
     return this.globalInfoModel.statusBarHeight + CONTENT_TOP_OFFSET;
+  }
+
+  private usesWideImmersiveInset(): boolean {
+    return this.caregiverWideImmersive;
   }
 
   aboutToAppear(): void {
@@ -1087,7 +1091,7 @@ export struct AiChatPage {
     .width('100%')
     .height('100%')
     .padding({
-      top: this.caregiverWideImmersive ? this.caregiverWideTitleBarOffset() + 34 : 34
+      top: this.usesWideImmersiveInset() ? this.caregiverWideTitleBarOffset() + 34 : 34
     })
     .alignItems(HorizontalAlign.Center)
   }
@@ -1327,7 +1331,7 @@ export struct AiChatPage {
 
   @Builder
   private historyDrawer() {
-    if (this.caregiverWideImmersive && this.isWideLayout()) {
+    if (this.usesWideImmersiveInset() && this.isWideLayout()) {
       Scroll(this.historyScroller) {
         Column({ space: 10 }) {
           Row() {
@@ -1433,7 +1437,7 @@ export struct AiChatPage {
           .justifyContent(FlexAlign.Center)
         }
         .padding({
-          top: this.caregiverWideImmersive && index === 0 ? this.caregiverWideTitleBarOffset() + 8 : 0
+          top: this.usesWideImmersiveInset() && index === 0 ? this.caregiverWideTitleBarOffset() + 8 : 0
         })
       }, (message: ChatMessage) => `${message.id}-${message.feedback ?? 'none'}`)
 
@@ -1450,7 +1454,7 @@ export struct AiChatPage {
           .justifyContent(FlexAlign.Center)
         }
         .padding({
-          top: this.caregiverWideImmersive && this.messages.length === 0 ?
+          top: this.usesWideImmersiveInset() && this.messages.length === 0 ?
             this.caregiverWideTitleBarOffset() + 8 : 0
         })
       }
@@ -1458,10 +1462,10 @@ export struct AiChatPage {
     .width('100%')
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
-    .contentStartOffset(this.caregiverWideImmersive ? 0 : 8)
+    .contentStartOffset(this.usesWideImmersiveInset() ? 0 : 8)
     .contentEndOffset(8)
     .margin({
-      top: this.caregiverWideImmersive ? 0 :
+      top: this.usesWideImmersiveInset() ? 0 :
         (this.isWideLayout() ? 16 : this.globalInfoModel.statusBarHeight + CONTENT_TOP_OFFSET)
     })
     .clip(true)
@@ -1577,6 +1581,101 @@ export struct AiChatPage {
     .backgroundColor($r('sys.color.background_secondary'))
   }
 
+  private embeddedPaneTopOffset(): number {
+    return this.caregiverWideTitleBarOffset() + 20;
+  }
+
+  @Builder
+  private embeddedHistoryPane() {
+    Stack({ alignContent: Alignment.TopStart }) {
+      Column() {
+        Row()
+          .width('100%')
+          .height(this.embeddedPaneTopOffset())
+
+        Column()
+          .width('100%')
+          .layoutWeight(1)
+          .backgroundColor($r('sys.color.comp_background_primary'))
+          .borderRadius(20)
+      }
+      .width('100%')
+      .height('100%')
+      .hitTestBehavior(HitTestMode.None)
+
+      Scroll(this.historyScroller) {
+        Column({ space: 10 }) {
+          Row() {
+            Text('对话记录')
+              .fontSize($r('sys.float.Title_S'))
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+          }
+          .width('100%')
+          .height(42)
+          .alignItems(VerticalAlign.Center)
+
+          this.newConversationButton()
+          this.historyItems()
+        }
+        .width('100%')
+        .padding({ left: 16, right: 16, top: this.embeddedPaneTopOffset() + 16, bottom: 16 })
+      }
+      .width('100%')
+      .height('100%')
+      .contentEndOffset(Math.max(18, this.globalInfoModel.naviIndicatorHeight + 8))
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
+      .clip(true)
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('sys.color.background_secondary'))
+  }
+
+  @Builder
+  private embeddedChatPane() {
+    Column() {
+      Row()
+        .width('100%')
+        .height(this.embeddedPaneTopOffset())
+
+      Column() {
+        this.wideConversationContent()
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(20)
+      .clip(true)
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('sys.color.background_secondary'))
+  }
+
+  @Builder
+  private embeddedMessageStyleWideLayout() {
+    Row({ space: 20 }) {
+      Column() {
+        this.embeddedHistoryPane()
+      }
+      .width('30%')
+      .constraintSize({ minWidth: 360, maxWidth: 440 })
+      .height('100%')
+
+      Column() {
+        this.embeddedChatPane()
+      }
+      .layoutWeight(1)
+      .height('100%')
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ left: 24, right: 24, bottom: 24 })
+    .backgroundColor($r('sys.color.background_secondary'))
+  }
+
   @Builder
   private caregiverWideImmersiveLayout() {
     HdsNavDestination() {
@@ -1602,8 +1701,6 @@ export struct AiChatPage {
       [LayoutSafeAreaType.SYSTEM],
       [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM]
     )
-    .geometryTransition(this.geometryId)
-    .transition(TransitionEffect.OPACITY)
   }
 
   @Builder
@@ -1652,7 +1749,9 @@ export struct AiChatPage {
   }
 
   build() {
-    if (this.caregiverWideImmersive && this.isWideLayout()) {
+    if (this.embeddedCaregiverWide && this.isWideLayout()) {
+      this.embeddedMessageStyleWideLayout()
+    } else if (this.caregiverWideImmersive && this.isWideLayout()) {
       this.caregiverWideImmersiveLayout()
     } else {
       Stack() {
@@ -1669,8 +1768,6 @@ export struct AiChatPage {
         [LayoutSafeAreaType.SYSTEM],
         [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM]
       )
-      .geometryTransition(this.geometryId)
-      .transition(TransitionEffect.OPACITY)
     }
   }
 }
