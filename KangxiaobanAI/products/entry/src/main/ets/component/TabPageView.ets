@@ -381,6 +381,30 @@ export struct TabPageView {
     return $r('app.color.status_normal_bg');
   }
 
+  private serverRiskLevel(value?: string): StatusLevel {
+    if (value === 'danger' || value === 'high' || value === 'critical') {
+      return 'danger';
+    }
+    if (value === 'warning' || value === 'medium') {
+      return 'warning';
+    }
+    return 'normal';
+  }
+
+  private serverTaskPriority(value?: string): StatusLevel {
+    return this.serverRiskLevel(value);
+  }
+
+  private serverTaskSource(task: BackendCareTask): TaskSource {
+    if (task.category === 'medication' || task.kind === 'medication') {
+      return 'plan';
+    }
+    if (task.category === 'family') {
+      return 'staff';
+    }
+    return 'elder';
+  }
+
   @Styles
   itemNormalStyle() {
     .backgroundColor($r('sys.color.ohos_id_color_background_transparent'))
@@ -494,12 +518,14 @@ export struct TabPageView {
     const latest: HealthRecord | undefined = this.businessStore.healthRecords
       .filter((item: HealthRecord) => item.elder_id === elder.id)
       .sort((left: HealthRecord, right: HealthRecord): number => right.record_time.localeCompare(left.record_time))[0];
-    const abnormal: boolean = latest?.is_abnormal ?? false;
+    const level: StatusLevel = this.serverRiskLevel(latest?.risk_level);
+    const status: string = latest === undefined ? '暂无体征记录' :
+      (latest.risk_summary?.trim() || (level === 'normal' ? '服务器评估正常' : '服务器评估需关注'));
     return {
       id: `${elder.id}`, name: elder.name, age: this.ageFromBirthDate(elder.birth_date),
       room: room ? `${room.floor}F-${room.room_no}` : '未分配', bed: bed ? `${bed.bed_no}床` : '未分配',
-      level: abnormal ? 'warning' : 'normal', status: abnormal ? '体征需要关注' : '稳定观察',
-      mood: abnormal ? '需关注' : '平稳', moodLevel: abnormal ? 'warning' : 'normal',
+      level: level, status: status,
+      mood: level === 'normal' ? '平稳' : '需关注', moodLevel: level,
       lastUpdate: latest ? latest.record_time.slice(11, 16) : '--'
     };
   }
@@ -607,7 +633,8 @@ export struct TabPageView {
         return { id: row.id, name: row.name, age: row.age, gender: elder.gender === 'F' ? 'female' : 'male', room: row.room, bed: row.bed,
           level: row.level, status: row.status, emergencyContact: elder.emergency_contacts?.[0]?.name ?? '未登记',
           emergencyPhone: elder.emergency_contacts?.[0]?.phone ?? '', admissionDate: elder.created_at ?? '',
-          careLevel: `${elder.care_level}级护理`, diagnosis: elder.remark ? elder.remark.split('；') : [], allergies: [],
+          careLevel: `${elder.care_level}级护理`, diagnosis: elder.remark ? elder.remark.split('；') : [],
+          allergies: elder.allergies ?? [],
           deviceIds: this.businessStore.devices.filter((device: IotDevice) => device.elder_id === elder.id).map((device: IotDevice): string => device.device_id), avatarText: elder.name.slice(0, 1) };
       });
     }
@@ -636,7 +663,8 @@ export struct TabPageView {
           this.businessStore.rooms.find((item: Room): boolean => item.id === bed.room_id) : undefined;
         const location: string = room && bed ? `${room.floor}F-${room.room_no} · ${bed.bed_no}床` : '未分配';
         const status: TaskStatus = task.status === 'doing' || task.status === 'done' ? task.status : 'todo';
-        return { id: `${task.id}`, source: task.kind === 'medication' ? 'plan' : 'elder', priority: 'normal', status: status,
+        return { id: `${task.id}`, source: this.serverTaskSource(task), priority: this.serverTaskPriority(task.priority),
+          status: status,
           title: task.title, elder: elder?.name ?? '未知长者', room: location, time: task.due_at ? task.due_at.slice(11, 16) : '--',
           assignee: task.assignee ?? '', detail: task.remark ?? '' };
       });
@@ -678,12 +706,16 @@ export struct TabPageView {
         return {
           id: item.id,
           elder_id: item.elder_id,
+          plan_item_id: item.plan_item_id,
           title: item.title,
           kind: item.kind,
+          priority: item.priority,
+          category: item.category,
           assignee: item.assignee,
           due_at: item.due_at,
           status: status,
-          remark: item.remark
+          remark: item.remark,
+          plan_item: item.plan_item
         };
       });
       this.showToast(status === 'done' ? '任务已完成' : '任务已开始');
@@ -767,7 +799,7 @@ export struct TabPageView {
       return {
       heartRate: 0, systolic: 0, diastolic: 0, oxygen: 0,
       temperature: 0, respiratory: 0, steps: 0, sleepHours: 0,
-      measuredAt: '--'
+      measuredAt: '--', riskLevel: 'normal', riskSummary: ''
       };
     }
     return {
@@ -776,20 +808,25 @@ export struct TabPageView {
       diastolic: latest.diastolic ?? 0,
       oxygen: latest.spo2 ?? 0,
       temperature: latest.temperature ?? 0,
-      respiratory: 0,
-      steps: 0,
-      sleepHours: 0,
-      measuredAt: latest.record_time.slice(11, 16)
+      respiratory: latest.respiratory_rate ?? 0,
+      steps: latest.steps ?? 0,
+      sleepHours: latest.sleep_hours ?? 0,
+      measuredAt: latest.record_time.slice(11, 16),
+      riskLevel: this.serverRiskLevel(latest.risk_level),
+      riskSummary: latest.risk_summary ?? ''
     };
   }
 
   private residentMedicationProgress(resident: ResidentData): MedicationProgress {
     const items: MedicationRecord[] = this.businessStore.medications
       .filter((item: MedicationRecord) => item.elder_id === Number(resident.id));
-    return {
-      done: items.filter((item: MedicationRecord) => item.status === 'taken').length,
-      total: items.length
-    };
+    let done: number = 0;
+    let total: number = 0;
+    for (let index: number = 0; index < items.length; index++) {
+      done += Math.max(0, items[index].today_done ?? 0);
+      total += Math.max(0, items[index].today_total ?? 0);
+    }
+    return { done: done, total: total };
   }
 
   @Builder

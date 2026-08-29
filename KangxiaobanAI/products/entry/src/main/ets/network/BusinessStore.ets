@@ -12,12 +12,23 @@ import {
   MedicationRecord,
   MessageContact,
   NotificationRecord,
+  OperationPolicy,
   Paged,
   Room,
   Schedule,
   UserMessage
 } from './Dto';
 import { MessageApi } from './MessageApi';
+
+function emptyOperationPolicy(): OperationPolicy {
+  return {
+    occupancy_warning_percent: 0,
+    device_online_warning_percent: 0,
+    alert_cooldown_seconds: 0,
+    device_offline_seconds: 0,
+    alert_escalation_seconds: 0
+  };
+}
 
 /** 登录用户可见的业务数据。所有页面共享同一组服务器 ID。 */
 @ObservedV2
@@ -40,6 +51,7 @@ export class BusinessStore {
   @Trace messages: UserMessage[] = [];
   @Trace diningOrders: DiningOrder[] = [];
   @Trace assessments: Assessment[] = [];
+  @Trace operationPolicy: OperationPolicy = emptyOperationPolicy();
   @Trace loading: boolean = false;
   /** 长者接口已经返回后，即可结束长者区域的首屏加载态。 */
   @Trace eldersLoaded: boolean = false;
@@ -68,6 +80,11 @@ export class BusinessStore {
       this.elders = elderResp.data?.list ?? [];
       // 长者区域独立于后续业务接口，不能被整批同步过程长期阻塞。
       this.eldersLoaded = true;
+      const policyResp = await ApiClient.get<OperationPolicy>('/dashboard/policy');
+      if (policyResp.code !== 0) {
+        throw new Error('运营策略加载失败');
+      }
+      this.operationPolicy = policyResp.data;
       const roomResp = await ApiClient.get<Paged<Room>>('/rooms?size=100');
       this.rooms = roomResp.data?.list ?? [];
       const bedResp = await ApiClient.get<Paged<Bed>>('/beds?size=200');
@@ -138,6 +155,7 @@ export class BusinessStore {
     this.messages = [];
     this.diningOrders = [];
     this.assessments = [];
+    this.operationPolicy = emptyOperationPolicy();
     this.pendingForceReload = false;
     this.loaded = false;
     this.eldersLoaded = false;

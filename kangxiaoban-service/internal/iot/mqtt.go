@@ -10,6 +10,7 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"kangxiaoban-service/internal/config"
 	"kangxiaoban-service/internal/model"
+	"kangxiaoban-service/internal/operationpolicy"
 )
 
 // StartMQTT 连接 Broker 并订阅睡眠/跌倒雷达 topic（自动重连；失败仅记日志不阻塞服务）。
@@ -104,6 +105,9 @@ func (s *IotService) StartOfflineScanner() {
 		for _, tenantID := range s.tenantIDs() {
 			ctx := context.WithValue(context.Background(), model.TenantContextKey, tenantID)
 			db := s.db.WithContext(ctx)
+			policy := operationpolicy.LoadOrDefault(db)
+			offlineAfter := operationpolicy.Seconds(policy.DeviceOfflineSeconds)
+			cooldownWindow := operationpolicy.Seconds(policy.AlertCooldownSeconds)
 			var devs []model.IotDevice
 			if err := db.Where("online = 1").Find(&devs).Error; err != nil {
 				continue
@@ -113,17 +117,11 @@ func (s *IotService) StartOfflineScanner() {
 					if err := db.Model(&d).Update("online", 0).Error; err != nil {
 						continue
 					}
-					if s.okCooldown("offline", d.DeviceID, now) {
-						s.createAlert(db, d, "offline", "info", "设备离线(超过"+offlineWindow+"无上报)", now)
+					if s.okCooldown("offline", d.DeviceID, now, cooldownWindow) {
+						s.createAlert(db, d, "offline", "info", "设备离线(超过"+offlineAfter.String()+"无上报)", now)
 					}
 				}
 			}
 		}
 	}
 }
-
-const (
-	offlineAfter    = 60 * time.Second
-	offlineWindow   = "60s"
-	escalationAfter = 60 * time.Second
-)

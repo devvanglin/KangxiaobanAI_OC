@@ -76,6 +76,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		// 工作台
 		authed.GET("/dashboard/summary", perm("dash:read"), dashboardHandler.Summary)
 		authed.GET("/dashboard/cockpit", perm("dash:read"), dashboardHandler.Cockpit)
+		authed.GET("/dashboard/policy", perm("dash:read"), dashboardHandler.Policy)
 
 		// 长者档案（读）
 		elders := authed.Group("/elders", perm("elder:read"))
@@ -173,6 +174,12 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 
 		// ---- 照护 AI（登录即可问）----
 		authed.POST("/ai/chat", aiHandler.Chat)
+		authed.GET("/ai/suggestions", aiHandler.ListSuggestions)
+		authed.GET("/ai/conversations", aiHandler.ListConversations)
+		authed.POST("/ai/conversations", aiHandler.CreateConversation)
+		authed.DELETE("/ai/conversations/:id", aiHandler.DeleteConversation)
+		authed.GET("/ai/conversations/:id/messages", aiHandler.ListMessages)
+		authed.POST("/ai/conversations/:id/messages", aiHandler.SendMessage)
 	}
 
 	return r

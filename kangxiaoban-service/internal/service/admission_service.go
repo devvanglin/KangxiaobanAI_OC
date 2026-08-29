@@ -759,7 +759,7 @@ func (s *AdmissionService) createOrLinkElder(tx *gorm.DB, admission *model.Admis
 	elder := model.Elder{
 		Name: admission.ResidentName, IDCard: identity, Gender: admission.Gender,
 		BirthDate: admission.BirthDate, ContactPhone: admission.ContactPhone, CareLevel: careLevel,
-		Status: 1, EmergencyContacts: contacts, Remark: strings.Join(admission.Diagnoses, "；"),
+		Status: 1, EmergencyContacts: contacts, Allergies: []string{}, Remark: strings.Join(admission.Diagnoses, "；"),
 	}
 	if err := tx.Create(&elder).Error; err != nil {
 		if isElderIdentityConstraintError(err) {
@@ -878,8 +878,9 @@ func createAdmissionTasks(tx *gorm.DB, elderID uint, caregiverID *uint, caregive
 			}
 		}
 		tasks = append(tasks, model.CareTask{
-			ElderID: elderID, PlanItemID: &itemID, Title: items[i].Title, Kind: items[i].Kind, AssigneeID: caregiverID, DueAt: &dueAt,
-			Assignee: caregiverName, Status: "todo", Remark: truncateRunes(remark, 500),
+			ElderID: elderID, PlanItemID: &itemID, Title: items[i].Title, Kind: items[i].Kind,
+			Category: normalizeTaskCategory("", items[i].Kind), Priority: normalizeTaskPriority("", items[i].RiskLevel),
+			AssigneeID: caregiverID, DueAt: &dueAt, Assignee: caregiverName, Status: "todo", Remark: truncateRunes(remark, 500),
 		})
 	}
 	if len(tasks) == 0 {

@@ -81,8 +81,17 @@ export interface CockpitSummary {
   devices_total: number;
 }
 
+export interface OperationPolicy {
+  occupancy_warning_percent: number;
+  device_online_warning_percent: number;
+  alert_cooldown_seconds: number;
+  device_offline_seconds: number;
+  alert_escalation_seconds: number;
+}
+
 export interface CockpitSnapshot {
   updated_at: string;
+  policy: OperationPolicy;
   summary: CockpitSummary;
   wards: WardStatus[];
   rooms: RoomOperation[];

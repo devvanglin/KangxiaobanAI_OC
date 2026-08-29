@@ -55,6 +55,16 @@ export struct CockpitOverview {
     return item.total > 0 ? item.online * 100 / item.total : 0;
   }
 
+  private isOccupancyWarning(value: number): boolean {
+    const threshold: number = this.store.snapshot.policy.occupancy_warning_percent;
+    return threshold > 0 && value >= threshold;
+  }
+
+  private isDeviceWarning(value: number): boolean {
+    const threshold: number = this.store.snapshot.policy.device_online_warning_percent;
+    return threshold > 0 && value < threshold;
+  }
+
   private workCompletion(item: CareWorkItem): number {
     return item.total > 0 ? item.completed * 100 / item.total : 0;
   }
@@ -374,13 +384,15 @@ export struct CockpitOverview {
               Text(`${ward.occupancy.toFixed(1)}%`)
                 .fontSize($r('sys.float.Caption_S'))
                 .fontWeight(FontWeight.Bold)
-                .fontColor(ward.occupancy >= 95 ? $r('app.color.status_warning') : $r('app.color.brand_primary'))
+                .fontColor(this.isOccupancyWarning(ward.occupancy) ?
+                  $r('app.color.status_warning') : $r('app.color.brand_primary'))
             }
             .width('100%')
             Progress({ value: ward.occupancy, total: 100, type: ProgressType.Linear })
               .width('100%')
               .height(5)
-              .color(ward.occupancy >= 95 ? $r('app.color.status_warning') : $r('app.color.brand_primary'))
+              .color(this.isOccupancyWarning(ward.occupancy) ?
+                $r('app.color.status_warning') : $r('app.color.brand_primary'))
               .backgroundColor($r('app.color.chart_track'))
             Text(`${ward.residents}/${ward.capacity} 床 · 在岗 ${ward.staffOnDuty} · 待办 ${ward.openTasks} · 风险 ${ward.riskCount}`)
               .fontSize($r('sys.float.Caption_S'))
@@ -413,11 +425,13 @@ export struct CockpitOverview {
             Text(`${item.online}/${item.total}`)
               .fontSize($r('sys.float.Caption_S'))
               .fontWeight(FontWeight.Medium)
-              .fontColor(this.facilityRatio(item) < 95 ? $r('app.color.status_warning') : $r('app.color.status_success'))
+              .fontColor(this.isDeviceWarning(this.facilityRatio(item)) ?
+                $r('app.color.status_warning') : $r('app.color.status_success'))
             Progress({ value: this.facilityRatio(item), total: 100, type: ProgressType.Linear })
               .width(74)
               .height(5)
-              .color(this.facilityRatio(item) < 95 ? $r('app.color.status_warning') : $r('app.color.status_success'))
+              .color(this.isDeviceWarning(this.facilityRatio(item)) ?
+                $r('app.color.status_warning') : $r('app.color.status_success'))
               .backgroundColor($r('app.color.chart_track'))
           }
           .width('100%')

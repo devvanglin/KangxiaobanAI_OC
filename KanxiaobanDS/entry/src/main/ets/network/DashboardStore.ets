@@ -25,6 +25,13 @@ function emptySummary(): CockpitSummary {
 function emptySnapshot(): CockpitSnapshot {
   return {
     updated_at: '',
+    policy: {
+      occupancy_warning_percent: 0,
+      device_online_warning_percent: 0,
+      alert_cooldown_seconds: 0,
+      device_offline_seconds: 0,
+      alert_escalation_seconds: 0
+    },
     summary: emptySummary(),
     wards: [],
     rooms: [],

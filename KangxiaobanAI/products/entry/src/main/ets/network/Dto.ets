@@ -39,6 +39,74 @@ export interface AiChatRequest {
   question: string;
 }
 
+export interface AiConversation {
+  id: number;
+  tenant_id: number;
+  created_at: string;
+  updated_at: string;
+  user_id: number;
+  title: string;
+  is_default: boolean;
+  last_message_at?: string | null;
+}
+
+export interface AiConversationMessage {
+  id: number;
+  tenant_id: number;
+  created_at: string;
+  updated_at: string;
+  conversation_id: number;
+  user_id: number;
+  role: string;
+  content: string;
+  model: string;
+  sent_at: string;
+}
+
+export interface AiConversationListResponse {
+  list: AiConversation[];
+}
+
+export interface AiConversationMessageListResponse {
+  list: AiConversationMessage[];
+}
+
+export interface AiConversationCreateRequest {
+  title: string;
+}
+
+export interface AiConversationSendRequest {
+  content: string;
+}
+
+export interface AiConversationDeleteResponse {
+  id: number;
+  deleted: boolean;
+}
+
+export interface AiConversationExchangeResponse {
+  conversation: AiConversation;
+  user_message: AiConversationMessage;
+  assistant_message: AiConversationMessage;
+  answer: string;
+  model: string;
+  note: string;
+}
+
+export interface AiPromptSuggestion {
+  id: number;
+  code: string;
+  group_index: number;
+  title: string;
+  prompt: string;
+  sort_order: number;
+  enabled: boolean;
+}
+
+export interface AiPromptSuggestionListResponse {
+  list: AiPromptSuggestion[];
+}
+
 export interface TaskStatusRequest {
   status: string;
 }
@@ -86,6 +154,7 @@ export interface Elder {
   status: number;
   bed_id?: number;
   emergency_contacts?: ElderContact[];
+  allergies: string[];
   image?: string;
   remark?: string;
   bed?: Bed;
@@ -120,15 +189,24 @@ export interface Bed {
 }
 
 /** 护理任务。 */
+export interface CareTaskPlanItem {
+  id: number;
+  instructions: string;
+}
+
 export interface CareTask {
   id: number;
   elder_id: number;
+  plan_item_id?: number;
   title: string;
   kind?: string;
+  priority?: string;
+  category?: string;
   assignee?: string;
   due_at?: string;
   status: string;
   remark?: string;
+  plan_item?: CareTaskPlanItem;
 }
 
 /** 健康体征。 */
@@ -140,9 +218,14 @@ export interface HealthRecord {
   diastolic?: number;
   heart_rate?: number;
   spo2?: number;
+  respiratory_rate?: number;
+  steps?: number;
+  sleep_hours?: number;
   source: string;
   record_time: string;
   is_abnormal: boolean;
+  risk_level?: string;
+  risk_summary?: string;
 }
 
 /** WebSocket 实时事件 {type,data}。 */
@@ -203,6 +286,7 @@ export interface IotDevice {
   bed: string;
   elder_id?: number;
   online: number;
+  battery?: number;
   last_seen?: string;
   protocol: string;
 }
@@ -225,8 +309,12 @@ export interface MedicationRecord {
   elder_id: number;
   medicine_name: string;
   dosage: string;
+  frequency?: string;
+  route?: string;
   plan_time?: string;
   taken_time?: string;
+  today_total?: number;
+  today_done?: number;
   status: string;
 }
 
@@ -263,4 +351,13 @@ export interface Assessment {
   risk_level: string;
   notes: string;
   assessed_at: string;
+}
+
+/** 机构运营与 IoT 规则，按登录租户从服务器读取。 */
+export interface OperationPolicy {
+  occupancy_warning_percent: number;
+  device_online_warning_percent: number;
+  alert_cooldown_seconds: number;
+  device_offline_seconds: number;
+  alert_escalation_seconds: number;
 }

@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"kangxiaoban-service/internal/model"
+	"kangxiaoban-service/internal/operationpolicy"
 )
 
 // DashboardHandler 工作台/大屏摘要（读真实统计）。
@@ -57,6 +58,17 @@ func (h *DashboardHandler) Summary(c *gin.Context) {
 		"tasks":   gin.H{"todo": tasksTodo},
 		"bills":   gin.H{"unpaid_count": unpaidCount, "unpaid_sum": unpaidSum, "paid_sum": paidSum},
 	})
+}
+
+// Policy GET /api/v1/dashboard/policy returns the tenant-owned thresholds used
+// by both dashboard clients and the IoT background service.
+func (h *DashboardHandler) Policy(c *gin.Context) {
+	policy, err := operationpolicy.Load(h.db.WithContext(c.Request.Context()))
+	if err != nil {
+		Fail(c, 500, 500, "查询运营策略失败")
+		return
+	}
+	OK(c, policy)
 }
 
 type cockpitSummary struct {
@@ -144,6 +156,11 @@ type cockpitRisk struct {
 // Every number and row is derived from persisted business records; the display client owns no demo dataset.
 func (h *DashboardHandler) Cockpit(c *gin.Context) {
 	db := h.db.WithContext(c.Request.Context())
+	policy, err := operationpolicy.Load(db)
+	if err != nil {
+		Fail(c, 500, 500, "查询运营策略失败")
+		return
+	}
 	var rooms []model.Room
 	var beds []model.Bed
 	var elders []model.Elder
@@ -413,7 +430,7 @@ func (h *DashboardHandler) Cockpit(c *gin.Context) {
 	summary := cockpitSummary{Residents: len(elders), OccupiedBeds: occupiedBeds, TotalBeds: len(beds),
 		FreeBeds: freeBeds, StaffOnDuty: len(staffNames), OpenTasks: openTaskCount,
 		OpenAlerts: openAlertCount, EmergencyAlerts: emergencyCount, DevicesOnline: devicesOnline, DevicesTotal: len(devices)}
-	OK(c, gin.H{"updated_at": time.Now(), "summary": summary, "wards": wardRows, "rooms": roomRows,
+	OK(c, gin.H{"updated_at": time.Now(), "policy": policy, "summary": summary, "wards": wardRows, "rooms": roomRows,
 		"events": eventRows, "facilities": facilityRows, "work_items": workRows, "risks": riskRows})
 }
 

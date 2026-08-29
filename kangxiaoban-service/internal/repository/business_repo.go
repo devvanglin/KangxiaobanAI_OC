@@ -63,7 +63,7 @@ func (r *ElderRepository) Update(ctx context.Context, e *model.Elder) error {
 		e.TenantID = v
 	}
 	return r.db.WithContext(ctx).Model(&model.Elder{}).Where("id = ?", e.ID).Select(
-		"Name", "IDCard", "Gender", "BirthDate", "ContactPhone", "CareLevel", "Status", "BedID", "EmergencyContacts", "Image", "Remark",
+		"Name", "IDCard", "Gender", "BirthDate", "ContactPhone", "CareLevel", "Status", "BedID", "EmergencyContacts", "Allergies", "Image", "Remark",
 	).Updates(e).Error
 }
 func (r *ElderRepository) Delete(ctx context.Context, id uint) error {
@@ -136,13 +136,13 @@ func (r *TaskRepository) List(ctx context.Context, elderID uint, status string, 
 		return nil, 0, err
 	}
 	var items []model.CareTask
-	err := q.Order("created_at desc").Offset((page - 1) * size).Limit(size).Find(&items).Error
+	err := q.Preload("PlanItem").Order("created_at desc").Offset((page - 1) * size).Limit(size).Find(&items).Error
 	return items, total, err
 }
 
 func (r *TaskRepository) Get(ctx context.Context, id uint) (*model.CareTask, error) {
 	var t model.CareTask
-	err := r.db.WithContext(ctx).First(&t, id).Error
+	err := r.db.WithContext(ctx).Preload("PlanItem").First(&t, id).Error
 	return &t, err
 }
 
@@ -218,4 +218,10 @@ func (r *HealthRepository) ListByElder(ctx context.Context, elderID uint, page, 
 
 func (r *HealthRepository) Create(ctx context.Context, hr *model.HealthRecord) error {
 	return r.db.WithContext(ctx).Create(hr).Error
+}
+
+func (r *HealthRepository) ListThresholds(ctx context.Context) ([]model.HealthThreshold, error) {
+	var thresholds []model.HealthThreshold
+	err := r.db.WithContext(ctx).Order("sort_order, id").Find(&thresholds).Error
+	return thresholds, err
 }

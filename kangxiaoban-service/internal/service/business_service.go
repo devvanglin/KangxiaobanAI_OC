@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"kangxiaoban-service/internal/healthrisk"
 	"kangxiaoban-service/internal/model"
 	"kangxiaoban-service/internal/repository"
 )
@@ -26,9 +27,21 @@ func (s *ElderService) Get(ctx context.Context, id uint) (*model.Elder, error) {
 	return s.repo.Get(ctx, id)
 }
 func (s *ElderService) Create(ctx context.Context, e *model.Elder) error {
+	if e.Allergies == nil {
+		e.Allergies = []string{}
+	}
 	return s.repo.Create(ctx, e)
 }
 func (s *ElderService) Update(ctx context.Context, e *model.Elder) error {
+	// Older clients do not send allergies. Preserve the stored array unless the
+	// caller explicitly sends an array (including an empty array to clear it).
+	if e.Allergies == nil {
+		current, err := s.repo.Get(ctx, e.ID)
+		if err != nil {
+			return err
+		}
+		e.Allergies = current.Allergies
+	}
 	return s.repo.Update(ctx, e)
 }
 func (s *ElderService) Delete(ctx context.Context, id uint) error {
@@ -67,6 +80,8 @@ func (s *TaskService) Get(ctx context.Context, id uint) (*model.CareTask, error)
 	return s.repo.Get(ctx, id)
 }
 func (s *TaskService) Create(ctx context.Context, t *model.CareTask) error {
+	t.Category = normalizeTaskCategory(t.Category, t.Kind)
+	t.Priority = normalizeTaskPriority(t.Priority, "")
 	return s.repo.Create(ctx, t)
 }
 func (s *TaskService) SetStatus(ctx context.Context, id uint, status string, executorID uint, executor, result string) error {
@@ -101,7 +116,7 @@ func (s *HealthService) ListByElder(ctx context.Context, elderID uint, page, siz
 	return s.repo.ListByElder(ctx, elderID, page, size)
 }
 
-// Create 录入体征，自动化异常标记（参考 nursing_home 触发器阈值）。
+// Create records vitals and derives the aggregate risk from tenant-owned database thresholds.
 func (s *HealthService) Create(ctx context.Context, hr *model.HealthRecord) error {
 	if hr.RecordTime.IsZero() {
 		hr.RecordTime = time.Now()
@@ -109,25 +124,50 @@ func (s *HealthService) Create(ctx context.Context, hr *model.HealthRecord) erro
 	if hr.Source == "" {
 		hr.Source = "manual"
 	}
-	hr.IsAbnormal = abnormal(hr)
+	thresholds, err := s.repo.ListThresholds(ctx)
+	if err != nil {
+		return err
+	}
+	level, summary, err := healthrisk.Evaluate(hr, thresholds)
+	if err != nil {
+		return err
+	}
+	hr.RiskLevel = level
+	hr.RiskSummary = summary
+	hr.IsAbnormal = level != "normal"
 	return s.repo.Create(ctx, hr)
 }
 
-func abnormal(hr *model.HealthRecord) bool {
-	if hr.Temperature != nil && (*hr.Temperature < 36.0 || *hr.Temperature > 37.3) {
-		return true
+func normalizeTaskCategory(category, kind string) string {
+	switch category {
+	case "todo", "medication", "record", "family", "report":
+		return category
 	}
-	if hr.Systolic != nil && (*hr.Systolic < 90 || *hr.Systolic > 140) {
-		return true
+	switch kind {
+	case "medication":
+		return "medication"
+	case "health", "vital", "assessment":
+		return "record"
+	case "family":
+		return "family"
+	case "report":
+		return "report"
+	default:
+		return "todo"
 	}
-	if hr.Diastolic != nil && (*hr.Diastolic < 60 || *hr.Diastolic > 90) {
-		return true
+}
+
+func normalizeTaskPriority(priority, riskLevel string) string {
+	switch priority {
+	case "normal", "warning", "danger":
+		return priority
 	}
-	if hr.HeartRate != nil && (*hr.HeartRate < 60 || *hr.HeartRate > 100) {
-		return true
+	switch riskLevel {
+	case "critical", "high", "danger":
+		return "danger"
+	case "medium", "warning":
+		return "warning"
+	default:
+		return "normal"
 	}
-	if hr.Spo2 != nil && *hr.Spo2 < 90 {
-		return true
-	}
-	return false
 }

@@ -39,16 +39,21 @@ import { AI_BRAND_NAME, AiTitleLabel } from '../component/AiTitleLabel';
 import { WideSlidingCapsule, WideSlidingCapsuleItem } from '../component/wide/WideSlidingCapsule';
 import ApiClient from '../network/ApiClient';
 import AuthStore from '../network/AuthStore';
-import { AiChatRequest, AiChatResponse } from '../network/Dto';
+import {
+  AiConversation,
+  AiConversationCreateRequest,
+  AiConversationDeleteResponse,
+  AiConversationExchangeResponse,
+  AiConversationListResponse,
+  AiConversationMessage,
+  AiConversationMessageListResponse,
+  AiConversationSendRequest,
+  AiPromptSuggestion,
+  AiPromptSuggestionListResponse,
+  LoginUser
+} from '../network/Dto';
 
 const CONTENT_TOP_OFFSET: number = 56;
-const AI_CHAT_HISTORY_KEY: string = 'aiChatHistoryStore';
-const MAX_CHAT_SESSIONS: number = 50;
-
-function currentUserHistoryKey(): string {
-  const userId: number = AuthStore.getUser()?.id ?? 0;
-  return `${AI_CHAT_HISTORY_KEY}:${userId > 0 ? userId : 'anonymous'}`;
-}
 
 type ChatRole = 'ai' | 'user';
 type ChatFeedback = 'none' | 'up' | 'down';
@@ -78,66 +83,6 @@ interface AiInformationFeedItem {
   prompt: string;
 }
 
-const AI_INFORMATION_FEED_ROWS: AiInformationFeedItem[][] = [
-  [
-    {
-      id: 'care-summary',
-      title: '资讯：汇总今日重点照护事项',
-      prompt: '请汇总今天需要优先关注的照护事项'
-    },
-    {
-      id: 'health-change',
-      title: '健康：解读晨间健康指标变化',
-      prompt: '请解读今天晨间健康指标的变化和关注重点'
-    },
-    {
-      id: 'care-priority',
-      title: '如何安排今天的护理优先级',
-      prompt: '请根据风险和时间节点安排今天的护理优先级'
-    }
-  ],
-  [
-    {
-      id: 'shift-records',
-      title: '交班：整理下午班重点记录',
-      prompt: '请帮我整理下午班新增的重点交班记录'
-    },
-    {
-      id: 'family-follow-up',
-      title: '家属：准备今日回访沟通提纲',
-      prompt: '请生成今天家属回访的沟通提纲'
-    },
-    {
-      id: 'rehab-progress',
-      title: '分享一下近期康复训练的完成情况',
-      prompt: '请总结近期康复训练完成情况并给出后续建议'
-    }
-  ],
-  [
-    {
-      id: 'shift-plan',
-      title: '帮我整理一份当班护理工作计划',
-      prompt: '请帮我整理一份清晰可执行的当班护理工作计划'
-    },
-    {
-      id: 'health-trend',
-      title: '解读本周异常健康数据趋势',
-      prompt: '请深度解读本周异常健康数据的变化趋势'
-    },
-    {
-      id: 'family-script',
-      title: '生成一段专业的家属沟通话术',
-      prompt: '请生成一段专业、温和的家属沟通话术'
-    }
-  ]
-];
-
-@ObservedV2
-class AiChatHistoryStore {
-  @Trace sessions: ChatSession[] = [];
-  @Trace activeSessionId: string = '';
-}
-
 @ComponentV2
 export struct AiChatPage {
   @Param caregiverWideImmersive: boolean = false;
@@ -146,9 +91,8 @@ export struct AiChatPage {
   @Event onClose: () => void = () => {};
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
-  @Local historyStore: AiChatHistoryStore =
-    AppStorageV2.connect(AiChatHistoryStore, currentUserHistoryKey(), () => new AiChatHistoryStore()) ??
-      new AiChatHistoryStore();
+  @Local sessions: ChatSession[] = [];
+  @Local activeSessionId: string = '';
   @Local messages: ChatMessage[] = [];
   @Local inputText: string = '';
   @Local keyboardOffset: number = 0;
@@ -157,10 +101,20 @@ export struct AiChatPage {
   @Local embeddedHistoryCollapsed: boolean = false;
   @Local historySearchText: string = '';
   @Local embeddedAssistantMode: number = 0;
+  @Local isHistoryLoading: boolean = false;
+  @Local promptSuggestionRows: AiInformationFeedItem[][] = [
+    new Array<AiInformationFeedItem>(),
+    new Array<AiInformationFeedItem>(),
+    new Array<AiInformationFeedItem>()
+  ];
   private historyScroller: Scroller = new Scroller();
   private focusController = this.getUIContext().getFocusController();
   private previousKeyboardAvoidMode: KeyboardAvoidMode = KeyboardAvoidMode.OFFSET;
   private aiRequestVersion: number = 0;
+  private sessionLoadVersion: number = 0;
+  private conversationLoadVersion: number = 0;
+  private promptLoadVersion: number = 0;
+  private componentVisible: boolean = false;
   private scrollTimer: number = -1;
 
   @Monitor('globalInfoModel.keyboardHeight')
@@ -189,9 +143,9 @@ export struct AiChatPage {
   }
 
   private findSession(sessionId: string): ChatSession | undefined {
-    for (let i: number = 0; i < this.historyStore.sessions.length; i++) {
-      if (this.historyStore.sessions[i].id === sessionId) {
-        return this.historyStore.sessions[i];
+    for (let i: number = 0; i < this.sessions.length; i++) {
+      if (this.sessions[i].id === sessionId) {
+        return this.sessions[i];
       }
     }
     return undefined;
@@ -205,14 +159,48 @@ export struct AiChatPage {
     return normalized.length > 18 ? `${normalized.substring(0, 18)}…` : normalized;
   }
 
+  private serverTime(value?: string | null, fallback: string = ''): number {
+    const source: string = value ?? fallback;
+    const parsed: number = Date.parse(source);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  private sessionFromServer(conversation: AiConversation): ChatSession {
+    const id: string = `${conversation.id}`;
+    const existing: ChatSession | undefined = this.findSession(id);
+    return {
+      id: id,
+      title: conversation.title,
+      messages: existing ? this.cloneMessages(existing.messages) : [],
+      updatedAt: this.serverTime(conversation.last_message_at, conversation.updated_at)
+    };
+  }
+
+  private messageFromServer(message: AiConversationMessage): ChatMessage {
+    return {
+      id: `${message.id}`,
+      role: message.role === 'assistant' ? 'ai' : 'user',
+      content: message.content,
+      feedback: 'none'
+    };
+  }
+
+  private messagesFromServer(messages: AiConversationMessage[]): ChatMessage[] {
+    const result: ChatMessage[] = [];
+    for (let index: number = 0; index < messages.length; index++) {
+      result.push(this.messageFromServer(messages[index]));
+    }
+    return result;
+  }
+
   private syncActiveSession(messages: ChatMessage[] = this.messages, refreshActivity: boolean = true): void {
-    const activeId: string = this.historyStore.activeSessionId;
+    const activeId: string = this.activeSessionId;
     if (activeId.length === 0) {
       return;
     }
     const current: ChatSession | undefined = this.findSession(activeId);
     if (!current) {
-      this.historyStore.activeSessionId = '';
+      this.activeSessionId = '';
       return;
     }
     const updated: ChatSession = {
@@ -222,32 +210,108 @@ export struct AiChatPage {
       updatedAt: refreshActivity ? Date.now() : current.updatedAt
     };
     if (!refreshActivity) {
-      this.historyStore.sessions = this.historyStore.sessions.map((session: ChatSession): ChatSession =>
+      this.sessions = this.sessions.map((session: ChatSession): ChatSession =>
         session.id === activeId ? updated : session);
       return;
     }
     const remaining: ChatSession[] = [];
-    for (let i: number = 0; i < this.historyStore.sessions.length; i++) {
-      if (this.historyStore.sessions[i].id !== activeId) {
-        remaining.push(this.historyStore.sessions[i]);
+    for (let i: number = 0; i < this.sessions.length; i++) {
+      if (this.sessions[i].id !== activeId) {
+        remaining.push(this.sessions[i]);
       }
     }
-    this.historyStore.sessions = [updated, ...remaining].slice(0, MAX_CHAT_SESSIONS);
+    this.sessions = [updated, ...remaining];
   }
 
-  private createSession(firstText: string, messages: ChatMessage[]): void {
-    const session: ChatSession = {
-      id: `session-${Date.now()}`,
-      title: this.buildSessionTitle(firstText),
-      messages: this.cloneMessages(messages),
-      updatedAt: Date.now()
-    };
-    this.historyStore.activeSessionId = session.id;
-    this.historyStore.sessions = [session, ...this.historyStore.sessions].slice(0, MAX_CHAT_SESSIONS);
+  private async loadSessionMessages(sessionId: string, closeDrawer: boolean = false): Promise<void> {
+    const conversationId: number = Number(sessionId);
+    if (conversationId <= 0) {
+      return;
+    }
+    const loadVersion: number = ++this.sessionLoadVersion;
+    this.activeSessionId = sessionId;
+    this.messages = [];
+    this.inputText = '';
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
+    try {
+      const response = await ApiClient.get<AiConversationMessageListResponse>(
+        `/ai/conversations/${conversationId}/messages`);
+      if (!this.componentVisible || loadVersion !== this.sessionLoadVersion ||
+        sessionId !== this.activeSessionId || response.code !== 0 || !response.data) {
+        if (response.code !== 0) {
+          this.showToast(response.msg || '对话记录加载失败');
+        }
+        return;
+      }
+      this.messages = this.messagesFromServer(response.data.list ?? []);
+      this.syncActiveSession(this.messages, false);
+      if (this.messages.length > 0) {
+        this.scheduleScrollToBottom(120);
+      }
+    } catch (_error) {
+      if (loadVersion === this.sessionLoadVersion) {
+        this.showToast('无法连接服务器，对话记录加载失败');
+      }
+    }
+    if (closeDrawer) {
+      this.closeHistoryDrawer();
+    }
+  }
+
+  private async loadConversations(): Promise<void> {
+    const loadVersion: number = ++this.conversationLoadVersion;
+    this.isHistoryLoading = true;
+    try {
+      const response = await ApiClient.get<AiConversationListResponse>('/ai/conversations');
+      if (!this.componentVisible || loadVersion !== this.conversationLoadVersion) {
+        return;
+      }
+      if (response.code !== 0 || !response.data) {
+        this.showToast(response.msg || '会话列表加载失败');
+        return;
+      }
+      const next: ChatSession[] = [];
+      const serverSessions: AiConversation[] = response.data.list ?? [];
+      for (let index: number = 0; index < serverSessions.length; index++) {
+        next.push(this.sessionFromServer(serverSessions[index]));
+      }
+      this.sessions = next;
+      const active: ChatSession | undefined = this.findSession(this.activeSessionId);
+      if (active) {
+        await this.loadSessionMessages(active.id);
+      } else if (next.length > 0) {
+        await this.loadSessionMessages(next[0].id);
+      } else {
+        this.activeSessionId = '';
+        this.messages = [];
+      }
+    } catch (_error) {
+      this.showToast('无法连接服务器，会话列表加载失败');
+    } finally {
+      this.isHistoryLoading = false;
+    }
+  }
+
+  private async createServerConversation(title: string): Promise<ChatSession | undefined> {
+    this.conversationLoadVersion++;
+    const request: AiConversationCreateRequest = { title: title };
+    const response = await ApiClient.post<AiConversation>('/ai/conversations', request);
+    if (!this.componentVisible) {
+      return undefined;
+    }
+    if (response.code !== 0 || !response.data) {
+      this.showToast(response.msg || '新建对话失败');
+      return undefined;
+    }
+    const session: ChatSession = this.sessionFromServer(response.data);
+    this.sessions = [session, ...this.sessions];
+    this.activeSessionId = session.id;
+    return session;
   }
 
   private cancelPendingWork(): void {
     this.aiRequestVersion++;
+    this.sessionLoadVersion++;
     if (this.scrollTimer >= 0) {
       clearTimeout(this.scrollTimer);
       this.scrollTimer = -1;
@@ -255,31 +319,8 @@ export struct AiChatPage {
     this.isGenerating = false;
   }
 
-  private restoreSession(session: ChatSession): void {
-    this.historyStore.activeSessionId = session.id;
-    this.messages = this.cloneMessages(session.messages);
-    this.inputText = '';
-    this.isGenerating = false;
-    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
-  }
-
-  private restoreActiveSession(): void {
-    const active: ChatSession | undefined = this.findSession(this.historyStore.activeSessionId);
-    if (active) {
-      this.restoreSession(active);
-      if (active.messages.length > 0) {
-        this.scheduleScrollToBottom(160);
-      }
-      return;
-    }
-    this.historyStore.activeSessionId = '';
-    this.messages = [];
-    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
-  }
-
   private openHistoryDrawer(): void {
     this.focusController.clearFocus();
-    this.syncActiveSession(this.messages, false);
     this.getUIContext().animateTo({ duration: 260, curve: Curve.Friction }, () => {
       this.historyDrawerOpen = true;
     });
@@ -291,28 +332,34 @@ export struct AiChatPage {
     });
   }
 
-  private startNewConversation(): void {
-    this.syncActiveSession(this.messages, false);
+  private async startNewConversation(): Promise<void> {
     const wasGenerating: boolean = this.isGenerating;
     this.cancelPendingWork();
     if (wasGenerating) {
       this.showToast('已停止当前回复');
     }
     this.focusController.clearFocus();
-    this.historyStore.activeSessionId = '';
     this.messages = [];
     this.inputText = '';
     this.historySearchText = '';
     this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
     this.closeHistoryDrawer();
+    try {
+      const session: ChatSession | undefined = await this.createServerConversation('新对话');
+      if (!session) {
+        this.activeSessionId = '';
+      }
+    } catch (_error) {
+      this.activeSessionId = '';
+      this.showToast('无法连接服务器，新建对话失败');
+    }
   }
 
-  private selectSession(sessionId: string): void {
-    if (sessionId === this.historyStore.activeSessionId) {
+  private async selectSession(sessionId: string): Promise<void> {
+    if (sessionId === this.activeSessionId) {
       this.closeHistoryDrawer();
       return;
     }
-    this.syncActiveSession(this.messages, false);
     const wasGenerating: boolean = this.isGenerating;
     this.cancelPendingWork();
     if (wasGenerating) {
@@ -324,13 +371,38 @@ export struct AiChatPage {
       this.closeHistoryDrawer();
       return;
     }
-    this.restoreSession(session);
-    this.closeHistoryDrawer();
-    this.scheduleScrollToBottom(120);
+    await this.loadSessionMessages(session.id, true);
+  }
+
+  private async deleteSession(sessionId: string): Promise<void> {
+    const conversationId: number = Number(sessionId);
+    if (conversationId <= 0) {
+      return;
+    }
+    this.conversationLoadVersion++;
+    try {
+      const response = await ApiClient.delete<AiConversationDeleteResponse>(`/ai/conversations/${conversationId}`);
+      if (response.code !== 0 || !response.data || !response.data.deleted) {
+        this.showToast(response.msg || '删除对话失败');
+        return;
+      }
+      const wasActive: boolean = this.activeSessionId === sessionId;
+      this.sessions = this.sessions.filter((session: ChatSession): boolean => session.id !== sessionId);
+      if (wasActive) {
+        this.cancelPendingWork();
+        this.activeSessionId = '';
+        this.messages = [];
+        if (this.sessions.length > 0) {
+          await this.loadSessionMessages(this.sessions[0].id);
+        }
+      }
+      this.showToast('对话已删除');
+    } catch (_error) {
+      this.showToast('无法连接服务器，删除对话失败');
+    }
   }
 
   private closeChatPage(): void {
-    this.syncActiveSession(this.messages, false);
     this.closeHistoryDrawer();
     this.onClose();
   }
@@ -386,7 +458,44 @@ export struct AiChatPage {
   }
 
   private embeddedSuggestions(): AiInformationFeedItem[] {
-    return this.embeddedAssistantMode === 0 ? AI_INFORMATION_FEED_ROWS[0] : AI_INFORMATION_FEED_ROWS[2];
+    return this.embeddedAssistantMode === 0 ? this.promptSuggestionRows[0] : this.promptSuggestionRows[2];
+  }
+
+  private async loadPromptSuggestions(): Promise<void> {
+    const requestVersion: number = ++this.promptLoadVersion;
+    try {
+      const response = await ApiClient.get<AiPromptSuggestionListResponse>('/ai/suggestions');
+      if (requestVersion !== this.promptLoadVersion || !this.componentVisible ||
+        response.code !== 0 || !response.data) {
+        return;
+      }
+      const rows: AiInformationFeedItem[][] = [
+        new Array<AiInformationFeedItem>(),
+        new Array<AiInformationFeedItem>(),
+        new Array<AiInformationFeedItem>()
+      ];
+      for (let index: number = 0; index < response.data.list.length; index++) {
+        const suggestion: AiPromptSuggestion = response.data.list[index];
+        if (suggestion.group_index < 0 || suggestion.group_index >= rows.length ||
+          suggestion.title.trim().length === 0 || suggestion.prompt.trim().length === 0) {
+          continue;
+        }
+        rows[suggestion.group_index].push({
+          id: suggestion.code,
+          title: suggestion.title,
+          prompt: suggestion.prompt
+        });
+      }
+      this.promptSuggestionRows = rows;
+    } catch (_error) {
+      if (requestVersion === this.promptLoadVersion && this.componentVisible) {
+        this.promptSuggestionRows = [
+          new Array<AiInformationFeedItem>(),
+          new Array<AiInformationFeedItem>(),
+          new Array<AiInformationFeedItem>()
+        ];
+      }
+    }
   }
 
   private embeddedModeItems(): WideSlidingCapsuleItem[] {
@@ -397,18 +506,22 @@ export struct AiChatPage {
   }
 
   aboutToAppear(): void {
+    this.componentVisible = true;
     this.previousKeyboardAvoidMode = this.getUIContext().getKeyboardAvoidMode();
-    this.restoreActiveSession();
+    this.loadConversations();
+    this.loadPromptSuggestions();
   }
 
   aboutToDisappear(): void {
-    this.syncActiveSession(this.messages, false);
+    this.componentVisible = false;
+    this.conversationLoadVersion++;
+    this.promptLoadVersion++;
     this.getUIContext().setKeyboardAvoidMode(this.previousKeyboardAvoidMode);
     this.cancelPendingWork();
   }
 
   private titleBarTitleText(): string {
-    const activeSession: ChatSession | undefined = this.findSession(this.historyStore.activeSessionId);
+    const activeSession: ChatSession | undefined = this.findSession(this.activeSessionId);
     return activeSession?.title ?? AI_BRAND_NAME;
   }
 
@@ -617,33 +730,6 @@ export struct AiChatPage {
     }, delay);
   }
 
-  private createAiMessage(id: string, answer: string): ChatMessage {
-    return {
-      id: id,
-      role: 'ai',
-      content: answer,
-      feedback: 'none'
-    };
-  }
-
-  private appendAiResponse(answer: string): void {
-    const message: ChatMessage = this.createAiMessage(`a-${Date.now()}`, answer);
-    const nextMessages: ChatMessage[] = [...this.messages, message];
-    this.messages = nextMessages;
-    this.syncActiveSession(nextMessages);
-    this.isGenerating = false;
-    this.scheduleScrollToBottom(100);
-  }
-
-  private async requestAiAnswer(question: string): Promise<string> {
-    const request: AiChatRequest = { question: question };
-    const response = await ApiClient.post<AiChatResponse>('/ai/chat', request);
-    if (response.code !== 0 || !response.data || response.data.answer.trim().length === 0) {
-      throw new Error(response.msg || 'AI 服务暂不可用');
-    }
-    return response.data.answer;
-  }
-
   private async sendMessage(): Promise<void> {
     const text: string = this.inputText.trim();
     if (text.length === 0 || this.isGenerating) {
@@ -652,30 +738,50 @@ export struct AiChatPage {
     if (this.messages.length === 0) {
       this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
     }
-    const userMessage: ChatMessage = {
-      id: `u-${Date.now()}`,
-      role: 'user',
-      content: text
-    };
-    const nextMessages: ChatMessage[] = [...this.messages, userMessage];
-    this.messages = nextMessages;
-    if (this.historyStore.activeSessionId.length === 0) {
-      this.createSession(text, nextMessages);
-    } else {
-      this.syncActiveSession(nextMessages);
+    if (this.activeSessionId.length === 0) {
+      try {
+        const session: ChatSession | undefined = await this.createServerConversation(this.buildSessionTitle(text));
+        if (!session) {
+          return;
+        }
+      } catch (_error) {
+        this.showToast('无法连接服务器，新建对话失败');
+        return;
+      }
+    }
+    if (!this.componentVisible) {
+      return;
     }
     this.inputText = '';
     this.isGenerating = true;
+    const optimisticMessage: ChatMessage = { id: `pending-${Date.now()}`, role: 'user', content: text };
+    this.messages = [...this.messages, optimisticMessage];
     this.scheduleScrollToBottom(80);
     const requestVersion: number = ++this.aiRequestVersion;
     try {
-      const answer: string = await this.requestAiAnswer(text);
+      const conversationId: number = Number(this.activeSessionId);
+      const request: AiConversationSendRequest = { content: text };
+      const response = await ApiClient.post<AiConversationExchangeResponse>(
+        `/ai/conversations/${conversationId}/messages`, request);
       if (requestVersion !== this.aiRequestVersion) {
         return;
       }
-      this.appendAiResponse(answer);
+      if (response.code !== 0 || !response.data || response.data.answer.trim().length === 0) {
+        throw new Error(response.msg || 'AI 服务暂不可用');
+      }
+      const exchange: AiConversationExchangeResponse = response.data;
+      this.messages = [...this.messages.filter((item: ChatMessage): boolean => item.id !== optimisticMessage.id),
+        this.messageFromServer(exchange.user_message), this.messageFromServer(exchange.assistant_message)];
+      const updatedSession: ChatSession = this.sessionFromServer(exchange.conversation);
+      updatedSession.messages = this.cloneMessages(this.messages);
+      this.sessions = [updatedSession, ...this.sessions.filter((item: ChatSession): boolean =>
+        item.id !== updatedSession.id)];
+      this.isGenerating = false;
+      this.scheduleScrollToBottom(100);
     } catch (_error) {
       if (requestVersion === this.aiRequestVersion) {
+        this.messages = this.messages.filter((item: ChatMessage): boolean => item.id !== optimisticMessage.id);
+        this.syncActiveSession(this.messages, false);
         this.isGenerating = false;
         this.showToast('AI 服务暂不可用，请稍后重试');
       }
@@ -691,17 +797,26 @@ export struct AiChatPage {
       return;
     }
     this.isGenerating = true;
-    this.showToast('正在重新生成');
+    this.showToast('正在重新提问');
     const requestVersion: number = ++this.aiRequestVersion;
     try {
-      const answer: string = await this.requestAiAnswer(text);
+      const conversationId: number = Number(this.activeSessionId);
+      const request: AiConversationSendRequest = { content: text };
+      const response = await ApiClient.post<AiConversationExchangeResponse>(
+        `/ai/conversations/${conversationId}/messages`, request);
       if (requestVersion !== this.aiRequestVersion) {
         return;
       }
-      const replacement: ChatMessage = this.createAiMessage(message.id, answer);
-      this.messages = this.messages.map((item: ChatMessage): ChatMessage =>
-        item.id === message.id ? replacement : item);
-      this.syncActiveSession();
+      if (response.code !== 0 || !response.data) {
+        throw new Error(response.msg || 'AI 服务暂不可用');
+      }
+      const exchange: AiConversationExchangeResponse = response.data;
+      const replacement: ChatMessage = this.messageFromServer(exchange.assistant_message);
+      this.messages = [...this.messages, this.messageFromServer(exchange.user_message), replacement];
+      const updatedSession: ChatSession = this.sessionFromServer(exchange.conversation);
+      updatedSession.messages = this.cloneMessages(this.messages);
+      this.sessions = [updatedSession, ...this.sessions.filter((item: ChatSession): boolean =>
+        item.id !== updatedSession.id)];
       this.isGenerating = false;
       this.scheduleScrollToBottom(100);
     } catch (_error) {
@@ -786,7 +901,7 @@ export struct AiChatPage {
       this.actionButton($r('sys.symbol.square_on_square_fill'), '复制', () => {
         this.copyText(message.content);
       }),
-      this.actionButton($r('sys.symbol.arrow_clockwise'), '重新生成', () => {
+      this.actionButton($r('sys.symbol.arrow_clockwise'), '重新提问', () => {
         this.regenerateMessage(message);
       }),
       this.actionButton(
@@ -970,7 +1085,7 @@ export struct AiChatPage {
     } else if (hour >= 12) {
       greeting = '中午好';
     }
-    const user = AuthStore.getUser();
+    const user: LoginUser | null = AuthStore.getUser();
     const displayName: string = user?.real_name || user?.username || '当前用户';
     return `${greeting}，${displayName}`;
   }
@@ -1047,9 +1162,9 @@ export struct AiChatPage {
       .alignItems(HorizontalAlign.Start)
 
       Column({ space: 8 }) {
-        this.informationFeedRow(AI_INFORMATION_FEED_ROWS[0])
-        this.informationFeedRow(AI_INFORMATION_FEED_ROWS[1])
-        this.informationFeedRow(AI_INFORMATION_FEED_ROWS[2])
+        this.informationFeedRow(this.promptSuggestionRows[0])
+        this.informationFeedRow(this.promptSuggestionRows[1])
+        this.informationFeedRow(this.promptSuggestionRows[2])
       }
       .width('100%')
     }
@@ -1321,9 +1436,9 @@ export struct AiChatPage {
           .fontWeight(FontWeight.Medium)
           .width('100%')
 
-        this.wideInformationFeedRow(AI_INFORMATION_FEED_ROWS[0])
-        this.wideInformationFeedRow(AI_INFORMATION_FEED_ROWS[1])
-        this.wideInformationFeedRow(AI_INFORMATION_FEED_ROWS[2])
+        this.wideInformationFeedRow(this.promptSuggestionRows[0])
+        this.wideInformationFeedRow(this.promptSuggestionRows[1])
+        this.wideInformationFeedRow(this.promptSuggestionRows[2])
       }
       .width('100%')
       .alignItems(HorizontalAlign.Start)
@@ -1563,15 +1678,15 @@ export struct AiChatPage {
 
   private filteredHistorySessions(): ChatSession[] {
     if (!this.isEmbeddedWideHistory()) {
-      return this.historyStore.sessions;
+      return this.sessions;
     }
     const query: string = this.historySearchText.trim().toLowerCase();
     if (query.length === 0) {
-      return this.historyStore.sessions;
+      return this.sessions;
     }
     const matches: ChatSession[] = [];
-    for (let i: number = 0; i < this.historyStore.sessions.length; i++) {
-      const session: ChatSession = this.historyStore.sessions[i];
+    for (let i: number = 0; i < this.sessions.length; i++) {
+      const session: ChatSession = this.sessions[i];
       if (session.title.toLowerCase().includes(query)) {
         matches.push(session);
         continue;
@@ -1632,43 +1747,60 @@ export struct AiChatPage {
     Row({ space: 8 }) {
       Text(session.title)
         .fontSize($r('sys.float.Body_S'))
-        .fontColor(session.id === this.historyStore.activeSessionId ?
+        .fontColor(session.id === this.activeSessionId ?
           $r('app.color.brand_blue') : $r('sys.color.font_primary'))
-        .fontWeight(session.id === this.historyStore.activeSessionId ? FontWeight.Medium : FontWeight.Regular)
+        .fontWeight(session.id === this.activeSessionId ? FontWeight.Medium : FontWeight.Regular)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .layoutWeight(1)
-      if (this.isEmbeddedWideHistory() && session.id === this.historyStore.activeSessionId) {
-        SymbolGlyph($r('sys.symbol.ellipsis_message_fill'))
-          .fontSize(18)
-          .fontColor([$r('sys.color.icon_tertiary')])
-          .margin({ right: 4 })
+        .height('100%')
+        .onClick(() => {
+          this.selectSession(session.id);
+        })
+      Button({ type: ButtonType.Circle, stateEffect: true }) {
+        SymbolGlyph($r('sys.symbol.trash'))
+          .fontSize(16)
+          .fontColor([$r('sys.color.icon_secondary')])
       }
+      .buttonStyle(ButtonStyleMode.NORMAL)
+      .width(32)
+      .height(32)
+      .backgroundColor(Color.Transparent)
+      .accessibilityText('删除对话')
+      .onClick(() => {
+        this.deleteSession(session.id);
+      })
     }
     .width('100%')
     .height(this.isEmbeddedWideHistory() ? 48 : 40)
     .padding({ left: this.isEmbeddedWideHistory() ? 14 : 10, right: this.isEmbeddedWideHistory() ? 14 : 10 })
     .alignItems(VerticalAlign.Center)
     .borderRadius(this.isEmbeddedWideHistory() ? 14 : 9)
-    .backgroundColor(session.id === this.historyStore.activeSessionId ?
+    .backgroundColor(session.id === this.activeSessionId ?
       $r('sys.color.comp_background_tertiary') : Color.Transparent)
     .focusable(true)
     .focusOnTouch(true)
-    .onClick(() => {
-      this.selectSession(session.id);
-    })
   }
 
   @Builder
   private emptyHistory() {
     Column({ space: 8 }) {
-      SymbolGlyph($r('sys.symbol.AI_message'))
-        .fontSize(30)
-        .fontColor([$r('sys.color.icon_tertiary')])
-      Text(this.isEmbeddedWideHistory() && this.historySearchText.trim().length > 0 ?
-        '未找到相关对话' : '暂无对话记录')
-        .fontSize($r('sys.float.Body_S'))
-        .fontColor($r('sys.color.font_secondary'))
+      if (this.isHistoryLoading) {
+        LoadingProgress()
+          .width(26)
+          .height(26)
+        Text('正在加载服务器会话')
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_secondary'))
+      } else {
+        SymbolGlyph($r('sys.symbol.AI_message'))
+          .fontSize(30)
+          .fontColor([$r('sys.color.icon_tertiary')])
+        Text(this.isEmbeddedWideHistory() && this.historySearchText.trim().length > 0 ?
+          '未找到相关对话' : '暂无对话记录')
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_secondary'))
+      }
     }
     .width('100%')
     .padding({ top: 28 })
@@ -1868,7 +2000,7 @@ export struct AiChatPage {
   }
 
   private wideTitleBarTitleText(): string {
-    const activeSession: ChatSession | undefined = this.findSession(this.historyStore.activeSessionId);
+    const activeSession: ChatSession | undefined = this.findSession(this.activeSessionId);
     return activeSession?.title ?? AI_BRAND_NAME;
   }
 

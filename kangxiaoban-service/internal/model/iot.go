@@ -12,6 +12,7 @@ type IotDevice struct {
 	Bed      string     `gorm:"size:8" json:"bed"`
 	ElderID  *uint      `json:"elder_id"`
 	Online   int8       `gorm:"default:0" json:"online"` // 1在线 0离线
+	Battery  *int       `json:"battery"`
 	LastSeen *time.Time `json:"last_seen"`
 	Protocol string     `gorm:"size:16;default:MQTT" json:"protocol"`
 }

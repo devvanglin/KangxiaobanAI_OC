@@ -34,6 +34,8 @@ interface AdmissionHealthCategory {
 @ComponentV2
 export struct WideDoctorAdmission {
   @Param compactWidth: boolean = false;
+  @Param standaloneMode: boolean = false;
+  @Param contentTopInset: number = 0;
   @Param naviIndicatorHeight: number = 0;
   @Event onExit: () => void = () => {};
   @Event onDirtyChange: (dirty: boolean) => void = (_dirty: boolean) => {};
@@ -90,18 +92,6 @@ export struct WideDoctorAdmission {
 
   private contentScroller: Scroller = new Scroller();
   private readonly steps: string[] = ['基本信息（A）', '能力评估（B）', '结果与计划（C）', '入住确认'];
-  private readonly healthCategories: AdmissionHealthCategory[] = [
-    { code: 'pressure_injury', label: '压疮' },
-    { code: 'joint_mobility', label: '关节活动度' },
-    { code: 'wound', label: '伤口' },
-    { code: 'special_care', label: '特殊护理' },
-    { code: 'pain', label: '疼痛' },
-    { code: 'tooth_loss', label: '牙齿缺损' },
-    { code: 'denture', label: '义齿' },
-    { code: 'dysphagia', label: '吞咽问题' },
-    { code: 'malnutrition', label: '营养不良' },
-    { code: 'airway_clearance', label: '气道清除能力' }
-  ];
 
   aboutToAppear(): void {
     this.loadWorkspace();
@@ -200,6 +190,12 @@ export struct WideDoctorAdmission {
       }
     }
     return result;
+  }
+
+  private healthCategories(): AdmissionHealthCategory[] {
+    return this.dictionary('health_category').map((option: AdmissionDictionaryOption): AdmissionHealthCategory => {
+      return { code: option.code, label: option.label };
+    });
   }
 
   private questions(): AdmissionAssessmentQuestion[] {
@@ -875,7 +871,8 @@ export struct WideDoctorAdmission {
   private draftsView() {
     Scroll() {
       Column({ space: 18 }) {
-        Row({ space: 12 }) {
+        Flex({ direction: this.compactWidth ? FlexDirection.Column : FlexDirection.Row,
+          alignItems: this.compactWidth ? ItemAlign.Start : ItemAlign.Center }) {
           Column({ space: 4 }) {
             Text('入住评估')
               .fontSize(22)
@@ -895,6 +892,7 @@ export struct WideDoctorAdmission {
             .fontSize(11)
             .fontColor($r('app.color.doctor_workspace_background'))
             .backgroundColor($r('app.color.doctor_workspace_text_primary'))
+            .margin({ top: this.compactWidth ? 10 : 0 })
             .onClick(() => this.startNew())
         }
         .width('100%')
@@ -958,7 +956,8 @@ export struct WideDoctorAdmission {
       }
       .width('100%')
       .constraintSize({ maxWidth: 1088 })
-      .padding({ left: this.mainPadding(), right: this.mainPadding(), top: 24, bottom: 32 + this.naviIndicatorHeight })
+      .padding({ left: this.mainPadding(), right: this.mainPadding(), top: 24 + this.contentTopInset,
+        bottom: 32 + this.naviIndicatorHeight })
       .alignItems(HorizontalAlign.Center)
     }
     .width('100%')
@@ -1306,7 +1305,7 @@ export struct WideDoctorAdmission {
             this.markDirty(true);
           })
         GridRow({ columns: 12, gutter: { x: 10, y: 10 } }) {
-          ForEach(this.healthCategories, (category: AdmissionHealthCategory) => {
+          ForEach(this.healthCategories(), (category: AdmissionHealthCategory) => {
             GridCol({ span: this.compactWidth ? 12 : 6 }) {
               this.healthChoice(category)
             }
@@ -1956,13 +1955,14 @@ export struct WideDoctorAdmission {
         .fontColor($r('app.color.doctor_workspace_text_tertiary'))
         .layoutWeight(this.compactWidth ? 0 : 1)
         .width(this.compactWidth ? '100%' : undefined)
-      Row({ space: 9 }) {
+      Flex({ direction: FlexDirection.Row, wrap: FlexWrap.Wrap, justifyContent: FlexAlign.End }) {
         if (this.currentStep > 0) {
           Button('上一步')
             .height(37)
             .fontSize(10)
             .borderRadius(9)
             .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
+            .margin({ right: 9, bottom: this.compactWidth ? 6 : 0 })
             .enabled(this.operation.length === 0)
             .onClick(() => this.previous())
         }
@@ -1972,6 +1972,7 @@ export struct WideDoctorAdmission {
           .borderRadius(9)
           .backgroundColor($r('app.color.doctor_workspace_surface'))
           .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
+          .margin({ right: 9, bottom: this.compactWidth ? 6 : 0 })
           .enabled(this.operation.length === 0)
           .onClick(() => this.saveDraft())
         Button(this.currentStep === this.steps.length - 1 ?
@@ -2005,7 +2006,7 @@ export struct WideDoctorAdmission {
         }
         .width('100%')
         .constraintSize({ maxWidth: 1088 })
-        .padding({ left: this.mainPadding(), right: this.mainPadding(), top: 20, bottom: 24 })
+        .padding({ left: this.mainPadding(), right: this.mainPadding(), top: 20 + this.contentTopInset, bottom: 24 })
         .alignItems(HorizontalAlign.Center)
       }
       .layoutWeight(1)
@@ -2065,7 +2066,12 @@ export struct WideDoctorAdmission {
             .backgroundColor($r('app.color.doctor_workspace_text_primary'))
             .onClick(() => {
               this.resetForm();
-              this.onExit();
+              if (this.standaloneMode) {
+                this.view = 'drafts';
+                this.refreshDrafts();
+              } else {
+                this.onExit();
+              }
             })
         }
       }

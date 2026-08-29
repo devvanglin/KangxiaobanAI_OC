@@ -17,7 +17,7 @@ function toRequestMethod(method: HttpMethod): http.RequestMethod {
     case 'PUT':
       return http.RequestMethod.PUT;
     case 'PATCH':
-      return http.RequestMethod.PATCH;
+      return http.RequestMethod.POST;
     case 'DELETE':
       return http.RequestMethod.DELETE;
     default:
@@ -44,6 +44,9 @@ export class ApiClient {
       connectTimeout: 10000,
       readTimeout: 10000
     };
+    if (method === 'PATCH') {
+      options.customMethod = 'PATCH';
+    }
     if (body !== undefined) {
       options.extraData = JSON.stringify(body);
     }

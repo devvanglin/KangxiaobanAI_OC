@@ -43,6 +43,7 @@ interface CareTaskData {
   resident: string;
   room: string;
   summary: string;
+  instructions: string;
   time: string;
   owner: string;
   priority: CarePriority;
@@ -149,6 +150,32 @@ export struct WideHomePage {
     this.syncBackendTasks();
   }
 
+  private serverTaskPriority(value?: string): CarePriority {
+    if (value === 'danger' || value === 'high' || value === 'critical') {
+      return 'danger';
+    }
+    if (value === 'warning' || value === 'medium') {
+      return 'warning';
+    }
+    return 'normal';
+  }
+
+  private serverTaskCategory(task: BackendCareTask): CareTaskCategory {
+    const value: string = task.category ?? '';
+    if (value === 'medication' || value === 'record' || value === 'family' || value === 'report') {
+      return value;
+    }
+    return task.kind === 'medication' ? 'medication' : 'todo';
+  }
+
+  private serverTaskInstructions(task: BackendCareTask): string {
+    const planInstructions: string = task.plan_item?.instructions?.trim() ?? '';
+    if (planInstructions.length > 0) {
+      return planInstructions;
+    }
+    return task.remark?.trim() ?? '';
+  }
+
   private syncBackendTasks(): void {
     this.backendTaskData = this.businessStore.tasks.map((task: BackendCareTask): CareTaskData => {
       const elder: Elder | undefined = this.businessStore.elders.find((item: Elder) => item.id === task.elder_id);
@@ -156,10 +183,12 @@ export struct WideHomePage {
       const room: Room | undefined = bed === undefined ? undefined :
         this.businessStore.rooms.find((item: Room) => item.id === bed.room_id);
       const state: CareTaskState = task.status === 'doing' ? 'doing' : task.status === 'done' ? 'done' : 'pending';
-      return { id: `${task.id}`, category: task.kind === 'medication' ? 'medication' : 'todo', title: task.title,
+      return { id: `${task.id}`, category: this.serverTaskCategory(task), title: task.title,
         residentId: `${task.elder_id}`, resident: elder?.name ?? '未知长者', room: room && bed ?
           `${room.floor}F-${room.room_no}-${bed.bed_no}` : '未分配',
-        summary: task.remark ?? '', time: task.due_at ? task.due_at.slice(11, 16) : '--', owner: task.assignee ?? '', priority: 'normal', state: state };
+        summary: task.remark ?? '', instructions: this.serverTaskInstructions(task),
+        time: task.due_at ? task.due_at.slice(11, 16) : '--', owner: task.assignee ?? '',
+        priority: this.serverTaskPriority(task.priority), state: state };
     });
     this.reportTaskProgress();
   }
@@ -633,12 +662,16 @@ export struct WideHomePage {
         return {
           id: item.id,
           elder_id: item.elder_id,
+          plan_item_id: item.plan_item_id,
           title: item.title,
           kind: item.kind,
+          priority: item.priority,
+          category: item.category,
           assignee: item.assignee,
           due_at: item.due_at,
           status: nextStatus === 'doing' ? 'doing' : 'done',
-          remark: item.remark
+          remark: item.remark,
+          plan_item: item.plan_item
         };
       });
       this.reportTaskProgress();
@@ -656,16 +689,15 @@ export struct WideHomePage {
   }
 
   private executionSteps(task: CareTaskData): string[] {
-    if (task.category === 'medication') {
-      return ['核对长者、医嘱和药品', '确认剂量、时间与进食情况', '执行后观察并补充记录'];
+    const rawSteps: string[] = task.instructions.split(/[\r\n；;]+/);
+    const steps: string[] = [];
+    for (let index: number = 0; index < rawSteps.length; index++) {
+      const step: string = rawSteps[index].trim();
+      if (step.length > 0) {
+        steps.push(step);
+      }
     }
-    if (task.category === 'family') {
-      return ['查看最近护理记录', '仅沟通已确认的信息', '记录诉求和后续责任人'];
-    }
-    if (task.category === 'report') {
-      return ['先确认现场安全状态', '记录事实、时间和已采取措施', '提交给对应负责人并跟进结果'];
-    }
-    return ['确认长者当前状态', '按护理要求完成处置', '记录结果和后续观察事项'];
+    return steps;
   }
 
   @Builder
@@ -1548,25 +1580,32 @@ export struct WideHomePage {
               .fontSize($r('sys.float.Body_L'))
               .fontWeight(FontWeight.Medium)
               .fontColor($r('sys.color.font_primary'))
-            ForEach(this.executionSteps(task), (step: string, index: number) => {
-              Row({ space: 10 }) {
-                Text((index + 1).toString())
-                  .width(24)
-                  .height(24)
-                  .borderRadius(12)
-                  .textAlign(TextAlign.Center)
-                  .fontSize($r('sys.float.Caption_M'))
-                  .fontWeight(FontWeight.Medium)
-                  .fontColor($r('app.color.brand_blue'))
-                  .backgroundColor($r('sys.color.comp_background_secondary'))
-                Text(step)
-                  .layoutWeight(1)
-                  .fontSize($r('sys.float.Body_M'))
-                  .fontColor($r('sys.color.font_primary'))
-              }
-              .width('100%')
-              .alignItems(VerticalAlign.Center)
-            }, (step: string, index: number) => task.id + '-step-' + index)
+            if (this.executionSteps(task).length === 0) {
+              Text('暂无执行要点，请联系负责人补充护理要求')
+                .fontSize($r('sys.float.Body_M'))
+                .fontColor($r('sys.color.font_secondary'))
+                .width('100%')
+            } else {
+              ForEach(this.executionSteps(task), (step: string, index: number) => {
+                Row({ space: 10 }) {
+                  Text((index + 1).toString())
+                    .width(24)
+                    .height(24)
+                    .borderRadius(12)
+                    .textAlign(TextAlign.Center)
+                    .fontSize($r('sys.float.Caption_M'))
+                    .fontWeight(FontWeight.Medium)
+                    .fontColor($r('app.color.brand_blue'))
+                    .backgroundColor($r('sys.color.comp_background_secondary'))
+                  Text(step)
+                    .layoutWeight(1)
+                    .fontSize($r('sys.float.Body_M'))
+                    .fontColor($r('sys.color.font_primary'))
+                }
+                .width('100%')
+                .alignItems(VerticalAlign.Center)
+              }, (step: string, index: number) => task.id + '-step-' + index)
+            }
           }
           .width('100%')
           .alignItems(HorizontalAlign.Start)

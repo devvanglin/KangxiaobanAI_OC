@@ -153,6 +153,11 @@ export struct WideAdminWorkspace {
     return $r('app.color.doctor_workspace_text_secondary');
   }
 
+  private isOccupancyWarning(percent: number): boolean {
+    const threshold: number = this.businessStore.operationPolicy.occupancy_warning_percent;
+    return threshold > 0 && percent >= threshold;
+  }
+
   private title(): string {
     return this.navItems.find((item: AdminNavItem) => item.id === this.selectedNavId)?.label ?? '运营总览';
   }
@@ -349,7 +354,7 @@ export struct WideAdminWorkspace {
           .fontColor($r('app.color.doctor_workspace_text_secondary'))
       }.width('100%')
       Progress({ value: percent, total: 100, type: ProgressType.Linear })
-        .width('100%').height(6).color(percent >= 95 ? $r('app.color.doctor_workspace_warning') :
+        .width('100%').height(6).color(this.isOccupancyWarning(percent) ? $r('app.color.doctor_workspace_warning') :
           $r('app.color.doctor_workspace_focus')).backgroundColor($r('app.color.doctor_workspace_surface_hover'))
     }.width('100%').alignItems(HorizontalAlign.Start)
   }

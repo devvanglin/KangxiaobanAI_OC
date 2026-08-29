@@ -33,6 +33,7 @@ interface VitalTrendRow {
   heartRate: number;
   systolic: number;
   diastolic: number;
+  level: StatusLevel;
 }
 
 interface CareRecordRow {
@@ -179,11 +180,16 @@ export struct WideResidentPage {
         `${elder.emergency_contacts[0].name}（${elder.emergency_contacts[0].relation}）` : '未登记';
       const contactPhone: string = elder.emergency_contacts && elder.emergency_contacts.length > 0 ?
         elder.emergency_contacts[0].phone : '';
-      const abnormal: boolean = this.businessStore.healthRecords.some((item: HealthRecord) =>
-        item.elder_id === elder.id && item.is_abnormal);
-      const hasOpenAlert: boolean = this.businessStore.alerts.some((item) =>
+      const latest: HealthRecord | undefined = this.businessStore.healthRecords
+        .filter((item: HealthRecord) => item.elder_id === elder.id)
+        .sort((left: HealthRecord, right: HealthRecord): number =>
+          right.record_time.localeCompare(left.record_time))[0];
+      const healthLevel: StatusLevel = this.serverRiskLevel(latest?.risk_level);
+      const hasOpenAlert: boolean = this.businessStore.alerts.some((item: Alert) =>
         item.elder_id === elder.id && item.status !== 'handled' && item.status !== 'closed');
-      const level: StatusLevel = hasOpenAlert ? 'danger' : abnormal ? 'warning' : 'normal';
+      const level: StatusLevel = hasOpenAlert ? 'danger' : healthLevel;
+      const status: string = hasOpenAlert ? '存在待处理告警' : latest === undefined ? '暂无体征记录' :
+        (latest.risk_summary?.trim() || (healthLevel === 'normal' ? '服务器评估正常' : '服务器评估需关注'));
       const location: string = room ? `${room.floor}F-${room.room_no}` : '未分配房间';
       return {
         id: `${elder.id}`,
@@ -193,13 +199,13 @@ export struct WideResidentPage {
         room: location,
         bed: bed ? `${bed.bed_no}床` : '未分配床位',
         level: level,
-        status: hasOpenAlert ? '存在待处理告警' : abnormal ? '体征需要关注' : '状态稳定',
+        status: status,
         emergencyContact: contactName,
         emergencyPhone: contactPhone,
         admissionDate: elder.created_at ?? '',
         careLevel: `${elder.care_level}级护理`,
         diagnosis: elder.remark ? elder.remark.split('；') : [],
-        allergies: [],
+        allergies: elder.allergies ?? [],
         deviceIds: this.businessStore.devices
           .filter((item: IotDevice) => item.elder_id === elder.id)
           .map((item: IotDevice): string => item.device_id),
@@ -227,7 +233,8 @@ export struct WideResidentPage {
     if (records.length === 0) {
       return {
         heartRate: 0, systolic: 0, diastolic: 0, oxygen: 0,
-        temperature: 0, respiratory: 0, steps: 0, sleepHours: 0, measuredAt: '--'
+        temperature: 0, respiratory: 0, steps: 0, sleepHours: 0, measuredAt: '--',
+        riskLevel: 'normal', riskSummary: ''
       };
     }
     const latest: HealthRecord = records[0];
@@ -237,10 +244,12 @@ export struct WideResidentPage {
       diastolic: latest.diastolic ?? 0,
       oxygen: latest.spo2 ?? 0,
       temperature: latest.temperature ?? 0,
-      respiratory: 0,
-      steps: 0,
-      sleepHours: 0,
-      measuredAt: this.timeText(latest.record_time)
+      respiratory: latest.respiratory_rate ?? 0,
+      steps: latest.steps ?? 0,
+      sleepHours: latest.sleep_hours ?? 0,
+      measuredAt: this.timeText(latest.record_time),
+      riskLevel: this.serverRiskLevel(latest.risk_level),
+      riskSummary: latest.risk_summary ?? ''
     };
   }
 
@@ -248,10 +257,13 @@ export struct WideResidentPage {
     const elderId: number = Number(resident.id);
     const records: MedicationRecord[] = this.businessStore.medications
       .filter((item: MedicationRecord) => item.elder_id === elderId);
-    return {
-      done: records.filter((item: MedicationRecord) => item.status === 'taken').length,
-      total: records.length
-    };
+    let done: number = 0;
+    let total: number = 0;
+    for (let index: number = 0; index < records.length; index++) {
+      done += Math.max(0, records[index].today_done ?? 0);
+      total += Math.max(0, records[index].today_total ?? 0);
+    }
+    return { done: done, total: total };
   }
 
   private hasBloodPressure(resident: ResidentData): boolean {
@@ -409,42 +421,37 @@ export struct WideResidentPage {
     return $r('app.color.status_normal_bg');
   }
 
-  private heartRateLevel(vital: VitalSign): StatusLevel {
-    if (vital.heartRate < 50 || vital.heartRate > 110) {
+  private serverRiskLevel(value?: string): StatusLevel {
+    if (value === 'danger' || value === 'high' || value === 'critical') {
       return 'danger';
     }
-    if (vital.heartRate < 60 || vital.heartRate > 100) {
+    if (value === 'warning' || value === 'medium') {
       return 'warning';
     }
     return 'normal';
+  }
+
+  private heartRateLevel(vital: VitalSign): StatusLevel {
+    return vital.riskLevel;
   }
 
   private bloodPressureLevel(vital: VitalSign): StatusLevel {
-    if (vital.systolic >= 140 || vital.diastolic >= 90) {
-      return 'danger';
-    }
-    if (vital.systolic >= 130 || vital.diastolic >= 80) {
-      return 'warning';
-    }
-    return 'normal';
+    return vital.riskLevel;
   }
 
   private oxygenLevel(vital: VitalSign): StatusLevel {
-    if (vital.oxygen < 95) {
-      return 'danger';
-    }
-    if (vital.oxygen < 97) {
-      return 'warning';
-    }
-    return 'normal';
+    return vital.riskLevel;
   }
 
   private medicationLevel(progress: MedicationProgress): StatusLevel {
     return progress.total > 0 && progress.done >= progress.total ? 'normal' : 'warning';
   }
 
-  private metricStateText(level: StatusLevel, warningText: string): string {
-    return level === 'normal' ? '正常' : warningText;
+  private metricStateText(level: StatusLevel, riskSummary: string): string {
+    if (riskSummary.trim().length > 0) {
+      return riskSummary;
+    }
+    return level === 'normal' ? '服务器评估正常' : '服务器评估需关注';
   }
 
   private residentRowBackground(residentId: string): ResourceColor {
@@ -465,7 +472,8 @@ export struct WideResidentPage {
       .sort((left: HealthRecord, right: HealthRecord): number => left.record_time.localeCompare(right.record_time))
       .map((item: HealthRecord): VitalTrendRow => {
         return { time: this.timeText(item.record_time), heartRate: item.heart_rate ?? 0,
-          systolic: item.systolic ?? 0, diastolic: item.diastolic ?? 0 };
+          systolic: item.systolic ?? 0, diastolic: item.diastolic ?? 0,
+          level: this.serverRiskLevel(item.risk_level) };
       });
   }
 
@@ -498,14 +506,25 @@ export struct WideResidentPage {
 
   private riskRows(resident: ResidentData): RiskRow[] {
     const alerts: Alert[] = this.businessStore.alerts.filter((item: Alert) =>
-      item.elder_id === Number(resident.id));
-    if (alerts.length === 0) {
-      return [{ label: '综合风险', value: '暂无未处理风险', level: 'normal' }];
+      item.elder_id === Number(resident.id) && item.status !== 'handled' && item.status !== 'closed');
+    const rows: RiskRow[] = [];
+    const latest: HealthRecord | undefined = this.businessStore.healthRecords
+      .filter((item: HealthRecord) => item.elder_id === Number(resident.id))
+      .sort((left: HealthRecord, right: HealthRecord): number =>
+        right.record_time.localeCompare(left.record_time))[0];
+    if (latest && (latest.risk_summary?.trim().length ?? 0) > 0) {
+      rows.push({ label: '体征风险', value: latest.risk_summary ?? '',
+        level: this.serverRiskLevel(latest.risk_level) });
     }
-    return alerts.map((item: Alert): RiskRow => {
+    for (let index: number = 0; index < alerts.length; index++) {
+      const item: Alert = alerts[index];
       const level: StatusLevel = item.level === 'emergency' ? 'danger' : item.level === 'important' ? 'warning' : 'normal';
-      return { label: item.type, value: item.content, level: level };
-    });
+      rows.push({ label: item.type, value: item.content, level: level });
+    }
+    if (rows.length === 0) {
+      rows.push({ label: '综合风险', value: latest ? '服务器未报告异常风险' : '暂无服务器风险记录', level: 'normal' });
+    }
+    return rows;
   }
 
   private residentDevices(resident: ResidentData): RoomDeviceData[] {
@@ -514,6 +533,7 @@ export struct WideResidentPage {
       .map((item: IotDevice): RoomDeviceData => {
         return { id: item.device_id, name: item.product, type: item.protocol, room: resident.room,
           status: item.online === 1 ? '在线' : '离线', level: item.online === 1 ? 'normal' : 'danger',
+          battery: item.battery,
           lastUpdate: item.last_seen ? this.timeText(item.last_seen) : '--' };
       });
   }
@@ -1153,7 +1173,8 @@ export struct WideResidentPage {
         '血压',
         `${this.residentVitalSign(resident).systolic}/${this.residentVitalSign(resident).diastolic}`,
         'mmHg',
-        this.metricStateText(this.bloodPressureLevel(this.residentVitalSign(resident)), '偏高'),
+        this.metricStateText(this.bloodPressureLevel(this.residentVitalSign(resident)),
+          this.residentVitalSign(resident).riskSummary),
         this.bloodPressureLevel(this.residentVitalSign(resident))
       )
     } else {
@@ -1168,7 +1189,8 @@ export struct WideResidentPage {
         '心率',
         this.residentVitalSign(resident).heartRate.toString(),
         'bpm',
-        this.metricStateText(this.heartRateLevel(this.residentVitalSign(resident)), '需关注'),
+        this.metricStateText(this.heartRateLevel(this.residentVitalSign(resident)),
+          this.residentVitalSign(resident).riskSummary),
         this.heartRateLevel(this.residentVitalSign(resident))
       )
     } else {
@@ -1183,7 +1205,8 @@ export struct WideResidentPage {
         '血氧',
         this.residentVitalSign(resident).oxygen.toString(),
         '%',
-        this.metricStateText(this.oxygenLevel(this.residentVitalSign(resident)), '需关注'),
+        this.metricStateText(this.oxygenLevel(this.residentVitalSign(resident)),
+          this.residentVitalSign(resident).riskSummary),
         this.oxygenLevel(this.residentVitalSign(resident))
       )
     } else {
@@ -1561,8 +1584,8 @@ export struct WideResidentPage {
                 .fontColor($r('sys.color.font_primary'))
               Text(`血压 ${repeatItem.item.systolic}/${repeatItem.item.diastolic}`)
                 .fontSize($r('sys.float.Body_M'))
-                .fontColor(repeatItem.item.systolic >= 140 ?
-                  $r('app.color.status_danger') : $r('sys.color.font_primary'))
+                .fontColor(repeatItem.item.level === 'normal' ?
+                  $r('sys.color.font_primary') : this.statusColor(repeatItem.item.level))
                 .maxLines(1)
                 .textOverflow({ overflow: TextOverflow.Ellipsis })
             }

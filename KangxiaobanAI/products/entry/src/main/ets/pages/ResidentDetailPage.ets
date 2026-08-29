@@ -1088,7 +1088,7 @@ export struct ResidentDetailPage {
     return this.businessStore.devices.filter((item: IotDevice) => item.elder_id === Number(this.resident.id))
       .map((item: IotDevice): RoomDeviceData => ({ id: item.device_id, name: item.product, type: item.protocol,
         room: this.resident.room, status: item.online === 1 ? '在线' : '离线', level: item.online === 1 ? 'normal' : 'danger',
-        battery: 0, lastUpdate: item.last_seen ? item.last_seen.slice(11, 16) : '--' }));
+        battery: item.battery, lastUpdate: item.last_seen ? item.last_seen.slice(11, 16) : '--' }));
   }
 
   private moodRecords(): MoodRecord[] {
@@ -1101,9 +1101,15 @@ export struct ResidentDetailPage {
 
   private medications(): Medication[] {
     return this.businessStore.medications.filter((item: MedicationRecord) => item.elder_id === Number(this.resident.id))
-      .map((item: MedicationRecord): Medication => ({ id: `${item.id}`, name: item.medicine_name, dose: item.dosage,
-        frequency: '按医嘱', route: '口服', nextTime: item.plan_time ? item.plan_time.slice(11, 16) : '--',
-        todayTotal: 1, todayDone: item.status === 'taken' ? 1 : 0, level: item.status === 'taken' ? 'normal' : 'warning' }));
+      .map((item: MedicationRecord): Medication => {
+        const todayTotal: number = Math.max(0, item.today_total ?? 0);
+        const todayDone: number = Math.max(0, item.today_done ?? 0);
+        return { id: `${item.id}`, name: item.medicine_name, dose: item.dosage,
+          frequency: item.frequency ?? '', route: item.route ?? '',
+          nextTime: item.plan_time ? item.plan_time.slice(11, 16) : '--',
+          todayTotal: todayTotal, todayDone: todayDone,
+          level: todayTotal > 0 && todayDone < todayTotal ? 'warning' : 'normal' };
+      });
   }
 
   private nextMedicationTime(): string {

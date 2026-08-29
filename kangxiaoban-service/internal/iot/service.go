@@ -4,13 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"math"
 	"strconv"
 	"sync"
 	"time"
 
 	"gorm.io/gorm"
 
+	"kangxiaoban-service/internal/healthrisk"
 	"kangxiaoban-service/internal/model"
+	"kangxiaoban-service/internal/operationpolicy"
 	"kangxiaoban-service/internal/ws"
 )
 
@@ -28,10 +31,17 @@ var fieldTypes = map[string]string{
 	"fallStatus":     "fall_status",
 	"fallPosition":   "fall_position",
 	"online":         "online",
+	"battery":        "battery",
+	"batteryLevel":   "battery",
+	"batteryPercent": "battery",
 }
 
-// cooldownWindow 同类告警去重窗口。
-const cooldownWindow = 60 * time.Second
+type alertDef struct {
+	typ  string
+	lvl  string
+	cond bool
+	msg  string
+}
 
 // IotService 设备接入：MQTT 订阅 + 归一化 + 规则引擎 + 告警。
 type IotService struct {
@@ -74,11 +84,12 @@ func (s *IotService) IngestContext(ctx context.Context, deviceID, product string
 	}
 	db := s.db.WithContext(ctx)
 	now := time.Now()
+	battery := batteryFromValues(values)
 
 	var dev model.IotDevice
 	if err := db.Where("device_id = ?", deviceID).First(&dev).Error; err != nil {
 		// 设备未知：登记
-		dev = model.IotDevice{DeviceID: deviceID, Product: product, Protocol: "MQTT", Online: 1}
+		dev = model.IotDevice{DeviceID: deviceID, Product: product, Protocol: "MQTT", Online: 1, Battery: battery}
 		if dev.Product == "" {
 			dev.Product = "unknown"
 		}
@@ -91,6 +102,10 @@ func (s *IotService) IngestContext(ctx context.Context, deviceID, product string
 		updates := map[string]interface{}{"online": 1, "last_seen": now}
 		if product != "" && dev.Product == "" {
 			updates["product"] = product
+		}
+		if battery != nil {
+			updates["battery"] = *battery
+			dev.Battery = battery
 		}
 		if err := db.Model(&dev).Updates(updates).Error; err != nil {
 			return err
@@ -115,32 +130,43 @@ func (s *IotService) IngestContext(ctx context.Context, deviceID, product string
 
 // evaluate 规则引擎：按阈值产生分级告警（带去重），并经 WS 广播。
 func (s *IotService) evaluate(db *gorm.DB, dev model.IotDevice, values map[string]interface{}, now time.Time) {
-	type alertDef struct {
-		typ  string
-		lvl  string
-		cond bool
-		msg  string
-	}
-
-	breath := toFloat(values["breathValue"])
-	heart := toFloat(values["heartRateValue"])
-
+	policy := operationpolicy.LoadOrDefault(db)
+	cooldownWindow := operationpolicy.Seconds(policy.AlertCooldownSeconds)
 	defs := []alertDef{
 		{"fall", "emergency", inStrings(values["fallStatus"], "1", "2", "3"), "检测到跌倒"},
-		{"breath_abnormal", "important", breath != 0 && (breath < 10 || breath > 25),
-			"呼吸异常(次/分=" + toStr(values["breathValue"]) + ")"},
-		{"heart_abnormal", "important", heart != 0 && (heart < 40 || heart > 120),
-			"心率异常(bpm=" + toStr(values["heartRateValue"]) + ")"},
+	}
+	var thresholds []model.HealthThreshold
+	if err := db.Order("sort_order, id").Find(&thresholds).Error; err != nil {
+		log.Printf("load health thresholds for IoT evaluation failed: %v", err)
+	} else {
+		defs = appendHealthMetricAlert(defs, thresholds, values, "breathValue", "respiratory_rate", "breath_abnormal")
+		defs = appendHealthMetricAlert(defs, thresholds, values, "heartRateValue", "heart_rate", "heart_abnormal")
 	}
 	for _, d := range defs {
 		if !d.cond {
 			continue
 		}
-		if !s.okCooldown(d.typ, dev.DeviceID, now) {
+		if !s.okCooldown(d.typ, dev.DeviceID, now, cooldownWindow) {
 			continue
 		}
 		s.createAlert(db, dev, d.typ, d.lvl, d.msg, now)
 	}
+}
+
+func appendHealthMetricAlert(defs []alertDef, thresholds []model.HealthThreshold, values map[string]interface{}, sourceKey, metric, alertType string) []alertDef {
+	value, ok := toFloatOK(values[sourceKey])
+	if !ok || value <= 0 {
+		return defs
+	}
+	level, summary, err := healthrisk.EvaluateMetric(metric, value, thresholds)
+	if err != nil {
+		log.Printf("evaluate IoT health metric %s failed: %v", metric, err)
+		return defs
+	}
+	if level == "normal" {
+		return defs
+	}
+	return append(defs, alertDef{typ: alertType, lvl: "important", cond: true, msg: summary})
 }
 
 func (s *IotService) createAlert(db *gorm.DB, dev model.IotDevice, typ, lvl, content string, now time.Time) {
@@ -170,11 +196,11 @@ func (s *IotService) createAlert(db *gorm.DB, dev model.IotDevice, typ, lvl, con
 	}
 }
 
-func (s *IotService) okCooldown(typ, deviceID string, now time.Time) bool {
+func (s *IotService) okCooldown(typ, deviceID string, now time.Time, window time.Duration) bool {
 	key := typ + ":" + deviceID
 	if t, ok := s.cooldown.Load(key); ok {
 		last := t.(time.Time)
-		if now.Sub(last) < cooldownWindow {
+		if now.Sub(last) < window {
 			return false
 		}
 	}
@@ -186,10 +212,11 @@ func (s *IotService) okCooldown(typ, deviceID string, now time.Time) bool {
 func (s *IotService) StartEscalationScanner() {
 	ticker := time.NewTicker(15 * time.Second)
 	for range ticker.C {
-		cutoff := time.Now().Add(-escalationAfter)
 		for _, tenantID := range s.tenantIDs() {
 			ctx := context.WithValue(context.Background(), model.TenantContextKey, tenantID)
 			db := s.db.WithContext(ctx)
+			policy := operationpolicy.LoadOrDefault(db)
+			cutoff := time.Now().Add(-operationpolicy.Seconds(policy.AlertEscalationSeconds))
 			var alerts []model.Alert
 			if err := db.Where("level IN ? AND status = 'new' AND create_time < ?", []string{"emergency", "important"}, cutoff).Find(&alerts).Error; err != nil {
 				continue
@@ -356,24 +383,47 @@ func toStr(v interface{}) string {
 	return string(bs)
 }
 
-func toFloat(v interface{}) float64 {
+func batteryFromValues(values map[string]interface{}) *int {
+	for _, key := range []string{"battery", "batteryLevel", "batteryPercent"} {
+		value, exists := values[key]
+		if !exists {
+			continue
+		}
+		parsed, ok := toFloatOK(value)
+		if !ok {
+			return nil
+		}
+		battery := int(math.Round(parsed))
+		if battery < 0 {
+			battery = 0
+		}
+		if battery > 100 {
+			battery = 100
+		}
+		return &battery
+	}
+	return nil
+}
+
+func toFloatOK(v interface{}) (float64, bool) {
 	switch t := v.(type) {
 	case json.Number:
-		f, _ := t.Float64()
-		return f
+		f, err := t.Float64()
+		return f, err == nil
 	case float64:
-		return t
+		return t, true
 	case float32:
-		return float64(t)
+		return float64(t), true
 	case int:
-		return float64(t)
+		return float64(t), true
 	case int64:
-		return float64(t)
+		return float64(t), true
 	case string:
-		f, _ := strconv.ParseFloat(t, 64)
-		return f
+		f, err := strconv.ParseFloat(t, 64)
+		return f, err == nil
+	default:
+		return 0, false
 	}
-	return 0
 }
 
 func inStrings(v interface{}, want ...string) bool {

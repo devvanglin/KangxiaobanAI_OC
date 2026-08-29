@@ -52,6 +52,27 @@ func AutoMigrateAndSeed(db *gorm.DB, seedBusiness bool) error {
 	if err := ensureDefaultTenant(db); err != nil {
 		return fmt.Errorf("ensure default tenant: %w", err)
 	}
+	if err := ensureAIPromptSuggestionConstraint(db); err != nil {
+		return fmt.Errorf("ensure AI prompt suggestion constraint: %w", err)
+	}
+	if err := seedAIPromptSuggestions(db); err != nil {
+		return fmt.Errorf("seed AI prompt suggestions: %w", err)
+	}
+	if err := seedOperationPolicies(db); err != nil {
+		return fmt.Errorf("seed operation policies: %w", err)
+	}
+	if err := ensureBillingRateConstraint(db); err != nil {
+		return fmt.Errorf("ensure billing rate constraint: %w", err)
+	}
+	if err := seedBillingRates(db); err != nil {
+		return fmt.Errorf("seed billing rates: %w", err)
+	}
+	if err := ensureHealthThresholdConstraint(db); err != nil {
+		return fmt.Errorf("ensure health threshold constraint: %w", err)
+	}
+	if err := seedHealthThresholds(db); err != nil {
+		return fmt.Errorf("seed health thresholds: %w", err)
+	}
 	if err := ensureElderIdentityConstraint(db); err != nil {
 		return fmt.Errorf("ensure elder identity constraint: %w", err)
 	}
@@ -69,9 +90,50 @@ func AutoMigrateAndSeed(db *gorm.DB, seedBusiness bool) error {
 		return fmt.Errorf("ensure business relations: %w", err)
 	}
 	if seedBusiness {
-		return seedBusinessData(db)
+		if err := seedBusinessData(db); err != nil {
+			return err
+		}
+	}
+	if err := backfillBusinessFields(db); err != nil {
+		return fmt.Errorf("backfill business fields: %w", err)
 	}
 	return nil
+}
+
+// ensureHealthThresholdConstraint keeps one active rule per metric and tenant.
+// The application lookup remains useful for preserving configured values, while
+// this database guard closes concurrent initialization and update races.
+func ensureHealthThresholdConstraint(db *gorm.DB) error {
+	type duplicate struct {
+		TenantID uint
+		Metric   string
+		Count    int64
+	}
+	var duplicates []duplicate
+	if err := db.Raw("SELECT tenant_id, metric, COUNT(*) AS count FROM health_thresholds WHERE deleted_at IS NULL GROUP BY tenant_id, metric HAVING COUNT(*) > 1").Scan(&duplicates).Error; err != nil {
+		return err
+	}
+	if len(duplicates) > 0 {
+		return fmt.Errorf("duplicate active health threshold in tenant %d: %s", duplicates[0].TenantID, duplicates[0].Metric)
+	}
+	switch db.Dialector.Name() {
+	case "sqlite":
+		return db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS uk_health_thresholds_tenant_metric ON health_thresholds(tenant_id, metric) WHERE deleted_at IS NULL").Error
+	case "mysql":
+		if !db.Migrator().HasColumn(&model.HealthThreshold{}, "active_metric") {
+			if err := db.Exec("ALTER TABLE health_thresholds ADD COLUMN active_metric VARCHAR(32) GENERATED ALWAYS AS (CASE WHEN deleted_at IS NULL THEN metric ELSE NULL END) STORED").Error; err != nil {
+				return err
+			}
+		}
+		if !db.Migrator().HasIndex(&model.HealthThreshold{}, "uk_health_thresholds_tenant_metric") {
+			if err := db.Exec("CREATE UNIQUE INDEX uk_health_thresholds_tenant_metric ON health_thresholds(tenant_id, active_metric)").Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	default:
+		return fmt.Errorf("unsupported database driver %q", db.Dialector.Name())
+	}
 }
 
 // ensureElderIdentityConstraint prevents two active elders in the same tenant
@@ -126,7 +188,7 @@ func ensureDefaultTenant(db *gorm.DB) error {
 		}
 	}
 	// GORM 默认值通常会填充历史行；显式修复可能遗留的 0 值。
-	for _, table := range []interface{}{&model.User{}, &model.Role{}, &model.Permission{}, &model.AuditLog{}, &model.Elder{}, &model.Room{}, &model.Bed{}, &model.CareTask{}, &model.HealthRecord{}, &model.Assessment{}, &model.CarePlan{}, &model.CarePlanItem{}, &model.CareExecution{}, &model.Incident{}, &model.AssessmentTemplate{}, &model.AssessmentQuestion{}, &model.AssessmentOption{}, &model.AdmissionDictionaryItem{}, &model.AdmissionCarePlanTemplate{}, &model.AdmissionAssessment{}, &model.AdmissionAssessmentAnswer{}, &model.AdmissionScreening{}, &model.AdmissionScreeningAnswer{}, &model.IotDevice{}, &model.SignalRecord{}, &model.Alert{}, &model.AlertAction{}, &model.Notification{}, &model.Schedule{}, &model.ShiftHandover{}, &model.Bill{}, &model.FundFlow{}, &model.MedicationRecord{}, &model.MedicineStock{}, &model.DiningOrder{}, &model.FamilyElder{}, &model.Message{}} {
+	for _, table := range []interface{}{&model.User{}, &model.Role{}, &model.Permission{}, &model.AuditLog{}, &model.Elder{}, &model.Room{}, &model.Bed{}, &model.CareTask{}, &model.HealthRecord{}, &model.HealthThreshold{}, &model.Assessment{}, &model.CarePlan{}, &model.CarePlanItem{}, &model.CareExecution{}, &model.Incident{}, &model.AssessmentTemplate{}, &model.AssessmentQuestion{}, &model.AssessmentOption{}, &model.AdmissionDictionaryItem{}, &model.AdmissionCarePlanTemplate{}, &model.AdmissionAssessment{}, &model.AdmissionAssessmentAnswer{}, &model.AdmissionScreening{}, &model.AdmissionScreeningAnswer{}, &model.IotDevice{}, &model.SignalRecord{}, &model.Alert{}, &model.AlertAction{}, &model.Notification{}, &model.Schedule{}, &model.ShiftHandover{}, &model.BillingRate{}, &model.Bill{}, &model.FundFlow{}, &model.MedicationRecord{}, &model.MedicineStock{}, &model.DiningOrder{}, &model.FamilyElder{}, &model.Message{}, &model.OperationPolicy{}, &model.AIPromptSuggestion{}, &model.AIConversation{}, &model.AIMessage{}} {
 		if err := db.Model(table).Where("tenant_id = 0").Update("tenant_id", 1).Error; err != nil {
 			return err
 		}
@@ -369,9 +431,9 @@ func seedCoreBusinessDataTx(db *gorm.DB) error {
 	}
 	binding := []model.Elder{
 		{Name: "张素英", Gender: "F", BirthDate: "1938-05-12", ContactPhone: "13800000001", CareLevel: 3, Status: 2, IDCard: "110101193805120011",
-			EmergencyContacts: []model.ElderContact{{Name: "张伟", Relation: "儿子", Phone: "13800000001", IsEmergency: true}}},
+			EmergencyContacts: []model.ElderContact{{Name: "张伟", Relation: "儿子", Phone: "13800000001", IsEmergency: true}}, Allergies: []string{"青霉素"}},
 		{Name: "王建国", Gender: "M", BirthDate: "1945-11-02", ContactPhone: "13800000002", CareLevel: 2, Status: 2, IDCard: "110101194511020012",
-			EmergencyContacts: []model.ElderContact{{Name: "王芳", Relation: "女儿", Phone: "13800000002", IsEmergency: true}}},
+			EmergencyContacts: []model.ElderContact{{Name: "王芳", Relation: "女儿", Phone: "13800000002", IsEmergency: true}}, Allergies: []string{}},
 	}
 	for i := range binding {
 		if err := db.Create(&binding[i]).Error; err != nil {
@@ -393,9 +455,9 @@ func seedCoreBusinessDataTx(db *gorm.DB) error {
 	caregiverName := formalUserDisplayName(db, "caregiver", "护理员")
 	firstDueAt := time.Date(now.Year(), now.Month(), now.Day(), 8, 30, 0, 0, now.Location())
 	secondDueAt := time.Date(now.Year(), now.Month(), now.Day(), 10, 0, 0, 0, now.Location())
-	tasks := []model.CareTask{{ElderID: binding[0].ID, Title: "早间翻身", Kind: "turnover", Assignee: caregiverName, DueAt: &firstDueAt, Status: "todo", Remark: "两小时一次"}}
+	tasks := []model.CareTask{{ElderID: binding[0].ID, Title: "早间翻身", Kind: "turnover", Category: "todo", Priority: "warning", Assignee: caregiverName, DueAt: &firstDueAt, Status: "todo", Remark: bootstrapTurnoverInstructions}}
 	if len(binding) > 1 {
-		tasks = append(tasks, model.CareTask{ElderID: binding[1].ID, Title: "服用降压药", Kind: "medication", Assignee: caregiverName, DueAt: &secondDueAt, Status: "todo"})
+		tasks = append(tasks, model.CareTask{ElderID: binding[1].ID, Title: "服用降压药", Kind: "medication", Category: "medication", Priority: "warning", Assignee: caregiverName, DueAt: &secondDueAt, Status: "todo", Remark: bootstrapMedicationInstructions})
 	}
 	if err := db.Create(&tasks).Error; err != nil {
 		return err
@@ -411,9 +473,9 @@ func seedCoreBusinessDataTx(db *gorm.DB) error {
 		return err
 	}
 
-	health := []model.HealthRecord{{ElderID: binding[0].ID, Temperature: fp(36.6), Systolic: pi(132), Diastolic: pi(82), HeartRate: pi(78), Spo2: fp(97), Source: "manual", RecordTime: now, IsAbnormal: false}}
+	health := []model.HealthRecord{{ElderID: binding[0].ID, Temperature: fp(36.6), Systolic: pi(132), Diastolic: pi(82), HeartRate: pi(78), Spo2: fp(97), RespiratoryRate: pi(18), Steps: pi(3860), SleepHours: fp(6.8), Source: "manual", RecordTime: now}}
 	if len(binding) > 1 {
-		health = append(health, model.HealthRecord{ElderID: binding[1].ID, Temperature: fp(38.2), Systolic: pi(98), Diastolic: pi(64), HeartRate: pi(96), Spo2: fp(93), Source: "manual", RecordTime: now, IsAbnormal: true})
+		health = append(health, model.HealthRecord{ElderID: binding[1].ID, Temperature: fp(38.2), Systolic: pi(98), Diastolic: pi(64), HeartRate: pi(96), Spo2: fp(93), RespiratoryRate: pi(24), Steps: pi(2180), SleepHours: fp(5.2), Source: "manual", RecordTime: now})
 	}
 	if err := db.Create(&health).Error; err != nil {
 		return err
@@ -521,7 +583,7 @@ func seedBusinessDataTx(db *gorm.DB) error {
 
 	// 设备（绑定在院长者）
 	var elders []model.Elder
-	if err := db.Where("status = 2").Order("id").Find(&elders).Error; err != nil {
+	if err := db.Preload("Bed.Room").Where("status = 2").Order("id").Find(&elders).Error; err != nil {
 		return err
 	}
 	bind := func(i int) *uint {
@@ -534,10 +596,14 @@ func seedBusinessDataTx(db *gorm.DB) error {
 	if devCount == 0 {
 		devices := []model.IotDevice{{DeviceID: "E438192587C3", Product: "fall_radar", Online: 0, Protocol: "MQTT"}}
 		if elder := bind(0); elder != nil {
-			devices = append([]model.IotDevice{{DeviceID: "E438192584AA", Product: "fall_radar", Online: 1, ElderID: elder, Protocol: "MQTT", LastSeen: &now}}, devices...)
+			device := model.IotDevice{DeviceID: "E438192584AA", Product: "fall_radar", Online: 1, ElderID: elder, Protocol: "MQTT", Battery: pi(87), LastSeen: &now}
+			applyDevicePlacement(&device, elders[0])
+			devices = append([]model.IotDevice{device}, devices...)
 		}
 		if elder := bind(1); elder != nil {
-			devices = append([]model.IotDevice{{DeviceID: "E438192584F5", Product: "breath_radar", Online: 1, ElderID: elder, Protocol: "MQTT", LastSeen: &now}}, devices...)
+			device := model.IotDevice{DeviceID: "E438192584F5", Product: "breath_radar", Online: 1, ElderID: elder, Protocol: "MQTT", Battery: pi(76), LastSeen: &now}
+			applyDevicePlacement(&device, elders[1])
+			devices = append([]model.IotDevice{device}, devices...)
 		}
 		for i := range devices {
 			if err := db.Create(&devices[i]).Error; err != nil {
@@ -573,8 +639,11 @@ func seedBusinessDataTx(db *gorm.DB) error {
 		if n > 0 {
 			continue
 		}
-		nursing := nursingFee(int(e.CareLevel))
-		if err := db.Create(&model.Bill{ElderID: e.ID, BillMonth: month, BedFee: 1500, NursingFee: nursing, MealFee: 900, Amount: 1500 + nursing + 900, Status: "unpaid"}).Error; err != nil {
+		bed, nursing, meal, err := loadMonthlyBillingRates(db, e.CareLevel)
+		if err != nil {
+			return err
+		}
+		if err := db.Create(&model.Bill{ElderID: e.ID, BillMonth: month, BedFee: bed, NursingFee: nursing, MealFee: meal, Amount: bed + nursing + meal, Status: "unpaid"}).Error; err != nil {
 			return err
 		}
 	}
@@ -599,7 +668,7 @@ func seedBusinessDataTx(db *gorm.DB) error {
 		return err
 	}
 	if iotHealthCount == 0 && len(elders) > 0 {
-		if err := db.Create(&model.HealthRecord{ElderID: elders[0].ID, Temperature: fp(36.6), Systolic: pi(132), Diastolic: pi(82), HeartRate: pi(78), Spo2: fp(97), Source: "iot", RecordTime: now, IsAbnormal: false}).Error; err != nil {
+		if err := db.Create(&model.HealthRecord{ElderID: elders[0].ID, Temperature: fp(36.6), Systolic: pi(132), Diastolic: pi(82), HeartRate: pi(78), Spo2: fp(97), RespiratoryRate: pi(18), Steps: pi(3860), SleepHours: fp(6.8), Source: "iot", RecordTime: now}).Error; err != nil {
 			return err
 		}
 	}
@@ -630,9 +699,9 @@ func seedBusinessDataTx(db *gorm.DB) error {
 	if medicationCount == 0 && len(elders) > 0 {
 		planTime := now.Add(2 * time.Hour)
 		takenTime := now.Add(-2 * time.Hour)
-		medications := []model.MedicationRecord{{ElderID: elders[0].ID, MedicineName: "硝苯地平缓释片", Dosage: "20mg 口服", PlanTime: &planTime, TakenTime: &takenTime, Status: "taken"}}
+		medications := []model.MedicationRecord{{ElderID: elders[0].ID, MedicineName: "硝苯地平缓释片", Dosage: "20mg", Frequency: "每日1次", Route: "口服", PlanTime: &planTime, TakenTime: &takenTime, TodayTotal: 1, TodayDone: 1, Status: "taken"}}
 		if len(elders) > 1 {
-			medications = append(medications, model.MedicationRecord{ElderID: elders[1].ID, MedicineName: "阿托伐他汀钙片", Dosage: "10mg 口服", PlanTime: &planTime, Status: "pending"})
+			medications = append(medications, model.MedicationRecord{ElderID: elders[1].ID, MedicineName: "阿托伐他汀钙片", Dosage: "10mg", Frequency: "每晚1次", Route: "口服", PlanTime: &planTime, TodayTotal: 1, TodayDone: 0, Status: "pending"})
 		}
 		if err := db.Create(&medications).Error; err != nil {
 			return err
@@ -758,21 +827,6 @@ func seedBusinessDataTx(db *gorm.DB) error {
 		}
 	}
 	return nil
-}
-
-func nursingFee(level int) float64 {
-	switch level {
-	case 1:
-		return 1200
-	case 2:
-		return 1800
-	case 3:
-		return 2400
-	case 4:
-		return 3000
-	default:
-		return 3600
-	}
 }
 
 func elderName(db *gorm.DB, id *uint) string {

@@ -81,6 +81,8 @@ export interface VitalSign {
   steps: number;
   sleepHours: number;
   measuredAt: string;
+  riskLevel: StatusLevel;
+  riskSummary: string;
 }
 
 /** 体征历史趋势点 */

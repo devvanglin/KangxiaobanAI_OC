@@ -22,6 +22,7 @@ type Elder struct {
 	Status            int8           `gorm:"default:1" json:"status"`
 	BedID             *uint          `gorm:"default:null" json:"bed_id"`
 	EmergencyContacts []ElderContact `gorm:"serializer:json" json:"emergency_contacts"`
+	Allergies         []string       `gorm:"serializer:json" json:"allergies"`
 	Image             string         `gorm:"size:255" json:"image"`
 	Remark            string         `gorm:"size:500" json:"remark"`
 	Bed               *Bed           `json:"bed,omitempty"`
@@ -51,29 +52,52 @@ type Bed struct {
 // CareTask 护理任务。状态 todo/doing/done。
 type CareTask struct {
 	Base
-	ElderID    uint       `gorm:"index;not null" json:"elder_id"`
-	PlanItemID *uint      `gorm:"index" json:"plan_item_id,omitempty"`
-	Title      string     `gorm:"size:128;not null" json:"title"`
-	Kind       string     `gorm:"size:32" json:"kind"` // feeding/bath/medication/turnover/rehab...
-	AssigneeID *uint      `gorm:"index" json:"assignee_id,omitempty"`
-	Assignee   string     `gorm:"size:64" json:"assignee"`
-	DueAt      *time.Time `json:"due_at"`
-	Status     string     `gorm:"size:16;default:todo" json:"status"`
-	Remark     string     `gorm:"size:500" json:"remark"`
+	ElderID    uint          `gorm:"index;not null" json:"elder_id"`
+	PlanItemID *uint         `gorm:"index" json:"plan_item_id,omitempty"`
+	Title      string        `gorm:"size:128;not null" json:"title"`
+	Kind       string        `gorm:"size:32" json:"kind"`                    // feeding/bath/medication/turnover/rehab...
+	Priority   string        `gorm:"size:16;default:normal" json:"priority"` // normal/warning/danger
+	Category   string        `gorm:"size:32;default:todo" json:"category"`   // todo/medication/record/family/report
+	AssigneeID *uint         `gorm:"index" json:"assignee_id,omitempty"`
+	Assignee   string        `gorm:"size:64" json:"assignee"`
+	DueAt      *time.Time    `json:"due_at"`
+	Status     string        `gorm:"size:16;default:todo" json:"status"`
+	Remark     string        `gorm:"size:500" json:"remark"`
+	PlanItem   *CarePlanItem `gorm:"foreignKey:PlanItemID" json:"plan_item,omitempty"`
 }
 
 // HealthRecord 健康体征记录。source manual 手录 / iot 设备。
 type HealthRecord struct {
 	Base
-	ElderID     uint      `gorm:"index;not null" json:"elder_id"`
-	Temperature *float64  `json:"temperature"`
-	Systolic    *int      `json:"systolic"`
-	Diastolic   *int      `json:"diastolic"`
-	HeartRate   *int      `json:"heart_rate"`
-	Spo2        *float64  `json:"spo2"`
-	Source      string    `gorm:"size:16;default:manual" json:"source"`
-	RecordTime  time.Time `json:"record_time"`
-	IsAbnormal  bool      `gorm:"default:false" json:"is_abnormal"`
+	ElderID         uint      `gorm:"index;not null" json:"elder_id"`
+	Temperature     *float64  `json:"temperature"`
+	Systolic        *int      `json:"systolic"`
+	Diastolic       *int      `json:"diastolic"`
+	HeartRate       *int      `json:"heart_rate"`
+	Spo2            *float64  `json:"spo2"`
+	RespiratoryRate *int      `json:"respiratory_rate"`
+	Steps           *int      `json:"steps"`
+	SleepHours      *float64  `json:"sleep_hours"`
+	Source          string    `gorm:"size:16;default:manual" json:"source"`
+	RecordTime      time.Time `json:"record_time"`
+	IsAbnormal      bool      `gorm:"default:false" json:"is_abnormal"`
+	RiskLevel       string    `gorm:"size:16;default:normal" json:"risk_level"`
+	RiskSummary     string    `gorm:"size:1024" json:"risk_summary"`
+}
+
+// HealthThreshold defines the tenant-owned normal and critical boundaries for one vital metric.
+// Values outside the warning interval are warning; values outside the critical interval are danger.
+type HealthThreshold struct {
+	Base
+	Metric      string   `gorm:"size:32;index;not null" json:"metric"`
+	DisplayName string   `gorm:"size:64;not null" json:"display_name"`
+	Unit        string   `gorm:"size:16" json:"unit"`
+	WarningMin  *float64 `json:"warning_min"`
+	WarningMax  *float64 `json:"warning_max"`
+	CriticalMin *float64 `json:"critical_min"`
+	CriticalMax *float64 `json:"critical_max"`
+	Enabled     bool     `gorm:"default:true;index" json:"enabled"`
+	SortOrder   int      `gorm:"default:0" json:"sort_order"`
 }
 
 // Assessment 长者照护/风险评估。评估结果用于生成护理计划，不等同于临床诊断。

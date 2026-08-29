@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -32,18 +33,16 @@ func (s *ScheduleService) CreateHandover(ctx context.Context, h *model.ShiftHand
 	return s.repo.CreateHandover(ctx, h)
 }
 
-// feeTable 简易费率：床位费/餐饮费按常量，护理费按照护等级。
-var feeTable = map[int]float64{1: 1200, 2: 1800, 3: 2400, 4: 3000, 5: 3600}
-
 // FinanceService 费用账单与资金。
 type FinanceService struct {
 	db    *gorm.DB
 	repo  *repository.FinanceRepository
 	elder *repository.ElderRepository
+	rates *repository.BillingRateRepository
 }
 
 func NewFinanceService(db *gorm.DB, repo *repository.FinanceRepository, elder *repository.ElderRepository) *FinanceService {
-	return &FinanceService{db: db, repo: repo, elder: elder}
+	return &FinanceService{db: db, repo: repo, elder: elder, rates: repository.NewBillingRateRepository(db)}
 }
 
 func (s *FinanceService) ListBills(ctx context.Context, elderID uint, month string, page, size int) ([]model.Bill, int64, error) {
@@ -69,23 +68,38 @@ func (s *FinanceService) GenerateMonth(ctx context.Context, month string) (int, 
 	if err := db.Where("status = 2").Find(&elders).Error; err != nil {
 		return 0, err
 	}
+	pending := make([]model.Elder, 0, len(elders))
+	for _, elder := range elders {
+		var count int64
+		if err := db.Model(&model.Bill{}).Where("elder_id = ? AND bill_month = ?", elder.ID, month).Count(&count).Error; err != nil {
+			return 0, err
+		}
+		if count == 0 {
+			pending = append(pending, elder)
+		}
+	}
+	if len(pending) == 0 {
+		return 0, nil
+	}
+	rates, err := s.monthlyRates(ctx)
+	if err != nil {
+		return 0, err
+	}
+	for _, elder := range pending {
+		if _, ok := rates.Nursing[elder.CareLevel]; !ok {
+			return 0, fmt.Errorf("billing rate unavailable for care level %d", elder.CareLevel)
+		}
+	}
 	count := 0
-	for _, e := range elders {
-		var n int64
-		if err := db.Model(&model.Bill{}).Where("elder_id = ? AND bill_month = ?", e.ID, month).Count(&n).Error; err != nil {
-			return count, err
-		}
-		if n > 0 {
-			continue
-		}
-		nursing := feeTable[int(e.CareLevel)]
+	for _, e := range pending {
+		nursing := rates.Nursing[e.CareLevel]
 		bill := model.Bill{
 			ElderID:    e.ID,
 			BillMonth:  month,
-			BedFee:     1500,
+			BedFee:     rates.Bed,
 			NursingFee: nursing,
-			MealFee:    900,
-			Amount:     1500 + nursing + 900,
+			MealFee:    rates.Meal,
+			Amount:     rates.Bed + nursing + rates.Meal,
 			Status:     "unpaid",
 		}
 		if err := db.Create(&bill).Error; err != nil {
@@ -94,6 +108,38 @@ func (s *FinanceService) GenerateMonth(ctx context.Context, month string) (int, 
 		count++
 	}
 	return count, nil
+}
+
+type monthlyBillingRates struct {
+	Bed     float64
+	Meal    float64
+	Nursing map[int8]float64
+}
+
+func (s *FinanceService) monthlyRates(ctx context.Context) (monthlyBillingRates, error) {
+	items, err := s.rates.ListEnabled(ctx)
+	if err != nil {
+		return monthlyBillingRates{}, err
+	}
+	result := monthlyBillingRates{Nursing: make(map[int8]float64, 5)}
+	foundBed, foundMeal := false, false
+	for _, item := range items {
+		if item.Amount < 0 {
+			return monthlyBillingRates{}, fmt.Errorf("negative billing rate %s/%d", item.Kind, item.CareLevel)
+		}
+		switch {
+		case item.Kind == model.BillingRateKindBed && item.CareLevel == 0:
+			result.Bed, foundBed = item.Amount, true
+		case item.Kind == model.BillingRateKindMeal && item.CareLevel == 0:
+			result.Meal, foundMeal = item.Amount, true
+		case item.Kind == model.BillingRateKindNursing && item.CareLevel >= 1 && item.CareLevel <= 5:
+			result.Nursing[item.CareLevel] = item.Amount
+		}
+	}
+	if !foundBed || !foundMeal {
+		return monthlyBillingRates{}, fmt.Errorf("flat monthly billing rate unavailable")
+	}
+	return result, nil
 }
 
 // Pay 缴费：入资金流水并更新账单已缴/状态。
@@ -150,6 +196,27 @@ func (s *MedicationService) List(ctx context.Context, elderID uint, status strin
 	return s.repo.List(ctx, elderID, status, page, size)
 }
 func (s *MedicationService) Create(ctx context.Context, m *model.MedicationRecord) error {
+	if m.Frequency == "" {
+		m.Frequency = "按医嘱"
+	}
+	if m.Route == "" {
+		m.Route = "口服"
+	}
+	if m.TodayTotal <= 0 {
+		m.TodayTotal = 1
+	}
+	if m.TodayDone < 0 {
+		m.TodayDone = 0
+	}
+	if m.TodayDone > m.TodayTotal {
+		m.TodayDone = m.TodayTotal
+	}
+	if m.Status == "" {
+		m.Status = "pending"
+	}
+	if m.Status == "taken" && m.TodayDone == 0 {
+		m.TodayDone = m.TodayTotal
+	}
 	return s.repo.Create(ctx, m)
 }
 func (s *MedicationService) Get(ctx context.Context, id uint) (*model.MedicationRecord, error) {
@@ -166,6 +233,13 @@ func (s *MedicationService) MarkStatus(ctx context.Context, id uint, status stri
 	if status == "taken" {
 		now := time.Now()
 		m.TakenTime = &now
+		if m.TodayTotal <= 0 {
+			m.TodayTotal = 1
+		}
+		m.TodayDone = m.TodayTotal
+	} else {
+		m.TakenTime = nil
+		m.TodayDone = 0
 	}
 	return s.repo.Save(ctx, m)
 }

@@ -71,12 +71,13 @@ func AutoMigrate(db *gorm.DB) error {
 
 // AutoMigrateAll 认证表 + 业务业务。
 func AutoMigrateAll(db *gorm.DB) error {
-	return db.AutoMigrate(&Tenant{}, &User{}, &Role{}, &Permission{}, &AuditLog{}, &Elder{}, &Room{}, &Bed{}, &CareTask{}, &HealthRecord{},
+	return db.AutoMigrate(&Tenant{}, &User{}, &Role{}, &Permission{}, &AuditLog{}, &Elder{}, &Room{}, &Bed{}, &CareTask{}, &HealthRecord{}, &HealthThreshold{},
 		&Assessment{}, &CarePlan{}, &CarePlanItem{}, &CareExecution{}, &Incident{},
 		&AssessmentTemplate{}, &AssessmentQuestion{}, &AssessmentOption{}, &AdmissionDictionaryItem{},
 		&AdmissionCarePlanTemplate{}, &AdmissionAssessment{}, &AdmissionAssessmentAnswer{},
 		&AdmissionScreening{}, &AdmissionScreeningAnswer{},
 		&IotDevice{}, &SignalRecord{}, &Alert{}, &AlertAction{}, &Notification{},
-		&Schedule{}, &ShiftHandover{}, &Bill{}, &FundFlow{}, &MedicationRecord{},
-		&MedicineStock{}, &DiningOrder{}, &FamilyElder{}, &Message{})
+		&Schedule{}, &ShiftHandover{}, &BillingRate{}, &Bill{}, &FundFlow{}, &MedicationRecord{},
+		&MedicineStock{}, &DiningOrder{}, &FamilyElder{}, &Message{}, &OperationPolicy{},
+		&AIPromptSuggestion{}, &AIConversation{}, &AIMessage{})
 }
