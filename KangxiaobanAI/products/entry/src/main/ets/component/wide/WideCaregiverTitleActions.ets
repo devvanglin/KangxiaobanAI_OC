@@ -192,6 +192,7 @@ export struct WideCaregiverTitleActions {
     }
     .width('100%')
     .height('100%')
+    .padding({ right: this.compactWidth ? 18 : 28 })
     .justifyContent(FlexAlign.End)
     .alignItems(VerticalAlign.Center)
     .backgroundColor(Color.Transparent)

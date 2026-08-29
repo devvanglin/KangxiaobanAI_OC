@@ -81,11 +81,6 @@ export struct WideResidentPage {
   }
 
   @Local residentFilterIndex: number = 0;
-  private residentFilterItems: WideSlidingCapsuleItem[] = [
-    { title: '全部 5', index: 0 },
-    { title: '关注 2', index: 1 },
-    { title: '危险 1', index: 2 }
-  ];
   private detailTabItems: WideSlidingCapsuleItem[] = [
     { title: '概览', index: 0 },
     { title: '体征趋势', index: 1 },
@@ -273,6 +268,15 @@ export struct WideResidentPage {
       return 'danger';
     }
     return 'all';
+  }
+
+  private residentFilterItems(): WideSlidingCapsuleItem[] {
+    const residents: ResidentData[] = this.allResidents();
+    return [
+      { title: `全部 ${residents.length}`, index: 0 },
+      { title: `关注 ${residents.filter((item: ResidentData): boolean => item.level === 'warning').length}`, index: 1 },
+      { title: `危险 ${residents.filter((item: ResidentData): boolean => item.level === 'danger').length}`, index: 2 }
+    ];
   }
 
   private selectedDetailTabIndex(): number {
@@ -478,7 +482,8 @@ export struct WideResidentPage {
               SymbolGlyph($r('sys.symbol.magnifyingglass'))
                 .fontSize(24)
                 .fontColor([$r('sys.color.font_tertiary')])
-              Text('未找到符合条件的长者')
+              Text(this.businessStore.eldersLoaded ?
+                (this.businessStore.error.length > 0 ? '长者数据加载失败' : '暂无长者数据') : '正在加载长者数据')
                 .fontSize($r('sys.float.Body_M'))
                 .fontColor($r('sys.color.font_secondary'))
             }
@@ -534,8 +539,8 @@ export struct WideResidentPage {
 
   @Builder
   private filterBar() {
-    WideSlidingCapsule({
-      items: this.residentFilterItems,
+      WideSlidingCapsule({
+        items: this.residentFilterItems(),
       selectedIndex: this.residentFilterIndex,
       itemWidth: (360 - 32 - 6 - 8) / 3,
       fillWidth: true,
@@ -634,12 +639,18 @@ export struct WideResidentPage {
   @Builder
   private emptyResidentDetail() {
     Column({ space: 10 }) {
-      LoadingProgress()
-        .width(36)
-        .height(36)
-      Text(this.businessStore.loading ? '正在加载长者数据' : '暂无长者数据')
-        .fontSize($r('sys.float.Body_M'))
-        .fontColor($r('sys.color.font_secondary'))
+      if (this.businessStore.loading && !this.businessStore.eldersLoaded) {
+        LoadingProgress()
+          .width(36)
+          .height(36)
+        Text('正在加载长者数据')
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor($r('sys.color.font_secondary'))
+      } else {
+        Text(this.businessStore.error.length > 0 ? '长者数据加载失败' : '暂无长者数据')
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor($r('sys.color.font_secondary'))
+      }
     }
     .width('100%')
     .height('100%')
