@@ -16,13 +16,14 @@ import {
 import AdmissionRepository, { AdmissionFailureKind, AdmissionResult } from '../../network/AdmissionRepository';
 
 /**
- * 入住评估附加筛查。量表、题目、选项和评分均来自服务器；这些筛查是可选的，
- * 不参与附录 B/C 能力等级计算，也不会改变入住主流程的步骤状态。
+ * 入住评估筛查。量表、题目、选项和评分均来自服务器。
+ * GDS-15 与 Mini-Cog 是首阶段必做项目；Mini-Cog <= 2 时才开放 MMSE/MoCA。
  */
 @ComponentV2
 export struct AdmissionScreeningPanel {
   @Param @Require admissionId: number;
   @Param compactWidth: boolean = false;
+  @Event onGateChange: (ready: boolean) => void = (_ready: boolean) => {};
 
   @Local templates: AdmissionScreeningTemplate[] = [];
   @Local screenings: AdmissionScreening[] = [];
@@ -36,6 +37,149 @@ export struct AdmissionScreeningPanel {
   @Local errorMessage: string = '';
   @Local dirty: boolean = false;
 
+  private readonly primaryCodes: string[] = ['GDS15', 'MINI_COG'];
+  private readonly furtherCodes: string[] = ['MMSE', 'MOCA_BEIJING'];
+
+  private templateFor(code: string): AdmissionScreeningTemplate | undefined {
+    for (let index: number = 0; index < this.templates.length; index++) {
+      if (this.templates[index].code === code) {
+        return this.templates[index];
+      }
+    }
+    return undefined;
+  }
+
+  private isCompleted(code: string): boolean {
+    const screening: AdmissionScreening | undefined = this.screeningFor(code);
+    return screening !== undefined && screening.status === 'completed';
+  }
+
+  private primaryComplete(): boolean {
+    return this.isCompleted('GDS15') && this.isCompleted('MINI_COG');
+  }
+
+  private miniCogScore(): number | undefined {
+    const screening: AdmissionScreening | undefined = this.screeningFor('MINI_COG');
+    if (screening === undefined || screening.status !== 'completed') {
+      return undefined;
+    }
+    return screening.adjusted_score;
+  }
+
+  private needsFurtherCognition(): boolean {
+    const score: number | undefined = this.miniCogScore();
+    return score !== undefined && score <= 2;
+  }
+
+  private isGateReady(): boolean {
+    if (!this.primaryComplete()) {
+      return false;
+    }
+    if (!this.needsFurtherCognition()) {
+      return true;
+    }
+    return this.isCompleted('MMSE') && this.isCompleted('MOCA_BEIJING');
+  }
+
+  private gateMessage(): string {
+    if (!this.isCompleted('GDS15')) {
+      return '首阶段：请先完成老年抑郁量表（GDS-15）。';
+    }
+    if (!this.isCompleted('MINI_COG')) {
+      return '首阶段：请完成 Mini-Cog 简易认知筛查。';
+    }
+    const score: number | undefined = this.miniCogScore();
+    if (score !== undefined && score <= 2) {
+      if (!this.isCompleted('MMSE')) {
+        return `Mini-Cog ${score} 分：请完成 MMSE 逐项复核。`;
+      }
+      if (!this.isCompleted('MOCA_BEIJING')) {
+        return `Mini-Cog ${score} 分：请完成 MoCA 北京版逐项复核。`;
+      }
+    }
+    return '首阶段筛查已完成，可继续入住评估。';
+  }
+
+  private isPrimary(code: string): boolean {
+    return this.primaryCodes.indexOf(code) >= 0;
+  }
+
+  private isFurther(code: string): boolean {
+    return this.furtherCodes.indexOf(code) >= 0;
+  }
+
+  private isCognitive(code: string): boolean {
+    return code === 'MINI_COG' || this.isFurther(code);
+  }
+
+  private stageLabel(code: string): string {
+    if (this.isPrimary(code)) {
+      return '首阶段必做';
+    }
+    if (this.isFurther(code)) {
+      return '进一步评估（Mini-Cog ≤2 分）';
+    }
+    return '可选筛查';
+  }
+
+  private miniCogSummary(): string {
+    const score: number | undefined = this.miniCogScore();
+    return score === undefined ? '当前 Mini-Cog：未完成' : `当前 Mini-Cog：${score} 分`;
+  }
+
+  private canOpenTemplate(code: string): boolean {
+    if (this.isPrimary(code)) {
+      return true;
+    }
+    if (this.isFurther(code)) {
+      return this.primaryComplete() && this.needsFurtherCognition();
+    }
+    // GAD-7, sleep and future server-configured optional screens remain
+    // available without changing the required cognitive gate.
+    return true;
+  }
+
+  private lockReason(code: string): string {
+    if (this.isFurther(code)) {
+      if (!this.primaryComplete()) {
+        return '请先完成 GDS-15 和 Mini-Cog 首阶段筛查。';
+      }
+      const score: number | undefined = this.miniCogScore();
+      return score === undefined ? '完成 Mini-Cog 后才能判断是否需要进一步筛查。' :
+        `Mini-Cog ${score} 分未达到进一步筛查条件（≤2 分）。`;
+    }
+    return '该筛查当前不可用。';
+  }
+
+  private evidenceAnswers(screening: AdmissionScreening | undefined): AdmissionScreeningStoredAnswer[] {
+    const result: AdmissionScreeningStoredAnswer[] = [];
+    if (screening === undefined) {
+      return result;
+    }
+    const stored: AdmissionScreeningStoredAnswer[] = screening.answers ?? [];
+    for (let index: number = 0; index < stored.length; index++) {
+      if ((stored[index].answer_text ?? '').trim().length > 0) {
+        result.push(stored[index]);
+      }
+    }
+    return result;
+  }
+
+  private evidencePlaceholder(code: string): string {
+    return this.isCognitive(code) ? '记录受试者逐题表现、原始作答或现场证据（可选）' : '本题补充记录（可选）';
+  }
+
+  private notifyGate(): void {
+    this.onGateChange(this.isGateReady() && !this.dirtyForGate());
+  }
+
+  private dirtyForGate(): boolean {
+    if (!this.dirty) {
+      return false;
+    }
+    return this.isPrimary(this.selectedCode) || this.isFurther(this.selectedCode);
+  }
+
   aboutToAppear(): void {
     this.load();
   }
@@ -47,7 +191,8 @@ export struct AdmissionScreeningPanel {
     if (this.admissionId <= 0) {
       this.loading = false;
       this.errorKind = 'validation';
-      this.errorMessage = '保存入住评估草稿后才能填写可选筛查。';
+      this.errorMessage = '保存入住评估草稿后才能填写首阶段筛查。';
+      this.onGateChange(false);
       return;
     }
     const templateResult: AdmissionResult<AdmissionScreeningTemplate[]> =
@@ -55,6 +200,7 @@ export struct AdmissionScreeningPanel {
     if (!templateResult.ok || templateResult.data === undefined) {
       this.loading = false;
       this.setError(templateResult.kind, templateResult.message);
+      this.onGateChange(false);
       return;
     }
     this.templates = templateResult.data;
@@ -68,11 +214,14 @@ export struct AdmissionScreeningPanel {
     }
     this.loading = false;
     if (this.templates.length > 0) {
-      this.hydrate(this.selectedCode.length > 0 ? this.selectedCode : this.templates[0].code);
+      const initialCode: string = this.selectedCode.length > 0 ? this.selectedCode :
+        (this.templateFor('GDS15') !== undefined ? 'GDS15' : this.templates[0].code);
+      this.hydrate(initialCode);
       if (!screeningResult.ok) {
         this.setError(screeningResult.kind, `已加载量表，但历史筛查记录读取失败：${screeningResult.message}`);
       }
     }
+    this.notifyGate();
   }
 
   private setError(kind: AdmissionFailureKind, message: string): void {
@@ -116,10 +265,11 @@ export struct AdmissionScreeningPanel {
       const storedAnswers: AdmissionScreeningStoredAnswer[] = screening.answers ?? [];
       for (let index: number = 0; index < storedAnswers.length; index++) {
         const stored = storedAnswers[index];
-        if (stored.option_id !== undefined && stored.option_id !== null) {
+        const optionId: number = stored.option_id === undefined || stored.option_id === null ? 0 : stored.option_id;
+        if (optionId > 0 || (stored.answer_text ?? '').trim().length > 0) {
           restored.push({
             question_id: stored.question_id,
-            option_id: stored.option_id,
+            option_id: optionId,
             answer_text: stored.answer_text ?? ''
           });
         }
@@ -212,6 +362,7 @@ export struct AdmissionScreeningPanel {
     this.answers = next;
     this.dirty = true;
     this.clearError();
+    this.notifyGate();
   }
 
   private changeAnswerText(questionId: number, value: string): void {
@@ -234,6 +385,7 @@ export struct AdmissionScreeningPanel {
     }
     this.answers = next;
     this.dirty = true;
+    this.notifyGate();
   }
 
   private parseEducation(): number | undefined {
@@ -271,11 +423,16 @@ export struct AdmissionScreeningPanel {
     if (code === this.selectedCode || this.operation.length > 0) {
       return;
     }
+    if (!this.canOpenTemplate(code)) {
+      this.setError('validation', this.lockReason(code));
+      return;
+    }
     if (this.dirty && !await this.saveCurrent(false, false)) {
       return;
     }
     this.hydrate(code);
     this.clearError();
+    this.notifyGate();
   }
 
   private async saveCurrent(completed: boolean, notify: boolean): Promise<boolean> {
@@ -316,6 +473,7 @@ export struct AdmissionScreeningPanel {
     }
     this.screenings = next;
     this.hydrate(saved.template_code);
+    this.notifyGate();
     if (notify) {
       try {
         this.getUIContext().getPromptAction().showToast({
@@ -349,22 +507,40 @@ export struct AdmissionScreeningPanel {
   @Builder
   private screeningListItem(template: AdmissionScreeningTemplate) {
     Row({ space: 8 }) {
-      SymbolGlyph(template.code === this.selectedCode ? $r('sys.symbol.circle_fill') :
-        $r('sys.symbol.circle'))
-        .fontSize(10)
-        .fontColor([this.statusColor(template.code)])
+      if (!this.canOpenTemplate(template.code)) {
+        SymbolGlyph($r('sys.symbol.lock_fill'))
+          .fontSize(11)
+          .fontColor([$r('app.color.doctor_workspace_text_tertiary')])
+      } else {
+        SymbolGlyph(template.code === this.selectedCode ? $r('sys.symbol.circle_fill') :
+          $r('sys.symbol.circle'))
+          .fontSize(10)
+          .fontColor([this.statusColor(template.code)])
+      }
       Column({ space: 3 }) {
         Text(template.name)
           .fontSize(11)
           .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.doctor_workspace_text_primary'))
+          .fontColor(this.canOpenTemplate(template.code) ?
+            $r('app.color.doctor_workspace_text_primary') : $r('app.color.doctor_workspace_text_tertiary'))
           .maxLines(2)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .width('100%')
-        Text(`${this.statusFor(template.code)} · ${template.questions.length} 项`)
+        Text(`${this.stageLabel(template.code)} · ${this.canOpenTemplate(template.code) ?
+          this.statusFor(template.code) : '已锁定'} · ${template.questions.length} 项`)
           .fontSize(9)
-          .fontColor(this.statusColor(template.code))
+          .fontColor(this.canOpenTemplate(template.code) ? this.statusColor(template.code) :
+            $r('app.color.doctor_workspace_text_tertiary'))
           .width('100%')
+        if (!this.canOpenTemplate(template.code)) {
+          Text(this.lockReason(template.code))
+            .fontSize(8)
+            .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+            .lineHeight(12)
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .width('100%')
+        }
       }
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start)
@@ -377,7 +553,14 @@ export struct AdmissionScreeningPanel {
     .border({ width: template.code === this.selectedCode ? 1 : 0.5,
       color: template.code === this.selectedCode ? $r('app.color.doctor_workspace_focus') :
         $r('app.color.doctor_workspace_border_soft') })
-    .onClick(() => this.selectTemplate(template.code))
+    .opacity(this.canOpenTemplate(template.code) ? 1 : 0.58)
+    .onClick(() => {
+      if (this.canOpenTemplate(template.code)) {
+        this.selectTemplate(template.code);
+      } else {
+        this.setError('validation', this.lockReason(template.code));
+      }
+    })
   }
 
   @Builder
@@ -385,11 +568,11 @@ export struct AdmissionScreeningPanel {
     Column({ space: 10 }) {
       Row() {
         Column({ space: 3 }) {
-          Text('可选筛查')
+          Text('分阶段筛查')
             .fontSize(13)
             .fontWeight(FontWeight.Bold)
             .fontColor($r('app.color.doctor_workspace_text_primary'))
-          Text('根据服务端量表选择填写')
+          Text('按入住评估流程完成服务器量表')
             .fontSize(9)
             .fontColor($r('app.color.doctor_workspace_text_tertiary'))
         }
@@ -404,11 +587,41 @@ export struct AdmissionScreeningPanel {
       ForEach(this.templates, (template: AdmissionScreeningTemplate) => {
         this.screeningListItem(template)
       }, (template: AdmissionScreeningTemplate) => template.code)
-      Text('六项筛查均为可选记录，不影响附录 B 能力分数和附录 C 入住等级。')
-        .fontSize(9)
-        .fontColor($r('app.color.doctor_workspace_text_tertiary'))
-        .lineHeight(14)
+      Column({ space: 4 }) {
+        Row({ space: 6 }) {
+          SymbolGlyph(this.isGateReady() ? $r('sys.symbol.checkmark_circle_fill') :
+            $r('sys.symbol.exclamationmark_triangle_fill'))
+            .fontSize(13)
+            .fontColor([this.isGateReady() ? $r('app.color.doctor_workspace_success') :
+              $r('app.color.doctor_workspace_warning')])
+          Text(this.isGateReady() ? '入住筛查门禁已满足' : '入住筛查尚未完成')
+            .fontSize(10)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(this.isGateReady() ? $r('app.color.doctor_workspace_success') :
+              $r('app.color.doctor_workspace_warning'))
+        }
         .width('100%')
+        Text(this.gateMessage())
+          .fontSize(9)
+          .fontColor($r('app.color.doctor_workspace_text_secondary'))
+          .lineHeight(14)
+          .width('100%')
+        Text('首阶段：GDS-15 + Mini-Cog（必做）')
+          .fontSize(8)
+          .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+          .width('100%')
+        Text('进一步评估：Mini-Cog ≤2 分时完成 MMSE + MoCA')
+          .fontSize(8)
+          .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+          .width('100%')
+        Text(this.miniCogSummary())
+          .fontSize(8)
+          .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+          .width('100%')
+      }
+      .width('100%')
+      .padding({ top: 4, bottom: 2 })
+      .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
     .padding(13)
@@ -419,7 +632,7 @@ export struct AdmissionScreeningPanel {
   }
 
   @Builder
-  private question(question: AdmissionAssessmentQuestion, index: number) {
+  private question(templateCode: string, question: AdmissionAssessmentQuestion, index: number) {
     Column({ space: 8 }) {
       Row({ space: 7 }) {
         Text(`${index + 1}. ${question.title}`)
@@ -465,7 +678,13 @@ export struct AdmissionScreeningPanel {
         .onClick(() => this.selectOption(question.id, option.id))
       }, (option: AdmissionAssessmentOption) => `${question.id}-${option.id}`)
       if (this.answerOptionId(question.id) > 0) {
-        TextInput({ text: this.answerText(question.id), placeholder: '本题补充记录（可选）' })
+        if (this.isCognitive(templateCode)) {
+          Text('逐题证据记录（可选）')
+            .fontSize(9)
+            .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+            .width('100%')
+        }
+        TextInput({ text: this.answerText(question.id), placeholder: this.evidencePlaceholder(templateCode) })
           .height(35)
           .fontSize(9)
           .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
@@ -514,6 +733,26 @@ export struct AdmissionScreeningPanel {
           .fontSize(10)
           .fontColor($r('app.color.doctor_workspace_focus'))
           .width('100%')
+        if (this.isCognitive(template.code) && this.evidenceAnswers(screening).length > 0) {
+          Column({ space: 3 }) {
+            Text('服务器逐题证据')
+              .fontSize(9)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('app.color.doctor_workspace_text_secondary'))
+              .width('100%')
+            ForEach(this.evidenceAnswers(screening), (answer: AdmissionScreeningStoredAnswer) => {
+              Text(`${answer.question_code} · ${answer.answer_text}`)
+                .fontSize(9)
+                .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+                .lineHeight(13)
+                .maxLines(3)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                .width('100%')
+            }, (answer: AdmissionScreeningStoredAnswer) => `${answer.question_id}-${answer.question_code}`)
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Start)
+        }
       } else {
         Text(this.resultSummary(template))
           .fontSize(10)
@@ -571,13 +810,14 @@ export struct AdmissionScreeningPanel {
             .onChange((value: string) => {
               this.educationText = value;
               this.dirty = true;
+              this.notifyGate();
             })
         }
         .width('100%')
         .alignItems(HorizontalAlign.Start)
       }
       ForEach(template.questions, (item: AdmissionAssessmentQuestion, index: number) => {
-        this.question(item, index)
+        this.question(template.code, item, index)
       }, (item: AdmissionAssessmentQuestion) => `${template.code}-${item.id}`)
       Column({ space: 5 }) {
         Text('医师备注（可选）')
@@ -591,6 +831,7 @@ export struct AdmissionScreeningPanel {
           .onChange((value: string) => {
             this.notes = value;
             this.dirty = true;
+            this.notifyGate();
           })
       }
       .width('100%')
@@ -637,6 +878,36 @@ export struct AdmissionScreeningPanel {
   }
 
   @Builder
+  private lockedEditor(template: AdmissionScreeningTemplate) {
+    Column({ space: 10 }) {
+      SymbolGlyph($r('sys.symbol.lock_fill'))
+        .fontSize(26)
+        .fontColor([$r('app.color.doctor_workspace_text_tertiary')])
+      Text(`${template.name} 暂未开放`)
+        .fontSize(15)
+        .fontWeight(FontWeight.Bold)
+        .fontColor($r('app.color.doctor_workspace_text_primary'))
+      Text(this.lockReason(template.code))
+        .fontSize(10)
+        .fontColor($r('app.color.doctor_workspace_text_secondary'))
+        .lineHeight(16)
+        .textAlign(TextAlign.Center)
+        .width('100%')
+      Text('完成前置筛查后，系统会自动开放对应量表。')
+        .fontSize(9)
+        .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+        .textAlign(TextAlign.Center)
+        .width('100%')
+    }
+    .width('100%')
+    .padding(28)
+    .borderRadius(11)
+    .backgroundColor($r('app.color.doctor_workspace_surface'))
+    .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
+    .alignItems(HorizontalAlign.Center)
+  }
+
+  @Builder
   private errorBanner() {
     if (this.errorMessage.length > 0) {
       Row({ space: 8 }) {
@@ -671,7 +942,7 @@ export struct AdmissionScreeningPanel {
       .padding(18)
       .justifyContent(FlexAlign.Center)
     } else if (this.templates.length === 0) {
-      Text('服务器尚未配置可选筛查量表。')
+      Text('服务器尚未配置入住筛查量表。')
         .fontSize(10)
         .fontColor($r('app.color.doctor_workspace_text_secondary'))
         .width('100%')
@@ -683,7 +954,11 @@ export struct AdmissionScreeningPanel {
           this.sidebar()
         }
         GridCol({ span: this.compactWidth ? 12 : 8 }) {
-          this.editor(this.selectedTemplateOrFirst())
+          if (this.canOpenTemplate(this.selectedTemplateOrFirst().code)) {
+            this.editor(this.selectedTemplateOrFirst())
+          } else {
+            this.lockedEditor(this.selectedTemplateOrFirst())
+          }
         }
       }
       .width('100%')
@@ -694,11 +969,11 @@ export struct AdmissionScreeningPanel {
     Column({ space: 10 }) {
       Row() {
         Column({ space: 3 }) {
-          Text('附加筛查（可选）')
+          Text('入住评估筛查')
             .fontSize(14)
             .fontWeight(FontWeight.Bold)
             .fontColor($r('app.color.doctor_workspace_text_primary'))
-          Text('筛查记录单独保存到服务器，不改变附录 B/C 等级与入住确认条件')
+          Text('GDS-15 与 Mini-Cog 首阶段必做；低分时继续完成 MMSE、MoCA')
             .fontSize(10)
             .fontColor($r('app.color.doctor_workspace_text_secondary'))
         }

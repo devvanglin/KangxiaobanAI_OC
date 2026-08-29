@@ -5,7 +5,7 @@
 
 import { http } from '@kit.NetworkKit';
 import AuthStore from './AuthStore';
-import { ApiResp } from './Dto';
+import { ApiResp, Paged } from './Dto';
 import { ApiConfig } from './ApiConfig';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -72,6 +72,33 @@ export class ApiClient {
 
   public static get<T>(path: string): Promise<ApiResp<T>> {
     return ApiClient.request<T>('GET', path);
+  }
+
+  /** 读取服务端分页资源的全部记录，避免首屏固定 size 截断业务关系。 */
+  public static async getAll<T>(path: string, pageSize: number = 200): Promise<ApiResp<Paged<T>>> {
+    const items: T[] = [];
+    let page: number = 1;
+    let total: number = 0;
+    while (page <= 1000) {
+      const separator: string = path.indexOf('?') >= 0 ? '&' : '?';
+      const response: ApiResp<Paged<T>> = await ApiClient.get<Paged<T>>(
+        `${path}${separator}page=${page}&size=${pageSize}`);
+      if (response.code !== 0 || response.data === undefined || response.data === null) {
+        return response;
+      }
+      const batch: T[] = response.data.list ?? [];
+      items.push(...batch);
+      total = response.data.total;
+      if (batch.length === 0 || items.length >= total || batch.length < pageSize) {
+        break;
+      }
+      page++;
+    }
+    return {
+      code: 0,
+      msg: '',
+      data: { list: items, page: 1, size: items.length, total: Math.max(total, items.length) }
+    };
   }
 
   public static post<T>(path: string, body?: Object): Promise<ApiResp<T>> {

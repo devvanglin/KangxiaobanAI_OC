@@ -26,7 +26,7 @@ struct ElderDetailPage {
     try {
       const e: ApiResp<Elder> = await ApiClient.get<Elder>(`/elders/${this.elderId}`);
       const h: ApiResp<Paged<HealthRecord>> =
-        await ApiClient.get<Paged<HealthRecord>>(`/elders/${this.elderId}/health-records?size=20`);
+        await ApiClient.getAll<HealthRecord>(`/elders/${this.elderId}/health-records`);
       if (e.code !== 0 || h.code !== 0) {
         this.error = e.msg || h.msg || '详情加载失败';
       } else {

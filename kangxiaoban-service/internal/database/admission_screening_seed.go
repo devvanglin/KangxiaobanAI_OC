@@ -13,6 +13,7 @@ type admissionScreeningTemplateSeed struct {
 	code, name, version, description string
 	maxScore, sortOrder              int
 	levelRules                       []model.AbilityLevelRule
+	adjustmentRules                  []model.AdmissionAdjustmentRule
 	scoringNotes                     []string
 	questions                        []admissionScreeningQuestionSeed
 }
@@ -31,7 +32,7 @@ func seedAdmissionScreeningTemplates(db *gorm.DB) error {
 		attrs := model.AssessmentTemplate{
 			Name: seed.name, Description: seed.description, Category: "admission_screening",
 			MaxScore: seed.maxScore, Required: false, Enabled: true, SortOrder: seed.sortOrder,
-			LevelRules: seed.levelRules, ScoringNotes: seed.scoringNotes,
+			LevelRules: seed.levelRules, AdjustmentRules: seed.adjustmentRules, ScoringNotes: seed.scoringNotes,
 		}
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			template = attrs
@@ -42,10 +43,24 @@ func seedAdmissionScreeningTemplates(db *gorm.DB) error {
 			}
 		} else if err != nil {
 			return err
-		} else if err := db.Model(&template).Select(
-			"Name", "Description", "Category", "MaxScore", "Required", "Enabled", "SortOrder", "LevelRules", "ScoringNotes",
-		).Updates(&attrs).Error; err != nil {
-			return err
+		} else {
+			updates := map[string]interface{}{
+				"name": attrs.Name, "description": attrs.Description, "category": attrs.Category,
+				"max_score": attrs.MaxScore, "required": attrs.Required, "enabled": attrs.Enabled,
+				"sort_order": attrs.SortOrder,
+			}
+			if len(template.LevelRules) == 0 && len(seed.levelRules) > 0 {
+				updates["level_rules"] = seed.levelRules
+			}
+			if !hasExecutableAdjustmentRules(template.AdjustmentRules) && len(seed.adjustmentRules) > 0 {
+				updates["adjustment_rules"] = seed.adjustmentRules
+			}
+			if len(template.ScoringNotes) == 0 && len(seed.scoringNotes) > 0 {
+				updates["scoring_notes"] = seed.scoringNotes
+			}
+			if err := db.Model(&template).Updates(updates).Error; err != nil {
+				return err
+			}
 		}
 
 		for order, questionSeed := range seed.questions {
@@ -168,6 +183,7 @@ func sleepScreeningSeed() admissionScreeningTemplateSeed {
 	return admissionScreeningTemplateSeed{
 		code: "SLEEP5", name: "睡眠问题筛查", version: "PDF_APPENDIX_7", description: "PDF 附表7，记录过去一个月的睡眠问题。",
 		maxScore: 0, sortOrder: 12,
+		levelRules:   screeningRules([]screeningRuleSeed{{"recorded", "已记录睡眠问题答案", 0, 0}}),
 		scoringNotes: []string{"附表未设置计分或分级，本流程仅保存5项是/否答案。", "第1题可在 answer_text 中记录平均睡眠小时数。"},
 		questions: []admissionScreeningQuestionSeed{
 			{code: "SLEEP5.1", groupCode: "SLEEP", groupName: "睡眠问题", title: "在过去一个月您觉得您的睡眠足够吗？", guidance: "够回答“是”，不够回答“否”；可在备注中记录平均几个小时", maxScore: 0, required: true, options: yesNoOptions(0, 0)},
@@ -223,6 +239,12 @@ func mocaScreeningSeed() admissionScreeningTemplateSeed {
 	return admissionScreeningTemplateSeed{
 		code: "MOCA_BEIJING", name: "蒙特利尔认知评估量表（MoCA）北京版", version: "PDF_APPENDIX_10", description: "PDF 附表10，MoCA北京版，总分30分。",
 		maxScore: 30, sortOrder: 15,
+		adjustmentRules: []model.AdmissionAdjustmentRule{{
+			Code: "moca_education_bonus", Label: "受教育年限校正",
+			Description: "受教育年限不超过12年时加1分，校正后最高不超过量表满分",
+			Conditions:  []model.AdmissionRuleCondition{{Type: "education_years", Operator: "lte", Threshold: 12}},
+			ScoreDelta:  1,
+		}},
 		levelRules: screeningRules([]screeningRuleSeed{
 			{"positive", "认知功能受损筛查提示", 0, 25}, {"normal_range", "未见明显认知功能受损", 26, 30},
 		}),

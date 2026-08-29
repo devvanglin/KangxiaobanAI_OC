@@ -10,6 +10,7 @@ services:
       - "8080:8080"
     environment:
       KXB_SERVER_PORT: "8080"
+      KXB_STATIC_DIR: "/showcase"
       KXB_DB_DRIVER: "sqlite"
       KXB_DB_SQLITE_PATH: "/data/kangxiaoban.db"
       KXB_JWT_SECRET: "${KXB_JWT_SECRET:?set KXB_JWT_SECRET in .env}"
@@ -21,3 +22,4 @@ services:
       KXB_SEED_BUSINESS: "true"
     volumes:
       - ./data:/data
+      - ../showcase:/showcase:ro

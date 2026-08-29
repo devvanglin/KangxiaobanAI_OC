@@ -5,7 +5,7 @@
 
 import ApiClient from '../network/ApiClient';
 import AuthStore from '../network/AuthStore';
-import { Paged, Bill, Elder, FundFlow, Schedule } from '../network/Dto';
+import { Bill, Elder, FundFlow, Schedule } from '../network/Dto';
 import Logger from '../util/Logger';
 
 const TAG: string = '[FinanceSchedulePage]';
@@ -47,16 +47,16 @@ struct FinanceSchedulePage {
   }
 
   private async loadBills(): Promise<Bill[]> {
-    const resp = await ApiClient.get<Paged<Bill>>('/bills?size=50');
+    const resp = await ApiClient.getAll<Bill>('/bills');
     return resp.data.list ?? [];
   }
 
   private async loadFlows(): Promise<FundFlow[]> {
-    const elderResp = await ApiClient.get<Paged<Elder>>('/elders?size=100');
+    const elderResp = await ApiClient.getAll<Elder>('/elders');
     const flows: FundFlow[] = [];
     for (let index: number = 0; index < elderResp.data.list.length; index++) {
       const elder: Elder = elderResp.data.list[index];
-      const resp = await ApiClient.get<Paged<FundFlow>>(`/elders/${elder.id}/flows?size=50`);
+      const resp = await ApiClient.getAll<FundFlow>(`/elders/${elder.id}/flows`);
       for (let flowIndex: number = 0; flowIndex < resp.data.list.length; flowIndex++) {
         flows.push(resp.data.list[flowIndex]);
       }
@@ -65,7 +65,7 @@ struct FinanceSchedulePage {
   }
 
   private async loadSchedules(): Promise<Schedule[]> {
-    const resp = await ApiClient.get<Paged<Schedule>>('/schedules?size=50');
+    const resp = await ApiClient.getAll<Schedule>('/schedules');
     return resp.data.list ?? [];
   }
 

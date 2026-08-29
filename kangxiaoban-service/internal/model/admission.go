@@ -12,11 +12,31 @@ type AbilityLevelRule struct {
 	SortOrder int    `json:"sort_order"`
 }
 
-// AdmissionAdjustmentRule describes a server-enforced appendix C.4 adjustment.
+// AdmissionRuleCondition describes one database-configured predicate for an
+// assessment adjustment. Conditions are intentionally data-only so the same
+// interpreter can be used by the ability form and optional screenings.
+type AdmissionRuleCondition struct {
+	Type         string   `json:"type"`
+	Field        string   `json:"field,omitempty"`
+	QuestionCode string   `json:"question_code,omitempty"`
+	MatchCodes   []string `json:"match_codes,omitempty"`
+	RiskCodes    []string `json:"risk_codes,omitempty"`
+	Operator     string   `json:"operator,omitempty"`
+	Threshold    int      `json:"threshold,omitempty"`
+}
+
+// AdmissionAdjustmentRule describes a server-enforced, database-configured
+// assessment adjustment. LevelDelta is capped by the interpreter to the
+// strongest matching rule, while ScoreDelta values are accumulated.
 type AdmissionAdjustmentRule struct {
-	Code        string `json:"code"`
-	Label       string `json:"label"`
-	Description string `json:"description"`
+	Code        string                   `json:"code"`
+	Label       string                   `json:"label"`
+	Description string                   `json:"description"`
+	MatchMode   string                   `json:"match_mode,omitempty"`
+	Conditions  []AdmissionRuleCondition `json:"conditions,omitempty"`
+	TargetLevel string                   `json:"target_level,omitempty"`
+	LevelDelta  int                      `json:"level_delta,omitempty"`
+	ScoreDelta  int                      `json:"score_delta,omitempty"`
 }
 
 // AssessmentTemplate defines a versioned assessment form stored in the server database.
@@ -208,4 +228,19 @@ type AdmissionScreeningAnswer struct {
 	OptionCode   string `gorm:"size:32" json:"option_code"`
 	AnswerText   string `gorm:"size:4096" json:"answer_text"`
 	Score        int    `json:"score"`
+	// Evidence stores item-level observations captured while administering a
+	// screening question. Evidence is audit data; the authoritative score is
+	// always recalculated from the persisted option above.
+	Evidence []AdmissionScreeningEvidence `gorm:"serializer:json" json:"evidence,omitempty"`
+}
+
+// AdmissionScreeningEvidence is a structured observation belonging to one
+// screening answer (for example, each orientation item in MMSE/MoCA). The
+// client-provided score is retained for audit/context only and is never used
+// to calculate RawScore or AdjustedScore.
+type AdmissionScreeningEvidence struct {
+	ItemCode   string `json:"item_code"`
+	OptionCode string `json:"option_code,omitempty"`
+	AnswerText string `json:"answer_text,omitempty"`
+	Score      int    `json:"score,omitempty"`
 }

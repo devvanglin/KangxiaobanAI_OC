@@ -22,9 +22,9 @@ export class MessageApi {
   }
 
   public static list(peerId: number, elderId?: number): Promise<ApiResp<Paged<UserMessage>>> {
-    let path: string = `/messages?peer_id=${peerId}&size=100`;
+    let path: string = `/messages?peer_id=${peerId}`;
     if (elderId !== undefined) { path += `&elder_id=${elderId}`; }
-    return ApiClient.get<Paged<UserMessage>>(path);
+    return ApiClient.getAll<UserMessage>(path, 200);
   }
 
   public static send(receiverId: number, content: string, elderId?: number, type: string = 'chat'):

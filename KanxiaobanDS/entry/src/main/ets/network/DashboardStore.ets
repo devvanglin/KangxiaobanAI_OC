@@ -3,8 +3,7 @@ import {
   CockpitSnapshot,
   CockpitSummary,
   LoginResponse,
-  LoginUser,
-  RoleInfo
+  LoginUser
 } from '../model/DashboardModels';
 
 function emptySummary(): CockpitSummary {
@@ -30,7 +29,8 @@ function emptySnapshot(): CockpitSnapshot {
       device_online_warning_percent: 0,
       alert_cooldown_seconds: 0,
       device_offline_seconds: 0,
-      alert_escalation_seconds: 0
+      alert_escalation_seconds: 0,
+      medication_time_periods: []
     },
     summary: emptySummary(),
     wards: [],
@@ -67,10 +67,6 @@ export class DashboardStore {
         return false;
       }
       const login: LoginResponse = response.data;
-      if (!this.canReadDashboard(login.user.roles)) {
-        this.error = '该账号没有驾驶舱查看权限';
-        return false;
-      }
       this.token = login.token;
       this.user = login.user;
       this.authenticated = true;
@@ -122,14 +118,6 @@ export class DashboardStore {
     return this.user?.real_name || this.user?.username || '当前用户';
   }
 
-  private canReadDashboard(roles: RoleInfo[]): boolean {
-    for (let index: number = 0; index < roles.length; index++) {
-      if (roles[index].code === 'admin' || roles[index].code === 'doctor' || roles[index].code === 'caregiver') {
-        return true;
-      }
-    }
-    return false;
-  }
 }
 
 export default DashboardStore;

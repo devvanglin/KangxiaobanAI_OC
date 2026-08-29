@@ -39,6 +39,9 @@ func TestOperationPolicySeedPreservesConfiguredTenantValues(t *testing.T) {
 	if policy.OccupancyWarningPercent != 88 {
 		t.Fatalf("configured policy overwritten: got %.1f", policy.OccupancyWarningPercent)
 	}
+	if len(policy.MedicationTimePeriods) != 4 {
+		t.Fatalf("medication time periods = %d, want 4", len(policy.MedicationTimePeriods))
+	}
 	var count int64
 	if err := db.WithContext(ctx).Model(&model.OperationPolicy{}).Count(&count).Error; err != nil {
 		t.Fatal(err)

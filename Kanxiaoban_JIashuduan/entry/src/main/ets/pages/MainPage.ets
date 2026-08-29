@@ -31,9 +31,9 @@ struct MainPage {
     this.loading = true;
     this.error = '';
     try {
-      const er: ApiResp<Paged<Elder>> = await ApiClient.get<Paged<Elder>>('/elders?size=50');
-      const ar: ApiResp<Paged<Alert>> = await ApiClient.get<Paged<Alert>>('/alerts?size=50');
-      const br: ApiResp<Paged<Bill>> = await ApiClient.get<Paged<Bill>>('/bills?size=50');
+      const er: ApiResp<Paged<Elder>> = await ApiClient.getAll<Elder>('/elders');
+      const ar: ApiResp<Paged<Alert>> = await ApiClient.getAll<Alert>('/alerts');
+      const br: ApiResp<Paged<Bill>> = await ApiClient.getAll<Bill>('/bills');
       if (er.code !== 0 || ar.code !== 0 || br.code !== 0) {
         this.error = er.msg || ar.msg || br.msg || '数据加载失败';
       } else {

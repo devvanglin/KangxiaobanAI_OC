@@ -43,11 +43,7 @@ func seedAdmissionReferenceData(db *gorm.DB) error {
 
 func seedAdmissionTenant(db *gorm.DB) error {
 	rules := defaultAbilityLevelRules()
-	adjustments := []model.AdmissionAdjustmentRule{
-		{Code: "coma", Label: "昏迷", Description: "处于昏迷状态者直接评定为能力完全丧失（完全失能）"},
-		{Code: "dementia_or_mental_disorder", Label: "痴呆或精神行为障碍", Description: "确诊 F00-F03 或 F04-F99 时，在初步能力等级上加重一级"},
-		{Code: "risk_events_2_plus", Label: "近30天照护风险事件", Description: "近30天照护风险事件合计达到2次及以上时，在初步能力等级上加重一级"},
-	}
+	adjustments := defaultAdmissionAdjustmentRules()
 	scoringNotes := []string{
 		"26项能力题总分90分，所有分数均按服务端选项重新计算。",
 		"昏迷直接评定为能力完全丧失（完全失能）。",
@@ -74,45 +70,58 @@ func seedAdmissionTenant(db *gorm.DB) error {
 		}
 	} else if err != nil {
 		return err
-	} else if err := db.Model(&template).Select(
-		"Name", "Description", "Category", "MaxScore", "Required", "Enabled", "SortOrder",
-		"LevelRules", "AdjustmentRules", "ScoringNotes",
-	).Updates(&attrs).Error; err != nil {
-		return err
+	} else {
+		// Existing template metadata is institution-owned. Only backfill truly
+		// missing rule/note payloads; never rewrite names, descriptions, or
+		// enablement after an administrator has edited them.
+		updates := map[string]interface{}{}
+		if len(template.LevelRules) == 0 {
+			updates["level_rules"] = rules
+		} else if isLegacyDefaultAbilityRules(template.LevelRules) {
+			// The original seed shipped without explicit care-level ordering in
+			// some installations. This narrow migration preserves custom rules.
+			updates["level_rules"] = rules
+		}
+		if !hasExecutableAdjustmentRules(template.AdjustmentRules) {
+			updates["adjustment_rules"] = adjustments
+		}
+		if len(template.ScoringNotes) == 0 {
+			updates["scoring_notes"] = scoringNotes
+		}
+		if len(updates) > 0 {
+			if err := db.Model(&template).Updates(updates).Error; err != nil {
+				return err
+			}
+		}
 	}
 
 	for order, seed := range admissionQuestionSeeds() {
 		var question model.AssessmentQuestion
 		err := db.Where("template_id = ? AND code = ?", template.ID, seed.code).First(&question).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			question = model.AssessmentQuestion{TemplateID: template.ID, Code: seed.code}
+			question = model.AssessmentQuestion{
+				TemplateID: template.ID, Code: seed.code, GroupCode: seed.groupCode, GroupName: seed.groupName,
+				Title: seed.title, Guidance: seed.guidance, AnswerType: "choice", Required: true,
+				MaxScore: seed.maxScore, SortOrder: order + 1,
+			}
 			if err := db.Create(&question).Error; err != nil {
 				return err
 			}
 		} else if err != nil {
 			return err
 		}
-		if err := db.Model(&question).Updates(map[string]interface{}{
-			"group_code": seed.groupCode, "group_name": seed.groupName, "title": seed.title,
-			"guidance": seed.guidance, "answer_type": "choice", "required": true,
-			"max_score": seed.maxScore, "sort_order": order + 1,
-		}).Error; err != nil {
-			return err
-		}
 		for optionOrder, optionSeed := range seed.options {
 			var option model.AssessmentOption
 			err := db.Where("question_id = ? AND code = ?", question.ID, optionSeed.code).First(&option).Error
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				option = model.AssessmentOption{QuestionID: question.ID, Code: optionSeed.code}
+				option = model.AssessmentOption{
+					QuestionID: question.ID, Code: optionSeed.code, Label: optionSeed.label,
+					Score: optionSeed.score, SortOrder: optionOrder + 1,
+				}
 				if err := db.Create(&option).Error; err != nil {
 					return err
 				}
 			} else if err != nil {
-				return err
-			}
-			if err := db.Model(&option).Updates(map[string]interface{}{
-				"label": optionSeed.label, "score": optionSeed.score, "sort_order": optionOrder + 1,
-			}).Error; err != nil {
 				return err
 			}
 		}
@@ -122,16 +131,14 @@ func seedAdmissionTenant(db *gorm.DB) error {
 		var item model.AdmissionDictionaryItem
 		err := db.Where("template_id = ? AND category = ? AND code = ?", template.ID, seed.category, seed.code).First(&item).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			item = model.AdmissionDictionaryItem{TemplateID: template.ID, Category: seed.category, Code: seed.code}
+			item = model.AdmissionDictionaryItem{
+				TemplateID: template.ID, Category: seed.category, Code: seed.code,
+				Label: seed.label, SortOrder: order + 1, Enabled: true,
+			}
 			if err := db.Create(&item).Error; err != nil {
 				return err
 			}
 		} else if err != nil {
-			return err
-		}
-		if err := db.Model(&item).Updates(map[string]interface{}{
-			"label": seed.label, "sort_order": order + 1, "enabled": true,
-		}).Error; err != nil {
 			return err
 		}
 	}
@@ -147,11 +154,11 @@ func seedAdmissionTenant(db *gorm.DB) error {
 		} else if err != nil {
 			return err
 		}
-		planSeed.SortOrder = order + 1
-		if err := db.Model(&plan).Select(
-			"Name", "TargetLevel", "Target", "BaseServices", "OptionalServices", "SortOrder", "Enabled",
-		).Updates(&planSeed).Error; err != nil {
-			return err
+		if plan.ID == 0 {
+			planSeed.SortOrder = order + 1
+			if err := db.Create(&planSeed).Error; err != nil {
+				return err
+			}
 		}
 	}
 	return seedAdmissionScreeningTemplates(db)
@@ -165,6 +172,48 @@ func defaultAbilityLevelRules() []model.AbilityLevelRule {
 		{Code: "severe", Label: "能力重度受损（重度失能）", MinScore: 30, MaxScore: 45, CareLevel: 4, SortOrder: 4},
 		{Code: "complete", Label: "能力完全丧失（完全失能）", MinScore: 0, MaxScore: 29, CareLevel: 5, SortOrder: 5},
 	}
+}
+
+func defaultAdmissionAdjustmentRules() []model.AdmissionAdjustmentRule {
+	return []model.AdmissionAdjustmentRule{
+		{
+			Code: "coma", Label: "昏迷",
+			Description: "处于昏迷状态者直接评定为能力完全丧失（完全失能）",
+			MatchMode:   "any", TargetLevel: "complete",
+			Conditions: []model.AdmissionRuleCondition{
+				{Type: "boolean_field", Field: "coma", MatchCodes: []string{"true"}},
+				{Type: "answer_option", QuestionCode: "B3.9", MatchCodes: []string{"coma"}},
+				{Type: "list_contains", Field: "health_issues", MatchCodes: []string{"coma", "coma_status:present"}},
+			},
+		},
+		{
+			Code: "dementia_or_mental_disorder", Label: "痴呆或精神行为障碍",
+			Description: "确诊 F00-F03 或 F04-F99 时，在初步能力等级上加重一级",
+			MatchMode:   "any", LevelDelta: 1,
+			Conditions: []model.AdmissionRuleCondition{
+				{Type: "boolean_field", Field: "dementia_or_mental_disorder", MatchCodes: []string{"true"}},
+				{Type: "diagnosis_code", MatchCodes: []string{"F00-F03", "F04-F99"}},
+			},
+		},
+		{
+			Code: "risk_events_2_plus", Label: "近30天照护风险事件",
+			Description: "近30天照护风险事件合计达到2次及以上时，在初步能力等级上加重一级",
+			LevelDelta:  1,
+			Conditions: []model.AdmissionRuleCondition{{
+				Type: "risk_count", RiskCodes: []string{"fall", "wander", "choke", "suicide_self_harm", "other"},
+				Operator: "gte", Threshold: 2,
+			}},
+		},
+	}
+}
+
+func hasExecutableAdjustmentRules(rules []model.AdmissionAdjustmentRule) bool {
+	for _, rule := range rules {
+		if len(rule.Conditions) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func standardAssistanceOptions() []admissionOptionSeed {

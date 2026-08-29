@@ -67,6 +67,14 @@ export struct WideDoctorAdmission {
   @Local education: string = '';
   @Local livingSituations: string[] = [];
   @Local maritalStatus: string = '';
+  @Local spouseSatisfaction: string = '';
+  @Local childrenCountText: string = '';
+  @Local childrenSatisfaction: string = '';
+  @Local hobbies: string[] = [];
+  @Local socialParticipation: string[] = [];
+  @Local exercise: string[] = [];
+  @Local worries: string[] = [];
+  @Local lifeChanges: string[] = [];
   @Local medicalPayments: string[] = [];
   @Local incomeSources: string[] = [];
   @Local riskEvents: AdmissionRiskEvent[] = [];
@@ -89,6 +97,9 @@ export struct WideDoctorAdmission {
   @Local planConsentConfirmed: boolean = false;
   @Local serviceFeeInformed: boolean = false;
   @Local infoProviderSigned: boolean = false;
+  // The screening panel reports this gate after server-backed records load.
+  // It remains closed until the required first-stage screens are completed.
+  @Local screeningGateReady: boolean = false;
 
   private contentScroller: Scroller = new Scroller();
   private readonly steps: string[] = ['基本信息（A）', '能力评估（B）', '结果与计划（C）', '入住确认'];
@@ -268,6 +279,14 @@ export struct WideDoctorAdmission {
     this.education = '';
     this.livingSituations = [];
     this.maritalStatus = '';
+    this.spouseSatisfaction = '';
+    this.childrenCountText = '';
+    this.childrenSatisfaction = '';
+    this.hobbies = [];
+    this.socialParticipation = [];
+    this.exercise = [];
+    this.worries = [];
+    this.lifeChanges = [];
     this.medicalPayments = [];
     this.incomeSources = [];
     this.riskEvents = [];
@@ -289,6 +308,7 @@ export struct WideDoctorAdmission {
     this.planConsentConfirmed = false;
     this.serviceFeeInformed = false;
     this.infoProviderSigned = false;
+    this.screeningGateReady = false;
     this.clearError();
     this.markSaved();
     this.contentScroller = new Scroller();
@@ -357,6 +377,14 @@ export struct WideDoctorAdmission {
     this.education = record.education ?? '';
     this.livingSituations = record.living_situations ?? [];
     this.maritalStatus = record.marital_status ?? '';
+    this.spouseSatisfaction = record.spouse_satisfaction ?? '';
+    this.childrenCountText = record.children_count > 0 ? `${record.children_count}` : '';
+    this.childrenSatisfaction = record.children_satisfaction ?? '';
+    this.hobbies = record.hobbies ?? [];
+    this.socialParticipation = record.social_participation ?? [];
+    this.exercise = record.exercise ?? [];
+    this.worries = record.worries ?? [];
+    this.lifeChanges = record.life_changes ?? [];
     this.medicalPayments = record.medical_payments ?? [];
     this.incomeSources = record.income_sources ?? [];
     this.riskEvents = record.risk_events ?? [];
@@ -425,6 +453,18 @@ export struct WideDoctorAdmission {
     return result;
   }
 
+  private parseChildrenCount(): number {
+    const value: string = this.childrenCountText.trim();
+    if (value.length === 0) {
+      return 0;
+    }
+    const parsed: number = Number(value);
+    if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 0 || parsed > 30) {
+      return 0;
+    }
+    return parsed;
+  }
+
   private buildPayload(step: number = this.currentStep): AdmissionAssessmentPayload {
     const height: number = Number(this.heightText.trim());
     const weight: number = Number(this.weightText.trim());
@@ -443,6 +483,14 @@ export struct WideDoctorAdmission {
       education: this.education,
       living_situations: this.livingSituations,
       marital_status: this.maritalStatus,
+      spouse_satisfaction: this.spouseSatisfaction,
+      children_count: this.parseChildrenCount(),
+      children_satisfaction: this.childrenSatisfaction,
+      hobbies: this.hobbies,
+      social_participation: this.socialParticipation,
+      exercise: this.exercise,
+      worries: this.worries,
+      life_changes: this.lifeChanges,
       medical_payments: this.medicalPayments,
       income_sources: this.incomeSources,
       risk_events: this.activeRiskEvents(),
@@ -544,11 +592,12 @@ export struct WideDoctorAdmission {
       Number.isFinite(height) && height > 0 && Number.isFinite(weight) && weight > 0 &&
       this.assessmentLocation.trim().length > 0 && this.infoProviderName.trim().length > 0 &&
       this.infoProviderRelation.length > 0 && this.contactName.trim().length > 0 &&
-      this.contactPhone.trim().length >= 7;
+      this.contactPhone.trim().length > 0;
   }
 
   private planReady(): boolean {
-    return this.preview !== null && this.selectedCarePlanCode.length > 0 && this.targetBedId > 0;
+    return this.preview !== null && this.screeningGateReady && this.selectedCarePlanCode.length > 0 &&
+      this.targetBedId > 0;
   }
 
   private confirmationsReady(): boolean {
@@ -642,6 +691,10 @@ export struct WideDoctorAdmission {
 
   private async submit(): Promise<void> {
     if (!this.confirmationsReady() || this.preview === null || this.operation.length > 0) {
+      return;
+    }
+    if (!this.screeningGateReady) {
+      this.setFailure('validation', '请先完成入住评估首阶段筛查；Mini-Cog ≤2 分时还需完成 MMSE 和 MoCA。');
       return;
     }
     if (!await this.saveDraft(this.currentStep, false)) {
@@ -1250,6 +1303,18 @@ export struct WideDoctorAdmission {
               (code: string) => this.maritalStatus = code)
           }
           GridCol({ span: this.compactWidth ? 12 : 6 }) {
+            this.single('夫妻关系满意度', 'spouse_satisfaction', this.spouseSatisfaction, false,
+              (code: string) => this.spouseSatisfaction = code)
+          }
+          GridCol({ span: this.compactWidth ? 12 : 6 }) {
+            this.input('子女数量', this.childrenCountText, '无子女填 0', false,
+              (value: string) => this.childrenCountText = value, InputType.Number)
+          }
+          GridCol({ span: this.compactWidth ? 12 : 6 }) {
+            this.single('亲子关系满意度', 'children_satisfaction', this.childrenSatisfaction, false,
+              (code: string) => this.childrenSatisfaction = code)
+          }
+          GridCol({ span: this.compactWidth ? 12 : 6 }) {
             this.multiple('居住情况', 'living_situation', this.livingSituations,
               (values: string[]) => this.livingSituations = values)
           }
@@ -1260,6 +1325,26 @@ export struct WideDoctorAdmission {
           GridCol({ span: 12 }) {
             this.multiple('经济来源', 'income_source', this.incomeSources,
               (values: string[]) => this.incomeSources = values)
+          }
+          GridCol({ span: 12 }) {
+            this.multiple('爱好或娱乐活动', 'hobby', this.hobbies,
+              (values: string[]) => this.hobbies = values)
+          }
+          GridCol({ span: 12 }) {
+            this.multiple('社会参与', 'social_participation', this.socialParticipation,
+              (values: string[]) => this.socialParticipation = values)
+          }
+          GridCol({ span: 12 }) {
+            this.multiple('体育锻炼', 'exercise', this.exercise,
+              (values: string[]) => this.exercise = values)
+          }
+          GridCol({ span: 12 }) {
+            this.multiple('当前担忧或烦恼', 'worry', this.worries,
+              (values: string[]) => this.worries = values)
+          }
+          GridCol({ span: 12 }) {
+            this.multiple('近期生活变故', 'life_change', this.lifeChanges,
+              (values: string[]) => this.lifeChanges = values)
           }
         }
         .width('100%')
@@ -1276,7 +1361,6 @@ export struct WideDoctorAdmission {
         this.multiple('现患疾病', 'diagnosis', this.diagnoses,
           (values: string[]) => {
             this.diagnoses = values;
-            this.dementiaOrMentalDisorder = values.indexOf('F00-F03') >= 0 || values.indexOf('F04-F99') >= 0;
             this.markDirty(true);
           })
         Row({ space: 10 }) {
@@ -1665,7 +1749,10 @@ export struct WideDoctorAdmission {
       if (this.draftId > 0) {
         AdmissionScreeningPanel({
           admissionId: this.draftId,
-          compactWidth: this.compactWidth
+          compactWidth: this.compactWidth,
+          onGateChange: (ready: boolean) => {
+            this.screeningGateReady = ready;
+          }
         })
       }
       this.heading('护理计划', '选择服务器配置的计划；提交后由服务器生成正式关联记录')
@@ -1778,7 +1865,13 @@ export struct WideDoctorAdmission {
         }
         .width('100%')
       }
-      if (!this.planReady()) {
+      if (!this.screeningGateReady) {
+        Text('请先完成 GDS-15 和 Mini-Cog 首阶段筛查；Mini-Cog ≤2 分时还需完成 MMSE、MoCA。')
+          .fontSize(10)
+          .fontColor($r('app.color.doctor_workspace_warning'))
+          .width('100%')
+      }
+      if (this.preview === null || this.selectedCarePlanCode.length === 0 || this.targetBedId <= 0) {
         Text('取得服务端结果并选择护理计划、空闲床位后才能继续。')
           .fontSize(10)
           .fontColor($r('app.color.doctor_workspace_warning'))
@@ -1987,7 +2080,6 @@ export struct WideDoctorAdmission {
           .onClick(() => this.next())
       }
       .width(this.compactWidth ? '100%' : undefined)
-      .justifyContent(FlexAlign.End)
       .margin({ top: this.compactWidth ? 8 : 0 })
     }
     .width('100%')

@@ -2,6 +2,7 @@ package operationpolicy
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"gorm.io/gorm"
@@ -21,6 +22,12 @@ func Default() model.OperationPolicy {
 		AlertCooldownSeconds:       defaultSeconds,
 		DeviceOfflineSeconds:       defaultSeconds,
 		AlertEscalationSeconds:     defaultSeconds,
+		MedicationTimePeriods: []model.MedicationTimePeriod{
+			{Code: "morning", Label: "早晨", StartTime: "06:00", EndTime: "10:00", SortOrder: 1},
+			{Code: "noon", Label: "中午", StartTime: "10:00", EndTime: "14:00", SortOrder: 2},
+			{Code: "evening", Label: "晚上", StartTime: "14:00", EndTime: "22:00", SortOrder: 3},
+			{Code: "night", Label: "夜间", StartTime: "22:00", EndTime: "06:00", SortOrder: 4},
+		},
 	}
 }
 
@@ -28,6 +35,9 @@ func Load(db *gorm.DB) (model.OperationPolicy, error) {
 	var policy model.OperationPolicy
 	if err := db.First(&policy).Error; err != nil {
 		return model.OperationPolicy{}, err
+	}
+	if len(policy.MedicationTimePeriods) == 0 {
+		policy.MedicationTimePeriods = Default().MedicationTimePeriods
 	}
 	if err := Validate(policy); err != nil {
 		return model.OperationPolicy{}, err
@@ -52,6 +62,24 @@ func Validate(policy model.OperationPolicy) error {
 	}
 	if policy.AlertCooldownSeconds <= 0 || policy.DeviceOfflineSeconds <= 0 || policy.AlertEscalationSeconds <= 0 {
 		return fmt.Errorf("operation policy durations must be positive")
+	}
+	if len(policy.MedicationTimePeriods) == 0 {
+		return fmt.Errorf("operation policy medication time periods are required")
+	}
+	periods := append([]model.MedicationTimePeriod(nil), policy.MedicationTimePeriods...)
+	sort.Slice(periods, func(i, j int) bool { return periods[i].SortOrder < periods[j].SortOrder })
+	seen := make(map[string]bool, len(periods))
+	for _, period := range periods {
+		if period.Code == "" || period.Label == "" || seen[period.Code] {
+			return fmt.Errorf("invalid medication time period %q", period.Code)
+		}
+		if _, err := time.Parse("15:04", period.StartTime); err != nil {
+			return fmt.Errorf("invalid medication period start time %q", period.StartTime)
+		}
+		if _, err := time.Parse("15:04", period.EndTime); err != nil {
+			return fmt.Errorf("invalid medication period end time %q", period.EndTime)
+		}
+		seen[period.Code] = true
 	}
 	return nil
 }

@@ -170,6 +170,57 @@ func TestMoCAEducationRequiredOnlyOnCompletion(t *testing.T) {
 	}
 }
 
+func TestScreeningAdjustmentsAndLabelsComeFromTemplateRules(t *testing.T) {
+	svc, db, doctorID, ctx := newAdmissionTestService(t)
+	draft := createAdmissionDraftForScreening(t, svc, db, doctorID, ctx)
+
+	moca := screeningTemplate(t, svc, ctx, "MOCA_BEIJING")
+	for i := range moca.AdjustmentRules {
+		if moca.AdjustmentRules[i].Code == "moca_education_bonus" {
+			moca.AdjustmentRules[i].Conditions[0].Threshold = 5
+		}
+	}
+	if err := db.Model(moca).Select("AdjustmentRules").Updates(moca).Error; err != nil {
+		t.Fatal(err)
+	}
+	moca = screeningTemplate(t, svc, ctx, "MOCA_BEIJING")
+	answers := screeningAnswers(moca, 0)
+	result, err := svc.SaveScreening(ctx, AdmissionActor{UserID: doctorID}, draft.ID, moca.Code, AdmissionScreeningInput{
+		Completed: true, EducationYears: intPointer(6), Answers: answers,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Screening.AdjustedScore != 0 {
+		t.Fatalf("education above configured threshold adjusted to %d, want 0", result.Screening.AdjustedScore)
+	}
+	result, err = svc.SaveScreening(ctx, AdmissionActor{UserID: doctorID}, draft.ID, moca.Code, AdmissionScreeningInput{
+		Completed: true, EducationYears: intPointer(5), Answers: answers,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Screening.AdjustedScore != 1 {
+		t.Fatalf("education at configured threshold adjusted to %d, want 1", result.Screening.AdjustedScore)
+	}
+
+	sleep := screeningTemplate(t, svc, ctx, "SLEEP5")
+	sleep.LevelRules[0].Label = "机构自定义睡眠记录"
+	if err := db.Model(sleep).Select("LevelRules").Updates(sleep).Error; err != nil {
+		t.Fatal(err)
+	}
+	sleep = screeningTemplate(t, svc, ctx, "SLEEP5")
+	sleepResult, err := svc.SaveScreening(ctx, AdmissionActor{UserID: doctorID}, draft.ID, sleep.Code, AdmissionScreeningInput{
+		Completed: true, Answers: screeningAnswers(sleep, 0),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sleepResult.Screening.ResultCode != "recorded" || sleepResult.Screening.ResultLabel != "机构自定义睡眠记录" {
+		t.Fatalf("sleep result did not use level rules: %+v", sleepResult.Screening)
+	}
+}
+
 func TestAdmissionSubmitKeepsScreeningsOptionalAndProjectsCompletedOnes(t *testing.T) {
 	svc, db, doctorID, ctx := newAdmissionTestService(t)
 	input := validAdmissionInput(t, svc, db, ctx)

@@ -50,8 +50,9 @@ func TestAdmissionTemplateSeedAndScoring(t *testing.T) {
 	}
 
 	template := &model.AssessmentTemplate{
-		MaxScore:   90,
-		LevelRules: testAbilityRules(),
+		MaxScore:        90,
+		LevelRules:      testAbilityRules(),
+		AdjustmentRules: bundle.Template.AdjustmentRules,
 		Questions: []model.AssessmentQuestion{{
 			Base: model.Base{ID: 1}, Code: "B3.9", GroupCode: "B3", GroupName: "精神状态", Required: true, MaxScore: 90,
 		}},
@@ -74,6 +75,7 @@ func TestAdmissionTemplateSeedAndScoring(t *testing.T) {
 		{"zero complete", 0, model.AdmissionAssessment{}, "clear", "complete"},
 		{"coma override", 90, model.AdmissionAssessment{}, "coma", "complete"},
 		{"mental worsens one", 90, model.AdmissionAssessment{Diagnoses: []string{"F00-F03"}}, "clear", "mild"},
+		{"risk below threshold", 90, model.AdmissionAssessment{RiskEvents: []model.AdmissionRiskEvent{{Code: "fall", Count: 1}}}, "clear", "intact"},
 		{"risk worsens one", 90, model.AdmissionAssessment{RiskEvents: []model.AdmissionRiskEvent{{Code: "fall", Count: 2}}}, "clear", "mild"},
 		{"two adjustment reasons worsen once", 90, model.AdmissionAssessment{Diagnoses: []string{"F04-F99"}, RiskEvents: []model.AdmissionRiskEvent{{Code: "fall", Count: 1}, {Code: "choke", Count: 1}}}, "clear", "mild"},
 	}
@@ -93,6 +95,76 @@ func TestAdmissionTemplateSeedAndScoring(t *testing.T) {
 				t.Errorf("change reasons = %d, want 2", len(got.LevelChangeReasons))
 			}
 		})
+	}
+}
+
+func TestAdmissionRiskCodesAndThresholdComeFromTemplateRules(t *testing.T) {
+	svc, db, doctorID, ctx := newAdmissionTestService(t)
+	bundle, err := svc.TemplateBundle(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	template := bundle.Template
+	for i := range template.AdjustmentRules {
+		if template.AdjustmentRules[i].Code != "risk_events_2_plus" {
+			continue
+		}
+		template.AdjustmentRules[i].Conditions[0].RiskCodes = []string{"slip"}
+		template.AdjustmentRules[i].Conditions[0].Threshold = 3
+	}
+	if err := db.Model(&template).Select("AdjustmentRules").Updates(&template).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	input := validAdmissionInput(t, svc, db, ctx)
+	input.RiskEvents = []model.AdmissionRiskEvent{{Code: "slip", Count: 2}}
+	draft, err := svc.Create(ctx, AdmissionActor{UserID: doctorID}, input)
+	if err != nil {
+		t.Fatalf("configured risk code rejected: %v", err)
+	}
+	preview, err := svc.Preview(ctx, AdmissionActor{UserID: doctorID}, draft.ID, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.FinalLevel != "intact" {
+		t.Fatalf("count below configured threshold changed level to %s", preview.FinalLevel)
+	}
+
+	input.RiskEvents[0].Count = 3
+	updated, err := svc.Update(ctx, AdmissionActor{UserID: doctorID}, draft.ID, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preview, err = svc.Preview(ctx, AdmissionActor{UserID: doctorID}, updated.ID, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.FinalLevel != "mild" {
+		t.Fatalf("count at configured threshold produced %s, want mild", preview.FinalLevel)
+	}
+
+	input.RiskEvents = []model.AdmissionRiskEvent{{Code: "fall", Count: 3}}
+	if _, err := svc.Update(ctx, AdmissionActor{UserID: doctorID}, draft.ID, input); !errors.Is(err, ErrAdmissionValidation) {
+		t.Fatalf("removed risk code error = %v, want validation", err)
+	}
+}
+
+func TestAdmissionAdjustmentRejectsUnknownTargetLevel(t *testing.T) {
+	template := &model.AssessmentTemplate{
+		MaxScore: 90, LevelRules: testAbilityRules(),
+		AdjustmentRules: []model.AdmissionAdjustmentRule{{
+			Code: "bad_target", TargetLevel: "missing",
+			Conditions: []model.AdmissionRuleCondition{{Type: "boolean_field", Field: "coma"}},
+		}},
+		Questions: []model.AssessmentQuestion{{
+			Base: model.Base{ID: 1}, Code: "Q1", Required: true, MaxScore: 90,
+			Options: []model.AssessmentOption{{Base: model.Base{ID: 2}, Code: "ok", Score: 90}},
+		}},
+	}
+	optionID := uint(2)
+	_, err := calculateAbilityResult(template, &model.AdmissionAssessment{Coma: true}, []model.AdmissionAssessmentAnswer{{QuestionID: 1, OptionID: &optionID}})
+	if !errors.Is(err, ErrAdmissionValidation) {
+		t.Fatalf("unknown target error = %v, want validation", err)
 	}
 }
 

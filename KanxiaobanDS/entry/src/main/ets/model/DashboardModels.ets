@@ -87,6 +87,15 @@ export interface OperationPolicy {
   alert_cooldown_seconds: number;
   device_offline_seconds: number;
   alert_escalation_seconds: number;
+  medication_time_periods: MedicationTimePeriod[];
+}
+
+export interface MedicationTimePeriod {
+  code: string;
+  label: string;
+  start_time: string;
+  end_time: string;
+  sort_order: number;
 }
 
 export interface CockpitSnapshot {

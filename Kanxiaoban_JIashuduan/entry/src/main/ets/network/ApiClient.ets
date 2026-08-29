@@ -1,6 +1,6 @@
 import { http } from '@kit.NetworkKit';
 import AuthStore from './AuthStore';
-import { ApiResp } from './Dto';
+import { ApiResp, Paged } from './Dto';
 import { ApiConfig } from './ApiConfig';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -12,7 +12,7 @@ function toRequestMethod(method: HttpMethod): http.RequestMethod {
     case 'PUT':
       return http.RequestMethod.PUT;
     case 'PATCH':
-      return http.RequestMethod.PATCH;
+      return http.RequestMethod.POST;
     case 'DELETE':
       return http.RequestMethod.DELETE;
     default:
@@ -36,6 +36,9 @@ export class ApiClient {
       connectTimeout: 10000,
       readTimeout: 10000
     };
+    if (method === 'PATCH') {
+      options.customMethod = 'PATCH';
+    }
     if (body !== undefined) {
       options.extraData = JSON.stringify(body);
     }
@@ -61,6 +64,28 @@ export class ApiClient {
 
   public static get<T>(path: string): Promise<ApiResp<T>> {
     return ApiClient.request<T>('GET', path);
+  }
+
+  public static async getAll<T>(path: string, pageSize: number = 200): Promise<ApiResp<Paged<T>>> {
+    const items: T[] = [];
+    let page: number = 1;
+    let total: number = 0;
+    while (page <= 1000) {
+      const separator: string = path.indexOf('?') >= 0 ? '&' : '?';
+      const response: ApiResp<Paged<T>> = await ApiClient.get<Paged<T>>(
+        `${path}${separator}page=${page}&size=${pageSize}`);
+      if (response.code !== 0 || response.data === undefined || response.data === null) {
+        return response;
+      }
+      const batch: T[] = response.data.list ?? [];
+      items.push(...batch);
+      total = response.data.total;
+      if (batch.length === 0 || items.length >= total || batch.length < pageSize) {
+        break;
+      }
+      page++;
+    }
+    return { code: 0, msg: '', data: { list: items, page: 1, size: items.length, total: Math.max(total, items.length) } };
   }
 
   public static post<T>(path: string, body?: Object): Promise<ApiResp<T>> {

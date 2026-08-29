@@ -13,7 +13,6 @@ import {
   MessageContact,
   NotificationRecord,
   OperationPolicy,
-  Paged,
   Room,
   Schedule,
   UserMessage
@@ -26,7 +25,8 @@ function emptyOperationPolicy(): OperationPolicy {
     device_online_warning_percent: 0,
     alert_cooldown_seconds: 0,
     device_offline_seconds: 0,
-    alert_escalation_seconds: 0
+    alert_escalation_seconds: 0,
+    medication_time_periods: []
   };
 }
 
@@ -76,7 +76,7 @@ export class BusinessStore {
     this.eldersLoaded = false;
     this.error = '';
     try {
-      const elderResp = await ApiClient.get<Paged<Elder>>('/elders?size=100');
+      const elderResp = await ApiClient.getAll<Elder>('/elders');
       this.elders = elderResp.data?.list ?? [];
       // 长者区域独立于后续业务接口，不能被整批同步过程长期阻塞。
       this.eldersLoaded = true;
@@ -85,27 +85,27 @@ export class BusinessStore {
         throw new Error('运营策略加载失败');
       }
       this.operationPolicy = policyResp.data;
-      const roomResp = await ApiClient.get<Paged<Room>>('/rooms?size=100');
+      const roomResp = await ApiClient.getAll<Room>('/rooms');
       this.rooms = roomResp.data?.list ?? [];
-      const bedResp = await ApiClient.get<Paged<Bed>>('/beds?size=200');
+      const bedResp = await ApiClient.getAll<Bed>('/beds');
       this.beds = bedResp.data?.list ?? [];
-      const taskResp = await ApiClient.get<Paged<CareTask>>('/tasks?size=200');
+      const taskResp = await ApiClient.getAll<CareTask>('/tasks');
       this.tasks = taskResp.data?.list ?? [];
-      const deviceResp = await ApiClient.get<Paged<IotDevice>>('/iot/devices?size=200');
+      const deviceResp = await ApiClient.getAll<IotDevice>('/iot/devices');
       this.devices = deviceResp.data?.list ?? [];
-      const alertResp = await ApiClient.get<Paged<Alert>>('/alerts?size=200');
+      const alertResp = await ApiClient.getAll<Alert>('/alerts');
       this.alerts = alertResp.data?.list ?? [];
-      const medicationResp = await ApiClient.get<Paged<MedicationRecord>>('/medications?size=200');
+      const medicationResp = await ApiClient.getAll<MedicationRecord>('/medications');
       this.medications = medicationResp.data?.list ?? [];
-      const notificationResp = await ApiClient.get<Paged<NotificationRecord>>('/notifications?size=200');
+      const notificationResp = await ApiClient.getAll<NotificationRecord>('/notifications');
       this.notifications = notificationResp.data?.list ?? [];
-      const billResp = await ApiClient.get<Paged<Bill>>('/bills?size=100');
+      const billResp = await ApiClient.getAll<Bill>('/bills');
       this.bills = billResp.data?.list ?? [];
-      const scheduleResp = await ApiClient.get<Paged<Schedule>>('/schedules?size=100');
+      const scheduleResp = await ApiClient.getAll<Schedule>('/schedules');
       this.schedules = scheduleResp.data?.list ?? [];
-      const diningResp = await ApiClient.get<Paged<DiningOrder>>('/dining?size=200');
+      const diningResp = await ApiClient.getAll<DiningOrder>('/dining');
       this.diningOrders = diningResp.data?.list ?? [];
-      const assessmentResp = await ApiClient.get<Paged<Assessment>>('/assessments?size=200');
+      const assessmentResp = await ApiClient.getAll<Assessment>('/assessments');
       this.assessments = assessmentResp.data?.list ?? [];
       const contactResp = await MessageApi.contacts();
       this.messageContacts = contactResp.data?.list ?? [];
@@ -121,7 +121,7 @@ export class BusinessStore {
       const health: HealthRecord[] = [];
       for (let index: number = 0; index < this.elders.length; index++) {
         const elder: Elder = this.elders[index];
-        const healthResp = await ApiClient.get<Paged<HealthRecord>>(`/elders/${elder.id}/health-records?size=100`);
+        const healthResp = await ApiClient.getAll<HealthRecord>(`/elders/${elder.id}/health-records`);
         for (let recordIndex: number = 0; recordIndex < (healthResp.data?.list ?? []).length; recordIndex++) {
           health.push(healthResp.data.list[recordIndex]);
         }

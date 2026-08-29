@@ -1,7 +1,7 @@
 # KangxiaobanAI_OC Agent Handbook
 
-> Effective scope: this file applies to the whole workspace under `D:\KangxiaobanAI_OC`.
-> Baseline date: 2026-07-22.
+> Effective scope: this file applies to the whole workspace under `D:\Coding\KangxiaobanAI_OC`.
+> Baseline refreshed: 2026-08-30.
 > Current branch when this baseline was written: `main`.
 > This is an operational project constitution for coding agents. It records verified facts, fixed decisions,
 > reference-project boundaries, and the HarmonyOS implementation rules that must be followed.
@@ -28,8 +28,8 @@ application and the top-level projects are not equal delivery targets.
 `KangxiaobanAI` is a HarmonyOS NEXT native smart elderly-care workbench. The current code primarily serves caregivers;
 it also contains a wide-screen doctor workspace and a wide-screen administrator workspace. The doctor role is an
 elder-care/maintenance and assessment role, not an outpatient diagnosis screen. Phone doctor and administrator layouts
-remain WIP placeholders. It is not currently a production clinical system, a real AI client, a distributed-device
-application, or a connected institution backend.
+remain WIP placeholders. The active clients now use the repository's Go institution backend, but the product is still
+not a certified clinical system or a distributed-device application.
 
 The fixed product information architecture is:
 
@@ -47,17 +47,19 @@ the existing feature root and `Navigation/NavPathStack` destination.
 
 ### 1.2 Current maturity
 
-Treat the current application as a **high-fidelity local interactive prototype**:
+Treat the current application as a **backend-connected product under integration**:
 
 - ArkUI/HDS presentation and responsive behavior are substantial.
-- Login accepts any non-empty account/password after a timer.
-- Resident, health, task, device, message, doctor, administrator, and workbench records are local mock data.
-- AI responses are deterministic local text generated after a timer.
-- The HarmonyOS UI still has no complete repository/data-source integration; a separate Go backend now provides
-  authenticated REST, SQLite/MySQL persistence, WebSocket/MQTT, API DTOs, and an AI gateway. Only login and a small
-  subset of the HarmonyOS pages consume that backend today.
+- Login calls the Go backend, stores a JWT session, and derives the visible role from the authenticated account.
+- The main, family, and cockpit clients read their core resident, bed, task, health, device, alert, billing, schedule,
+  message, AI, and assessment records from tenant-scoped APIs. Empty optional views remain empty rather than inventing
+  local records.
+- AI conversations, messages, and starter prompts are persisted per tenant and user. A local provider remains an
+  explicitly identified offline provider; configured remote-provider failures return an error instead of fake output.
+- The Go backend provides authenticated REST, SQLite/MySQL persistence, tenant/RBAC enforcement, WebSocket/MQTT,
+  configurable billing/health/operations rules, and the PDF-derived doctor admission workflow.
 - There is no permission declaration in the main module because the current product does not call restricted Kits.
-- Existing tests are DevEco/Hypium template assertions rather than product tests.
+- Go tests cover the changed business rules; HarmonyOS template tests are still not broad product-level UI tests.
 
 Do not describe mock UI as a real implemented service. In user-facing reports distinguish:
 
@@ -190,8 +192,9 @@ KanxiaobanAbility (class in EntryAbility.ets)
   -> windowStage.loadContent('pages/LoginPage')
   -> WindowUtil.initialize(windowStage) after successful load
   -> LoginPage.handleLogin()
-  -> 800 ms local timer
-  -> GlobalInfoModel.role = selectedRole
+  -> POST /api/v1/auth/login
+  -> AuthStore persists the returned JWT/user session
+  -> GlobalInfoModel.role = authenticated role
   -> router.replaceUrl('pages/MainPage')
   -> MainPage.aboutToAppear: enable full-screen window layout
   -> MainPage HdsNavigation/NavPathStack shell
@@ -209,9 +212,10 @@ Traditional router is currently allowed only at the authentication shell boundar
 - logout: `MainPage` and `TabPageView` use `router.replaceUrl` to return to `LoginPage`;
 - in-app flows: use the shared `NavPathStack`.
 
-The current login has no credential validation, token, tenant, refresh, RBAC enforcement, device trust, lockout, or
-logout cleanup. `rememberMe` and forgot-password/contact-admin UI do not implement backend behavior. Do not build new
-authorization assumptions on the selected role string.
+The backend validates credentials and tenant, issues JWTs, and enforces permissions and tenant scopes. Logout clears
+the client session and shared business store. Refresh-token rotation, device trust, account lockout, and a complete
+forgot-password/contact-admin workflow remain unimplemented. UI role selection is presentation only; authorization
+must continue to be enforced by the backend token and permission middleware.
 
 ### 5.4 Main navigation shell
 
@@ -256,10 +260,9 @@ The home root is an on-shift workbench with shift status, advisory AI priorities
 and an on-demand detail pane. Resident and message roots use an open shared canvas with independent work surfaces: at
 1180vp and above they retain side-by-side master/detail interaction; below 1180vp they use a full-width list followed by
 a full-width detail view whose return action is the native root HDS title-bar back control, not a page-wide return row.
-Wide doctor layout is a separate local mock workspace. Its
-`admission` sidebar branch mounts `WideDoctorAdmission` directly inside the workspace shell;
-it is not a router or `NavPathStack` destination. Wide administrator layouts mount `WideAdminWorkspace` directly; only
-its operations overview has local demo content and the other management modules are placeholders.
+Wide doctor layout mounts the backend-connected `WideDoctorAdmission` flow directly in its `admission` sidebar branch;
+it is not a router or `NavPathStack` destination. Wide administrator layouts mount `WideAdminWorkspace` directly. Its
+operations overview reads server records and tenant policy, while the other management modules remain placeholders.
 
 `HdsNavigation` uses an immersive/adaptive system material title bar, gradient-blur scroll effect, the currently active
 bound Scroller, a back button hidden except for compact caregiver local-detail state, a hidden title bar for the other
@@ -359,7 +362,8 @@ display, fold, configuration, or keyboard listeners.
 - care tasks, footprints, monitor snapshots, room devices, and alert events;
 - status levels (`normal`, `warning`, `danger`) and task states (`todo`, `doing`, `done`).
 
-These are prototype models, not transport contracts. When a backend is added:
+These are UI-facing view models, not transport contracts. Transport DTOs live under `network/Dto.ets`; keep the
+mapping boundary explicit:
 
 1. keep API DTOs separate;
 2. map DTOs to domain models;
@@ -368,80 +372,46 @@ These are prototype models, not transport contracts. When a backend is added:
 5. enforce tenant and role authorization outside the UI;
 6. do not let UI components parse transport payloads.
 
-### 6.5 Current mock ownership
+### 6.5 Current data ownership
 
-The following local data must be treated as mock/demo state:
-
-- `TabPageView.ets`: bed occupancy, health/device/event records, five residents, six tasks, medication/family/report
-  items, inbox messages, filters, sheets, sign-in/out state, and cover state;
-- `ResidentDetailPage.ets`: vitals/trends, monitors/devices, mood, footprint, medication, tasks, meals, risk, and alerts;
-- `HealthExpandPage.ets`: eighteen health rows;
-- `WideHomePage.ets`: clinical tasks and local task progression;
-- `WideResidentPage.ets`: resident list and detail tabs;
-- `WideMessagePage.ets`: conversations, records, unread state, filtering, and local replies;
-- `WideDoctorWorkspace.ets`: navigation, recent patients, queue, modules, trends, and AI question field;
-- `WideDoctorAdmission.ets`: four-step admission draft, identity/bed/contact fields, ability and health screening,
-  nine service-safety risks, care-plan selection, and confirmation flags.
-- `WideAdminWorkspace.ets`: local operations overview KPIs, bed-usage progress, follow-up event state, and placeholder
-  entries for six additional management modules.
-
-The Go backend additionally exposes the first persisted care-closure chain (`assessments`, `care-plans`,
-`care-executions`) and alert action timelines/notifications. These are server contracts; the current HarmonyOS UI has
-not yet migrated its mock data to them.
-
-The admission flow does not call a repository, Preferences, RDB, or backend. Its generated draft exists only in
-component state and is lost when the component is destroyed. The wide doctor AI submit control, wide message replies,
-and wide home task transitions also remain local-only. Do not represent any of these as persisted operations.
-
-The next architectural extraction order is fixed unless the task says otherwise:
-
-1. preserve current UI behavior with tests/screenshots;
-2. move data construction to per-feature `FakeRepository` implementations;
-3. introduce feature ViewModel/store and cached derived values;
-4. introduce UseCase/domain service boundaries;
-5. define repository interfaces;
-6. add real remote/local data sources;
-7. move stable boundaries into HAR modules only after dependencies settle.
+- `BusinessStore` loads tenant-scoped elders, rooms, beds, tasks, devices, alerts, medication, notifications, bills,
+  schedules, dining, assessments, contacts, messages, health records, and operation policy from authenticated APIs.
+- Phone and wide caregiver pages derive their cards and detail sections from those shared server IDs. Optional concepts
+  without a server record render an empty state; do not reintroduce fallback people, vitals, tasks, or conversations.
+- Task progress, message replies, AI conversations, and doctor admission drafts/submissions write through server APIs.
+- AI starter prompts, health thresholds, billing rates, operation thresholds, assessment templates/options/dictionaries,
+  and level-specific care packages are tenant-owned database reference data. Clients must not duplicate their values.
+- `WideAdminWorkspace` modules outside the operations overview and several wide-doctor overview widgets remain explicit
+  placeholders. A placeholder is not permission to populate a local demo dataset.
+- View-only labels, enum presentation names, responsive dimensions, and temporary form state remain client concerns;
+  persistent business facts and configurable institutional rules belong to the server.
 
 ### 6.6 Doctor admission workflow and state contract
 
 `WideDoctorAdmission` is mounted directly by the `admission` branch of `WideDoctorWorkspace`; it is not a route or a
-`NavPathStack` destination. All form, screening, plan, confirmation, and submitted-state values are `@Local` values.
-There is no repository, Preferences store, RDB, network request, or backend write. Component destruction discards the
-draft.
+`NavPathStack` destination. `AdmissionRepository` loads the current server template and free beds, creates/resumes a
+database draft, saves each step, requests authoritative scoring, and submits the completed workflow.
 
 The four gates are:
 
-1. basic profile: resident name, integer age from 1 through 120, room, bed, contact name, and format-checked phone;
-2. fifteen intake observations: four GB/T 42195-2022 primary dimensions, nutrition/swallowing, chronic-disease and
-   medication support, plus the nine GB 38600-2019 service-safety risks;
-3. explicit selection of one of three care plans: self-support, assisted care, or continuous care;
-4. three human confirmations: doctor review, resident/representative informed consent, and service/fee disclosure.
+1. appendix A profile: reason/date, identity, height/weight, living/medical context, diagnoses, medications, health
+   issues, information provider, contact, location, and recent risk events;
+2. appendix B: all 26 persisted questions and server-owned options/scores;
+3. appendix C: server-calculated 90-point result, initial/final five-level ability grade, adjustment reasons, bed, and
+   a database care package with optional services;
+4. four human confirmations: doctor review, plan consent, fee disclosure, and information-provider signature.
 
-Gender, identity number, intake source, diagnosis, and allergies are currently optional fields. Phone validation only
-normalizes spaces, hyphens, and one leading `+`; it does not verify identity or carrier ownership. Every screening item
-  starts as `-1`/unassessed. A non-normal safety risk additionally requires structured prevention/response measures,
-  an owner, and a due/review point; a high-risk item also requires immediate safeguards and escalation/referral details.
-  Changing the risk level clears those details so they must be confirmed for the new level. This is a prototype
-  completeness gate, not a formal assessment scale or clinical diagnosis.
+The server recalculates every score from option IDs, applies the coma and grade-adjustment rules, and refuses incomplete
+or inconsistent submissions. Optional GAD-7, GDS-15, sleep, Mini-Cog, MMSE, and MoCA Beijing screenings use persisted
+templates. Their output is screening/advisory information, not a diagnosis.
 
-The local suggestion rule is deterministic and advisory: any ability score >= 3, at least two high safety risks, or a
-total support score >= 16 suggests continuous care; any ability/health score >= 2, at least one high safety risk, or a
-score >= 6 suggests assisted care; otherwise it suggests self-support. The suggestion never auto-selects a plan and does
-not represent an official ability or nursing-care grade. Plan cards show three base service categories and five optional
-service descriptions; optional services are display-only in this prototype and have no itemized price or billing record.
-Fees are stated as institution-publication/service-agreement terms.
+The admission dirty guard still protects explicit in-workbench navigation. Drafts are persisted on step transitions,
+so component destruction no longer destroys saved work. A successful submit transaction creates/links the elder, bed,
+assessment, care plan/items, tasks, family binding/notifications, and audit trail.
 
-The admission dirty guard is limited to explicit in-workbench actions (sidebar/module navigation, AI, support/about,
-settings, search, and logout). On discard it unmounts the admission branch before running the target action. It does not
-cover process termination, system back, a breakpoint transition that removes the wide shell, or automatic saving. The
-success view is a local in-memory draft preview; it is not a submitted or persisted admission record.
-
-Responsive behavior is intentionally asymmetric: `MainPage` passes `admissionCompactWidth = true` for every non-XL
-wide breakpoint, so MD and LG use stacked/compact admission sections while XL enables two-column assessment cards,
-three-column risk/plan cards, and the 5+7 confirmation split. The standalone page introduction and vertical step rail
-are intentionally omitted; current-step context and previous/next actions stay in the fixed footer. The footer also adds
-the live navigation-indicator avoid height.
+Responsive behavior remains asymmetric: MD/LG use stacked compact sections while XL enables wider assessment and plan
+layouts. Current-step context and previous/next actions stay in the fixed footer, including the live navigation-indicator
+avoid height.
 
 ## 7. Core application: file ownership map
 
@@ -450,20 +420,20 @@ Current production source is under `KangxiaobanAI/products/entry/src/main/ets`.
 | Path | Ownership and verified responsibility |
 |---|---|
 | `entryability/EntryAbility.ets` | UIAbility lifecycle, LoginPage loading, WindowUtil initialization, configuration-driven system-bar refresh |
-| `pages/LoginPage.ets` | mock login, role selector, keyboard-offset form, auth-shell routing |
-| `pages/MainPage.ets` | root HDS navigation, phone/wide selection, role selection, window-immersive ownership, AI and resident-detail overlays, local destinations |
-| `component/TabPageView.ets` | all four phone tab feature roots, most phone mock data and sheets/covers, and resident-detail open events |
-| `pages/AiChatPage.ets` | local AI conversation UI, history, feedback/copy/edit, mock response timers; inherits shell immersive state |
-| `pages/ResidentDetailPage.ets` | resident detail sections and local detail mock data |
+| `pages/LoginPage.ets` | authenticated backend login, role validation, keyboard-offset form, auth-shell routing |
+| `pages/MainPage.ets` | root HDS navigation, responsive role workspace selection, window-immersive ownership, AI and resident-detail overlays, local destinations |
+| `component/TabPageView.ets` | phone tab feature roots backed by `BusinessStore`, sheets/covers, task updates, and resident-detail open events |
+| `pages/AiChatPage.ets` | persisted AI conversations/messages, database starter prompts, feedback/copy/edit UI, and shell immersive state |
+| `pages/ResidentDetailPage.ets` | resident detail sections derived from server-loaded business records |
 | `pages/HealthExpandPage.ets` | expanded health list and resident index UI |
 | `pages/MineDetailPage.ets` | about/general settings and Preferences-backed toggle values |
 | `component/wide/WideCaregiverWorkspace.ets` | responsive top command-bar shell, sliding primary navigation, live message badge, persistent wide feature roots, avatar account actions, local-back cleanup, and safe-area forwarding |
-| `component/wide/WideDoctorWorkspace.ets` | wide doctor shell, local modules/AI state, admission branch, dirty guard, and admission layout forwarding |
-| `component/wide/WideDoctorAdmission.ets` | local four-step admission draft, input validation, 15-item screening, risk-measure gate, advisory plan rule, three care plans, informed confirmations, responsive/accessibility rendering, and local preview/reset state |
-| `component/wide/WideAdminWorkspace.ets` | wide administrator shell; local operations overview and placeholder management modules |
-| `component/wide/WideHomePage.ets` | caregiver on-shift workbench, advisory AI priorities, task summaries/queue, resident rhythm, and local task detail/actions |
+| `component/wide/WideDoctorWorkspace.ets` | wide doctor shell, admission branch, dirty guard, and admission layout forwarding |
+| `component/wide/WideDoctorAdmission.ets` | backend-persisted four-step appendix A/B/C admission workflow, server preview/scoring, screenings, care-plan selection, confirmations, and submission result |
+| `component/wide/WideAdminWorkspace.ets` | server-backed operations overview, tenant policy thresholds, and explicit placeholder management modules |
+| `component/wide/WideHomePage.ets` | caregiver on-shift workbench, server task summaries/queue, resident rhythm, and persisted task actions |
 | `component/wide/WideResidentPage.ets` | open-canvas responsive resident master/detail view; wide view uses independent list/detail work surfaces and widths below 1180vp switch between full-width list and detail |
-| `component/wide/WideMessagePage.ets` | open-canvas responsive conversation master/detail view with local replies/unread state and unread-count reporting; widths below 1180vp switch between full-width list and detail |
+| `component/wide/WideMessagePage.ets` | open-canvas responsive server conversation master/detail view with persisted replies/read state and unread-count reporting; widths below 1180vp switch between full-width list and detail |
 | `component/wide/WideSlidingCapsule.ets` | reusable animated segmented selection control with hover/focus, symbols, inline/corner badges, and optional badge colors |
 | `component/ResidentSummaryCard.ets` | resident summary/details builder and vital status presentation |
 | `component/HealthListCard.ets` | health summary card |
@@ -582,19 +552,16 @@ touch/focus target size, large-font behavior, and keyboard/mouse handling on 2-i
 
 ## 9. Core application: AI boundary
 
-`pages/AiChatPage.ets` is a local prototype:
+`pages/AiChatPage.ets` uses the authenticated AI gateway:
 
-- stores up to fifty local in-memory sessions through an `AppStorageV2` model;
-- restores/synchronizes active history;
-- supports new conversation, selection, feedback, copy, edit, and simple `**bold**` parsing;
-- manages list scrolling, focus, keyboard avoid mode, and history drawer while inheriting shell immersive mode;
-- returns a fixed `buildAnswerText` response after roughly 650 ms;
-- regenerates a fixed response after roughly 500 ms;
-- cancels response/scroll timers on disappearance;
-- does not persist history through ArkData;
-- has no network request, model identifier, prompt contract, token, streaming protocol, DTO, or audit service.
+- conversations and messages are persisted and isolated by tenant and user;
+- starter prompts are enabled/ordered database rows rather than client content constants;
+- new/select/delete/send flows call typed REST endpoints;
+- remote provider errors surface as service failures and are not rewritten as local answers;
+- the response records its actual provider/model identity;
+- UI-only feedback, copy/edit state, scrolling, focus, keyboard behavior, and simple rich-text parsing remain local.
 
-For production AI, add a gateway behind a UseCase and Repository/DataSource boundary. It must provide:
+Future production hardening must still provide:
 
 - prompt and model versioning;
 - minimum-necessary data selection and redaction;
@@ -657,11 +624,12 @@ Treat these as verified open risks, not necessarily part of every unrelated task
 
 - Local signing material/password fields existed in tracked history; values require rotation and history cleanup even
   though the core product's current build profile no longer contains `signingConfigs`.
-- Authentication is simulated; there is no session, tenant, RBAC, or authorization check.
-- Sensitive care/health/location/device concepts have no production privacy, encryption, audit, retention, or tenant
-  isolation layer.
-- AI is a local response simulation without safety/audit boundaries.
-- Business data and state are embedded in UI components.
+- JWT authentication, RBAC, tenant scoping, and audit are implemented, but refresh rotation, device trust, lockout, and
+  externally reviewed privacy/retention controls remain open production requirements.
+- Sensitive care/health/location/device data still needs deployment-specific encryption, backup, retention, and access
+  review beyond application-level tenant isolation.
+- AI remains advisory and non-streaming; configured remote-model privacy, redaction, evidence, and clinical governance
+  require deployment review.
 
 ### Functional/lifecycle risks
 
@@ -669,13 +637,9 @@ Treat these as verified open risks, not necessarily part of every unrelated task
 - `HealthExpandPage` creates a `ListScroller`, but the rendered `Scroll()` does not bind that scroller; index positioning
   is ineffective.
 - `WindowUtil` listeners do not have symmetric teardown from Ability lifecycle.
-- Wide doctor AI input has a submit action, but it only produces fixed local advisory text; it has no model gateway,
-  persistence, audit, or backend integration.
-- Wide message replies and task progress are local-only.
-- Admission drafts are local component state. The explicit in-workbench dirty guard does not cover system back,
-  process/window destruction, or a resize that removes the wide doctor branch.
-- Non-normal admission risks require a free-text local measure note, but there is no structured owner, deadline, referral,
-  audit, or persistence model yet.
+- Phone doctor/administrator layouts and non-overview administrator modules remain placeholders.
+- Several optional detail concepts have no server records and intentionally render empty states.
+- Admission drafts persist, but offline conflict resolution and multi-editor locking are not implemented.
 - `MaterialUtil` and the `MATERIAL_LEVEL` storage key are currently unused.
 - Settings such as Reduce Motion do not drive application behavior.
 - `router.replaceUrl` calls currently produce deprecation warnings in the latest recorded build; migration must preserve

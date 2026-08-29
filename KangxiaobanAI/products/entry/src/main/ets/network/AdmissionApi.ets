@@ -130,6 +130,14 @@ export interface AdmissionAssessmentPayload {
   education: string;
   living_situations: string[];
   marital_status: string;
+  spouse_satisfaction: string;
+  children_count: number;
+  children_satisfaction: string;
+  hobbies: string[];
+  social_participation: string[];
+  exercise: string[];
+  worries: string[];
+  life_changes: string[];
   medical_payments: string[];
   income_sources: string[];
   risk_events: AdmissionRiskEvent[];
@@ -229,6 +237,14 @@ export interface AdmissionAssessmentRecord {
   education: string;
   living_situations: string[];
   marital_status: string;
+  spouse_satisfaction: string;
+  children_count: number;
+  children_satisfaction: string;
+  hobbies: string[];
+  social_participation: string[];
+  exercise: string[];
+  worries: string[];
+  life_changes: string[];
   medical_payments: string[];
   income_sources: string[];
   assessment_reason: string;
@@ -300,7 +316,7 @@ export class AdmissionApi {
   }
 
   public static listDrafts(): Promise<ApiResp<Paged<AdmissionAssessmentRecord>>> {
-    return ApiClient.get<Paged<AdmissionAssessmentRecord>>('/admission-assessments?status=draft&mine=true&page=1&size=20');
+    return ApiClient.getAll<AdmissionAssessmentRecord>('/admission-assessments?status=draft&mine=true', 100);
   }
 
   public static screeningTemplates(): Promise<ApiResp<AdmissionScreeningTemplate[]>> {
@@ -340,7 +356,7 @@ export class AdmissionApi {
   }
 
   public static freeBeds(): Promise<ApiResp<Paged<Bed>>> {
-    return ApiClient.get<Paged<Bed>>('/beds?status=free&page=1&size=100');
+    return ApiClient.getAll<Bed>('/beds?status=free', 200);
   }
 }
 

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -193,7 +192,7 @@ func (s *AdmissionService) Create(ctx context.Context, actor AdmissionActor, inp
 	admission.TemplateVersion = template.Version
 	admission.Status = "draft"
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := validateRiskEvents(admission.RiskEvents); err != nil {
+		if err := validateRiskEvents(template, admission.RiskEvents); err != nil {
 			return err
 		}
 		if err := tx.Create(&admission).Error; err != nil {
@@ -220,7 +219,11 @@ func (s *AdmissionService) Update(ctx context.Context, actor AdmissionActor, id 
 		if admission.Status != "draft" {
 			return ErrAdmissionInvalidState
 		}
-		if err := validateRiskEvents(input.RiskEvents); err != nil {
+		template, err := s.templateByID(tx, admission.TemplateID)
+		if err != nil {
+			return err
+		}
+		if err := validateRiskEvents(template, input.RiskEvents); err != nil {
 			return err
 		}
 		writable := input.toModel()
@@ -236,10 +239,6 @@ func (s *AdmissionService) Update(ctx context.Context, actor AdmissionActor, id 
 			return err
 		}
 		if input.Answers != nil {
-			template, err := s.templateByID(tx, admission.TemplateID)
-			if err != nil {
-				return err
-			}
 			if err := s.replaceAnswers(tx, &admission, template, input.Answers); err != nil {
 				return err
 			}
@@ -310,11 +309,14 @@ func (s *AdmissionService) Submit(ctx context.Context, actor AdmissionActor, id 
 		if err != nil {
 			return err
 		}
+		if err := validateAdmissionScreeningGate(tx, admission.ID); err != nil {
+			return err
+		}
 		preview, err := s.preview(tx, admission, template, admission.Answers)
 		if err != nil {
 			return err
 		}
-		if err := validateAdmissionForSubmit(admission, preview); err != nil {
+		if err := validateAdmissionForSubmit(template, admission, preview); err != nil {
 			return err
 		}
 		planTemplate, err := s.selectPlanTemplate(tx, admission, preview.FinalLevel)
@@ -573,7 +575,7 @@ func calculateAbilityResult(template *model.AssessmentTemplate, admission *model
 	seen := map[uint]bool{}
 	groupScores := map[string]int{}
 	score := 0
-	hasComaAnswer := false
+	normalizedAnswers := make([]model.AdmissionAssessmentAnswer, 0, len(answers))
 	for _, answer := range answers {
 		question, ok := questionByID[answer.QuestionID]
 		if !ok || seen[answer.QuestionID] {
@@ -596,35 +598,57 @@ func calculateAbilityResult(template *model.AssessmentTemplate, admission *model
 		// The template option is authoritative. Stored/client snapshot scores are never trusted.
 		score += selected.Score
 		groupScores[question.GroupCode] += selected.Score
-		if question.Code == "B3.9" && selected.Code == "coma" {
-			hasComaAnswer = true
-		}
+		normalizedAnswers = append(normalizedAnswers, model.AdmissionAssessmentAnswer{
+			QuestionID: question.ID, OptionID: answer.OptionID, QuestionCode: question.Code,
+			OptionCode: selected.Code, AnswerText: answer.AnswerText, Score: selected.Score,
+		})
 	}
 	if score < 0 || score > template.MaxScore {
 		return nil, fmt.Errorf("%w: score outside template range", ErrAdmissionValidation)
+	}
+	outcome := evaluateAdmissionAdjustmentRules(template.AdjustmentRules, admissionRuleContext{
+		Answers: normalizedAnswers,
+		BooleanFields: map[string]bool{
+			"coma":                        admission.Coma,
+			"dementia_or_mental_disorder": admission.DementiaOrMentalDisorder,
+		},
+		Lists:      map[string][]string{"health_issues": admission.HealthIssues},
+		Diagnoses:  admission.Diagnoses,
+		RiskEvents: admission.RiskEvents,
+	})
+	score += outcome.ScoreDelta
+	if score < 0 {
+		score = 0
+	}
+	if score > template.MaxScore {
+		score = template.MaxScore
 	}
 	initial, ok := ruleForScore(template.LevelRules, score)
 	if !ok {
 		return nil, fmt.Errorf("%w: no level rule for score %d", ErrAdmissionValidation, score)
 	}
 	final := initial
-	reasons := []string{}
-	if admission.Coma || hasComaAnswer || containsString(admission.HealthIssues, "coma") || containsString(admission.HealthIssues, "coma_status:present") {
-		if complete, found := levelRuleByCode(template.LevelRules, "complete"); found {
-			final = complete
+	var targetLevel *model.AbilityLevelRule
+	for _, targetCode := range outcome.LevelTargets {
+		target, found := levelRuleByCode(template.LevelRules, targetCode)
+		if !found {
+			return nil, fmt.Errorf("%w: adjustment rule targets unknown level %q", ErrAdmissionValidation, targetCode)
 		}
-		reasons = append(reasons, "昏迷：直接评定为能力完全丧失（完全失能）")
-	} else {
-		mentalAdjustment := admission.DementiaOrMentalDisorder || diagnosesContainMentalDisorder(admission.Diagnoses)
-		riskAdjustment := totalRiskEvents(admission.RiskEvents) >= 2
-		if mentalAdjustment {
-			reasons = append(reasons, "确诊痴呆F00-F03或其他精神和行为障碍F04-F99：加重一级")
+		if targetLevel == nil || target.CareLevel > targetLevel.CareLevel {
+			targetCopy := target
+			targetLevel = &targetCopy
 		}
-		if riskAdjustment {
-			reasons = append(reasons, "近30天照护风险事件合计达到2次及以上：加重一级")
-		}
-		if mentalAdjustment || riskAdjustment {
-			final = worsenLevel(template.LevelRules, initial)
+	}
+	// A configured absolute target and a relative worsening can both apply;
+	// use the more severe result. Never allow a malformed/overly broad target
+	// to downgrade the level selected by the score bands.
+	if targetLevel != nil && targetLevel.CareLevel > final.CareLevel {
+		final = *targetLevel
+	}
+	if outcome.LevelDelta > 0 {
+		worsened := worsenLevelBy(template.LevelRules, initial, outcome.LevelDelta)
+		if worsened.CareLevel > final.CareLevel {
+			final = worsened
 		}
 	}
 	groups := make([]AdmissionGroupScore, 0, len(groupOrder))
@@ -634,11 +658,11 @@ func calculateAbilityResult(template *model.AssessmentTemplate, admission *model
 	return &AdmissionPreview{
 		AbilityScore: score, AnsweredCount: len(seen), RequiredCount: required, Complete: len(seen) == required,
 		InitialLevel: initial.Code, InitialLevelLabel: initial.Label, FinalLevel: final.Code, FinalLevelLabel: final.Label,
-		LevelChangeReasons: reasons, GroupScores: groups,
+		LevelChangeReasons: outcome.Reasons, GroupScores: groups,
 	}, nil
 }
 
-func validateAdmissionForSubmit(admission *model.AdmissionAssessment, preview *AdmissionPreview) error {
+func validateAdmissionForSubmit(template *model.AssessmentTemplate, admission *model.AdmissionAssessment, preview *AdmissionPreview) error {
 	if !preview.Complete {
 		return fmt.Errorf("%w: answered %d of %d required questions", ErrAdmissionIncomplete, preview.AnsweredCount, preview.RequiredCount)
 	}
@@ -685,23 +709,24 @@ func validateAdmissionForSubmit(admission *model.AdmissionAssessment, preview *A
 	if _, err := time.Parse("2006-01-02", admission.BirthDate); err != nil {
 		return fmt.Errorf("%w: birth_date must be YYYY-MM-DD", ErrAdmissionValidation)
 	}
-	return validateRiskEvents(admission.RiskEvents)
+	return validateRiskEvents(template, admission.RiskEvents)
 }
 
-func validateRiskEvents(events []model.AdmissionRiskEvent) error {
-	allowed := map[string]bool{"fall": true, "wander": true, "choke": true, "suicide_self_harm": true, "other": true}
+func validateRiskEvents(template *model.AssessmentTemplate, events []model.AdmissionRiskEvent) error {
+	allowed, configured := allowedAdmissionRiskCodes(template.AdjustmentRules)
 	seen := map[string]bool{}
 	for _, event := range events {
-		if !allowed[event.Code] {
+		code := strings.ToUpper(strings.TrimSpace(event.Code))
+		if code == "" || !configured || (allowed != nil && !allowed[code]) {
 			return fmt.Errorf("%w: invalid risk event %q", ErrAdmissionValidation, event.Code)
 		}
-		if seen[event.Code] {
+		if seen[code] {
 			return fmt.Errorf("%w: duplicate risk event %q", ErrAdmissionValidation, event.Code)
 		}
 		if event.Count < 0 {
 			return fmt.Errorf("%w: negative risk event count", ErrAdmissionValidation)
 		}
-		seen[event.Code] = true
+		seen[code] = true
 	}
 	return nil
 }
@@ -917,7 +942,7 @@ func createAdmissionScreeningAssessments(tx *gorm.DB, admissionID, elderID uint,
 			return err
 		}
 		var assessmentScore *float64
-		if template.Code != "SLEEP5" {
+		if template.MaxScore > 0 {
 			score := float64(calculated.adjustedScore)
 			assessmentScore = &score
 		}
@@ -926,7 +951,7 @@ func createAdmissionScreeningAssessments(tx *gorm.DB, admissionID, elderID uint,
 			assessedAt = *screening.CompletedAt
 		}
 		notes := calculated.resultLabel
-		if template.Code != "SLEEP5" {
+		if template.MaxScore > 0 {
 			notes = fmt.Sprintf("%s；原始分%d；校正分%d", calculated.resultLabel, calculated.rawScore, calculated.adjustedScore)
 		}
 		if strings.TrimSpace(screening.Notes) != "" {
@@ -1082,35 +1107,14 @@ func worsenLevel(rules []model.AbilityLevelRule, current model.AbilityLevelRule)
 	return current
 }
 
-func diagnosesContainMentalDisorder(diagnoses []string) bool {
-	for _, diagnosis := range diagnoses {
-		value := strings.ToUpper(strings.TrimSpace(diagnosis))
-		if !strings.HasPrefix(value, "F") || len(value) < 3 {
-			continue
+func worsenLevelBy(rules []model.AbilityLevelRule, current model.AbilityLevelRule, delta int) model.AbilityLevelRule {
+	result := current
+	for i := 0; i < delta; i++ {
+		next := worsenLevel(rules, result)
+		if next.Code == result.Code {
+			break
 		}
-		code, err := strconv.Atoi(value[1:3])
-		if err == nil && code >= 0 && code <= 99 {
-			return true
-		}
+		result = next
 	}
-	return false
-}
-
-func totalRiskEvents(events []model.AdmissionRiskEvent) int {
-	total := 0
-	for _, event := range events {
-		if event.Count > 0 {
-			total += event.Count
-		}
-	}
-	return total
-}
-
-func containsString(values []string, expected string) bool {
-	for _, value := range values {
-		if strings.EqualFold(strings.TrimSpace(value), expected) {
-			return true
-		}
-	}
-	return false
+	return result
 }

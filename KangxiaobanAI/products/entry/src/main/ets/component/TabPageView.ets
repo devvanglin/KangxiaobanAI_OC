@@ -38,7 +38,7 @@ import AuthStore from '../network/AuthStore';
 import ApiClient from '../network/ApiClient';
 import { BusinessStore } from '../network/BusinessStore';
 import { Alert, Bed, CareTask as BackendCareTask, Elder, HealthRecord, IotDevice, MedicationRecord, MessageContact,
-  Room, TaskStatusRequest, UserMessage } from '../network/Dto';
+  MedicationTimePeriod, Room, TaskStatusRequest, UserMessage } from '../network/Dto';
 import { MessageApi } from '../network/MessageApi';
 import { HealthListCard, HealthListCardData, HealthListCardRow } from './HealthListCard';
 
@@ -1480,19 +1480,34 @@ export struct TabPageView {
 
   private medicationTimeGroups(): MedicationTimeGroup[] {
     const items: QuickListRow[] = this.medicationItems();
-    const periods: MedicationTimeGroup[] = [
-      { period: '早晨', timeRange: '06:00 - 10:00', items: [] as QuickListRow[] },
-      { period: '中午', timeRange: '10:00 - 14:00', items: [] as QuickListRow[] },
-      { period: '晚上', timeRange: '14:00 - 22:00', items: [] as QuickListRow[] }
-    ];
+    const configured: MedicationTimePeriod[] = this.businessStore.operationPolicy.medication_time_periods ?? [];
+    const periods: MedicationTimeGroup[] = configured.map((period: MedicationTimePeriod): MedicationTimeGroup => ({
+      period: period.label,
+      timeRange: `${period.start_time} - ${period.end_time}`,
+      items: [] as QuickListRow[]
+    }));
+    if (periods.length === 0) {
+      return items.length > 0 ? [{ period: '用药', timeRange: '', items: items }] : [];
+    }
     items.forEach((item: QuickListRow) => {
-      const hourStr: string = item.time ? item.time.split(':')[0] : '0';
-      const hour: number = parseInt(hourStr, 10);
-      let idx: number = 2;
-      if (hour < 10) {
-        idx = 0;
-      } else if (hour < 14) {
-        idx = 1;
+      const minuteParts: string[] = (item.time ?? '').split(':');
+      const hour: number = minuteParts.length > 0 ? parseInt(minuteParts[0], 10) : -1;
+      const minute: number = minuteParts.length > 1 ? parseInt(minuteParts[1], 10) : 0;
+      const current: number = hour >= 0 && hour < 24 && minute >= 0 && minute < 60 ? hour * 60 + minute : -1;
+      let idx: number = -1;
+      for (let periodIndex: number = 0; periodIndex < configured.length; periodIndex++) {
+        const startParts: string[] = configured[periodIndex].start_time.split(':');
+        const endParts: string[] = configured[periodIndex].end_time.split(':');
+        const start: number = parseInt(startParts[0], 10) * 60 + parseInt(startParts[1], 10);
+        const end: number = parseInt(endParts[0], 10) * 60 + parseInt(endParts[1], 10);
+        const matches: boolean = start <= end ? current >= start && current < end : current >= start || current < end;
+        if (matches) {
+          idx = periodIndex;
+          break;
+        }
+      }
+      if (idx < 0) {
+        idx = periods.length - 1;
       }
       periods[idx].items.push(item);
     });

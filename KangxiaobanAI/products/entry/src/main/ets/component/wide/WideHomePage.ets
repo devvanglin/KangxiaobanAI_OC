@@ -649,6 +649,7 @@ export struct WideHomePage {
           resident: item.resident,
           room: item.room,
           summary: item.summary,
+          instructions: item.instructions,
           time: item.time,
           owner: item.owner,
           priority: item.priority,
