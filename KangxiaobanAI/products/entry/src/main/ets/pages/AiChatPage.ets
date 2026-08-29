@@ -1442,7 +1442,8 @@ export struct AiChatPage {
     .justifyContent(this.isEmbeddedWideHistory() ? FlexAlign.Start : FlexAlign.Center)
     .borderRadius(this.isEmbeddedWideHistory() ? 26 : 21)
     .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-    .backgroundColor($r('sys.color.comp_background_primary'))
+    .backgroundColor(this.isEmbeddedWideHistory() ?
+      $r('sys.color.comp_background_secondary') : $r('sys.color.comp_background_primary'))
     .shadow({ radius: 8, color: 'rgba(0,0,0,0.06)', offsetY: 2 })
     .focusable(true)
     .focusOnTouch(true)
@@ -1808,104 +1809,115 @@ export struct AiChatPage {
 
   @Builder
   private embeddedHistoryPane() {
-    Column({ space: 12 }) {
-      if (this.embeddedHistoryCollapsed) {
-        Column({ space: 16 }) {
-          SymbolGlyph($r('sys.symbol.AI_message'))
-            .fontSize(24)
-            .fontColor([$r('app.color.brand_blue')])
-
-          Column({ space: 2 }) {
-            Button({ type: ButtonType.Circle, stateEffect: true }) {
-              SymbolGlyph($r('sys.symbol.open_sidebar'))
-                .fontSize(21)
-                .fontColor([$r('sys.color.icon_primary')])
-            }
-            .buttonStyle(ButtonStyleMode.NORMAL)
-            .width(44)
-            .height(44)
-            .backgroundColor(Color.Transparent)
-            .accessibilityText('展开会话栏')
-            .onClick(() => {
-              this.toggleEmbeddedHistory();
-            })
-
-            Button({ type: ButtonType.Circle, stateEffect: true }) {
-              SymbolGlyph($r('sys.symbol.magnifyingglass'))
-                .fontSize(21)
-                .fontColor([$r('sys.color.icon_primary')])
-            }
-            .buttonStyle(ButtonStyleMode.NORMAL)
-            .width(44)
-            .height(44)
-            .backgroundColor(Color.Transparent)
-            .accessibilityText('搜索会话')
-
-            Button({ type: ButtonType.Circle, stateEffect: true }) {
-              SymbolGlyph($r('sys.symbol.plus_circle'))
-                .fontSize(21)
-                .fontColor([$r('sys.color.icon_primary')])
-            }
-            .buttonStyle(ButtonStyleMode.NORMAL)
-            .width(44)
-            .height(44)
-            .backgroundColor(Color.Transparent)
-            .accessibilityText('开启新对话')
-            .onClick(() => {
-              this.startNewConversation();
-            })
-          }
-          .padding({ top: 4, bottom: 4 })
-          .backgroundColor($r('sys.color.comp_background_primary'))
-          .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-          .borderRadius(26)
-        }
+    Column() {
+      Row()
         .width('100%')
-        .alignItems(HorizontalAlign.Center)
-      } else {
-        Row({ space: 12 }) {
-          Text('康小伴 AI')
-            .fontSize(20)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-            .layoutWeight(1)
-          SymbolGlyph($r('sys.symbol.magnifyingglass'))
-            .fontSize(21)
-            .fontColor([$r('sys.color.icon_secondary')])
-            .accessibilityText('搜索会话')
-          SymbolGlyph($r('sys.symbol.close_sidebar'))
-            .fontSize(21)
-            .fontColor([$r('sys.color.icon_secondary')])
-            .accessibilityText('收起会话栏')
-            .onClick(() => {
-              this.toggleEmbeddedHistory();
-            })
-        }
-        .width('100%')
-        .height(44)
-        .padding({ left: 14, right: 14 })
-        .alignItems(VerticalAlign.Center)
+        .height(this.embeddedPaneTopOffset())
 
-        Scroll(this.historyScroller) {
-          Column({ space: 12 }) {
-            this.newConversationButton()
-            this.historyItems()
+      Column({ space: 12 }) {
+        if (this.embeddedHistoryCollapsed) {
+          Column({ space: 16 }) {
+            SymbolGlyph($r('sys.symbol.AI_message'))
+              .fontSize(24)
+              .fontColor([$r('app.color.brand_blue')])
+
+            Column({ space: 2 }) {
+              Button({ type: ButtonType.Circle, stateEffect: true }) {
+                SymbolGlyph($r('sys.symbol.open_sidebar'))
+                  .fontSize(21)
+                  .fontColor([$r('sys.color.icon_primary')])
+              }
+              .buttonStyle(ButtonStyleMode.NORMAL)
+              .width(44)
+              .height(44)
+              .backgroundColor(Color.Transparent)
+              .accessibilityText('展开会话栏')
+              .onClick(() => {
+                this.toggleEmbeddedHistory();
+              })
+
+              Button({ type: ButtonType.Circle, stateEffect: true }) {
+                SymbolGlyph($r('sys.symbol.magnifyingglass'))
+                  .fontSize(21)
+                  .fontColor([$r('sys.color.icon_primary')])
+              }
+              .buttonStyle(ButtonStyleMode.NORMAL)
+              .width(44)
+              .height(44)
+              .backgroundColor(Color.Transparent)
+              .accessibilityText('搜索会话')
+
+              Button({ type: ButtonType.Circle, stateEffect: true }) {
+                SymbolGlyph($r('sys.symbol.plus_circle'))
+                  .fontSize(21)
+                  .fontColor([$r('sys.color.icon_primary')])
+              }
+              .buttonStyle(ButtonStyleMode.NORMAL)
+              .width(44)
+              .height(44)
+              .backgroundColor(Color.Transparent)
+              .accessibilityText('开启新对话')
+              .onClick(() => {
+                this.startNewConversation();
+              })
+            }
+            .padding({ top: 4, bottom: 4 })
+            .backgroundColor(Color.Transparent)
           }
           .width('100%')
-          .padding({ left: 14, right: 14, bottom: 16 })
+          .alignItems(HorizontalAlign.Center)
+        } else {
+          Row({ space: 12 }) {
+            Text('对话记录')
+              .fontSize($r('sys.float.Title_S'))
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+              .layoutWeight(1)
+            SymbolGlyph($r('sys.symbol.magnifyingglass'))
+              .fontSize(21)
+              .fontColor([$r('sys.color.icon_secondary')])
+              .accessibilityText('搜索会话')
+            SymbolGlyph($r('sys.symbol.close_sidebar'))
+              .fontSize(21)
+              .fontColor([$r('sys.color.icon_secondary')])
+              .accessibilityText('收起会话栏')
+              .onClick(() => {
+                this.toggleEmbeddedHistory();
+              })
+          }
+          .width('100%')
+          .height(44)
+          .padding({ left: 14, right: 14 })
+          .alignItems(VerticalAlign.Center)
+
+          Scroll(this.historyScroller) {
+            Column({ space: 12 }) {
+              this.newConversationButton()
+              this.historyItems()
+            }
+            .width('100%')
+            .padding({ left: 14, right: 14, bottom: 16 })
+          }
+          .layoutWeight(1)
+          .width('100%')
+          .contentEndOffset(Math.max(18, this.globalInfoModel.naviIndicatorHeight + 8))
+          .scrollBar(BarState.Off)
+          .edgeEffect(EdgeEffect.Spring)
+          .align(Alignment.TopStart)
+          .clip(true)
         }
-        .layoutWeight(1)
-        .width('100%')
-        .contentEndOffset(Math.max(18, this.globalInfoModel.naviIndicatorHeight + 8))
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.Spring)
-        .align(Alignment.TopStart)
-        .clip(true)
       }
+      .width('100%')
+      .layoutWeight(1)
+      .padding({ top: 12 })
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+      .borderRadius(24)
+      .shadow({ radius: 12, color: 'rgba(0,0,0,0.06)', offsetY: 2 })
+      .clip(true)
     }
     .width('100%')
     .height('100%')
-    .padding({ top: this.globalInfoModel.statusBarHeight + 12 })
     .backgroundColor($r('sys.color.background_secondary'))
   }
 

@@ -40,6 +40,7 @@ import {
 import { WideCaregiverTitleActions } from '../component/wide/WideCaregiverTitleActions';
 import { WideDoctorWorkspace } from '../component/wide/WideDoctorWorkspace';
 import { WideAdminWorkspace } from '../component/wide/WideAdminWorkspace';
+import { AI_BRAND_NAME } from '../component/AiTitleLabel';
 import { AiChatPage } from '../pages/AiChatPage';
 import { MineDetailPage } from '../pages/MineDetailPage';
 import { ResidentDetailPage } from '../pages/ResidentDetailPage';
@@ -168,8 +169,7 @@ struct MainPage {
 
   private wideCaregiverPageTitle(): string {
     if (this.isAiChatShow) {
-      // The embedded AI workspace owns its dark sidebar brand title.
-      return '';
+      return AI_BRAND_NAME;
     }
     const titles: string[] = ['首页', '长者', '消息'];
     return titles[this.wideCaregiverActiveTabIndex()] ?? titles[0];
