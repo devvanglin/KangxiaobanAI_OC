@@ -26,9 +26,11 @@ const TAG: string = '[LoginPage]';
 const ROLE_CAREGIVER: string = '护工';
 const ROLE_DOCTOR: string = '医师';
 const ROLE_ADMIN: string = '管理';
-const DEMO_PASSWORD: string = '123456';
+const CAREGIVER_PASSWORD: string = '123456';
+const DOCTOR_PASSWORD: string = '123456';
+const ADMIN_PASSWORD: string = 'Admin@123456';
 
-interface DemoCredential {
+interface RoleCredential {
   account: string;
   password: string;
 }
@@ -41,14 +43,15 @@ interface LoginRequest {
 @Entry
 @ComponentV2
 struct LoginPage {
-  @Local account: string = 'caregiver_demo';
-  @Local password: string = DEMO_PASSWORD;
+  @Local account: string = 'caregiver';
+  @Local password: string = CAREGIVER_PASSWORD;
   @Local showPassword: boolean = false;
   @Local isLoading: boolean = false;
   @Local rememberMe: boolean = false;
   @Local keyboardOffset: number = 0;
   @Local selectedRole: string = ROLE_CAREGIVER;
   @Local isRoleMenuOpen: boolean = false;
+  @Local loginError: string = '';
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO, () => new GlobalInfoModel()) ?? new GlobalInfoModel();
 
@@ -82,7 +85,7 @@ struct LoginPage {
       return;
     }
     this.isLoading = true;
-    // 优先真实后端登录；后端不可达或被拒时回退本地 mock，保证离线仍可演示
+    this.loginError = '';
     try {
       const loginBody: LoginRequest = { username: this.account, password: this.password };
       const resp = await ApiClient.post<LoginResp>('/auth/login', loginBody);
@@ -93,19 +96,13 @@ struct LoginPage {
         await this.getUIContext().getRouter().replaceUrl({ url: 'pages/MainPage' });
         return;
       }
-      Logger.warn(TAG, `backend login rejected(${resp.code}): ${resp.msg}, fallback to demo`);
+      this.loginError = resp.msg || '账号或密码错误';
+      Logger.warn(TAG, `backend login rejected(${resp.code}): ${resp.msg}`);
     } catch {
-      Logger.warn(TAG, 'backend unreachable, fallback to demo');
+      this.loginError = '无法连接服务器，请检查网络或联系管理员';
+      Logger.warn(TAG, 'backend unreachable');
     }
-    setTimeout(async () => {
-      this.isLoading = false;
-      this.globalInfoModel.role = this.selectedRole;
-      try {
-        await this.getUIContext().getRouter().replaceUrl({ url: 'pages/MainPage' });
-      } catch {
-        Logger.error(TAG, 'login route failed');
-      }
-    }, 800);
+    this.isLoading = false;
   }
 
   private roleFromCodes(codes: string[]): string {
@@ -123,18 +120,18 @@ struct LoginPage {
 
   private roleOptions: string[] = [ROLE_CAREGIVER, ROLE_DOCTOR, ROLE_ADMIN];
 
-  private demoCredentialForRole(role: string): DemoCredential {
+  private credentialForRole(role: string): RoleCredential {
     if (role === ROLE_DOCTOR) {
-      return { account: 'doctor_demo', password: DEMO_PASSWORD };
+      return { account: 'doctor', password: DOCTOR_PASSWORD };
     }
     if (role === ROLE_ADMIN) {
-      return { account: 'admin_demo', password: DEMO_PASSWORD };
+      return { account: 'admin', password: ADMIN_PASSWORD };
     }
-    return { account: 'caregiver_demo', password: DEMO_PASSWORD };
+    return { account: 'caregiver', password: CAREGIVER_PASSWORD };
   }
 
-  private applyDemoCredential(role: string): void {
-    const credential: DemoCredential = this.demoCredentialForRole(role);
+  private applyCredential(role: string): void {
+    const credential: RoleCredential = this.credentialForRole(role);
     this.account = credential.account;
     this.password = credential.password;
   }
@@ -159,7 +156,7 @@ struct LoginPage {
       action: () => {
         this.selectedRole = role;
         this.globalInfoModel.role = role;
-        this.applyDemoCredential(role);
+        this.applyCredential(role);
       }
     })))
   }
@@ -307,6 +304,13 @@ struct LoginPage {
         Column({ space: 14 }) {
           this.accountInput()
           this.passwordInput()
+
+          if (this.loginError.length > 0) {
+            Text(this.loginError)
+              .fontSize($r('sys.float.Body_M'))
+              .fontColor($r('app.color.status_danger'))
+              .width('100%')
+          }
 
           Row() {
             Row({ space: 6 }) {
