@@ -33,6 +33,11 @@ interface DemoCredential {
   password: string;
 }
 
+interface LoginRequest {
+  username: string;
+  password: string;
+}
+
 @Entry
 @ComponentV2
 struct LoginPage {
@@ -79,7 +84,8 @@ struct LoginPage {
     this.isLoading = true;
     // 优先真实后端登录；后端不可达或被拒时回退本地 mock，保证离线仍可演示
     try {
-      const resp = await ApiClient.post<LoginResp>('/auth/login', { username: this.account, password: this.password });
+      const loginBody: LoginRequest = { username: this.account, password: this.password };
+      const resp = await ApiClient.post<LoginResp>('/auth/login', loginBody);
       if (resp.code === 0 && resp.data && resp.data.token.length > 0) {
         AuthStore.setSession(resp.data.token, resp.data.user);
         this.globalInfoModel.role = this.roleFromCodes(resp.data.user.roles.map((r: RoleInfo): string => r.code));
@@ -88,16 +94,16 @@ struct LoginPage {
         return;
       }
       Logger.warn(TAG, `backend login rejected(${resp.code}): ${resp.msg}, fallback to demo`);
-    } catch (err) {
-      Logger.warn(TAG, `backend unreachable, fallback to demo: ${JSON.stringify(err)}`);
+    } catch {
+      Logger.warn(TAG, 'backend unreachable, fallback to demo');
     }
     setTimeout(async () => {
       this.isLoading = false;
       this.globalInfoModel.role = this.selectedRole;
       try {
         await this.getUIContext().getRouter().replaceUrl({ url: 'pages/MainPage' });
-      } catch (err) {
-        Logger.error(TAG, `login route failed: ${JSON.stringify(err)}`);
+      } catch {
+        Logger.error(TAG, 'login route failed');
       }
     }, 800);
   }

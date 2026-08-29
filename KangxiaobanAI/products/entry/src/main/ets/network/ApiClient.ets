@@ -60,8 +60,8 @@ export class ApiClient {
             AuthStore.clear();
           }
           resolve(resp);
-        } catch (e) {
-          reject(e);
+        } catch {
+          reject(new Error('响应解析失败'));
         }
       });
     });
@@ -87,3 +87,5 @@ export class ApiClient {
     return ApiClient.request<T>('DELETE', path);
   }
 }
+
+export default ApiClient;

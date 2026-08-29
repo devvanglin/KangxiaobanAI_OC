@@ -5,7 +5,7 @@
 
 import ApiClient from '../network/ApiClient';
 import AuthStore from '../network/AuthStore';
-import { ApiResp, Paged, Bill, FundFlow, Schedule } from '../network/Dto';
+import { Paged, Bill, FundFlow, Schedule } from '../network/Dto';
 import Logger from '../util/Logger';
 
 const TAG: string = '[FinanceSchedulePage]';
@@ -18,7 +18,7 @@ const TAG: string = '[FinanceSchedulePage]';
 @Entry
 @ComponentV2
 struct FinanceSchedulePage {
-  @Local tabIndex: number = 0;
+  @Local selectedTab: number = 0;
   @Local bills: Bill[] = [];
   @Local flows: FundFlow[] = [];
   @Local schedules: Schedule[] = [];
@@ -39,26 +39,26 @@ struct FinanceSchedulePage {
       this.schedules = await this.loadSchedules();
       this.bills = await this.loadBills();
       this.flows = await this.loadFlows();
-    } catch (err) {
+    } catch {
       this.error = '数据加载失败，请确认后端已运行';
-      Logger.error(TAG, `load failed: ${JSON.stringify(err)}`);
+      Logger.error(TAG, 'load failed');
     }
     this.loading = false;
   }
 
   private async loadBills(): Promise<Bill[]> {
-    const resp = await ApiClient.get<ApiResp<Paged<Bill>>>('/bills?size=50');
-    return (resp.data as Paged<Bill>).list ?? [];
+    const resp = await ApiClient.get<Paged<Bill>>('/bills?size=50');
+    return resp.data.list ?? [];
   }
 
   private async loadFlows(): Promise<FundFlow[]> {
-    const resp = await ApiClient.get<ApiResp<Paged<FundFlow>>>('/bills/flows?size=50');
-    return (resp.data as Paged<FundFlow>).list ?? [];
+    const resp = await ApiClient.get<Paged<FundFlow>>('/elders/1/flows?size=50');
+    return resp.data.list ?? [];
   }
 
   private async loadSchedules(): Promise<Schedule[]> {
-    const resp = await ApiClient.get<ApiResp<Paged<Schedule>>>('/schedules?size=50');
-    return (resp.data as Paged<Schedule>).list ?? [];
+    const resp = await ApiClient.get<Paged<Schedule>>('/schedules?size=50');
+    return resp.data.list ?? [];
   }
 
   private static money(v: number): string {
@@ -73,11 +73,11 @@ struct FinanceSchedulePage {
       ForEach(this.tabItems, (item: string, idx: number) => {
         Text(item)
           .fontSize(15)
-          .fontWeight(this.tabIndex === idx ? FontWeight.Bold : FontWeight.Normal)
-          .fontColor(this.tabIndex === idx ? $r('app.color.brand_blue') : $r('sys.color.font_secondary'))
+          .fontWeight(this.selectedTab === idx ? FontWeight.Bold : FontWeight.Normal)
+          .fontColor(this.selectedTab === idx ? $r('app.color.brand_blue') : $r('sys.color.font_secondary'))
           .padding({ left: 16, right: 16, top: 12, bottom: 12 })
           .onClick(() => {
-            this.tabIndex = idx;
+            this.selectedTab = idx;
           })
       })
     }
@@ -176,7 +176,7 @@ struct FinanceSchedulePage {
             Text(`${f.direction === 'in' ? '+' : '-'} ${f.amount}`)
               .fontSize(16)
               .fontWeight(FontWeight.Bold)
-              .fontColor(f.direction === 'in' ? $r('sys.color.sys_error') : $r('app.color.brand_blue'))
+              .fontColor(f.direction === 'in' ? $r('app.color.status_danger') : $r('app.color.brand_blue'))
           }
           .width('100%')
           .padding(14)
@@ -228,9 +228,9 @@ struct FinanceSchedulePage {
           .fontSize(12)
           .fontColor($r('sys.color.font_tertiary'))
         Blank()
-      } else if (this.tabIndex === 0) {
+      } else if (this.selectedTab === 0) {
         this.billList()
-      } else if (this.tabIndex === 1) {
+      } else if (this.selectedTab === 1) {
         this.scheduleList()
       } else {
         this.flowList()
