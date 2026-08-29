@@ -73,6 +73,9 @@ func AutoMigrate(db *gorm.DB) error {
 func AutoMigrateAll(db *gorm.DB) error {
 	return db.AutoMigrate(&Tenant{}, &User{}, &Role{}, &Permission{}, &AuditLog{}, &Elder{}, &Room{}, &Bed{}, &CareTask{}, &HealthRecord{},
 		&Assessment{}, &CarePlan{}, &CarePlanItem{}, &CareExecution{}, &Incident{},
+		&AssessmentTemplate{}, &AssessmentQuestion{}, &AssessmentOption{}, &AdmissionDictionaryItem{},
+		&AdmissionCarePlanTemplate{}, &AdmissionAssessment{}, &AdmissionAssessmentAnswer{},
+		&AdmissionScreening{}, &AdmissionScreeningAnswer{},
 		&IotDevice{}, &SignalRecord{}, &Alert{}, &AlertAction{}, &Notification{},
 		&Schedule{}, &ShiftHandover{}, &Bill{}, &FundFlow{}, &MedicationRecord{},
 		&MedicineStock{}, &DiningOrder{}, &FamilyElder{}, &Message{})

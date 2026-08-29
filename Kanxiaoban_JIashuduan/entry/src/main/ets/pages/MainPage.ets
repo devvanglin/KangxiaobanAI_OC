@@ -1,6 +1,6 @@
 import { HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
 import { router } from '@kit.ArkUI';
-import ApiClient from '../network/ApiClient';
+import { ApiClient } from '../network/ApiClient';
 import { ApiResp, Paged, Elder, Alert, Bill } from '../network/Dto';
 import Logger from '../util/Logger';
 
@@ -10,11 +10,18 @@ const TAG: string = '[MainPage]';
 @ComponentV2
 struct MainPage {
   @Local controller: HdsTabsController = new HdsTabsController();
-  @Local tabIndex: number = 0;
+  @Local selectedTabIndex: number = 0;
   @Local elders: Elder[] = [];
   @Local alerts: Alert[] = [];
   @Local bills: Bill[] = [];
   @Local loading: boolean = false;
+  @Local loaded: boolean = false;
+  @Local error: string = '';
+
+  private elderName(elderId: number): string {
+    const elder: Elder | undefined = this.elders.find((item: Elder): boolean => item.id === elderId);
+    return elder?.name ?? `长者 #${elderId}`;
+  }
 
   aboutToAppear(): void {
     this.loadAll();
@@ -22,19 +29,52 @@ struct MainPage {
 
   private async loadAll(): Promise<void> {
     this.loading = true;
+    this.error = '';
     try {
-      const [er, ar, br] = await Promise.all([
-        ApiClient.get<ApiResp<Paged<Elder>>>('/elders?size=50'),
-        ApiClient.get<ApiResp<Paged<Alert>>>('/alerts?size=50'),
-        ApiClient.get<ApiResp<Paged<Bill>>>('/bills?size=50')
-      ]);
-      this.elders = er.data ? (er.data as Paged<Elder>).list ?? [] : [];
-      this.alerts = ar.data ? (ar.data as Paged<Alert>).list ?? [] : [];
-      this.bills = br.data ? (br.data as Paged<Bill>).list ?? [] : [];
-    } catch (err) {
-      Logger.error(TAG, `load err: ${JSON.stringify(err)}`);
+      const er: ApiResp<Paged<Elder>> = await ApiClient.get<Paged<Elder>>('/elders?size=50');
+      const ar: ApiResp<Paged<Alert>> = await ApiClient.get<Paged<Alert>>('/alerts?size=50');
+      const br: ApiResp<Paged<Bill>> = await ApiClient.get<Paged<Bill>>('/bills?size=50');
+      if (er.code !== 0 || ar.code !== 0 || br.code !== 0) {
+        this.error = er.msg || ar.msg || br.msg || '数据加载失败';
+      } else {
+        this.elders = er.data?.list ?? [];
+        this.alerts = ar.data?.list ?? [];
+        this.bills = br.data?.list ?? [];
+        this.loaded = true;
+      }
+    } catch (_error) {
+      Logger.error(TAG, 'load failed');
+      this.error = '无法连接服务器，请稍后重试';
     }
     this.loading = false;
+  }
+
+  @Builder
+  private listState(emptyText: string) {
+    ListItem() {
+      Column({ space: 10 }) {
+        if (this.loading) {
+          LoadingProgress().width(30).height(30)
+          Text('正在加载服务器数据')
+            .fontSize(13)
+            .fontColor($r('sys.color.font_secondary'))
+        } else {
+          Text(this.error.length > 0 ? this.error : emptyText)
+            .fontSize(14)
+            .fontColor(this.error.length > 0 ? '#FF5D6C' :
+              $r('sys.color.font_secondary'))
+          if (this.error.length > 0) {
+            Button('重试')
+              .height(36)
+              .borderRadius(18)
+              .onClick(() => this.loadAll())
+          }
+        }
+      }
+      .width('100%')
+      .padding({ top: 56, bottom: 56 })
+      .alignItems(HorizontalAlign.Center)
+    }
   }
 
   private openDetail(id: number): void {
@@ -44,7 +84,10 @@ struct MainPage {
   @Builder
   private elderTab() {
     List() {
-      ForEach(this.elders, (e: Elder) => {
+      if (this.elders.length === 0) {
+        this.listState('暂无已绑定长者')
+      } else {
+        ForEach(this.elders, (e: Elder) => {
         ListItem() {
           Row({ space: 12 }) {
             Text(e.name)
@@ -75,7 +118,8 @@ struct MainPage {
           .borderRadius(12)
           .onClick(() => { this.openDetail(e.id); })
         }
-      })
+        })
+      }
     }
     .width('100%')
     .height('100%')
@@ -85,12 +129,16 @@ struct MainPage {
   @Builder
   private statusTab() {
     List() {
-      ForEach(this.alerts, (a: Alert) => {
+      if (this.alerts.length === 0) {
+        this.listState('暂无告警记录')
+      } else {
+        ForEach(this.alerts, (a: Alert) => {
         ListItem() {
           Row({ space: 10 }) {
             Text(a.level === 'emergency' ? '紧急' : a.level === 'important' ? '重要' : '提示')
               .fontSize(12)
-              .fontColor(a.level === 'emergency' ? Color.fromRgb(255, 93, 108) : a.level === 'important' ? Color.fromRgb(255, 181, 71) : $r('sys.color.font_tertiary'))
+              .fontColor(a.level === 'emergency' ? '#FF5D6C' :
+                a.level === 'important' ? '#FFB547' : $r('sys.color.font_tertiary'))
             Text(a.content).fontSize(14).layoutWeight(1)
             Text(a.status).fontSize(11).fontColor($r('sys.color.font_tertiary'))
           }
@@ -99,7 +147,8 @@ struct MainPage {
           .backgroundColor($r('sys.color.comp_background_secondary'))
           .borderRadius(12)
         }
-      })
+        })
+      }
     }
     .width('100%')
     .height('100%')
@@ -109,12 +158,15 @@ struct MainPage {
   @Builder
   private billTab() {
     List() {
-      ForEach(this.bills, (b: Bill) => {
+      if (this.bills.length === 0) {
+        this.listState('暂无账单记录')
+      } else {
+        ForEach(this.bills, (b: Bill) => {
         ListItem() {
           Row({ space: 10 }) {
             Column({ space: 4 }) {
               Text(b.bill_month).fontSize(16).fontWeight(FontWeight.Medium)
-              Text(`长者#${b.elder_id} · ${b.status}`).fontSize(12).fontColor($r('sys.color.font_tertiary'))
+              Text(`${this.elderName(b.elder_id)} · ${b.status}`).fontSize(12).fontColor($r('sys.color.font_tertiary'))
             }
             .alignItems(HorizontalAlign.Start)
             .layoutWeight(1)
@@ -125,7 +177,8 @@ struct MainPage {
           .backgroundColor($r('sys.color.comp_background_secondary'))
           .borderRadius(12)
         }
-      })
+        })
+      }
     }
     .width('100%')
     .height('100%')
@@ -158,7 +211,7 @@ struct MainPage {
       .height(52)
       .padding({ left: 16, right: 16 })
 
-      HdsTabs({ controller: this.controller, index: this.tabIndex }) {
+      HdsTabs({ controller: this.controller, index: this.selectedTabIndex }) {
         this.elderTab()
         this.statusTab()
         this.billTab()

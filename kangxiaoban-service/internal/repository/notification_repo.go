@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"gorm.io/gorm"
 	"kangxiaoban-service/internal/model"
 	"time"
@@ -12,8 +13,8 @@ func NewNotificationRepository(db *gorm.DB) *NotificationRepository {
 	return &NotificationRepository{db: db}
 }
 
-func (r *NotificationRepository) List(userID uint, roles []string, unreadOnly bool, page, size int) ([]model.Notification, int64, error) {
-	q := r.db.Model(&model.Notification{}).Where("user_id = ? OR role IN ?", userID, roles)
+func (r *NotificationRepository) List(ctx context.Context, userID uint, roles []string, unreadOnly bool, page, size int) ([]model.Notification, int64, error) {
+	q := r.db.WithContext(ctx).Model(&model.Notification{}).Where("user_id = ? OR role IN ?", userID, roles)
 	if unreadOnly {
 		q = q.Where("read_at IS NULL")
 	}
@@ -25,8 +26,21 @@ func (r *NotificationRepository) List(userID uint, roles []string, unreadOnly bo
 	err := q.Order("id desc").Offset((page - 1) * size).Limit(size).Find(&out).Error
 	return out, total, err
 }
-func (r *NotificationRepository) MarkRead(id, userID uint, roles []string) error {
+func (r *NotificationRepository) MarkRead(ctx context.Context, id, userID uint, roles []string) error {
 	now := time.Now()
-	return r.db.Model(&model.Notification{}).Where("id = ? AND (user_id = ? OR role IN ?)", id, userID, roles).Update("read_at", &now).Error
+	result := r.db.WithContext(ctx).Model(&model.Notification{}).Where("id = ? AND (user_id = ? OR role IN ?)", id, userID, roles).Update("read_at", &now)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
-func (r *NotificationRepository) Create(n *model.Notification) error { return r.db.Create(n).Error }
+func (r *NotificationRepository) CreateContext(ctx context.Context, n *model.Notification) error {
+	return r.db.WithContext(ctx).Create(n).Error
+}
+
+func (r *NotificationRepository) Create(n *model.Notification) error {
+	return r.CreateContext(context.Background(), n)
+}

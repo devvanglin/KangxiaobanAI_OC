@@ -42,7 +42,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			return
 		}
 	}
-	token, user, err := h.svc.LoginInTenant(req.Username, req.Password, tenantID)
+	token, user, err := h.svc.LoginInTenant(c.Request.Context(), req.Username, req.Password, tenantID)
 	if err != nil {
 		code := http.StatusUnauthorized
 		if err == service.ErrUserDisabled {

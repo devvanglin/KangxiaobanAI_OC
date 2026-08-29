@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"time"
 
 	"gorm.io/gorm"
@@ -11,8 +12,8 @@ type MessageRepository struct{ db *gorm.DB }
 
 func NewMessageRepository(db *gorm.DB) *MessageRepository { return &MessageRepository{db: db} }
 
-func (r *MessageRepository) List(userID, peerID uint, elderID *uint, page, size int) ([]model.Message, int64, error) {
-	q := r.db.Model(&model.Message{}).Where("(sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)", userID, peerID, peerID, userID)
+func (r *MessageRepository) List(ctx context.Context, userID, peerID uint, elderID *uint, page, size int) ([]model.Message, int64, error) {
+	q := r.db.WithContext(ctx).Model(&model.Message{}).Where("(sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)", userID, peerID, peerID, userID)
 	if elderID != nil {
 		q = q.Where("elder_id = ?", *elderID)
 	}
@@ -25,15 +26,29 @@ func (r *MessageRepository) List(userID, peerID uint, elderID *uint, page, size 
 	return items, total, err
 }
 
-func (r *MessageRepository) Create(m *model.Message) error { return r.db.Create(m).Error }
+func (r *MessageRepository) Create(ctx context.Context, m *model.Message) error {
+	return r.db.WithContext(ctx).Create(m).Error
+}
 
-func (r *MessageRepository) MarkRead(userID, messageID uint) error {
+func (r *MessageRepository) MarkRead(ctx context.Context, userID, messageID uint) error {
 	now := time.Now()
-	result := r.db.Model(&model.Message{}).Where("id = ? AND receiver_id = ?", messageID, userID).Update("read_at", &now)
+	result := r.db.WithContext(ctx).Model(&model.Message{}).Where("id = ? AND receiver_id = ?", messageID, userID).Update("read_at", &now)
 	if result.Error != nil {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *MessageRepository) RequireActiveUser(ctx context.Context, userID uint) error {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.User{}).Where("id = ? AND status = ?", userID, 1).Count(&count).Error
+	if err != nil {
+		return err
+	}
+	if count != 1 {
 		return gorm.ErrRecordNotFound
 	}
 	return nil

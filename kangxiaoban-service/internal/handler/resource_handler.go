@@ -22,7 +22,7 @@ func NewResourceHandler(svc *service.ResourceService, family *service.FamilyServ
 func (h *ResourceHandler) ListRooms(c *gin.Context) {
 	page, size := parsePage(c)
 	floor := parseInt(c, "floor", 0)
-	items, total, err := h.svc.ListRooms(c.Query("building"), floor, page, size)
+	items, total, err := h.svc.ListRooms(c.Request.Context(), c.Query("building"), floor, page, size)
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "查询房间失败")
 		return
@@ -45,7 +45,7 @@ func (h *ResourceHandler) ListRooms(c *gin.Context) {
 func (h *ResourceHandler) ListBeds(c *gin.Context) {
 	page, size := parsePage(c)
 	roomID := uint(parseUint(c, "room_id"))
-	items, total, err := h.svc.ListBeds(roomID, c.Query("status"), page, size)
+	items, total, err := h.svc.ListBeds(c.Request.Context(), roomID, c.Query("status"), page, size)
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "查询床位失败")
 		return

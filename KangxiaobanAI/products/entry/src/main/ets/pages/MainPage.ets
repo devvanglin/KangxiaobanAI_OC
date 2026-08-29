@@ -54,6 +54,8 @@ import { BreakpointUtil } from '../util/BreakpointSystem';
 import { WindowUtil } from '../util/WindowUtil';
 import AuthStore from '../network/AuthStore';
 import { BusinessStore } from '../network/BusinessStore';
+import { Schedule, WsEvent } from '../network/Dto';
+import { WsClient } from '../network/WsClient';
 
 const TAG: string = '[MainPage]';
 const CAREGIVER_FULL_WORKSPACE_MIN_WIDTH: number = 1180;
@@ -120,7 +122,7 @@ struct MainPage {
   @Local selectedResidentGeometryId: string = '';
   @Local caregiverHasLocalBackLayer: boolean = false;
   @Local caregiverBackRequestToken: number = 0;
-  @Local caregiverUnreadMessageCount: number = 3;
+  @Local caregiverUnreadMessageCount: number = 0;
   @Local caregiverMaterialScrollerOwner: CaregiverMaterialScrollerOwner = 'residentDetail';
   private wideHomeScroller: Scroller = new Scroller();
   private wideHomeTaskDetailScroller: Scroller = new Scroller();
@@ -129,21 +131,37 @@ struct MainPage {
   private wideMessageListScroller: Scroller = new Scroller();
   private wideMessageChatScroller: Scroller = new Scroller();
   private wideAiChatScroller: ListScroller = new ListScroller();
+  private businessWsClient: WsClient = new WsClient();
 
   aboutToAppear(): void {
-    if (AuthStore.getToken().length > 0) {
-      BusinessStore.getShared().load();
-    }
     if (AuthStore.getToken().length === 0) {
       this.getUIContext().getRouter().replaceUrl({ url: 'pages/LoginPage' });
       return;
     }
+    BusinessStore.getShared().load();
+    this.businessWsClient.connect((payload: string): void => {
+      this.handleBusinessEvent(payload);
+    });
     WindowUtil.setImmersiveMode(true);
   }
 
   aboutToDisappear(): void {
+    this.businessWsClient.close();
     this.caregiverHasLocalBackLayer = false;
     WindowUtil.setImmersiveMode(false);
+  }
+
+  private handleBusinessEvent(payload: string): void {
+    try {
+      const event: WsEvent<Object> = JSON.parse(payload) as WsEvent<Object>;
+      if (event.type === 'admission.submitted' || event.type === 'task.updated' ||
+        event.type === 'vital.record' || event.type === 'vital.abnormal' ||
+        event.type === 'alert.new' || event.type === 'alert.escalated') {
+        BusinessStore.getShared().load(true);
+      }
+    } catch (_error) {
+      Logger.warn(TAG, 'ignored malformed business event');
+    }
   }
 
   @Styles
@@ -348,6 +366,7 @@ struct MainPage {
 
   private async handleLogout(): Promise<void> {
     try {
+      this.businessWsClient.close();
       AuthStore.clear();
       BusinessStore.getShared().clear();
       await WindowUtil.setImmersiveMode(false);
@@ -577,8 +596,8 @@ struct MainPage {
             }
           }),
           textItem: {
-            primaryText: { text: '李护工' },
-            secondaryText: { text: '白班 08:00-18:00' }
+            primaryText: { text: this.currentUserDisplayName() },
+            secondaryText: { text: this.currentUserWorkLabel() }
           },
           suffixItem: new SuffixArrow(),
           cardBackgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
@@ -592,6 +611,37 @@ struct MainPage {
     .width('100%')
     .padding({ left: 16, right: 16, top: 8, bottom: 8 })
     .border({ width: { top: 0.5 }, color: { top: $r('sys.color.comp_divider') } })
+  }
+
+  private currentUserDisplayName(): string {
+    const user = AuthStore.getUser();
+    return user?.real_name || user?.username || '当前用户';
+  }
+
+  private currentUserRoleLabel(): string {
+    const user = AuthStore.getUser();
+    if (!user || user.roles.length === 0) {
+      return '未分配角色';
+    }
+    return user.roles.map((role) => role.name || role.code).join('、');
+  }
+
+  private currentDateValue(): string {
+    const now: Date = new Date();
+    return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${
+      now.getDate().toString().padStart(2, '0')}`;
+  }
+
+  private currentUserWorkLabel(): string {
+    const user = AuthStore.getUser();
+    const schedule: Schedule | undefined = BusinessStore.getShared().schedules.find((item: Schedule) =>
+      item.work_date === this.currentDateValue() &&
+      (item.staff === user?.real_name || item.staff === user?.username));
+    if (!schedule) {
+      return this.currentUserRoleLabel();
+    }
+    const scope: string = schedule.room_scope && schedule.room_scope.length > 0 ? ` · ${schedule.room_scope}` : '';
+    return `${this.currentUserRoleLabel()} · ${schedule.shift}${scope}`;
   }
 
   @Builder

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"time"
 
 	"gorm.io/gorm"
@@ -18,17 +19,17 @@ func NewScheduleService(repo *repository.ScheduleRepository) *ScheduleService {
 	return &ScheduleService{repo: repo}
 }
 
-func (s *ScheduleService) ListSchedules(date string, page, size int) ([]model.Schedule, int64, error) {
-	return s.repo.ListSchedules(date, page, size)
+func (s *ScheduleService) ListSchedules(ctx context.Context, date string, page, size int) ([]model.Schedule, int64, error) {
+	return s.repo.ListSchedules(ctx, date, page, size)
 }
-func (s *ScheduleService) CreateSchedule(sch *model.Schedule) error {
-	return s.repo.CreateSchedule(sch)
+func (s *ScheduleService) CreateSchedule(ctx context.Context, sch *model.Schedule) error {
+	return s.repo.CreateSchedule(ctx, sch)
 }
-func (s *ScheduleService) ListHandovers(date string, page, size int) ([]model.ShiftHandover, int64, error) {
-	return s.repo.ListHandovers(date, page, size)
+func (s *ScheduleService) ListHandovers(ctx context.Context, date string, page, size int) ([]model.ShiftHandover, int64, error) {
+	return s.repo.ListHandovers(ctx, date, page, size)
 }
-func (s *ScheduleService) CreateHandover(h *model.ShiftHandover) error {
-	return s.repo.CreateHandover(h)
+func (s *ScheduleService) CreateHandover(ctx context.Context, h *model.ShiftHandover) error {
+	return s.repo.CreateHandover(ctx, h)
 }
 
 // feeTable 简易费率：床位费/餐饮费按常量，护理费按照护等级。
@@ -45,32 +46,33 @@ func NewFinanceService(db *gorm.DB, repo *repository.FinanceRepository, elder *r
 	return &FinanceService{db: db, repo: repo, elder: elder}
 }
 
-func (s *FinanceService) ListBills(elderID uint, month string, page, size int) ([]model.Bill, int64, error) {
-	return s.repo.ListBills(elderID, month, page, size)
+func (s *FinanceService) ListBills(ctx context.Context, elderID uint, month string, page, size int) ([]model.Bill, int64, error) {
+	return s.repo.ListBills(ctx, elderID, month, page, size)
 }
 
 // ListBillsScoped 账单列表（家属按绑定集合过滤）。
-func (s *FinanceService) ListBillsScoped(elderID uint, month string, page, size int, allowed []uint) ([]model.Bill, int64, error) {
-	return s.repo.ListBillsScoped(elderID, month, page, size, allowed)
+func (s *FinanceService) ListBillsScoped(ctx context.Context, elderID uint, month string, page, size int, allowed []uint) ([]model.Bill, int64, error) {
+	return s.repo.ListBillsScoped(ctx, elderID, month, page, size, allowed)
 }
 
-func (s *FinanceService) ListFlows(elderID uint, page, size int) ([]model.FundFlow, int64, error) {
-	return s.repo.ListFlows(elderID, page, size)
+func (s *FinanceService) ListFlows(ctx context.Context, elderID uint, page, size int) ([]model.FundFlow, int64, error) {
+	return s.repo.ListFlows(ctx, elderID, page, size)
 }
 
 // GenerateMonth 为当月所有在院长者生成账单（已存在则跳过），返回生成条数。
-func (s *FinanceService) GenerateMonth(month string) (int, error) {
+func (s *FinanceService) GenerateMonth(ctx context.Context, month string) (int, error) {
 	if month == "" {
 		month = time.Now().Format("2006-01")
 	}
 	var elders []model.Elder
-	if err := s.db.Where("status = 2").Find(&elders).Error; err != nil {
+	db := s.db.WithContext(ctx)
+	if err := db.Where("status = 2").Find(&elders).Error; err != nil {
 		return 0, err
 	}
 	count := 0
 	for _, e := range elders {
 		var n int64
-		if err := s.db.Model(&model.Bill{}).Where("elder_id = ? AND bill_month = ?", e.ID, month).Count(&n).Error; err != nil {
+		if err := db.Model(&model.Bill{}).Where("elder_id = ? AND bill_month = ?", e.ID, month).Count(&n).Error; err != nil {
 			return count, err
 		}
 		if n > 0 {
@@ -86,7 +88,7 @@ func (s *FinanceService) GenerateMonth(month string) (int, error) {
 			Amount:     1500 + nursing + 900,
 			Status:     "unpaid",
 		}
-		if err := s.db.Create(&bill).Error; err != nil {
+		if err := db.Create(&bill).Error; err != nil {
 			return count, err
 		}
 		count++
@@ -95,16 +97,17 @@ func (s *FinanceService) GenerateMonth(month string) (int, error) {
 }
 
 // Pay 缴费：入资金流水并更新账单已缴/状态。
-func (s *FinanceService) Pay(elderID uint, month string, amount float64, reason string) error {
+func (s *FinanceService) Pay(ctx context.Context, elderID uint, month string, amount float64, reason string) error {
 	if reason == "" {
 		reason = "缴费"
 	}
 	flow := model.FundFlow{ElderID: elderID, Direction: "in", RelatedMonth: month, Reason: reason, Amount: amount}
-	if err := s.repo.CreateFlow(&flow); err != nil {
+	if err := s.repo.CreateFlow(ctx, &flow); err != nil {
 		return err
 	}
 	var bills []model.Bill
-	if err := s.db.Where("elder_id = ? AND bill_month = ?", elderID, month).Find(&bills).Error; err != nil {
+	db := s.db.WithContext(ctx)
+	if err := db.Where("elder_id = ? AND bill_month = ?", elderID, month).Find(&bills).Error; err != nil {
 		return err
 	}
 	for _, b := range bills {
@@ -114,7 +117,7 @@ func (s *FinanceService) Pay(elderID uint, month string, amount float64, reason 
 		} else if b.Paid > 0 {
 			b.Status = "partial"
 		}
-		if err := s.repo.Save(&b); err != nil {
+		if err := s.repo.Save(ctx, &b); err != nil {
 			return err
 		}
 	}
@@ -122,12 +125,13 @@ func (s *FinanceService) Pay(elderID uint, month string, amount float64, reason 
 }
 
 // Balance 余客（预缴in - 抵扣out）。
-func (s *FinanceService) Balance(elderID uint) (float64, error) {
+func (s *FinanceService) Balance(ctx context.Context, elderID uint) (float64, error) {
+	db := s.db.WithContext(ctx)
 	var in, out float64
-	if err := s.db.Model(&model.FundFlow{}).Where("elder_id = ? AND direction = 'in'", elderID).Select("COALESCE(SUM(amount),0)").Scan(&in).Error; err != nil {
+	if err := db.Model(&model.FundFlow{}).Where("elder_id = ? AND direction = 'in'", elderID).Select("COALESCE(SUM(amount),0)").Scan(&in).Error; err != nil {
 		return 0, err
 	}
-	if err := s.db.Model(&model.FundFlow{}).Where("elder_id = ? AND direction = 'out'", elderID).Select("COALESCE(SUM(amount),0)").Scan(&out).Error; err != nil {
+	if err := db.Model(&model.FundFlow{}).Where("elder_id = ? AND direction = 'out'", elderID).Select("COALESCE(SUM(amount),0)").Scan(&out).Error; err != nil {
 		return 0, err
 	}
 	return in - out, nil
@@ -142,15 +146,19 @@ func NewMedicationService(repo *repository.MedicationRepository) *MedicationServ
 	return &MedicationService{repo: repo}
 }
 
-func (s *MedicationService) List(elderID uint, status string, page, size int) ([]model.MedicationRecord, int64, error) {
-	return s.repo.List(elderID, status, page, size)
+func (s *MedicationService) List(ctx context.Context, elderID uint, status string, page, size int) ([]model.MedicationRecord, int64, error) {
+	return s.repo.List(ctx, elderID, status, page, size)
 }
-func (s *MedicationService) Create(m *model.MedicationRecord) error       { return s.repo.Create(m) }
-func (s *MedicationService) Get(id uint) (*model.MedicationRecord, error) { return s.repo.Get(id) }
+func (s *MedicationService) Create(ctx context.Context, m *model.MedicationRecord) error {
+	return s.repo.Create(ctx, m)
+}
+func (s *MedicationService) Get(ctx context.Context, id uint) (*model.MedicationRecord, error) {
+	return s.repo.Get(ctx, id)
+}
 
 // MarkTaken 标记已服药。status: taken/refused/missed。
-func (s *MedicationService) MarkStatus(id uint, status string) error {
-	m, err := s.repo.Get(id)
+func (s *MedicationService) MarkStatus(ctx context.Context, id uint, status string) error {
+	m, err := s.repo.Get(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -159,7 +167,7 @@ func (s *MedicationService) MarkStatus(id uint, status string) error {
 		now := time.Now()
 		m.TakenTime = &now
 	}
-	return s.repo.Save(m)
+	return s.repo.Save(ctx, m)
 }
 
 // AuditService 审计日志。
@@ -169,7 +177,9 @@ func NewAuditService(repo *repository.AuditRepository) *AuditService {
 	return &AuditService{repo: repo}
 }
 
-func (s *AuditService) List(page, size int) ([]model.AuditLog, int64, error) {
-	return s.repo.List(page, size)
+func (s *AuditService) List(ctx context.Context, page, size int) ([]model.AuditLog, int64, error) {
+	return s.repo.List(ctx, page, size)
 }
-func (s *AuditService) Record(a *model.AuditLog) error { return s.repo.Create(a) }
+func (s *AuditService) Record(ctx context.Context, a *model.AuditLog) error {
+	return s.repo.CreateContext(ctx, a)
+}

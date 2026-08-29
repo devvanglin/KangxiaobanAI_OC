@@ -32,7 +32,7 @@ func (h *FamilyManageHandler) CreateMember(c *gin.Context) {
 		Fail(c, http.StatusBadRequest, 400, "参数错误: username/password 必填")
 		return
 	}
-	u, err := h.family.CreateMember(req.Username, req.Password, req.RealName, req.Phone, req.ElderIDs)
+	u, err := h.family.CreateMember(c.Request.Context(), req.Username, req.Password, req.RealName, req.Phone, req.ElderIDs)
 	if err != nil {
 		Fail(c, http.StatusConflict, 409, err.Error())
 		return
@@ -43,7 +43,7 @@ func (h *FamilyManageHandler) CreateMember(c *gin.Context) {
 // ListBindings GET /api/v1/families?elder_id=
 func (h *FamilyManageHandler) ListBindings(c *gin.Context) {
 	page, size := parsePage(c)
-	items, total, err := h.family.ListBindings(uint(parseUint(c, "elder_id")), page, size)
+	items, total, err := h.family.ListBindings(c.Request.Context(), uint(parseUint(c, "elder_id")), page, size)
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "查询绑定失败")
 		return
@@ -59,7 +59,7 @@ func (h *FamilyManageHandler) Unbind(c *gin.Context) {
 		Fail(c, http.StatusBadRequest, 400, "参数错误: user_id 与 elder_id 必填")
 		return
 	}
-	if err := h.family.Unbind(uid, eid); err != nil {
+	if err := h.family.Unbind(c.Request.Context(), uid, eid); err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "解绑失败")
 		return
 	}

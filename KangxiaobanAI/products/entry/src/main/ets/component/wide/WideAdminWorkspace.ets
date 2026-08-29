@@ -1,4 +1,7 @@
 import { KeyCode } from '@kit.InputKit';
+import ApiClient from '../../network/ApiClient';
+import { BusinessStore } from '../../network/BusinessStore';
+import { Alert, Bed, Room, Schedule } from '../../network/Dto';
 
 interface AdminNavItem {
   id: string;
@@ -17,12 +20,25 @@ interface AdminMetric {
 
 interface AdminEvent {
   id: string;
+  alertId: number;
   title: string;
   detail: string;
   owner: string;
   time: string;
   status: string;
   tone: string;
+}
+
+interface AdminOccupancy {
+  id: string;
+  label: string;
+  used: number;
+  total: number;
+  percent: number;
+}
+
+interface AlertHandleRequest {
+  note?: string;
 }
 
 @ComponentV2
@@ -37,31 +53,90 @@ export struct WideAdminWorkspace {
   @Local isSidebarCollapsed: boolean = false;
   @Local selectedPeriod: number = 0;
   @Local hoveredId: string = '';
-  @Local resolvedIds: string[] = [];
+  @Local businessStore: BusinessStore = BusinessStore.getShared();
 
   private navItems: AdminNavItem[] = [
     { id: 'overview', label: '运营总览', symbol: $r('sys.symbol.square_grid_2x2') },
-    { id: 'residents', label: '长者与床位', symbol: $r('sys.symbol.person_2_fill'), badge: '3' },
-    { id: 'staff', label: '人员与排班', symbol: $r('sys.symbol.person_crop_circle_fill'), badge: '2' },
+    { id: 'residents', label: '长者与床位', symbol: $r('sys.symbol.person_2_fill') },
+    { id: 'staff', label: '人员与排班', symbol: $r('sys.symbol.person_crop_circle_fill') },
     { id: 'quality', label: '养护质量', symbol: $r('sys.symbol.checkmark_shield_fill') },
-    { id: 'risk', label: '风险事件', symbol: $r('sys.symbol.exclamationmark_triangle_fill'), badge: '5' },
-    { id: 'assets', label: '设备与物资', symbol: $r('sys.symbol.archivebox_fill'), badge: '4' },
+    { id: 'risk', label: '风险事件', symbol: $r('sys.symbol.exclamationmark_triangle_fill') },
+    { id: 'assets', label: '设备与物资', symbol: $r('sys.symbol.archivebox_fill') },
     { id: 'reports', label: '运营报表', symbol: $r('sys.symbol.waveform_path_ecg_square') }
   ];
 
-  private metrics: AdminMetric[] = [
-    { label: '在院长者', value: '128', note: '床位使用率 91.4%', symbol: $r('sys.symbol.person_2_fill'), tone: 'focus' },
-    { label: '今日在岗', value: '46', note: '2 个班次待补位', symbol: $r('sys.symbol.person_crop_circle_fill'), tone: 'warning' },
-    { label: '计划完成率', value: '93.6%', note: '较昨日 +2.1%', symbol: $r('sys.symbol.checkmark_circle_fill'), tone: 'success' },
-    { label: '待闭环风险', value: '5', note: '1 项需要优先跟进', symbol: $r('sys.symbol.exclamationmark_triangle_fill'), tone: 'danger' }
-  ];
+  aboutToAppear(): void {
+    this.businessStore.load();
+  }
 
-  private events: AdminEvent[] = [
-    { id: 'event-01', title: '3A 区夜班人员缺口', detail: '距交班 2 小时，尚缺 1 名护理员', owner: '人事排班', time: '10:28', status: '待协调', tone: 'warning' },
-    { id: 'event-02', title: '2B 区跌倒风险复盘', detail: '环境与照护措施已补充，等待负责人确认', owner: '质量管理', time: '10:16', status: '待确认', tone: 'danger' },
-    { id: 'event-03', title: '营养评估完成率低于目标', detail: '本周 8 位长者尚未完成周期评估', owner: '养护管理', time: '09:52', status: '跟进中', tone: 'warning' },
-    { id: 'event-04', title: '智能床垫电量预警', detail: '4 台设备需在今日巡检中完成充电', owner: '设备管理', time: '09:31', status: '待处理', tone: 'neutral' }
-  ];
+  private currentDateValue(): string {
+    const now: Date = new Date();
+    return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${
+      now.getDate().toString().padStart(2, '0')}`;
+  }
+
+  private metrics(): AdminMetric[] {
+    const totalBeds: number = this.businessStore.beds.length;
+    const occupiedBeds: number = this.businessStore.beds.filter((item: Bed) => item.status === 'occupied').length;
+    const occupancy: number = totalBeds > 0 ? Math.round(occupiedBeds / totalBeds * 1000) / 10 : 0;
+    const todaySchedules: number = this.businessStore.schedules.filter((item: Schedule) =>
+      item.work_date === this.currentDateValue()).length;
+    const totalTasks: number = this.businessStore.tasks.length;
+    const doneTasks: number = this.businessStore.tasks.filter((item) => item.status === 'done').length;
+    const completion: number = totalTasks > 0 ? Math.round(doneTasks / totalTasks * 1000) / 10 : 0;
+    const openAlerts: Alert[] = this.businessStore.alerts.filter((item: Alert) =>
+      item.status !== 'handled' && item.status !== 'closed');
+    const emergencyAlerts: number = openAlerts.filter((item: Alert) => item.level === 'emergency').length;
+    return [
+      { label: '在院长者', value: this.businessStore.elders.filter((item) => item.status === 2).length.toString(),
+        note: `床位使用率 ${occupancy}%`, symbol: $r('sys.symbol.person_2_fill'), tone: 'focus' },
+      { label: '今日排班', value: todaySchedules.toString(), note: '来自服务器排班记录',
+        symbol: $r('sys.symbol.person_crop_circle_fill'), tone: 'warning' },
+      { label: '任务完成率', value: `${completion}%`, note: `${doneTasks}/${totalTasks} 项已完成`,
+        symbol: $r('sys.symbol.checkmark_circle_fill'), tone: 'success' },
+      { label: '待闭环风险', value: openAlerts.length.toString(), note: `${emergencyAlerts} 项紧急告警`,
+        symbol: $r('sys.symbol.exclamationmark_triangle_fill'), tone: 'danger' }
+    ];
+  }
+
+  private events(): AdminEvent[] {
+    return this.businessStore.alerts.map((item: Alert): AdminEvent => ({
+      id: `alert-${item.id}`,
+      alertId: item.id,
+      title: item.type || '风险告警',
+      detail: item.content,
+      owner: item.handled_by || '未分配',
+      time: item.create_time.length >= 16 ? item.create_time.slice(11, 16) : '--',
+      status: item.status === 'closed' ? '已闭环' : item.status === 'handled' ? '跟进中' : '待处理',
+      tone: item.level === 'emergency' ? 'danger' : item.level === 'important' ? 'warning' : 'neutral'
+    }));
+  }
+
+  private occupancyRows(): AdminOccupancy[] {
+    const rows: AdminOccupancy[] = [];
+    for (let index: number = 0; index < this.businessStore.rooms.length; index++) {
+      const room: Room = this.businessStore.rooms[index];
+      const beds: Bed[] = this.businessStore.beds.filter((item: Bed) => item.room_id === room.id);
+      if (beds.length === 0) {
+        continue;
+      }
+      const used: number = beds.filter((item: Bed) => item.status === 'occupied').length;
+      rows.push({ id: `room-${room.id}`, label: `${room.building}${room.floor}F-${room.room_no}`,
+        used: used, total: beds.length, percent: Math.round(used / beds.length * 100) });
+    }
+    return rows;
+  }
+
+  private async handleAlert(item: AdminEvent): Promise<void> {
+    try {
+      const request: AlertHandleRequest = {};
+      const response = await ApiClient.patch<Object>(`/alerts/${item.alertId}/handle?close=0`, request);
+      if (response.code === 0) {
+        await this.businessStore.load(true);
+      }
+    } catch (_error) {
+    }
+  }
 
   private sidebarWidth(): number {
     if (this.isSidebarCollapsed) {
@@ -196,7 +271,7 @@ export struct WideAdminWorkspace {
           SymbolGlyph(metric.symbol).fontSize(20).fontColor([this.toneColor(metric.tone)])
         }
         Blank()
-        Text('本地演示').fontSize(9).fontColor($r('app.color.doctor_workspace_text_tertiary'))
+        Text('服务器数据').fontSize(9).fontColor($r('app.color.doctor_workspace_text_tertiary'))
       }.width('100%')
       Text(metric.label).fontSize(12).fontColor($r('app.color.doctor_workspace_text_secondary')).width('100%')
       Text(metric.value).fontSize(28).fontWeight(FontWeight.Bold)
@@ -223,13 +298,12 @@ export struct WideAdminWorkspace {
         Text(item.status).fontSize(10).fontColor(this.toneColor(item.tone))
         Text(`${item.owner} · ${item.time}`).fontSize(9).fontColor($r('app.color.doctor_workspace_text_tertiary'))
       }.alignItems(HorizontalAlign.End)
-      Button(this.resolvedIds.indexOf(item.id) >= 0 ? '已闭环' : '标记跟进')
+      Button(item.status === '已闭环' || item.status === '跟进中' ? item.status : '标记跟进')
         .height(32).fontSize(10).borderRadius(9)
         .fontColor($r('app.color.doctor_workspace_text_primary'))
         .backgroundColor($r('app.color.doctor_workspace_surface_hover'))
-        .onClick(() => {
-          if (this.resolvedIds.indexOf(item.id) < 0) this.resolvedIds = [...this.resolvedIds, item.id];
-        })
+        .enabled(item.status !== '已闭环' && item.status !== '跟进中')
+        .onClick(() => this.handleAlert(item))
     }
     .width('100%').height(68).padding({ left: 14, right: 12 })
     .border({ width: { bottom: 0.5 }, color: { bottom: $r('app.color.doctor_workspace_border_soft') } })
@@ -243,14 +317,23 @@ export struct WideAdminWorkspace {
         Text('区域床位使用').fontSize(16).fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.doctor_workspace_text_primary'))
         Blank()
-        Text('共 140 张').fontSize(10).fontColor($r('app.color.doctor_workspace_text_tertiary'))
+        Text(`共 ${this.businessStore.beds.length} 张`).fontSize(10)
+          .fontColor($r('app.color.doctor_workspace_text_tertiary'))
       }.width('100%')
-      this.progressRow('2A 养护区', 34, 36, 94)
-      this.progressRow('2B 养护区', 29, 32, 91)
-      this.progressRow('3A 重点养护区', 31, 32, 97)
-      this.progressRow('5A 认知照护区', 34, 40, 85)
+      if (this.occupancyRows().length === 0) {
+        Text(this.businessStore.loading ? '正在加载床位数据' : '暂无床位数据')
+          .width('100%')
+          .padding({ top: 48, bottom: 48 })
+          .fontSize(11)
+          .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+          .textAlign(TextAlign.Center)
+      } else {
+        ForEach(this.occupancyRows(), (row: AdminOccupancy) => {
+          this.progressRow(row.label, row.used, row.total, row.percent)
+        }, (row: AdminOccupancy) => row.id)
+      }
     }
-    .width('100%').height(258).padding(18).borderRadius(16)
+    .width('100%').constraintSize({ minHeight: 258 }).padding(18).borderRadius(16)
     .backgroundColor($r('app.color.doctor_workspace_surface'))
     .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
     .alignItems(HorizontalAlign.Start)
@@ -282,19 +365,15 @@ export struct WideAdminWorkspace {
             Text('围绕长者安全、人员配置与养护质量组织今日运营').fontSize(11)
               .fontColor($r('app.color.doctor_workspace_text_secondary'))
           }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-          Row({ space: 6 }) {
-            ForEach(['今日', '本周', '本月'], (label: string, index: number) => {
-              Button(label).height(34).fontSize(10).borderRadius(10)
-                .fontColor(this.selectedPeriod === index ? $r('app.color.doctor_workspace_background') :
-                  $r('app.color.doctor_workspace_text_primary'))
-                .backgroundColor(this.selectedPeriod === index ? $r('app.color.doctor_workspace_text_primary') :
-                  $r('app.color.doctor_workspace_surface'))
-                .onClick(() => this.selectedPeriod = index)
-            })
-          }
+          Text('实时数据')
+            .fontSize(10)
+            .fontColor($r('app.color.doctor_workspace_text_secondary'))
+            .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+            .borderRadius(10)
+            .backgroundColor($r('app.color.doctor_workspace_surface'))
         }.width('100%').alignItems(VerticalAlign.Center)
         GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
-          ForEach(this.metrics, (metric: AdminMetric) => {
+          ForEach(this.metrics(), (metric: AdminMetric) => {
             GridCol({ span: this.compactWidth ? 6 : 3 }) { this.metricCard(metric) }
           }, (metric: AdminMetric) => metric.label)
         }.width('100%')
@@ -306,9 +385,18 @@ export struct WideAdminWorkspace {
                 Text('今日运营关注').fontSize(16).fontWeight(FontWeight.Bold)
                   .fontColor($r('app.color.doctor_workspace_text_primary'))
                 Blank()
-                Text(`${this.events.length} 项`).fontSize(10).fontColor($r('app.color.doctor_workspace_text_tertiary'))
+                Text(`${this.events().length} 项`).fontSize(10).fontColor($r('app.color.doctor_workspace_text_tertiary'))
               }.width('100%').height(52).padding({ left: 16, right: 16 })
-              ForEach(this.events, (item: AdminEvent) => this.eventRow(item), (item: AdminEvent) => item.id)
+              if (this.events().length === 0) {
+                Text(this.businessStore.loading ? '正在加载告警数据' : '暂无运营关注事项')
+                  .width('100%')
+                  .padding({ top: 56, bottom: 56 })
+                  .fontSize(11)
+                  .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+                  .textAlign(TextAlign.Center)
+              } else {
+                ForEach(this.events(), (item: AdminEvent) => this.eventRow(item), (item: AdminEvent) => item.id)
+              }
             }.width('100%').borderRadius(16).backgroundColor($r('app.color.doctor_workspace_surface'))
               .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
           }
@@ -327,7 +415,7 @@ export struct WideAdminWorkspace {
         .fontSize(42).fontColor([$r('app.color.doctor_workspace_accent')])
       Text(this.title()).fontSize(26).fontWeight(FontWeight.Bold)
         .fontColor($r('app.color.doctor_workspace_text_primary'))
-      Text('该模块已纳入管理端信息架构，当前展示本地演示入口。')
+      Text('该模块尚未开放服务器业务接口。')
         .fontSize(12).fontColor($r('app.color.doctor_workspace_text_secondary'))
       Button('返回运营总览').height(40).borderRadius(12).fontSize(12)
         .fontColor($r('app.color.doctor_workspace_background'))

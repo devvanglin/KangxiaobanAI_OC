@@ -128,7 +128,8 @@ export struct HealthExpandPage {
                                 .fontSize($r('sys.float.Subtitle_M'))
                                 .fontColor($r('sys.color.font_primary'))
                                 .fontWeight(FontWeight.Medium)
-                              Text(`${elderItem.item.age}岁 · ${elderItem.item.room} · ${elderItem.item.bed} · ${elderItem.item.status}`)
+                              Text(`${elderItem.item.age > 0 ? `${elderItem.item.age}岁` : '年龄未登记'} · ${
+                                elderItem.item.room} · ${elderItem.item.bed} · ${elderItem.item.status}`)
                                 .fontSize($r('sys.float.Body_S'))
                                 .fontColor($r('sys.color.font_secondary'))
                             }

@@ -1,48 +1,34 @@
-// Copyright (c) 2026 Huawei Device Co., Ltd.
-// Licensed under the Apache License, Version 2.0.
+/*
+ * Copyright (c) 2026 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ */
 
-import { LengthMetrics } from '@kit.ArkUI';
-import { KeyCode } from '@kit.InputKit';
+import {
+  AdmissionAnswer,
+  AdmissionAssessmentPayload,
+  AdmissionAssessmentOption,
+  AdmissionAssessmentQuestion,
+  AdmissionAssessmentRecord,
+  AdmissionBootstrap,
+  AdmissionCareService,
+  AdmissionCarePlanTemplate,
+  AdmissionDictionaryOption,
+  AdmissionGroupScore,
+  AdmissionLevelRule,
+  AdmissionMedication,
+  AdmissionPreviewResult,
+  AdmissionRiskEvent,
+  AdmissionSubmitResult
+} from '../../network/AdmissionApi';
+import AdmissionRepository, { AdmissionFailureKind, AdmissionResult } from '../../network/AdmissionRepository';
+import { Bed, Paged } from '../../network/Dto';
+import { AdmissionScreeningPanel } from './AdmissionScreeningPanel';
 
-/** 入住初筛单项选项 */
-interface AdmissionAssessmentOption {
+type AdmissionView = 'loading' | 'drafts' | 'form' | 'submitted' | 'error';
+
+interface AdmissionHealthCategory {
+  code: string;
   label: string;
-  score: number;
-  tone: string;
-}
-
-/** 入住初筛维度 */
-interface AdmissionAssessmentDimension {
-  id: string;
-  title: string;
-  basis: string;
-  description: string;
-  options: AdmissionAssessmentOption[];
-}
-
-/** 入住服务安全风险 */
-interface AdmissionSafetyRisk {
-  id: string;
-  title: string;
-  description: string;
-}
-
-/** 入住照护计划 */
-interface AdmissionCarePlan {
-  id: string;
-  name: string;
-  target: string;
-  baseServices: string[];
-  optionalServices: string[];
-  tone: string;
-}
-
-/** 入住初筛生成的照护计划建议 */
-interface CarePlanSuggestion {
-  label: string;
-  tone: string;
-  desc: string;
-  recommendedPlanId: string;
 }
 
 @ComponentV2
@@ -52,1742 +38,2061 @@ export struct WideDoctorAdmission {
   @Event onExit: () => void = () => {};
   @Event onDirtyChange: (dirty: boolean) => void = (_dirty: boolean) => {};
 
-  // 流程状态
+  @Local view: AdmissionView = 'loading';
+  @Local operation: string = '';
+  @Local errorKind: AdmissionFailureKind = 'none';
+  @Local errorMessage: string = '';
+  @Local bootstrap: AdmissionBootstrap | null = null;
+  @Local drafts: AdmissionAssessmentRecord[] = [];
+  @Local beds: Bed[] = [];
+  @Local draftId: number = 0;
+  @Local assessmentNo: string = '';
   @Local currentStep: number = 0;
-  @Local submitted: boolean = false;
   @Local dirty: boolean = false;
+  @Local preview: AdmissionPreviewResult | null = null;
+  @Local submitResult: AdmissionSubmitResult | null = null;
 
-  // 第 1 步：基础资料
+  @Local assessmentReason: string = '';
+  @Local baselineDate: string = '';
   @Local residentName: string = '';
-  @Local genderIndex: number = -1;
-  @Local age: string = '';
-  @Local idNumber: string = '';
-  @Local room: string = '';
-  @Local bed: string = '';
-  @Local guardianName: string = '';
-  @Local guardianPhone: string = '';
-  @Local diagnosis: string = '';
-  @Local allergies: string = '';
-  @Local sourceIndex: number = -1;
+  @Local gender: string = '';
+  @Local birthDate: string = '';
+  @Local idCard: string = '';
+  @Local heightText: string = '';
+  @Local weightText: string = '';
+  @Local ethnicity: string = '';
+  @Local religion: string = '';
+  @Local education: string = '';
+  @Local livingSituations: string[] = [];
+  @Local maritalStatus: string = '';
+  @Local medicalPayments: string[] = [];
+  @Local incomeSources: string[] = [];
+  @Local riskEvents: AdmissionRiskEvent[] = [];
+  @Local diagnoses: string[] = [];
+  @Local dementiaOrMentalDisorder: boolean = false;
+  @Local coma: boolean = false;
+  @Local medicationsText: string = '';
+  @Local healthIssues: string[] = [];
+  @Local infoProviderName: string = '';
+  @Local infoProviderRelation: string = '';
+  @Local contactName: string = '';
+  @Local contactPhone: string = '';
+  @Local assessmentLocation: string = '';
+  @Local targetBedId: number = 0;
 
-  // 第 2 步：入住初筛（与维度、风险顺序对齐，-1 表示尚未评估）
-  @Local assessmentChoice: number[] = [-1, -1, -1, -1, -1, -1];
-  @Local safetyRiskChoice: number[] = [-1, -1, -1, -1, -1, -1, -1, -1, -1];
-  @Local safetyRiskMeasures: string[] = ['', '', '', '', '', '', '', '', ''];
-  @Local safetyRiskOwners: string[] = ['', '', '', '', '', '', '', '', ''];
-  @Local safetyRiskReviewPoints: string[] = ['', '', '', '', '', '', '', '', ''];
-  @Local safetyRiskEscalations: string[] = ['', '', '', '', '', '', '', '', ''];
-
-  // 第 3 步：照护计划选择
-  @Local selectedPlanId: string = '';
-
-  // 第 4 步：人工确认与告知
+  @Local answers: AdmissionAnswer[] = [];
+  @Local selectedCarePlanCode: string = '';
+  @Local selectedOptionalServices: string[] = [];
   @Local doctorConfirmed: boolean = false;
   @Local planConsentConfirmed: boolean = false;
   @Local serviceFeeInformed: boolean = false;
+  @Local infoProviderSigned: boolean = false;
 
   private contentScroller: Scroller = new Scroller();
-
-  private genderOptions: string[] = ['男', '女'];
-  private sourceOptions: string[] = ['家庭送养', '医院转介', '社区转介', '机构调床'];
-
-  private steps: string[] = ['核验基础资料', '完成入住初筛', '选择照护计划', '确认并生成草稿'];
-
-  private assessments: AdmissionAssessmentDimension[] = [
-    {
-      id: 'self-care',
-      title: '自理能力',
-      basis: 'GB/T 42195 一级指标 · 入住初筛',
-      description: '观察进食、修饰、穿衣、如厕、洗澡等日常生活活动表现',
-      options: [
-        { label: '能力完好表现', score: 0, tone: 'normal' },
-        { label: '轻度受损表现', score: 1, tone: 'warning' },
-        { label: '中度受损表现', score: 2, tone: 'warning' },
-        { label: '重度受损表现', score: 3, tone: 'danger' },
-        { label: '完全丧失表现', score: 4, tone: 'danger' }
-      ]
-    },
-    {
-      id: 'mobility',
-      title: '基础运动能力',
-      basis: 'GB/T 42195 一级指标 · 入住初筛',
-      description: '观察翻身、坐位、站立、床椅转移、步行与上下楼梯表现',
-      options: [
-        { label: '能力完好表现', score: 0, tone: 'normal' },
-        { label: '轻度受损表现', score: 1, tone: 'warning' },
-        { label: '中度受损表现', score: 2, tone: 'warning' },
-        { label: '重度受损表现', score: 3, tone: 'danger' },
-        { label: '完全丧失表现', score: 4, tone: 'danger' }
-      ]
-    },
-    {
-      id: 'mental',
-      title: '精神状态',
-      basis: 'GB/T 42195 一级指标 · 入住初筛',
-      description: '观察认知、行为、情绪以及近期明显变化，由专业人员继续核验',
-      options: [
-        { label: '能力完好表现', score: 0, tone: 'normal' },
-        { label: '轻度受损表现', score: 1, tone: 'warning' },
-        { label: '中度受损表现', score: 2, tone: 'warning' },
-        { label: '重度受损表现', score: 3, tone: 'danger' },
-        { label: '完全丧失表现', score: 4, tone: 'danger' }
-      ]
-    },
-    {
-      id: 'perception-social',
-      title: '感知觉与社会参与',
-      basis: 'GB/T 42195 一级指标 · 入住初筛',
-      description: '观察视听觉、沟通、定向、社会交往及参与活动的表现',
-      options: [
-        { label: '能力完好表现', score: 0, tone: 'normal' },
-        { label: '轻度受损表现', score: 1, tone: 'warning' },
-        { label: '中度受损表现', score: 2, tone: 'warning' },
-        { label: '重度受损表现', score: 3, tone: 'danger' },
-        { label: '完全丧失表现', score: 4, tone: 'danger' }
-      ]
-    },
-    {
-      id: 'nutrition-swallowing',
-      title: '营养与吞咽支持',
-      basis: '入住健康初筛 · 不替代营养或吞咽专科评估',
-      description: '核对近期体重和进食变化、食物性状、饮水与吞咽异常表现',
-      options: [
-        { label: '暂未见异常', score: 0, tone: 'normal' },
-        { label: '需要持续观察', score: 1, tone: 'warning' },
-        { label: '需要专业评估', score: 2, tone: 'danger' }
-      ]
-    },
-    {
-      id: 'health-medication',
-      title: '慢病与用药支持',
-      basis: '入住健康初筛 · 需结合病历与医嘱复核',
-      description: '核对慢病稳定性、近期就医、用药种类、服药能力与不良反应',
-      options: [
-        { label: '稳定且可自管', score: 0, tone: 'normal' },
-        { label: '需要用药协助', score: 1, tone: 'warning' },
-        { label: '需要重点管理', score: 2, tone: 'danger' }
-      ]
-    }
+  private readonly steps: string[] = ['基本信息（A）', '能力评估（B）', '结果与计划（C）', '入住确认'];
+  private readonly healthCategories: AdmissionHealthCategory[] = [
+    { code: 'pressure_injury', label: '压疮' },
+    { code: 'joint_mobility', label: '关节活动度' },
+    { code: 'wound', label: '伤口' },
+    { code: 'special_care', label: '特殊护理' },
+    { code: 'pain', label: '疼痛' },
+    { code: 'tooth_loss', label: '牙齿缺损' },
+    { code: 'denture', label: '义齿' },
+    { code: 'dysphagia', label: '吞咽问题' },
+    { code: 'malnutrition', label: '营养不良' },
+    { code: 'airway_clearance', label: '气道清除能力' }
   ];
 
-  private safetyRisks: AdmissionSafetyRisk[] = [
-    { id: 'choking', title: '噎食', description: '吞咽、进食速度、食物性状与进食照护' },
-    { id: 'mistaken-intake', title: '食品药品误食', description: '认知、药品保管、饮食禁忌与物品标识' },
-    { id: 'pressure-injury', title: '压疮', description: '皮肤、营养、活动和体位变换能力' },
-    { id: 'scald', title: '烫伤', description: '温度感知、热源接触与洗浴饮水支持' },
-    { id: 'bed-fall', title: '坠床', description: '睡眠行为、床上活动与防护设施适配' },
-    { id: 'fall', title: '跌倒', description: '跌倒史、步态、辅助器具、环境与相关用药' },
-    { id: 'harm', title: '他伤和自伤', description: '情绪行为、冲动风险、冲突与保护因素' },
-    { id: 'wandering', title: '走失', description: '定向、记忆、外出行为与身份识别措施' },
-    { id: 'activity-accident', title: '文娱活动意外', description: '活动能力、禁忌、器材环境与陪同需求' }
-  ];
-
-  private safetyRiskOptions: AdmissionAssessmentOption[] = [
-    { label: '未见明显风险', score: 0, tone: 'normal' },
-    { label: '需预防措施', score: 1, tone: 'warning' },
-    { label: '高风险', score: 2, tone: 'danger' }
-  ];
-
-  private pendingOption: AdmissionAssessmentOption = {
-    label: '未评估',
-    score: 0,
-    tone: 'pending'
-  };
-
-  private plans: AdmissionCarePlan[] = [
-    {
-      id: 'self-support',
-      name: '自理支持计划',
-      target: '适合初筛显示生活能力较完整、以保持独立生活为目标的长者',
-      tone: 'normal',
-      baseServices: [
-        '床位与住宿｜适老居室、床位及公共设施使用',
-        '照料护理｜环境整理、日常巡查与必要生活提醒',
-        '膳食｜机构基础适老膳食与饮水支持'
-      ],
-      optionalServices: [
-        '康复训练｜基础体能和集体活动',
-        '认知支持｜益智活动和社会参与',
-        '营养管理｜营养筛查和膳食建议',
-        '用药协助｜服药提醒与记录',
-        '智能安全监测｜紧急呼叫、门磁等按需配置'
-      ]
-    },
-    {
-      id: 'assisted-care',
-      name: '协助照护计划',
-      target: '适合部分生活活动需要协助，或存在一项重点安全风险的长者',
-      tone: 'warning',
-      baseServices: [
-        '床位与住宿｜按行动能力适配居室位置和辅助设施',
-        '照料护理｜起居、清洁、如厕和转移等分项协助',
-        '膳食｜适老膳食、进食观察与特殊需求登记'
-      ],
-      optionalServices: [
-        '康复训练｜个体功能维持训练',
-        '认知支持｜定向训练和结构化活动',
-        '营养管理｜摄入追踪和个体膳食方案',
-        '用药协助｜核对、提醒、观察与异常反馈',
-        '智能安全监测｜离床、跌倒和定位等按风险配置'
-      ]
-    },
-    {
-      id: 'continuous-care',
-      name: '全程照护计划',
-      target: '适合多项能力明显受损、需要连续协助或多风险联合干预的长者',
-      tone: 'danger',
-      baseServices: [
-        '床位与住宿｜优先适配照护动线、无障碍和安全防护',
-        '照料护理｜进食、清洁、排泄、转移等全程分级支持',
-        '膳食｜按吞咽、营养和疾病需求落实个体方案'
-      ],
-      optionalServices: [
-        '康复训练｜床旁或个体功能维持训练',
-        '认知支持｜失智友好照护和行为支持',
-        '营养管理｜持续摄入、体重和营养风险跟踪',
-        '用药协助｜全流程核对、执行记录与异常上报',
-        '智能安全监测｜离床、生命体征和定位等联合监测'
-      ]
-    }
-  ];
-
-  private toneColor(tone: string): ResourceColor {
-    if (tone === 'danger') {
-      return $r('app.color.doctor_workspace_danger');
-    }
-    if (tone === 'warning') {
-      return $r('app.color.doctor_workspace_warning');
-    }
-    if (tone === 'normal') {
-      return $r('app.color.doctor_workspace_success');
-    }
-    if (tone === 'focus') {
-      return $r('app.color.doctor_workspace_focus');
-    }
-    return $r('app.color.doctor_workspace_text_secondary');
+  aboutToAppear(): void {
+    this.loadWorkspace();
   }
 
   private mainPadding(): number {
-    return this.compactWidth ? 20 : 24;
+    return this.compactWidth ? 18 : 24;
   }
 
-  private activateWithKeyboard(event: KeyEvent, action: () => void): void {
-    if (event.type === KeyType.Down &&
-      (event.keyCode === KeyCode.KEYCODE_ENTER || event.keyCode === KeyCode.KEYCODE_SPACE)) {
-      event.stopPropagation();
-      action();
+  private showToast(message: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message: message });
+    } catch (_error) {
+      // Async work may finish after the component is detached.
     }
   }
 
-  private assessmentOption(dimensionIndex: number): AdmissionAssessmentOption {
-    const optionIndex: number = this.assessmentChoice[dimensionIndex];
-    if (optionIndex < 0 || optionIndex >= this.assessments[dimensionIndex].options.length) {
-      return this.pendingOption;
-    }
-    return this.assessments[dimensionIndex].options[optionIndex];
-  }
-
-  private safetyOption(riskIndex: number): AdmissionAssessmentOption {
-    const optionIndex: number = this.safetyRiskChoice[riskIndex];
-    if (optionIndex < 0 || optionIndex >= this.safetyRiskOptions.length) {
-      return this.pendingOption;
-    }
-    return this.safetyRiskOptions[optionIndex];
-  }
-
-  private assessmentReady(): boolean {
-    for (let i: number = 0; i < this.assessmentChoice.length; i++) {
-      if (this.assessmentChoice[i] < 0) {
-        return false;
-      }
-    }
-    for (let i: number = 0; i < this.safetyRiskChoice.length; i++) {
-      if (!this.safetyRiskReady(i)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  private completedAssessmentCount(): number {
-    let completed: number = 0;
-    for (let i: number = 0; i < this.assessmentChoice.length; i++) {
-      if (this.assessmentChoice[i] >= 0) {
-        completed++;
-      }
-    }
-    for (let i: number = 0; i < this.safetyRiskChoice.length; i++) {
-      if (this.safetyRiskReady(i)) {
-        completed++;
-      }
-    }
-    return completed;
-  }
-
-  private totalAssessmentCount(): number {
-    return this.assessments.length + this.safetyRisks.length;
-  }
-
-  private safetyRiskReady(riskIndex: number): boolean {
-    const choice: number = this.safetyRiskChoice[riskIndex];
-    if (choice < 0 || choice >= this.safetyRiskOptions.length) {
-      return false;
-    }
-    if (this.safetyRiskOptions[choice].score === 0) {
-      return true;
-    }
-    const hasRequiredDetails: boolean = this.safetyRiskMeasures[riskIndex].trim().length > 0 &&
-      this.safetyRiskOwners[riskIndex].trim().length > 0 &&
-      this.safetyRiskReviewPoints[riskIndex].trim().length > 0;
-    if (!hasRequiredDetails) {
-      return false;
-    }
-    return this.safetyRiskOptions[choice].score < 2 ||
-      this.safetyRiskEscalations[riskIndex].trim().length > 0;
-  }
-
-  private clearSafetyRiskDetails(riskIndex: number): void {
-    const measures: string[] = this.safetyRiskMeasures.slice();
-    const owners: string[] = this.safetyRiskOwners.slice();
-    const reviewPoints: string[] = this.safetyRiskReviewPoints.slice();
-    const escalations: string[] = this.safetyRiskEscalations.slice();
-    measures[riskIndex] = '';
-    owners[riskIndex] = '';
-    reviewPoints[riskIndex] = '';
-    escalations[riskIndex] = '';
-    this.safetyRiskMeasures = measures;
-    this.safetyRiskOwners = owners;
-    this.safetyRiskReviewPoints = reviewPoints;
-    this.safetyRiskEscalations = escalations;
-  }
-
-  private selectSafetyRisk(riskIndex: number, optionIndex: number): void {
-    if (this.safetyRiskChoice[riskIndex] === optionIndex) {
+  private async loadWorkspace(): Promise<void> {
+    this.view = 'loading';
+    this.clearError();
+    const bootstrapResult: AdmissionResult<AdmissionBootstrap> = await AdmissionRepository.bootstrap();
+    if (!bootstrapResult.ok || bootstrapResult.data === undefined) {
+      this.failInitial(bootstrapResult.kind, bootstrapResult.message);
       return;
     }
-    const next: number[] = this.safetyRiskChoice.slice();
-    next[riskIndex] = optionIndex;
-    this.safetyRiskChoice = next;
-    // A changed risk level invalidates the previous owner, deadline, and escalation details.
-    this.clearSafetyRiskDetails(riskIndex);
-  }
-
-  private updateSafetyRiskMeasure(riskIndex: number, value: string): void {
-    const next: string[] = this.safetyRiskMeasures.slice();
-    next[riskIndex] = value;
-    this.safetyRiskMeasures = next;
-  }
-
-  private updateSafetyRiskOwner(riskIndex: number, value: string): void {
-    const next: string[] = this.safetyRiskOwners.slice();
-    next[riskIndex] = value;
-    this.safetyRiskOwners = next;
-  }
-
-  private updateSafetyRiskReviewPoint(riskIndex: number, value: string): void {
-    const next: string[] = this.safetyRiskReviewPoints.slice();
-    next[riskIndex] = value;
-    this.safetyRiskReviewPoints = next;
-  }
-
-  private updateSafetyRiskEscalation(riskIndex: number, value: string): void {
-    const next: string[] = this.safetyRiskEscalations.slice();
-    next[riskIndex] = value;
-    this.safetyRiskEscalations = next;
-  }
-
-  /** 仅用于匹配入住照护计划，不形成正式能力等级。 */
-  private supportScore(): number {
-    let total: number = 0;
-    for (let i: number = 0; i < this.assessments.length; i++) {
-      total += this.assessmentOption(i).score;
+    if (bootstrapResult.data.template.questions.length === 0) {
+      this.failInitial('missing', '服务器尚未配置入住评估题库');
+      return;
     }
-    for (let i: number = 0; i < this.safetyRisks.length; i++) {
-      total += this.safetyOption(i).score;
+    this.bootstrap = bootstrapResult.data;
+    const bedResult: AdmissionResult<Paged<Bed>> = await AdmissionRepository.freeBeds();
+    if (bedResult.ok && bedResult.data !== undefined) {
+      this.beds = bedResult.data.list;
+    } else if (bedResult.kind === 'session') {
+      this.failInitial(bedResult.kind, bedResult.message);
+      return;
+    } else {
+      this.beds = [];
+      this.setFailure(bedResult.kind, `空闲床位加载失败：${bedResult.message}`);
     }
-    return total;
+    const draftResult: AdmissionResult<Paged<AdmissionAssessmentRecord>> = await AdmissionRepository.listDrafts();
+    if (draftResult.ok && draftResult.data !== undefined) {
+      this.drafts = draftResult.data.list;
+    } else if (draftResult.kind === 'session') {
+      this.failInitial(draftResult.kind, draftResult.message);
+      return;
+    } else {
+      this.drafts = [];
+      this.setFailure(draftResult.kind, `草稿加载失败：${draftResult.message}`);
+    }
+    this.view = 'drafts';
   }
 
-  /** 根据完成的入住初筛给出计划建议，正式照料护理等级须另行评定并取得同意。 */
-  private carePlanSuggestion(): CarePlanSuggestion {
-    if (!this.assessmentReady()) {
-      return {
-        label: `待完成 ${this.totalAssessmentCount() - this.completedAssessmentCount()} 项`,
-        tone: 'pending',
-        desc: '完成全部能力、健康和安全风险初筛后，系统才会给出照护计划建议。',
-        recommendedPlanId: 'self-support'
-      };
-    }
-    let severeAbilityCount: number = 0;
-    let moderateAbilityCount: number = 0;
-    let highSafetyRiskCount: number = 0;
-    for (let i: number = 0; i < this.assessments.length; i++) {
-      if (this.assessmentOption(i).score >= 3) {
-        severeAbilityCount++;
-      }
-      if (this.assessmentOption(i).score >= 2) {
-        moderateAbilityCount++;
-      }
-    }
-    for (let i: number = 0; i < this.safetyRisks.length; i++) {
-      if (this.safetyOption(i).score >= 2) {
-        highSafetyRiskCount++;
-      }
-    }
-    const score: number = this.supportScore();
-    if (severeAbilityCount >= 1 || highSafetyRiskCount >= 2 || score >= 16) {
-      return {
-        label: '全程照护建议 · 高关注',
-        tone: 'danger',
-        desc: '初筛显示连续协助或多风险联合干预需求，建议由多专业团队尽快完成正式评估。',
-        recommendedPlanId: 'continuous-care'
-      };
-    }
-    if (moderateAbilityCount >= 1 || highSafetyRiskCount >= 1 || score >= 6) {
-      return {
-        label: '协助照护建议 · 重点关注',
-        tone: 'warning',
-        desc: '初筛显示部分生活活动需要协助或存在重点风险，建议细化分项照护和预防措施。',
-        recommendedPlanId: 'assisted-care'
-      };
-    }
-    return {
-      label: '自理支持建议 · 常规关注',
-      tone: 'normal',
-      desc: '初筛暂未发现明显连续协助需求，建议以保持能力和预防功能下降为重点。',
-      recommendedPlanId: 'self-support'
-    };
+  private failInitial(kind: AdmissionFailureKind, message: string): void {
+    this.errorKind = kind;
+    this.errorMessage = message.length > 0 ? message : '入住评估加载失败';
+    this.view = 'error';
   }
 
-  private planById(id: string): AdmissionCarePlan {
-    return this.plans.find((item: AdmissionCarePlan) => item.id === id) ?? this.plans[0];
-  }
-
-  private selectedOptionLabel(options: string[], selectedIndex: number): string {
-    if (selectedIndex < 0 || selectedIndex >= options.length) {
-      return '未填写';
+  private setFailure(kind: AdmissionFailureKind, message: string): void {
+    this.errorKind = kind;
+    this.errorMessage = message.length > 0 ? message : '操作失败';
+    if (kind === 'session') {
+      this.view = 'error';
     }
-    return options[selectedIndex];
   }
 
-  private safetyRiskDetailSummary(riskIndex: number): string {
-    let summary: string = `措施：${this.safetyRiskMeasures[riskIndex]}；` +
-      `责任人：${this.safetyRiskOwners[riskIndex]}；复核：${this.safetyRiskReviewPoints[riskIndex]}`;
-    if (this.safetyOption(riskIndex).score >= 2) {
-      summary += `；升级/转介：${this.safetyRiskEscalations[riskIndex]}`;
+  private clearError(): void {
+    this.errorKind = 'none';
+    this.errorMessage = '';
+  }
+
+  private markDirty(invalidatePreview: boolean = false): void {
+    if (invalidatePreview) {
+      this.preview = null;
     }
-    return summary;
-  }
-
-  private markDirty(): void {
     if (!this.dirty) {
       this.dirty = true;
       this.onDirtyChange(true);
     }
   }
 
-  private ageReady(): boolean {
-    const ageText: string = this.age.trim();
-    if (!/^[0-9]{1,3}$/.test(ageText)) {
-      return false;
-    }
-    const ageValue: number = Number(ageText);
-    return Number.isInteger(ageValue) && ageValue >= 1 && ageValue <= 120;
+  private markSaved(): void {
+    this.dirty = false;
+    this.onDirtyChange(false);
   }
 
-  private phoneReady(): boolean {
-    let normalized: string = this.guardianPhone.trim().replace(/\s/g, '').replace(/-/g, '');
-    if (normalized.startsWith('+')) {
-      normalized = normalized.substring(1);
+  private dictionary(category: string): AdmissionDictionaryOption[] {
+    const result: AdmissionDictionaryOption[] = [];
+    if (this.bootstrap === null) {
+      return result;
     }
-    if (normalized.length < 7 || normalized.length > 15) {
+    for (let index: number = 0; index < this.bootstrap.dictionaries.length; index++) {
+      if (this.bootstrap.dictionaries[index].category === category) {
+        result.push(this.bootstrap.dictionaries[index]);
+      }
+    }
+    return result;
+  }
+
+  private questions(): AdmissionAssessmentQuestion[] {
+    return this.bootstrap === null ? [] : this.bootstrap.template.questions;
+  }
+
+  private plans(): AdmissionCarePlanTemplate[] {
+    return this.bootstrap === null ? [] : this.bootstrap.care_plan_templates;
+  }
+
+  private levels(): AdmissionLevelRule[] {
+    if (this.bootstrap === null || this.bootstrap.level_rules === undefined) {
+      return [];
+    }
+    return this.bootstrap.level_rules;
+  }
+
+  private scoringNotes(): string[] {
+    return this.bootstrap === null ? [] : this.bootstrap.scoring_notes;
+  }
+
+  private templateLabel(): string {
+    return this.bootstrap === null ? '等待服务器模板' :
+      `${this.bootstrap.template.name} · ${this.bootstrap.template.version}`;
+  }
+
+  private groupCodes(): string[] {
+    const result: string[] = [];
+    const questions: AdmissionAssessmentQuestion[] = this.questions();
+    for (let index: number = 0; index < questions.length; index++) {
+      if (result.indexOf(questions[index].group_code) < 0) {
+        result.push(questions[index].group_code);
+      }
+    }
+    return result;
+  }
+
+  private questionsForGroup(code: string): AdmissionAssessmentQuestion[] {
+    const result: AdmissionAssessmentQuestion[] = [];
+    const questions: AdmissionAssessmentQuestion[] = this.questions();
+    for (let index: number = 0; index < questions.length; index++) {
+      if (questions[index].group_code === code) {
+        result.push(questions[index]);
+      }
+    }
+    return result;
+  }
+
+  private groupName(code: string): string {
+    const questions: AdmissionAssessmentQuestion[] = this.questionsForGroup(code);
+    return questions.length > 0 ? questions[0].group_name : code;
+  }
+
+  private resetForm(): void {
+    this.draftId = 0;
+    this.assessmentNo = '';
+    this.currentStep = 0;
+    this.preview = null;
+    this.submitResult = null;
+    this.assessmentReason = '';
+    this.baselineDate = '';
+    this.residentName = '';
+    this.gender = '';
+    this.birthDate = '';
+    this.idCard = '';
+    this.heightText = '';
+    this.weightText = '';
+    this.ethnicity = '';
+    this.religion = '';
+    this.education = '';
+    this.livingSituations = [];
+    this.maritalStatus = '';
+    this.medicalPayments = [];
+    this.incomeSources = [];
+    this.riskEvents = [];
+    this.diagnoses = [];
+    this.dementiaOrMentalDisorder = false;
+    this.coma = false;
+    this.medicationsText = '';
+    this.healthIssues = [];
+    this.infoProviderName = '';
+    this.infoProviderRelation = '';
+    this.contactName = '';
+    this.contactPhone = '';
+    this.assessmentLocation = '';
+    this.targetBedId = 0;
+    this.answers = [];
+    this.selectedCarePlanCode = '';
+    this.selectedOptionalServices = [];
+    this.doctorConfirmed = false;
+    this.planConsentConfirmed = false;
+    this.serviceFeeInformed = false;
+    this.infoProviderSigned = false;
+    this.clearError();
+    this.markSaved();
+    this.contentScroller = new Scroller();
+  }
+
+  private startNew(): void {
+    this.resetForm();
+    this.view = 'form';
+  }
+
+  private async refreshDrafts(): Promise<void> {
+    const result: AdmissionResult<Paged<AdmissionAssessmentRecord>> = await AdmissionRepository.listDrafts();
+    if (result.ok && result.data !== undefined) {
+      this.drafts = result.data.list;
+    }
+  }
+
+  private async returnToDrafts(): Promise<void> {
+    if (this.operation.length > 0) {
+      return;
+    }
+    if (this.dirty && !await this.saveDraft(this.currentStep, false)) {
+      return;
+    }
+    this.view = 'drafts';
+  }
+
+  private async openDraft(id: number): Promise<void> {
+    if (this.operation.length > 0) {
+      return;
+    }
+    this.operation = 'loading';
+    this.clearError();
+    const result: AdmissionResult<AdmissionAssessmentRecord> = await AdmissionRepository.getAssessment(id);
+    this.operation = '';
+    if (!result.ok || result.data === undefined) {
+      this.setFailure(result.kind, result.message);
+      return;
+    }
+    if (result.data.status !== 'draft') {
+      this.setFailure('conflict', '该评估已被提交或关闭，请刷新草稿列表');
+      return;
+    }
+    this.applyRecord(result.data);
+    this.view = 'form';
+    if (this.currentStep >= 2 && this.assessmentReady()) {
+      await this.requestPreview(false);
+    }
+  }
+
+  private applyRecord(record: AdmissionAssessmentRecord): void {
+    this.resetForm();
+    this.draftId = record.id;
+    this.assessmentNo = record.assessment_no;
+    this.currentStep = Math.max(0, Math.min(record.current_step, this.steps.length - 1));
+    this.assessmentReason = record.assessment_reason ?? '';
+    this.baselineDate = record.baseline_date ?? '';
+    this.residentName = record.resident_name ?? '';
+    this.gender = record.gender ?? '';
+    this.birthDate = record.birth_date ?? '';
+    this.idCard = record.id_card ?? '';
+    this.heightText = record.height_cm > 0 ? `${record.height_cm}` : '';
+    this.weightText = record.weight_kg > 0 ? `${record.weight_kg}` : '';
+    this.ethnicity = record.ethnicity ?? '';
+    this.religion = record.religion ?? '';
+    this.education = record.education ?? '';
+    this.livingSituations = record.living_situations ?? [];
+    this.maritalStatus = record.marital_status ?? '';
+    this.medicalPayments = record.medical_payments ?? [];
+    this.incomeSources = record.income_sources ?? [];
+    this.riskEvents = record.risk_events ?? [];
+    this.diagnoses = record.diagnoses ?? [];
+    this.dementiaOrMentalDisorder = record.dementia_or_mental_disorder;
+    this.coma = record.coma;
+    this.medicationsText = this.medicationsToText(record.medications ?? []);
+    this.healthIssues = record.health_issues ?? [];
+    this.infoProviderName = record.info_provider_name ?? '';
+    this.infoProviderRelation = record.info_provider_relation ?? '';
+    this.contactName = record.contact_name ?? '';
+    this.contactPhone = record.contact_phone ?? '';
+    this.assessmentLocation = record.assessment_location ?? '';
+    this.targetBedId = record.target_bed_id ?? 0;
+    this.selectedCarePlanCode = record.selected_care_plan_code ?? '';
+    this.selectedOptionalServices = record.selected_optional_services ?? [];
+    this.doctorConfirmed = record.doctor_confirmed;
+    this.planConsentConfirmed = record.plan_consent_confirmed;
+    this.serviceFeeInformed = record.service_fee_informed;
+    this.infoProviderSigned = record.info_provider_signed;
+    const restored: AdmissionAnswer[] = [];
+    const stored = record.answers ?? [];
+    for (let index: number = 0; index < stored.length; index++) {
+      const answer: AdmissionAnswer = { question_id: stored[index].question_id, answer_text: stored[index].answer_text ?? '' };
+      if (stored[index].option_id !== undefined) {
+        answer.option_id = stored[index].option_id;
+      }
+      restored.push(answer);
+    }
+    this.answers = restored;
+    this.markSaved();
+  }
+
+  private parseMedications(): AdmissionMedication[] {
+    const result: AdmissionMedication[] = [];
+    const lines: string[] = this.medicationsText.split('\n');
+    for (let index: number = 0; index < lines.length; index++) {
+      const parts: string[] = lines[index].split('|');
+      if (parts.length > 0 && parts[0].trim().length > 0) {
+        result.push({
+          name: parts[0].trim(),
+          method: parts.length > 1 ? parts[1].trim() : '',
+          dose: parts.length > 2 ? parts[2].trim() : '',
+          frequency: parts.length > 3 ? parts[3].trim() : ''
+        });
+      }
+    }
+    return result;
+  }
+
+  private medicationsToText(items: AdmissionMedication[]): string {
+    const lines: string[] = [];
+    for (let index: number = 0; index < items.length; index++) {
+      lines.push(`${items[index].name}|${items[index].method}|${items[index].dose}|${items[index].frequency}`);
+    }
+    return lines.join('\n');
+  }
+
+  private activeRiskEvents(): AdmissionRiskEvent[] {
+    const result: AdmissionRiskEvent[] = [];
+    for (let index: number = 0; index < this.riskEvents.length; index++) {
+      if (this.riskEvents[index].count > 0) {
+        result.push(this.riskEvents[index]);
+      }
+    }
+    return result;
+  }
+
+  private buildPayload(step: number = this.currentStep): AdmissionAssessmentPayload {
+    const height: number = Number(this.heightText.trim());
+    const weight: number = Number(this.weightText.trim());
+    const payload: AdmissionAssessmentPayload = {
+      current_step: step,
+      assessment_reason: this.assessmentReason,
+      baseline_date: this.baselineDate.trim(),
+      resident_name: this.residentName.trim(),
+      gender: this.gender,
+      birth_date: this.birthDate.trim(),
+      id_card: this.idCard.trim(),
+      height_cm: Number.isFinite(height) && height >= 0 ? height : 0,
+      weight_kg: Number.isFinite(weight) && weight >= 0 ? weight : 0,
+      ethnicity: this.ethnicity,
+      religion: this.religion,
+      education: this.education,
+      living_situations: this.livingSituations,
+      marital_status: this.maritalStatus,
+      medical_payments: this.medicalPayments,
+      income_sources: this.incomeSources,
+      risk_events: this.activeRiskEvents(),
+      diagnoses: this.diagnoses,
+      dementia_or_mental_disorder: this.dementiaOrMentalDisorder,
+      medications: this.parseMedications(),
+      health_issues: this.healthIssues,
+      coma: this.coma,
+      info_provider_name: this.infoProviderName.trim(),
+      info_provider_relation: this.infoProviderRelation,
+      contact_name: this.contactName.trim(),
+      contact_phone: this.contactPhone.trim(),
+      selected_care_plan_code: this.selectedCarePlanCode,
+      selected_optional_services: this.selectedOptionalServices,
+      assessment_location: this.assessmentLocation.trim(),
+      doctor_confirmed: this.doctorConfirmed,
+      plan_consent_confirmed: this.planConsentConfirmed,
+      service_fee_informed: this.serviceFeeInformed,
+      info_provider_signed: this.infoProviderSigned,
+      answers: this.answers
+    };
+    if (this.targetBedId > 0) {
+      payload.target_bed_id = this.targetBedId;
+    }
+    return payload;
+  }
+
+  private async saveDraft(step: number = this.currentStep, notify: boolean = true): Promise<boolean> {
+    if (this.operation.length > 0) {
       return false;
     }
-    for (let index: number = 0; index < normalized.length; index++) {
-      const code: number = normalized.charCodeAt(index);
-      if (code < 48 || code > 57) {
-        return false;
-      }
+    this.operation = 'saving';
+    this.clearError();
+    const result: AdmissionResult<AdmissionAssessmentRecord> =
+      await AdmissionRepository.save(this.draftId, this.buildPayload(step));
+    this.operation = '';
+    if (!result.ok || result.data === undefined) {
+      this.setFailure(result.kind, result.message);
+      return false;
+    }
+    this.draftId = result.data.id;
+    this.assessmentNo = result.data.assessment_no;
+    this.markSaved();
+    await this.refreshDrafts();
+    if (notify) {
+      this.showToast('草稿已保存到服务器');
     }
     return true;
   }
 
-  private basicInfoReady(): boolean {
-    return this.residentName.trim().length > 0 &&
-      this.ageReady() &&
-      this.room.trim().length > 0 &&
-      this.bed.trim().length > 0 &&
-      this.guardianName.trim().length > 0 &&
-      this.phoneReady();
+  private optionId(questionId: number): number {
+    for (let index: number = 0; index < this.answers.length; index++) {
+      if (this.answers[index].question_id === questionId && this.answers[index].option_id !== undefined) {
+        return this.answers[index].option_id as number;
+      }
+    }
+    return 0;
   }
 
-  private basicInfoHint(): ResourceStr {
-    if (this.residentName.trim().length === 0) {
-      return $r('app.string.doctor_admission_validation_name');
+  private selectAnswer(questionId: number, optionId: number): void {
+    const next: AdmissionAnswer[] = [];
+    for (let index: number = 0; index < this.answers.length; index++) {
+      if (this.answers[index].question_id !== questionId) {
+        next.push(this.answers[index]);
+      }
     }
-    if (!this.ageReady()) {
-      return $r('app.string.doctor_admission_validation_age');
-    }
-    if (this.room.trim().length === 0 || this.bed.trim().length === 0) {
-      return $r('app.string.doctor_admission_validation_room_bed');
-    }
-    if (this.guardianName.trim().length === 0) {
-      return $r('app.string.doctor_admission_validation_contact');
-    }
-    if (!this.phoneReady()) {
-      return $r('app.string.doctor_admission_validation_phone');
-    }
-    return $r('app.string.doctor_admission_validation_required');
+    next.push({ question_id: questionId, option_id: optionId, answer_text: '' });
+    this.answers = next;
+    this.markDirty(true);
   }
 
-  private confirmationReady(): boolean {
-    return this.doctorConfirmed && this.planConsentConfirmed && this.serviceFeeInformed;
+  private assessmentReady(): boolean {
+    const questions: AdmissionAssessmentQuestion[] = this.questions();
+    for (let index: number = 0; index < questions.length; index++) {
+      if (questions[index].required && this.optionId(questions[index].id) === 0) {
+        return false;
+      }
+    }
+    return questions.length > 0;
   }
 
-  private clearConfirmations(): void {
-    this.doctorConfirmed = false;
-    this.planConsentConfirmed = false;
-    this.serviceFeeInformed = false;
+  private completedQuestions(): number {
+    let count: number = 0;
+    const questions: AdmissionAssessmentQuestion[] = this.questions();
+    for (let index: number = 0; index < questions.length; index++) {
+      if (this.optionId(questions[index].id) > 0) {
+        count++;
+      }
+    }
+    return count;
   }
 
-  private canProceed(): boolean {
+  private basicReady(): boolean {
+    const height: number = Number(this.heightText.trim());
+    const weight: number = Number(this.weightText.trim());
+    return this.assessmentReason.length > 0 && /^\d{4}-\d{2}-\d{2}$/.test(this.baselineDate.trim()) &&
+      this.residentName.trim().length > 0 && this.gender.length > 0 &&
+      /^\d{4}-\d{2}-\d{2}$/.test(this.birthDate.trim()) && this.idCard.trim().length > 0 &&
+      Number.isFinite(height) && height > 0 && Number.isFinite(weight) && weight > 0 &&
+      this.assessmentLocation.trim().length > 0 && this.infoProviderName.trim().length > 0 &&
+      this.infoProviderRelation.length > 0 && this.contactName.trim().length > 0 &&
+      this.contactPhone.trim().length >= 7;
+  }
+
+  private planReady(): boolean {
+    return this.preview !== null && this.selectedCarePlanCode.length > 0 && this.targetBedId > 0;
+  }
+
+  private confirmationsReady(): boolean {
+    return this.doctorConfirmed && this.planConsentConfirmed && this.serviceFeeInformed && this.infoProviderSigned;
+  }
+
+  private stepReady(): boolean {
     if (this.currentStep === 0) {
-      return this.basicInfoReady();
+      return this.basicReady();
     }
     if (this.currentStep === 1) {
       return this.assessmentReady();
     }
     if (this.currentStep === 2) {
-      return this.selectedPlanId.length > 0;
+      return this.planReady();
     }
-    return this.confirmationReady();
+    return this.confirmationsReady();
   }
 
-  private scrollContentToTop(): void {
+  private async requestPreview(notify: boolean = true): Promise<boolean> {
+    if (!this.assessmentReady()) {
+      this.setFailure('validation', '请先完成全部必答题');
+      return false;
+    }
+    if (this.draftId === 0 && !await this.saveDraft(2, false)) {
+      return false;
+    }
+    if (this.operation.length > 0) {
+      return false;
+    }
+    this.operation = 'previewing';
+    this.clearError();
+    const result: AdmissionResult<AdmissionPreviewResult> =
+      await AdmissionRepository.preview(this.draftId, this.answers);
+    this.operation = '';
+    if (!result.ok || result.data === undefined) {
+      this.setFailure(result.kind, result.message);
+      return false;
+    }
+    if (!result.data.complete) {
+      this.setFailure('validation', `服务器确认已完成 ${result.data.answered_count} / ${result.data.required_count} 项`);
+      return false;
+    }
+    this.preview = result.data;
+    if (result.data.suggested_care_plan !== undefined &&
+      this.selectedCarePlanCode !== result.data.suggested_care_plan.code) {
+      this.selectedCarePlanCode = result.data.suggested_care_plan.code;
+      this.selectedOptionalServices = [];
+      this.markDirty();
+    }
+    if (notify) {
+      this.showToast('服务端已重新计分');
+    }
+    return true;
+  }
+
+  private async next(): Promise<void> {
+    if (!this.stepReady() || this.operation.length > 0) {
+      return;
+    }
+    if (this.currentStep === this.steps.length - 1) {
+      await this.submit();
+      return;
+    }
+    const nextStep: number = this.currentStep + 1;
+    if (!await this.saveDraft(nextStep, false)) {
+      return;
+    }
+    if (this.currentStep === 1 && !await this.requestPreview(false)) {
+      return;
+    }
+    this.currentStep = nextStep;
+    this.scrollTop();
+  }
+
+  private previous(): void {
+    if (this.currentStep > 0 && this.operation.length === 0) {
+      this.currentStep--;
+      this.markDirty();
+      this.scrollTop();
+    }
+  }
+
+  private scrollTop(): void {
     try {
       this.contentScroller.scrollEdge(Edge.Top);
     } catch (_error) {
-      // The scroller may not be attached during the first state update.
+      // The scroller is attached after the state update.
     }
   }
 
-  private goNext(): void {
-    if (!this.canProceed()) {
+  private async submit(): Promise<void> {
+    if (!this.confirmationsReady() || this.preview === null || this.operation.length > 0) {
       return;
     }
-    if (this.currentStep < this.steps.length - 1) {
-      this.currentStep += 1;
-      this.scrollContentToTop();
+    if (!await this.saveDraft(this.currentStep, false)) {
       return;
     }
-    this.submitted = true;
-  }
-
-  private goPrev(): void {
-    if (this.submitted) {
-      this.submitted = false;
+    this.operation = 'submitting';
+    this.clearError();
+    const result: AdmissionResult<AdmissionSubmitResult> =
+      await AdmissionRepository.submit(this.draftId);
+    this.operation = '';
+    if (!result.ok || result.data === undefined) {
+      this.setFailure(result.kind, result.message);
       return;
     }
-    if (this.currentStep > 0) {
-      if (this.currentStep === this.steps.length - 1) {
-        this.clearConfirmations();
-      }
-      this.currentStep -= 1;
-      this.scrollContentToTop();
-    }
+    this.submitResult = result.data;
+    this.markSaved();
+    await this.refreshDrafts();
+    this.view = 'submitted';
   }
 
-  private resetFlow(): void {
-    this.submitted = false;
-    this.currentStep = 0;
-    this.residentName = '';
-    this.genderIndex = -1;
-    this.age = '';
-    this.idNumber = '';
-    this.room = '';
-    this.bed = '';
-    this.guardianName = '';
-    this.guardianPhone = '';
-    this.diagnosis = '';
-    this.allergies = '';
-    this.sourceIndex = -1;
-    this.assessmentChoice = [-1, -1, -1, -1, -1, -1];
-    this.safetyRiskChoice = [-1, -1, -1, -1, -1, -1, -1, -1, -1];
-    this.safetyRiskMeasures = ['', '', '', '', '', '', '', '', ''];
-    this.safetyRiskOwners = ['', '', '', '', '', '', '', '', ''];
-    this.safetyRiskReviewPoints = ['', '', '', '', '', '', '', '', ''];
-    this.safetyRiskEscalations = ['', '', '', '', '', '', '', '', ''];
-    this.selectedPlanId = '';
-    this.clearConfirmations();
-    this.dirty = false;
-    this.onDirtyChange(false);
-    this.contentScroller = new Scroller();
+  private contains(values: string[], value: string): boolean {
+    return values.indexOf(value) >= 0;
   }
 
-  // ==================== 通用输入控件 ====================
-
-  @Builder
-  private fieldLabel(label: ResourceStr, required: boolean) {
-    Row({ space: 3 }) {
-      Text(label)
-        .fontSize(11)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('app.color.doctor_workspace_text_secondary'))
-      if (required) {
-        Text('*')
-          .fontSize(11)
-          .fontColor($r('app.color.doctor_workspace_danger'))
+  private toggle(values: string[], value: string): string[] {
+    const next: string[] = [];
+    let removed: boolean = false;
+    for (let index: number = 0; index < values.length; index++) {
+      if (values[index] === value) {
+        removed = true;
+      } else {
+        next.push(values[index]);
       }
     }
-    .margin({ bottom: 6 })
-  }
-
-  @Builder
-  private textField(placeholder: ResourceStr, value: string, onChange: (v: string) => void,
-    inputType: InputType = InputType.Normal) {
-    TextInput({ placeholder: placeholder, text: value })
-      .width('100%')
-      .height(42)
-      .fontSize(13)
-      .fontColor($r('app.color.doctor_workspace_text_primary'))
-      .placeholderColor($r('app.color.doctor_workspace_text_tertiary'))
-      .placeholderFont({ size: 13 })
-      .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
-      .borderRadius(10)
-      .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
-      .padding({ left: 12, right: 12 })
-      .type(inputType)
-      .onChange((nextValue: string) => {
-        this.markDirty();
-        onChange(nextValue);
-      })
-  }
-
-  @Builder
-  private fieldValidationHint(message: ResourceStr) {
-    Text(message)
-      .fontSize(9)
-      .fontColor($r('app.color.doctor_workspace_warning'))
-      .width('100%')
-      .margin({ top: 5 })
-  }
-
-  @Builder
-  private capsuleGroup(options: string[], selected: number, onSelect: (index: number) => void) {
-    Flex({ wrap: FlexWrap.Wrap }) {
-      ForEach(options, (option: string, index: number) => {
-        Text(option)
-          .fontSize(12)
-          .fontWeight(selected === index ? FontWeight.Medium : FontWeight.Regular)
-          .fontColor(selected === index ?
-            $r('app.color.doctor_workspace_background') :
-            $r('app.color.doctor_workspace_text_secondary'))
-          .height(38)
-          .padding({ left: 16, right: 16 })
-          .margin({ right: 6, bottom: 6 })
-          .textAlign(TextAlign.Center)
-          .borderRadius(10)
-          .backgroundColor(selected === index ?
-            $r('app.color.doctor_workspace_text_primary') :
-            $r('app.color.doctor_workspace_surface_raised'))
-          .border({
-            width: 0.5,
-            color: selected === index ?
-              $r('app.color.doctor_workspace_text_primary') :
-              $r('app.color.doctor_workspace_border')
-          })
-          .focusable(true)
-          .focusOnTouch(true)
-          .accessibilityText(option)
-          .accessibilityRole(AccessibilityRoleType.RADIO)
-          .accessibilitySelected(selected === index)
-          .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => {
-            this.markDirty();
-            onSelect(index);
-          }))
-          .onClick(() => {
-            this.markDirty();
-            onSelect(index);
-          })
-      }, (option: string, index: number) => `${option}-${index}`)
+    if (!removed) {
+      next.push(value);
     }
-    .width('100%')
+    return next;
+  }
+
+  private riskCount(code: string): number {
+    for (let index: number = 0; index < this.riskEvents.length; index++) {
+      if (this.riskEvents[index].code === code) {
+        return this.riskEvents[index].count;
+      }
+    }
+    return 0;
+  }
+
+  private changeRisk(code: string, delta: number): void {
+    const next: AdmissionRiskEvent[] = [];
+    let found: boolean = false;
+    for (let index: number = 0; index < this.riskEvents.length; index++) {
+      if (this.riskEvents[index].code === code) {
+        found = true;
+        next.push({ code: code, count: Math.max(0, this.riskEvents[index].count + delta) });
+      } else {
+        next.push(this.riskEvents[index]);
+      }
+    }
+    if (!found && delta > 0) {
+      next.push({ code: code, count: delta });
+    }
+    this.riskEvents = next;
+    this.markDirty(true);
+  }
+
+  private bedLabel(bed: Bed): string {
+    return bed.room === undefined ? `床位 ${bed.bed_no} · #${bed.id}` :
+      `${bed.room.building} ${bed.room.room_no} · ${bed.bed_no}床`;
+  }
+
+  private selectedBedLabel(): string {
+    for (let index: number = 0; index < this.beds.length; index++) {
+      if (this.beds[index].id === this.targetBedId) {
+        return this.bedLabel(this.beds[index]);
+      }
+    }
+    return this.targetBedId > 0 ? `床位 #${this.targetBedId}` : '未选择';
+  }
+
+  private selectedPlanName(): string {
+    const plans: AdmissionCarePlanTemplate[] = this.plans();
+    for (let index: number = 0; index < plans.length; index++) {
+      if (plans[index].code === this.selectedCarePlanCode) {
+        return plans[index].name;
+      }
+    }
+    return '未选择';
+  }
+
+  private levelLabel(code: string): string {
+    const levels: AdmissionLevelRule[] = this.levels();
+    for (let index: number = 0; index < levels.length; index++) {
+      if (levels[index].code === code) {
+        return levels[index].label;
+      }
+    }
+    return code;
+  }
+
+  private optionalServices(): AdmissionCareService[] {
+    const plans: AdmissionCarePlanTemplate[] = this.plans();
+    for (let index: number = 0; index < plans.length; index++) {
+      if (plans[index].code === this.selectedCarePlanCode) {
+        return plans[index].optional_services;
+      }
+    }
+    return [];
+  }
+
+  private healthValue(category: string, code: string): string {
+    return `${category}:${code}`;
+  }
+
+  private healthCategoryIsSingle(category: string): boolean {
+    return category === 'pressure_injury' || category === 'joint_mobility' || category === 'pain' ||
+      category === 'malnutrition' || category === 'airway_clearance';
+  }
+
+  private selectHealthValue(category: string, code: string): void {
+    const prefix: string = `${category}:`;
+    const target: string = this.healthValue(category, code);
+    const next: string[] = [];
+    const single: boolean = this.healthCategoryIsSingle(category);
+    const selectingNone: boolean = code === 'none' || code === 'normal';
+    let alreadySelected: boolean = false;
+    for (let index: number = 0; index < this.healthIssues.length; index++) {
+      const current: string = this.healthIssues[index];
+      if (current === target) {
+        alreadySelected = true;
+      }
+      if (!current.startsWith(prefix)) {
+        next.push(current);
+      } else if (!single && !selectingNone && current !== this.healthValue(category, 'none') && current !== target) {
+        next.push(current);
+      }
+    }
+    if (!alreadySelected || single) {
+      next.push(target);
+    }
+    this.healthIssues = next;
+    this.markDirty(true);
   }
 
   @Builder
-  private sectionCard(title: string, subtitle: string) {
-    Column({ space: 3 }) {
+  private stateView(symbol: Resource, title: string, description: string, action: string, onAction: () => void) {
+    Column({ space: 12 }) {
+      SymbolGlyph(symbol)
+        .fontSize(34)
+        .fontColor([$r('app.color.doctor_workspace_text_tertiary')])
       Text(title)
-        .fontSize(14)
+        .fontSize(18)
         .fontWeight(FontWeight.Bold)
         .fontColor($r('app.color.doctor_workspace_text_primary'))
+      Text(description)
+        .fontSize(11)
+        .fontColor($r('app.color.doctor_workspace_text_secondary'))
+        .textAlign(TextAlign.Center)
+        .constraintSize({ maxWidth: 420 })
+      if (action.length > 0) {
+        Button(action)
+          .height(38)
+          .borderRadius(10)
+          .fontSize(11)
+          .fontColor($r('app.color.doctor_workspace_background'))
+          .backgroundColor($r('app.color.doctor_workspace_text_primary'))
+          .onClick(onAction)
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+  }
+
+  @Builder
+  private errorBanner() {
+    if (this.errorMessage.length > 0) {
+      Row({ space: 9 }) {
+        SymbolGlyph($r('sys.symbol.exclamationmark_triangle_fill'))
+          .fontSize(15)
+          .fontColor([$r('app.color.doctor_workspace_warning')])
+        Column({ space: 2 }) {
+          Text(this.errorKind === 'conflict' ? '数据状态已变化' :
+            this.errorKind === 'missing' ? '草稿或配置已失效' : '操作未完成')
+            .fontSize(11)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.doctor_workspace_text_primary'))
+            .width('100%')
+          Text(this.errorMessage)
+            .fontSize(10)
+            .fontColor($r('app.color.doctor_workspace_text_secondary'))
+            .width('100%')
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+        if (this.errorKind === 'conflict' && this.draftId > 0) {
+          Button('重新载入')
+            .height(30)
+            .fontSize(9)
+            .borderRadius(8)
+            .backgroundColor($r('app.color.doctor_workspace_surface'))
+            .onClick(() => this.openDraft(this.draftId))
+        } else if (this.errorKind === 'missing') {
+          Button('返回列表')
+            .height(30)
+            .fontSize(9)
+            .borderRadius(8)
+            .backgroundColor($r('app.color.doctor_workspace_surface'))
+            .onClick(() => {
+              this.resetForm();
+              this.view = 'drafts';
+            })
+        }
+      }
+      .width('100%')
+      .padding(12)
+      .borderRadius(10)
+      .backgroundColor($r('app.color.doctor_workspace_accent_soft'))
+      .border({ width: 0.5, color: $r('app.color.doctor_workspace_warning') })
+      .alignItems(VerticalAlign.Center)
+    }
+  }
+
+  @Builder
+  private draftsView() {
+    Scroll() {
+      Column({ space: 18 }) {
+        Row({ space: 12 }) {
+          Column({ space: 4 }) {
+            Text('入住评估')
+              .fontSize(22)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('app.color.doctor_workspace_text_primary'))
+              .width('100%')
+            Text(`${this.templateLabel()} · 评估模板、草稿和结果均来自服务器`)
+              .fontSize(10)
+              .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+              .width('100%')
+          }
+          .layoutWeight(1)
+          .alignItems(HorizontalAlign.Start)
+          Button('新建评估')
+            .height(38)
+            .borderRadius(10)
+            .fontSize(11)
+            .fontColor($r('app.color.doctor_workspace_background'))
+            .backgroundColor($r('app.color.doctor_workspace_text_primary'))
+            .onClick(() => this.startNew())
+        }
+        .width('100%')
+        this.errorBanner()
+        if (this.drafts.length === 0) {
+          Column({ space: 10 }) {
+            SymbolGlyph($r('sys.symbol.person_badge_plus'))
+              .fontSize(32)
+              .fontColor([$r('app.color.doctor_workspace_text_tertiary')])
+            Text('暂无未完成的入住评估')
+              .fontSize(15)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('app.color.doctor_workspace_text_primary'))
+            Text('新建后会使用服务器当前生效的评估模板。')
+              .fontSize(10)
+              .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+            Button('开始入住评估')
+              .height(36)
+              .borderRadius(9)
+              .fontSize(10)
+              .fontColor($r('app.color.doctor_workspace_background'))
+              .backgroundColor($r('app.color.doctor_workspace_text_primary'))
+              .onClick(() => this.startNew())
+          }
+          .width('100%')
+          .constraintSize({ minHeight: 340 })
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
+        } else {
+          ForEach(this.drafts, (draft: AdmissionAssessmentRecord) => {
+            Row({ space: 12 }) {
+              SymbolGlyph($r('sys.symbol.cross_case_fill'))
+                .fontSize(22)
+                .fontColor([$r('app.color.doctor_workspace_accent')])
+              Column({ space: 3 }) {
+                Text(draft.resident_name.length > 0 ? draft.resident_name : '未命名入住对象')
+                  .fontSize(13)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor($r('app.color.doctor_workspace_text_primary'))
+                  .width('100%')
+                Text(`${draft.assessment_no} · 第 ${Math.min(draft.current_step + 1, this.steps.length)} 步`)
+                  .fontSize(10)
+                  .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+                  .width('100%')
+              }
+              .layoutWeight(1)
+              .alignItems(HorizontalAlign.Start)
+              Text(this.operation === 'loading' ? '正在恢复' : '继续填写')
+                .fontSize(10)
+                .fontColor($r('app.color.doctor_workspace_focus'))
+            }
+            .width('100%')
+            .padding(15)
+            .borderRadius(11)
+            .backgroundColor($r('app.color.doctor_workspace_surface'))
+            .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
+            .alignItems(VerticalAlign.Center)
+            .onClick(() => this.openDraft(draft.id))
+          }, (draft: AdmissionAssessmentRecord) => `${draft.id}`)
+        }
+      }
+      .width('100%')
+      .constraintSize({ maxWidth: 1088 })
+      .padding({ left: this.mainPadding(), right: this.mainPadding(), top: 24, bottom: 32 + this.naviIndicatorHeight })
+      .alignItems(HorizontalAlign.Center)
+    }
+    .width('100%')
+    .height('100%')
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.Spring)
+  }
+
+  @Builder
+  private formHeader() {
+    Column({ space: 13 }) {
+      Row({ space: 11 }) {
+        Button({ type: ButtonType.Circle }) {
+          SymbolGlyph($r('sys.symbol.chevron_left'))
+            .fontSize(16)
+            .fontColor([$r('app.color.doctor_workspace_text_primary')])
+        }
+        .width(36)
+        .height(36)
+        .backgroundColor($r('app.color.doctor_workspace_surface'))
+        .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
+        .onClick(() => this.returnToDrafts())
+        Column({ space: 3 }) {
+          Text(this.residentName.length > 0 ? `${this.residentName} · 入住评估` : '新入住评估')
+            .fontSize(19)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.doctor_workspace_text_primary'))
+            .width('100%')
+          Text(this.assessmentNo.length > 0 ? `${this.assessmentNo} · ${this.templateLabel()}` : this.templateLabel())
+            .fontSize(10)
+            .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+            .width('100%')
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+        if (this.operation.length > 0) {
+          Text(this.operation === 'saving' ? '正在保存' : this.operation === 'previewing' ? '正在计分' : '正在提交')
+            .fontSize(10)
+            .fontColor($r('app.color.doctor_workspace_focus'))
+        }
+      }
+      .width('100%')
+      Scroll() {
+        Row({ space: 7 }) {
+          ForEach(this.steps, (step: string, index: number) => {
+            Row({ space: 6 }) {
+              Text(`${index + 1}`)
+                .fontSize(9)
+                .fontWeight(FontWeight.Bold)
+                .fontColor(index <= this.currentStep ?
+                  $r('app.color.doctor_workspace_background') : $r('app.color.doctor_workspace_text_tertiary'))
+                .width(22)
+                .height(22)
+                .textAlign(TextAlign.Center)
+                .borderRadius(11)
+                .backgroundColor(index <= this.currentStep ?
+                  $r('app.color.doctor_workspace_text_primary') : $r('app.color.doctor_workspace_surface_raised'))
+              Text(step)
+                .fontSize(10)
+                .fontWeight(index === this.currentStep ? FontWeight.Bold : FontWeight.Regular)
+                .fontColor(index === this.currentStep ?
+                  $r('app.color.doctor_workspace_text_primary') : $r('app.color.doctor_workspace_text_tertiary'))
+            }
+            .padding({ left: 8, right: 10, top: 6, bottom: 6 })
+            .borderRadius(17)
+            .backgroundColor(index === this.currentStep ? $r('app.color.doctor_workspace_surface') : Color.Transparent)
+          }, (step: string, index: number) => `${step}-${index}`)
+        }
+      }
+      .width('100%')
+      .scrollable(ScrollDirection.Horizontal)
+      .scrollBar(BarState.Off)
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private heading(title: string, subtitle: string) {
+    Column({ space: 3 }) {
+      Text(title)
+        .fontSize(15)
+        .fontWeight(FontWeight.Bold)
+        .fontColor($r('app.color.doctor_workspace_text_primary'))
+        .width('100%')
       Text(subtitle)
         .fontSize(10)
         .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+        .width('100%')
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
-    .margin({ bottom: 14 })
+    .margin({ bottom: 11 })
   }
 
   @Builder
-  private riskDetailInput(label: ResourceStr, placeholder: ResourceStr, value: string,
-    onChange: (value: string) => void) {
-    Column({ space: 4 }) {
-      Text(label)
-        .fontSize(9)
-        .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+  private input(label: string, value: string, placeholder: string, required: boolean,
+    onChange: (value: string) => void, inputType: InputType = InputType.Normal) {
+    Column({ space: 5 }) {
+      Text(required ? `${label} *` : label)
+        .fontSize(10)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(required ? $r('app.color.doctor_workspace_text_primary') :
+          $r('app.color.doctor_workspace_text_secondary'))
         .width('100%')
       TextInput({ text: value, placeholder: placeholder })
         .width('100%')
-        .height(38)
-        .fontSize(10)
+        .height(39)
+        .fontSize(11)
         .fontColor($r('app.color.doctor_workspace_text_primary'))
-        .placeholderColor($r('app.color.doctor_workspace_text_tertiary'))
         .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
-        .borderRadius(9)
+        .borderRadius(8)
         .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
-        .padding({ left: 9, right: 9 })
-        .onChange((nextValue: string) => {
+        .type(inputType)
+        .onChange((next: string) => {
+          onChange(next);
           this.markDirty();
-          onChange(nextValue);
         })
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
   }
 
-  // ==================== 第 1 步：基础资料 ====================
-
   @Builder
-  private stepBasicInfo() {
-    Column() {
-      this.sectionCard('核验基础资料', '确认身份、床位安排、联系人与病史过敏信息')
-      GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
-        GridCol({ span: this.compactWidth ? 12 : 6 }) {
-          Column() {
-            this.fieldLabel('长者姓名', true)
-            this.textField('请输入姓名', this.residentName, (v: string) => this.residentName = v)
-          }
-          .alignItems(HorizontalAlign.Start)
-        }
-        GridCol({ span: this.compactWidth ? 12 : 6 }) {
-          Column() {
-            this.fieldLabel('性别', false)
-            this.capsuleGroup(this.genderOptions, this.genderIndex, (index: number) => this.genderIndex = index)
-          }
-          .alignItems(HorizontalAlign.Start)
-        }
-        GridCol({ span: this.compactWidth ? 6 : 3 }) {
-          Column() {
-            this.fieldLabel('年龄', true)
-            this.textField('岁', this.age, (v: string) => this.age = v, InputType.Number)
-            if (this.age.trim().length > 0 && !this.ageReady()) {
-              this.fieldValidationHint($r('app.string.doctor_admission_validation_age'))
-            }
-          }
-          .alignItems(HorizontalAlign.Start)
-        }
-        GridCol({ span: this.compactWidth ? 6 : 3 }) {
-          Column() {
-            this.fieldLabel('证件号', false)
-            this.textField('身份证号', this.idNumber, (v: string) => this.idNumber = v)
-          }
-          .alignItems(HorizontalAlign.Start)
-        }
-        GridCol({ span: this.compactWidth ? 6 : 3 }) {
-          Column() {
-            this.fieldLabel('房间', true)
-            this.textField('如 3A', this.room, (v: string) => this.room = v)
-          }
-          .alignItems(HorizontalAlign.Start)
-        }
-        GridCol({ span: this.compactWidth ? 6 : 3 }) {
-          Column() {
-            this.fieldLabel('床位', true)
-            this.textField('如 12', this.bed, (v: string) => this.bed = v)
-          }
-          .alignItems(HorizontalAlign.Start)
-        }
-        GridCol({ span: this.compactWidth ? 12 : 6 }) {
-          Column() {
-            this.fieldLabel($r('app.string.doctor_admission_contact_label'), true)
-            this.textField('联系人姓名与关系', this.guardianName, (v: string) => this.guardianName = v)
-          }
-          .alignItems(HorizontalAlign.Start)
-        }
-        GridCol({ span: this.compactWidth ? 12 : 6 }) {
-          Column() {
-            this.fieldLabel('联系电话', true)
-            this.textField($r('app.string.doctor_admission_phone_placeholder'), this.guardianPhone,
-              (v: string) => this.guardianPhone = v, InputType.PhoneNumber)
-            if (this.guardianPhone.trim().length > 0 && !this.phoneReady()) {
-              this.fieldValidationHint($r('app.string.doctor_admission_validation_phone'))
-            }
-          }
-          .alignItems(HorizontalAlign.Start)
-        }
-        GridCol({ span: 12 }) {
-          Column() {
-            this.fieldLabel('入住来源', false)
-            this.capsuleGroup(this.sourceOptions, this.sourceIndex, (index: number) => this.sourceIndex = index)
-          }
-          .alignItems(HorizontalAlign.Start)
-        }
-        GridCol({ span: this.compactWidth ? 12 : 6 }) {
-          Column() {
-            this.fieldLabel('主要诊断', false)
-            this.textField('如 高血压、2 型糖尿病', this.diagnosis, (v: string) => this.diagnosis = v)
-          }
-          .alignItems(HorizontalAlign.Start)
-        }
-        GridCol({ span: this.compactWidth ? 12 : 6 }) {
-          Column() {
-            this.fieldLabel('过敏史', false)
-            this.textField('如青霉素，无则留空', this.allergies, (v: string) => this.allergies = v)
-          }
-          .alignItems(HorizontalAlign.Start)
-        }
-      }
-      .width('100%')
-      if (!this.basicInfoReady()) {
-        Row({ space: 6 }) {
-          SymbolGlyph($r('sys.symbol.info_circle'))
-            .fontSize(12)
-            .fontColor([$r('app.color.doctor_workspace_warning')])
-          Text(this.basicInfoHint())
-            .fontSize(10)
-            .fontColor($r('app.color.doctor_workspace_warning'))
-        }
-        .width('100%')
-        .margin({ top: 14 })
-      }
-    }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  // ==================== 第 2 步：入住初筛 ====================
-
-  @Builder
-  private assessmentCard(dimension: AdmissionAssessmentDimension, dimensionIndex: number) {
-    Column({ space: 12 }) {
-      Flex({
-        direction: this.compactWidth ? FlexDirection.Column : FlexDirection.Row,
-        alignItems: this.compactWidth ? ItemAlign.Start : ItemAlign.Center
-      }) {
-        Column({ space: 3 }) {
-          Text(dimension.title)
-            .fontSize(14)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.doctor_workspace_text_primary'))
-          Text(dimension.basis)
-            .fontSize(10)
-            .fontColor($r('app.color.doctor_workspace_text_tertiary'))
-        }
-        .layoutWeight(this.compactWidth ? 0 : 1)
-        .width(this.compactWidth ? '100%' : undefined)
-        .alignItems(HorizontalAlign.Start)
-        Text(this.assessmentOption(dimensionIndex).label)
-          .fontSize(10)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.toneColor(this.assessmentOption(dimensionIndex).tone))
-          .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-          .borderRadius(8)
-          .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
-          .border({ width: 0.5, color: this.toneColor(this.assessmentOption(dimensionIndex).tone) })
-          .margin({ top: this.compactWidth ? 8 : 0 })
-      }
-      .width('100%')
-      Text(dimension.description)
-        .fontSize(11)
-        .fontColor($r('app.color.doctor_workspace_text_secondary'))
-        .width('100%')
-        .lineHeight(17)
-      Flex({ wrap: FlexWrap.Wrap }) {
-        ForEach(dimension.options, (option: AdmissionAssessmentOption, optionIndex: number) => {
-          Text(option.label)
-            .fontSize(12)
-            .fontWeight(this.assessmentChoice[dimensionIndex] === optionIndex ?
-              FontWeight.Medium : FontWeight.Regular)
-            .fontColor(this.assessmentChoice[dimensionIndex] === optionIndex ?
-              $r('app.color.doctor_workspace_background') :
-              $r('app.color.doctor_workspace_text_secondary'))
-            .height(36)
-            .padding({ left: 14, right: 14 })
-            .margin({ right: 8, bottom: 8 })
-            .textAlign(TextAlign.Center)
-            .borderRadius(10)
-            .backgroundColor(this.assessmentChoice[dimensionIndex] === optionIndex ?
-              this.toneColor(option.tone) :
-              $r('app.color.doctor_workspace_surface_raised'))
-            .border({
-              width: 0.5,
-              color: this.assessmentChoice[dimensionIndex] === optionIndex ?
-                this.toneColor(option.tone) :
-                $r('app.color.doctor_workspace_border')
-            })
-            .focusable(true)
-            .focusOnTouch(true)
-            .accessibilityText(`${dimension.title}：${option.label}`)
-            .accessibilityRole(AccessibilityRoleType.RADIO)
-            .accessibilitySelected(this.assessmentChoice[dimensionIndex] === optionIndex)
-            .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => {
-              this.markDirty();
-              const next: number[] = this.assessmentChoice.slice();
-              next[dimensionIndex] = optionIndex;
-              this.assessmentChoice = next;
-            }))
-            .onClick(() => {
-              this.markDirty();
-              const next: number[] = this.assessmentChoice.slice();
-              next[dimensionIndex] = optionIndex;
-              this.assessmentChoice = next;
-            })
-        }, (option: AdmissionAssessmentOption, optionIndex: number) => `${dimension.id}-${optionIndex}`)
-      }
-      .width('100%')
-    }
-    .width('100%')
-    .padding(16)
-    .borderRadius(14)
-    .backgroundColor($r('app.color.doctor_workspace_surface'))
-    .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  private safetyRiskCard(risk: AdmissionSafetyRisk, riskIndex: number) {
-    Column({ space: 10 }) {
-      Row({ space: 8 }) {
-        Text(risk.title)
-          .fontSize(13)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.doctor_workspace_text_primary'))
-          .layoutWeight(1)
-        Text(this.safetyOption(riskIndex).label)
-          .fontSize(9)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.toneColor(this.safetyOption(riskIndex).tone))
-          .padding({ left: 7, right: 7, top: 3, bottom: 3 })
-          .borderRadius(7)
-          .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
-          .border({ width: 0.5, color: this.toneColor(this.safetyOption(riskIndex).tone) })
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-      Text(risk.description)
+  private single(label: string, category: string, selected: string, required: boolean,
+    onSelect: (code: string) => void) {
+    Column({ space: 6 }) {
+      Text(required ? `${label} *` : label)
         .fontSize(10)
+        .fontWeight(FontWeight.Medium)
         .fontColor($r('app.color.doctor_workspace_text_secondary'))
         .width('100%')
-        .lineHeight(16)
       Flex({ wrap: FlexWrap.Wrap }) {
-        ForEach(this.safetyRiskOptions, (option: AdmissionAssessmentOption, optionIndex: number) => {
+        ForEach(this.dictionary(category), (option: AdmissionDictionaryOption) => {
           Text(option.label)
             .fontSize(10)
-            .fontWeight(this.safetyRiskChoice[riskIndex] === optionIndex ?
-              FontWeight.Medium : FontWeight.Regular)
-            .fontColor(this.safetyRiskChoice[riskIndex] === optionIndex ?
-              $r('app.color.doctor_workspace_background') :
-              $r('app.color.doctor_workspace_text_secondary'))
-            .height(34)
-            .padding({ left: 11, right: 11 })
+            .fontColor(selected === option.code ?
+              $r('app.color.doctor_workspace_background') : $r('app.color.doctor_workspace_text_secondary'))
+            .padding({ left: 11, right: 11, top: 7, bottom: 7 })
             .margin({ right: 6, bottom: 6 })
-            .textAlign(TextAlign.Center)
-            .borderRadius(9)
-            .backgroundColor(this.safetyRiskChoice[riskIndex] === optionIndex ?
-              this.toneColor(option.tone) : $r('app.color.doctor_workspace_surface_raised'))
-            .border({
-              width: 0.5,
-              color: this.safetyRiskChoice[riskIndex] === optionIndex ?
-                this.toneColor(option.tone) : $r('app.color.doctor_workspace_border')
-            })
-            .focusable(true)
-            .focusOnTouch(true)
-            .accessibilityText(`${risk.title}风险：${option.label}`)
-            .accessibilityRole(AccessibilityRoleType.RADIO)
-            .accessibilitySelected(this.safetyRiskChoice[riskIndex] === optionIndex)
-            .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => {
-              this.markDirty();
-              this.selectSafetyRisk(riskIndex, optionIndex);
-            }))
+            .borderRadius(8)
+            .backgroundColor(selected === option.code ?
+              $r('app.color.doctor_workspace_text_primary') : $r('app.color.doctor_workspace_surface_raised'))
+            .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
             .onClick(() => {
+              onSelect(option.code);
               this.markDirty();
-              this.selectSafetyRisk(riskIndex, optionIndex);
             })
-        }, (option: AdmissionAssessmentOption, optionIndex: number) => `${risk.id}-${optionIndex}`)
+        }, (option: AdmissionDictionaryOption) => `${category}-${option.code}`)
       }
       .width('100%')
-      if (this.safetyRiskChoice[riskIndex] >= 0 && this.safetyOption(riskIndex).score > 0) {
-        Text('风险处置记录')
-          .fontSize(10)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.doctor_workspace_text_primary'))
-          .width('100%')
-        TextArea({
-          text: this.safetyRiskMeasures[riskIndex],
-          placeholder: $r('app.string.doctor_admission_risk_measure_placeholder')
-        })
-          .width('100%')
-          .height(68)
-          .fontSize(11)
-          .fontColor($r('app.color.doctor_workspace_text_primary'))
-          .placeholderColor($r('app.color.doctor_workspace_text_tertiary'))
-          .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
-          .borderRadius(10)
-          .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
-          .padding(10)
-          .barState(BarState.Off)
-          .onChange((value: string) => {
-            this.markDirty();
-            this.updateSafetyRiskMeasure(riskIndex, value);
-          })
-        GridRow({ columns: 12, gutter: { x: 8, y: 8 } }) {
-          GridCol({ span: this.compactWidth ? 12 : 6 }) {
-            this.riskDetailInput($r('app.string.doctor_admission_risk_owner_label'),
-              $r('app.string.doctor_admission_risk_owner_placeholder'),
-              this.safetyRiskOwners[riskIndex], (value: string) => this.updateSafetyRiskOwner(riskIndex, value))
-          }
-          GridCol({ span: this.compactWidth ? 12 : 6 }) {
-            this.riskDetailInput($r('app.string.doctor_admission_risk_review_label'),
-              $r('app.string.doctor_admission_risk_review_placeholder'),
-              this.safetyRiskReviewPoints[riskIndex],
-              (value: string) => this.updateSafetyRiskReviewPoint(riskIndex, value))
-          }
-        }
-        .width('100%')
-        if (this.safetyOption(riskIndex).score >= 2) {
-          this.riskDetailInput($r('app.string.doctor_admission_risk_escalation_label'),
-            $r('app.string.doctor_admission_risk_escalation_placeholder'),
-            this.safetyRiskEscalations[riskIndex],
-            (value: string) => this.updateSafetyRiskEscalation(riskIndex, value))
-          Text($r('app.string.doctor_admission_risk_high_escalation'))
-            .fontSize(9)
-            .fontColor($r('app.color.doctor_workspace_danger'))
-            .width('100%')
-        }
-        if (!this.safetyRiskReady(riskIndex)) {
-          Text($r('app.string.doctor_admission_risk_measure_required'))
-            .fontSize(9)
-            .fontColor($r('app.color.doctor_workspace_warning'))
-            .width('100%')
-        }
+      if (this.dictionary(category).length === 0) {
+        Text('服务器未配置此项可选值')
+          .fontSize(9)
+          .fontColor($r('app.color.doctor_workspace_warning'))
       }
     }
     .width('100%')
-    .padding(14)
-    .borderRadius(14)
-    .backgroundColor($r('app.color.doctor_workspace_surface'))
-    .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
     .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
-  private carePlanSuggestionBanner() {
-    Column({ space: 10 }) {
-      Flex({
-        direction: this.compactWidth ? FlexDirection.Column : FlexDirection.Row,
-        alignItems: ItemAlign.Start
-      }) {
-        Row({ space: 8 }) {
-          SymbolGlyph($r('sys.symbol.waveform_path_ecg_magnifyingglass'))
-            .fontSize(18)
-            .fontColor([this.toneColor(this.carePlanSuggestion().tone)])
-          Text(this.assessmentReady() ? '入住初筛建议' : '入住初筛进度')
-            .fontSize(13)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.doctor_workspace_text_primary'))
-        }
-        .layoutWeight(this.compactWidth ? 0 : 1)
-        .width(this.compactWidth ? '100%' : undefined)
-        Text(this.carePlanSuggestion().label)
-          .fontSize(11)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.toneColor(this.carePlanSuggestion().tone))
-          .padding({ left: 10, right: 10, top: 5, bottom: 5 })
-          .borderRadius(9)
-          .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
-          .border({ width: 0.5, color: this.toneColor(this.carePlanSuggestion().tone) })
-          .margin({ top: this.compactWidth ? 8 : 0 })
-      }
-      .width('100%')
-      Text(this.carePlanSuggestion().desc)
-        .fontSize(11)
+  private multiple(label: string, category: string, selected: string[], onChange: (values: string[]) => void) {
+    Column({ space: 6 }) {
+      Text(label)
+        .fontSize(10)
+        .fontWeight(FontWeight.Medium)
         .fontColor($r('app.color.doctor_workspace_text_secondary'))
         .width('100%')
-        .lineHeight(18)
-      Text('能力四维初筛参考 GB/T 42195-2022 一级指标；正式能力评估仍需完成全部指标。安全风险覆盖 GB 38600-2019 九类风险。本页不替代正式量表和人工确认。')
-        .fontSize(10)
-        .fontColor($r('app.color.doctor_workspace_text_tertiary'))
-        .width('100%')
-        .lineHeight(16)
-    }
-    .width('100%')
-    .padding(16)
-    .borderRadius(14)
-    .backgroundColor($r('app.color.doctor_workspace_surface'))
-    .border({ width: 0.5, color: this.toneColor(this.carePlanSuggestion().tone) })
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  private stepAssessment() {
-    Column() {
-      this.sectionCard('入住综合初筛',
-        `完成能力、健康与安全风险共 ${this.totalAssessmentCount()} 项初筛，再进入照护计划选择`)
-      this.carePlanSuggestionBanner()
-      Column() {
-        this.sectionCard('能力与健康支持', '四个国家标准一级维度加两项入住健康支持观察')
-      }
-      .width('100%')
-      .margin({ top: 18 })
-      GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
-        ForEach(this.assessments, (dimension: AdmissionAssessmentDimension, index: number) => {
-          GridCol({ span: this.compactWidth ? 12 : 6 }) {
-            this.assessmentCard(dimension, index)
-          }
-        }, (dimension: AdmissionAssessmentDimension) => dimension.id)
-      }
-      .width('100%')
-      Column() {
-        this.sectionCard('入住服务安全风险', '按 GB 38600-2019 逐项记录九类风险等级，后续由正式评估补充处置措施')
-      }
-      .width('100%')
-      .margin({ top: 18 })
-      GridRow({ columns: 12, gutter: { x: 12, y: 12 } }) {
-        ForEach(this.safetyRisks, (risk: AdmissionSafetyRisk, index: number) => {
-          GridCol({ span: this.compactWidth ? 12 : 4 }) {
-            this.safetyRiskCard(risk, index)
-          }
-        }, (risk: AdmissionSafetyRisk) => risk.id)
-      }
-      .width('100%')
-      if (!this.assessmentReady()) {
-        Row({ space: 6 }) {
-          SymbolGlyph($r('sys.symbol.info_circle'))
-            .fontSize(12)
-            .fontColor([$r('app.color.doctor_workspace_warning')])
-          Text(`已完成 ${this.completedAssessmentCount()} / ${this.totalAssessmentCount()} 项，全部完成后可进入下一步`)
+      Flex({ wrap: FlexWrap.Wrap }) {
+        ForEach(this.dictionary(category), (option: AdmissionDictionaryOption) => {
+          Text(option.label)
             .fontSize(10)
-            .fontColor($r('app.color.doctor_workspace_warning'))
-        }
-        .width('100%')
-        .margin({ top: 14 })
-      }
-    }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  // ==================== 第 3 步：照护计划选择 ====================
-
-  @Builder
-  private carePlanCard(item: AdmissionCarePlan) {
-    Column({ space: 14 }) {
-      Row() {
-        Column({ space: 4 }) {
-          Row({ space: 8 }) {
-            Text(item.name)
-              .fontSize(16)
-              .fontWeight(FontWeight.Bold)
-              .fontColor($r('app.color.doctor_workspace_text_primary'))
-            if (this.carePlanSuggestion().recommendedPlanId === item.id) {
-              Text('初筛建议')
-                .fontSize(9)
-                .fontWeight(FontWeight.Medium)
-                .fontColor($r('app.color.doctor_workspace_background'))
-                .padding({ left: 7, right: 7, top: 3, bottom: 3 })
-                .borderRadius(7)
-                .backgroundColor(this.toneColor('focus'))
-            }
-          }
-          Text(item.target)
-            .fontSize(10)
-            .fontColor($r('app.color.doctor_workspace_text_tertiary'))
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
-        Stack({ alignContent: Alignment.Center }) {
-          Row()
-            .width(22)
-            .height(22)
-            .borderRadius(11)
-            .border({
-              width: this.selectedPlanId === item.id ? 7 : 1.5,
-              color: this.selectedPlanId === item.id ?
-                this.toneColor('focus') : $r('app.color.doctor_workspace_border')
+            .fontColor(this.contains(selected, option.code) ?
+              $r('app.color.doctor_workspace_focus') : $r('app.color.doctor_workspace_text_secondary'))
+            .padding({ left: 10, right: 10, top: 7, bottom: 7 })
+            .margin({ right: 6, bottom: 6 })
+            .borderRadius(8)
+            .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
+            .border({ width: this.contains(selected, option.code) ? 1.2 : 0.5,
+              color: this.contains(selected, option.code) ?
+                $r('app.color.doctor_workspace_focus') : $r('app.color.doctor_workspace_border') })
+            .onClick(() => {
+              onChange(this.toggle(selected, option.code));
+              this.markDirty();
             })
-        }
-        .width(22)
-        .height(22)
+        }, (option: AdmissionDictionaryOption) => `${category}-${option.code}`)
       }
       .width('100%')
-      .alignItems(VerticalAlign.Top)
-      Row({ space: 6 }) {
-        Text('费用按机构公示')
-          .fontSize(12)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.doctor_workspace_text_primary'))
-        Text('最终以服务协议为准')
-          .fontSize(9)
-          .fontColor($r('app.color.doctor_workspace_text_tertiary'))
-      }
-      .alignItems(VerticalAlign.Center)
-      Divider()
-        .strokeWidth(0.5)
-        .color($r('app.color.doctor_workspace_border_soft'))
-      Column({ space: 8 }) {
-        Text('基础服务')
-          .fontSize(10)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.doctor_workspace_text_primary'))
-          .width('100%')
-        ForEach(item.baseServices, (service: string) => {
-          Row({ space: 8 }) {
-            SymbolGlyph($r('sys.symbol.checkmark'))
-              .fontSize(12)
-              .fontColor([this.toneColor('normal')])
-            Text(service)
-              .fontSize(11)
-              .fontColor($r('app.color.doctor_workspace_text_secondary'))
-              .layoutWeight(1)
-              .lineHeight(17)
-          }
-          .width('100%')
-          .alignItems(VerticalAlign.Top)
-        }, (service: string) => service)
-        Text('可选项目 · 按需写入服务协议')
-          .fontSize(10)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.doctor_workspace_text_primary'))
-          .width('100%')
-          .margin({ top: 4 })
-        ForEach(item.optionalServices, (service: string) => {
-          Row({ space: 8 }) {
-            SymbolGlyph($r('sys.symbol.plus'))
-              .fontSize(11)
-              .fontColor([this.toneColor(item.tone)])
-            Text(service)
-              .fontSize(11)
-              .fontColor($r('app.color.doctor_workspace_text_secondary'))
-              .layoutWeight(1)
-              .lineHeight(17)
-          }
-          .width('100%')
-          .alignItems(VerticalAlign.Top)
-        }, (service: string) => `optional-${item.id}-${service}`)
-      }
-      .width('100%')
-      .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
-    .padding(18)
-    .borderRadius(16)
-    .backgroundColor($r('app.color.doctor_workspace_surface'))
-    .border({
-      width: this.selectedPlanId === item.id ? 1.5 : 0.5,
-      color: this.selectedPlanId === item.id ?
-        this.toneColor('focus') : $r('app.color.doctor_workspace_border')
-    })
     .alignItems(HorizontalAlign.Start)
-    .focusable(true)
-    .focusOnTouch(true)
-    .accessibilityText(`照护计划：${item.name}`)
-    .accessibilityRole(AccessibilityRoleType.RADIO)
-    .accessibilitySelected(this.selectedPlanId === item.id)
-    .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => {
-      this.markDirty();
-      this.selectedPlanId = item.id;
-    }))
-    .onClick(() => {
-      this.markDirty();
-      this.selectedPlanId = item.id;
-    })
   }
 
   @Builder
-  private stepCarePlan() {
-    Column() {
-      this.sectionCard('选择入住照护计划', '初筛建议仅用于辅助选择，基础服务、可选项目与费用须写入服务协议')
-      Row({ space: 8 }) {
-        SymbolGlyph($r('sys.symbol.info_circle'))
-          .fontSize(13)
-          .fontColor([this.toneColor(this.carePlanSuggestion().tone)])
-        Column({ space: 3 }) {
-          Text(`初筛建议：${this.planById(this.carePlanSuggestion().recommendedPlanId).name}`)
-            .fontSize(11)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.doctor_workspace_text_primary'))
-            .width('100%')
-          Text('请结合正式评估、机构服务能力与长者意愿人工选择')
+  private healthChoice(category: AdmissionHealthCategory) {
+    Column({ space: 6 }) {
+      Text(category.label)
+        .fontSize(10)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.doctor_workspace_text_secondary'))
+        .width('100%')
+      Flex({ wrap: FlexWrap.Wrap }) {
+        ForEach(this.dictionary(category.code), (option: AdmissionDictionaryOption) => {
+          Text(option.label)
             .fontSize(10)
-            .fontColor($r('app.color.doctor_workspace_text_tertiary'))
-            .width('100%')
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
+            .fontColor(this.contains(this.healthIssues, this.healthValue(category.code, option.code)) ?
+              $r('app.color.doctor_workspace_focus') : $r('app.color.doctor_workspace_text_secondary'))
+            .padding({ left: 10, right: 10, top: 7, bottom: 7 })
+            .margin({ right: 6, bottom: 6 })
+            .borderRadius(8)
+            .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
+            .border({ width: this.contains(this.healthIssues, this.healthValue(category.code, option.code)) ? 1.2 : 0.5,
+              color: this.contains(this.healthIssues, this.healthValue(category.code, option.code)) ?
+                $r('app.color.doctor_workspace_focus') : $r('app.color.doctor_workspace_border') })
+            .onClick(() => {
+              this.selectHealthValue(category.code, option.code);
+            })
+        }, (option: AdmissionDictionaryOption) => `${category.code}-${option.code}`)
       }
       .width('100%')
-      .padding({ left: 12, right: 12, top: 10, bottom: 10 })
-      .borderRadius(10)
-      .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
-      .margin({ bottom: 14 })
-      .alignItems(VerticalAlign.Center)
-      GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
-        ForEach(this.plans, (item: AdmissionCarePlan) => {
-          GridCol({ span: this.compactWidth ? 12 : 4 }) {
-            this.carePlanCard(item)
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private basicStep() {
+    Column({ space: 14 }) {
+      this.heading('附录 A · 老年人能力评估基本信息表', '评估原因、基础资料、联系人、疾病用药、健康问题及近 30 天风险事件')
+      Column() {
+        this.heading('评估与身份资料', '带 * 的信息用于推进流程，未完成时仍可保存服务器草稿')
+        GridRow({ columns: 12, gutter: { x: 12, y: 12 } }) {
+          GridCol({ span: this.compactWidth ? 12 : 6 }) {
+            this.single('评估原因', 'assessment_reason', this.assessmentReason, true,
+              (code: string) => this.assessmentReason = code)
           }
-        }, (item: AdmissionCarePlan) => item.id)
+          GridCol({ span: this.compactWidth ? 12 : 6 }) {
+            this.input('资料基准日期', this.baselineDate, 'YYYY-MM-DD', true,
+              (value: string) => this.baselineDate = value)
+          }
+          GridCol({ span: this.compactWidth ? 12 : 6 }) {
+            this.input('姓名', this.residentName, '长者姓名', true, (value: string) => this.residentName = value)
+          }
+          GridCol({ span: this.compactWidth ? 12 : 6 }) {
+            this.single('性别', 'gender', this.gender, true, (code: string) => this.gender = code)
+          }
+          GridCol({ span: this.compactWidth ? 12 : 6 }) {
+            this.input('出生日期', this.birthDate, 'YYYY-MM-DD', true, (value: string) => this.birthDate = value)
+          }
+          GridCol({ span: this.compactWidth ? 12 : 6 }) {
+            this.input('证件号码', this.idCard, '身份证或其他证件号', true, (value: string) => this.idCard = value)
+          }
+          GridCol({ span: this.compactWidth ? 6 : 3 }) {
+            this.input('身高（cm）', this.heightText, '0', true,
+              (value: string) => this.heightText = value, InputType.Number)
+          }
+          GridCol({ span: this.compactWidth ? 6 : 3 }) {
+            this.input('体重（kg）', this.weightText, '0', true,
+              (value: string) => this.weightText = value)
+          }
+          GridCol({ span: this.compactWidth ? 6 : 3 }) {
+            this.single('民族', 'ethnicity', this.ethnicity, false, (code: string) => this.ethnicity = code)
+          }
+          GridCol({ span: this.compactWidth ? 6 : 3 }) {
+            this.single('宗教信仰', 'religion', this.religion, false, (code: string) => this.religion = code)
+          }
+          GridCol({ span: 12 }) {
+            this.input('评估地点', this.assessmentLocation, '机构、房间或其他地点', true,
+              (value: string) => this.assessmentLocation = value)
+          }
+        }
+        .width('100%')
       }
       .width('100%')
-      if (this.selectedPlanId.length === 0) {
-        Text($r('app.string.doctor_admission_validation_plan'))
+      .padding(16)
+      .borderRadius(12)
+      .backgroundColor($r('app.color.doctor_workspace_surface'))
+      .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
+      .alignItems(HorizontalAlign.Start)
+
+      Column() {
+        this.heading('社会与保障资料', '多选项目可按实际情况同时勾选')
+        GridRow({ columns: 12, gutter: { x: 12, y: 12 } }) {
+          GridCol({ span: this.compactWidth ? 12 : 6 }) {
+            this.single('文化程度', 'education', this.education, false, (code: string) => this.education = code)
+          }
+          GridCol({ span: this.compactWidth ? 12 : 6 }) {
+            this.single('婚姻状况', 'marital_status', this.maritalStatus, false,
+              (code: string) => this.maritalStatus = code)
+          }
+          GridCol({ span: this.compactWidth ? 12 : 6 }) {
+            this.multiple('居住情况', 'living_situation', this.livingSituations,
+              (values: string[]) => this.livingSituations = values)
+          }
+          GridCol({ span: this.compactWidth ? 12 : 6 }) {
+            this.multiple('医疗费用支付方式', 'medical_payment', this.medicalPayments,
+              (values: string[]) => this.medicalPayments = values)
+          }
+          GridCol({ span: 12 }) {
+            this.multiple('经济来源', 'income_source', this.incomeSources,
+              (values: string[]) => this.incomeSources = values)
+          }
+        }
+        .width('100%')
+      }
+      .width('100%')
+      .padding(16)
+      .borderRadius(12)
+      .backgroundColor($r('app.color.doctor_workspace_surface'))
+      .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
+      .alignItems(HorizontalAlign.Start)
+
+      Column({ space: 11 }) {
+        this.heading('疾病、用药与健康问题', '疾病用逗号分隔；每行用药按“药名|用法|剂量|频次”填写')
+        this.multiple('现患疾病', 'diagnosis', this.diagnoses,
+          (values: string[]) => {
+            this.diagnoses = values;
+            this.dementiaOrMentalDisorder = values.indexOf('F00-F03') >= 0 || values.indexOf('F04-F99') >= 0;
+            this.markDirty(true);
+          })
+        Row({ space: 10 }) {
+          Toggle({ type: ToggleType.Switch, isOn: this.dementiaOrMentalDisorder })
+            .selectedColor($r('app.color.doctor_workspace_focus'))
+            .onChange((value: boolean) => {
+              this.dementiaOrMentalDisorder = value;
+              this.markDirty(true);
+            })
+          Column({ space: 2 }) {
+            Text('存在痴呆或精神行为障碍')
+              .fontSize(11)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('app.color.doctor_workspace_text_primary'))
+            Text('服务器会按正式规则判断是否调整最终等级')
+              .fontSize(9)
+              .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+          }
+          .layoutWeight(1)
+          .alignItems(HorizontalAlign.Start)
+        }
+        .width('100%')
+        this.single('昏迷状态', 'coma_status', this.coma ? 'present' : 'none', false,
+          (code: string) => {
+            this.coma = code === 'present';
+            this.markDirty(true);
+          })
+        GridRow({ columns: 12, gutter: { x: 10, y: 10 } }) {
+          ForEach(this.healthCategories, (category: AdmissionHealthCategory) => {
+            GridCol({ span: this.compactWidth ? 12 : 6 }) {
+              this.healthChoice(category)
+            }
+          }, (category: AdmissionHealthCategory) => category.code)
+        }
+        .width('100%')
+        TextArea({ text: this.medicationsText, placeholder: '阿司匹林|口服|100mg|每日一次' })
+          .width('100%')
+          .height(92)
+          .fontSize(10)
+          .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
+          .borderRadius(8)
+          .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
+          .onChange((value: string) => {
+            this.medicationsText = value;
+            this.markDirty();
+          })
+      }
+      .width('100%')
+      .padding(16)
+      .borderRadius(12)
+      .backgroundColor($r('app.color.doctor_workspace_surface'))
+      .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
+      .alignItems(HorizontalAlign.Start)
+
+      Column() {
+        this.heading('近 30 天风险事件', '按实际发生次数记录；服务器结合次数执行等级调整规则')
+        GridRow({ columns: 12, gutter: { x: 9, y: 9 } }) {
+          ForEach(this.dictionary('risk_event'), (option: AdmissionDictionaryOption) => {
+            GridCol({ span: this.compactWidth ? 12 : 6 }) {
+              Row({ space: 8 }) {
+                Text(option.label)
+                  .fontSize(10)
+                  .fontColor($r('app.color.doctor_workspace_text_primary'))
+                  .layoutWeight(1)
+                Button('-')
+                  .width(28)
+                  .height(28)
+                  .borderRadius(14)
+                  .fontSize(13)
+                  .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
+                  .enabled(this.riskCount(option.code) > 0)
+                  .onClick(() => this.changeRisk(option.code, -1))
+                Text(`${this.riskCount(option.code)}`)
+                  .width(24)
+                  .fontSize(12)
+                  .fontWeight(FontWeight.Bold)
+                  .textAlign(TextAlign.Center)
+                Button('+')
+                  .width(28)
+                  .height(28)
+                  .borderRadius(14)
+                  .fontSize(13)
+                  .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
+                  .onClick(() => this.changeRisk(option.code, 1))
+              }
+              .width('100%')
+              .padding(9)
+              .borderRadius(9)
+              .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
+              .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
+            }
+          }, (option: AdmissionDictionaryOption) => `risk-${option.code}`)
+        }
+        .width('100%')
+      }
+      .width('100%')
+      .padding(16)
+      .borderRadius(12)
+      .backgroundColor($r('app.color.doctor_workspace_surface'))
+      .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
+      .alignItems(HorizontalAlign.Start)
+
+      Column() {
+        this.heading('信息提供人与联系人', '信息提供人需在最终确认时完成签字确认')
+        GridRow({ columns: 12, gutter: { x: 12, y: 12 } }) {
+          GridCol({ span: this.compactWidth ? 12 : 6 }) {
+            this.input('信息提供人', this.infoProviderName, '姓名', true,
+              (value: string) => this.infoProviderName = value)
+          }
+          GridCol({ span: this.compactWidth ? 12 : 6 }) {
+            this.single('与长者关系', 'info_provider_relation', this.infoProviderRelation, true,
+              (code: string) => this.infoProviderRelation = code)
+          }
+          GridCol({ span: this.compactWidth ? 12 : 6 }) {
+            this.input('主要联系人', this.contactName, '姓名', true, (value: string) => this.contactName = value)
+          }
+          GridCol({ span: this.compactWidth ? 12 : 6 }) {
+            this.input('联系电话', this.contactPhone, '手机号或固定电话', true,
+              (value: string) => this.contactPhone = value, InputType.PhoneNumber)
+          }
+        }
+        .width('100%')
+      }
+      .width('100%')
+      .padding(16)
+      .borderRadius(12)
+      .backgroundColor($r('app.color.doctor_workspace_surface'))
+      .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
+      .alignItems(HorizontalAlign.Start)
+      if (!this.basicReady()) {
+        Text('请补全带 * 的项目，日期使用 YYYY-MM-DD。草稿仍可随时保存。')
           .fontSize(10)
           .fontColor($r('app.color.doctor_workspace_warning'))
           .width('100%')
-          .margin({ top: 12 })
       }
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
   }
 
-  // ==================== 第 4 步：确认 ====================
+  @Builder
+  private question(question: AdmissionAssessmentQuestion) {
+    Column({ space: 9 }) {
+      Row({ space: 7 }) {
+        Text(question.code)
+          .fontSize(9)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.doctor_workspace_focus'))
+        Text(question.title)
+          .fontSize(11)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.doctor_workspace_text_primary'))
+          .layoutWeight(1)
+      }
+      .width('100%')
+      if (question.guidance.length > 0) {
+        Text(question.guidance)
+          .fontSize(9)
+          .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+          .width('100%')
+          .lineHeight(14)
+      }
+      ForEach(question.options, (option: AdmissionAssessmentOption) => {
+        Row({ space: 8 }) {
+          Row()
+            .width(17)
+            .height(17)
+            .borderRadius(9)
+            .border({ width: this.optionId(question.id) === option.id ? 5 : 1,
+              color: this.optionId(question.id) === option.id ?
+                $r('app.color.doctor_workspace_focus') : $r('app.color.doctor_workspace_border') })
+          Text(option.label)
+            .fontSize(10)
+            .fontColor($r('app.color.doctor_workspace_text_secondary'))
+            .layoutWeight(1)
+            .lineHeight(15)
+        }
+        .width('100%')
+        .padding(8)
+        .borderRadius(8)
+        .backgroundColor(this.optionId(question.id) === option.id ?
+          $r('app.color.doctor_workspace_accent_soft') : $r('app.color.doctor_workspace_surface_raised'))
+        .border({ width: 0.5, color: $r('app.color.doctor_workspace_border_soft') })
+        .onClick(() => this.selectAnswer(question.id, option.id))
+      }, (option: AdmissionAssessmentOption) => `${question.id}-${option.id}`)
+    }
+    .width('100%')
+    .padding(14)
+    .borderRadius(11)
+    .backgroundColor($r('app.color.doctor_workspace_surface'))
+    .border({ width: this.optionId(question.id) > 0 ? 0.5 : 1,
+      color: this.optionId(question.id) > 0 ?
+        $r('app.color.doctor_workspace_border') : $r('app.color.doctor_workspace_warning') })
+    .alignItems(HorizontalAlign.Start)
+  }
 
   @Builder
-  private summaryRow(label: string, value: string) {
-    Row({ space: 12 }) {
+  private assessmentStep() {
+    Column({ space: 16 }) {
+      this.heading('附录 B · 老年人能力评估表',
+        `服务器题库 ${this.questions().length} 项、${this.groupCodes().length} 个维度；已完成 ${this.completedQuestions()} 项`)
+      Row({ space: 8 }) {
+        SymbolGlyph($r('sys.symbol.shield_checkered'))
+          .fontSize(15)
+          .fontColor([$r('app.color.doctor_workspace_focus')])
+        Text('客户端只提交题目与选项 ID，不计算或提交可信分数。')
+          .fontSize(10)
+          .fontColor($r('app.color.doctor_workspace_text_secondary'))
+          .layoutWeight(1)
+      }
+      .width('100%')
+      .padding(11)
+      .borderRadius(9)
+      .backgroundColor($r('app.color.doctor_workspace_surface'))
+      ForEach(this.groupCodes(), (groupCode: string) => {
+        Column({ space: 10 }) {
+          Row() {
+            Text(this.groupName(groupCode))
+              .fontSize(14)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('app.color.doctor_workspace_text_primary'))
+              .layoutWeight(1)
+            Text(`${this.questionsForGroup(groupCode).length} 项`)
+              .fontSize(10)
+              .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+          }
+          .width('100%')
+          GridRow({ columns: 12, gutter: { x: 11, y: 11 } }) {
+            ForEach(this.questionsForGroup(groupCode), (item: AdmissionAssessmentQuestion) => {
+              GridCol({ span: this.compactWidth ? 12 : 6 }) {
+                this.question(item)
+              }
+            }, (item: AdmissionAssessmentQuestion) => `${item.id}`)
+          }
+          .width('100%')
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+      }, (groupCode: string) => groupCode)
+      if (!this.assessmentReady()) {
+        Text(`还有 ${this.questions().length - this.completedQuestions()} 项未完成。`)
+          .fontSize(10)
+          .fontColor($r('app.color.doctor_workspace_warning'))
+          .width('100%')
+      }
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private levelStrip() {
+    if (this.levels().length === 0) {
+      Text('服务器未返回五档等级规则，请检查当前模板配置。')
+        .fontSize(10)
+        .fontColor($r('app.color.doctor_workspace_warning'))
+        .width('100%')
+        .padding(11)
+        .borderRadius(9)
+        .backgroundColor($r('app.color.doctor_workspace_accent_soft'))
+    } else {
+      GridRow({ columns: 10, gutter: { x: 7, y: 7 } }) {
+        ForEach(this.levels(), (level: AdmissionLevelRule) => {
+          GridCol({ span: this.compactWidth ? 5 : 2 }) {
+            Column({ space: 3 }) {
+              Text(level.label)
+                .fontSize(10)
+                .fontWeight(FontWeight.Bold)
+                .fontColor(this.preview !== null && this.preview.final_level === level.code ?
+                  $r('app.color.doctor_workspace_focus') : $r('app.color.doctor_workspace_text_primary'))
+              Text(level.min_score === level.max_score ? `${level.min_score} 分` :
+                `${level.min_score}-${level.max_score} 分`)
+                .fontSize(9)
+                .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+            }
+            .width('100%')
+            .height(58)
+            .justifyContent(FlexAlign.Center)
+            .alignItems(HorizontalAlign.Center)
+            .borderRadius(9)
+            .backgroundColor($r('app.color.doctor_workspace_surface'))
+            .border({ width: this.preview !== null && this.preview.final_level === level.code ? 1.2 : 0.5,
+              color: this.preview !== null && this.preview.final_level === level.code ?
+                $r('app.color.doctor_workspace_focus') : $r('app.color.doctor_workspace_border') })
+          }
+        }, (level: AdmissionLevelRule) => level.code)
+      }
+      .width('100%')
+    }
+  }
+
+  @Builder
+  private resultStep() {
+    Column({ space: 16 }) {
+      this.heading('附录 C · 老年人能力评估报告', '总分、初始等级、最终等级和调整原因只显示服务端计算结果')
+      if (this.preview === null) {
+        Column({ space: 9 }) {
+          Text('尚未取得服务端评估结果')
+            .fontSize(13)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.doctor_workspace_text_primary'))
+          Button(this.operation === 'previewing' ? '正在计分' : '请求服务端计分')
+            .height(36)
+            .fontSize(10)
+            .borderRadius(9)
+            .fontColor($r('app.color.doctor_workspace_background'))
+            .backgroundColor($r('app.color.doctor_workspace_text_primary'))
+            .enabled(this.operation.length === 0)
+            .onClick(() => this.requestPreview())
+        }
+        .width('100%')
+        .padding(22)
+        .borderRadius(12)
+        .backgroundColor($r('app.color.doctor_workspace_surface'))
+        .alignItems(HorizontalAlign.Center)
+      } else {
+        GridRow({ columns: 12, gutter: { x: 10, y: 10 } }) {
+          GridCol({ span: this.compactWidth ? 12 : 4 }) {
+            this.metric('能力总分', `${this.preview.ability_score} / ${this.bootstrap?.template.max_score ?? 0}`, false)
+          }
+          GridCol({ span: this.compactWidth ? 6 : 4 }) {
+            this.metric('初始等级', this.preview.initial_level_label, false)
+          }
+          GridCol({ span: this.compactWidth ? 6 : 4 }) {
+            this.metric('最终等级', this.preview.final_level_label, true)
+          }
+        }
+        .width('100%')
+        GridRow({ columns: 12, gutter: { x: 8, y: 8 } }) {
+          ForEach(this.preview.group_scores, (group: AdmissionGroupScore) => {
+            GridCol({ span: this.compactWidth ? 6 : 3 }) {
+              Column({ space: 3 }) {
+                Text(group.label)
+                  .fontSize(9)
+                  .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+                  .maxLines(1)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                Text(`${group.score} / ${group.max_score}`)
+                  .fontSize(12)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor($r('app.color.doctor_workspace_text_primary'))
+              }
+              .width('100%')
+              .padding(9)
+              .borderRadius(8)
+              .backgroundColor($r('app.color.doctor_workspace_surface'))
+              .alignItems(HorizontalAlign.Center)
+            }
+          }, (group: AdmissionGroupScore) => group.code)
+        }
+        .width('100%')
+        if (this.preview.level_change_reasons.length > 0) {
+          Column({ space: 4 }) {
+            Text('等级调整依据')
+              .fontSize(10)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('app.color.doctor_workspace_text_primary'))
+              .width('100%')
+            ForEach(this.preview.level_change_reasons, (reason: string) => {
+              Text(`· ${reason}`)
+                .fontSize(10)
+                .fontColor($r('app.color.doctor_workspace_text_secondary'))
+                .width('100%')
+            }, (reason: string) => reason)
+          }
+          .width('100%')
+          .padding(11)
+          .borderRadius(9)
+          .backgroundColor($r('app.color.doctor_workspace_accent_soft'))
+          .alignItems(HorizontalAlign.Start)
+        }
+      }
+      this.levelStrip()
+      if (this.scoringNotes().length > 0) {
+        Column({ space: 4 }) {
+          ForEach(this.scoringNotes(), (note: string) => {
+            Text(`· ${note}`)
+              .fontSize(9)
+              .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+              .width('100%')
+          }, (note: string) => note)
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+      }
+      if (this.draftId > 0) {
+        AdmissionScreeningPanel({
+          admissionId: this.draftId,
+          compactWidth: this.compactWidth
+        })
+      }
+      this.heading('护理计划', '选择服务器配置的计划；提交后由服务器生成正式关联记录')
+      GridRow({ columns: 12, gutter: { x: 10, y: 10 } }) {
+        ForEach(this.plans(), (plan: AdmissionCarePlanTemplate) => {
+          GridCol({ span: this.compactWidth ? 12 : 6 }) {
+            Column({ space: 7 }) {
+              Row() {
+                Text(plan.name)
+                  .fontSize(12)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor($r('app.color.doctor_workspace_text_primary'))
+                  .layoutWeight(1)
+                Row()
+                  .width(19)
+                  .height(19)
+                  .borderRadius(10)
+                  .border({ width: this.selectedCarePlanCode === plan.code ? 6 : 1,
+                    color: this.selectedCarePlanCode === plan.code ?
+                      $r('app.color.doctor_workspace_focus') : $r('app.color.doctor_workspace_border') })
+              }
+              .width('100%')
+              Text(plan.target)
+                .fontSize(9)
+                .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+                .width('100%')
+              Text(`基础服务 ${plan.base_services.length} 项 · 可选服务 ${plan.optional_services.length} 项`)
+                .fontSize(9)
+                .fontColor($r('app.color.doctor_workspace_text_secondary'))
+                .width('100%')
+            }
+            .width('100%')
+            .padding(13)
+            .borderRadius(10)
+            .backgroundColor($r('app.color.doctor_workspace_surface'))
+            .border({ width: this.selectedCarePlanCode === plan.code ? 1.2 : 0.5,
+              color: this.selectedCarePlanCode === plan.code ?
+                $r('app.color.doctor_workspace_focus') : $r('app.color.doctor_workspace_border') })
+            .alignItems(HorizontalAlign.Start)
+            .enabled(this.preview !== null && plan.target_level === this.preview.final_level)
+            .opacity(this.preview !== null && plan.target_level === this.preview.final_level ? 1 : 0.48)
+            .onClick(() => {
+              if (this.preview !== null && plan.target_level === this.preview.final_level) {
+                if (this.selectedCarePlanCode !== plan.code) {
+                  this.selectedOptionalServices = [];
+                }
+                this.selectedCarePlanCode = plan.code;
+                this.markDirty();
+              }
+            })
+          }
+        }, (plan: AdmissionCarePlanTemplate) => plan.code)
+      }
+      .width('100%')
+      if (this.optionalServices().length > 0) {
+        Column({ space: 7 }) {
+          Text('可选服务')
+            .fontSize(11)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.doctor_workspace_text_primary'))
+            .width('100%')
+          Flex({ wrap: FlexWrap.Wrap }) {
+            ForEach(this.optionalServices(), (service: AdmissionCareService) => {
+              Text(`${service.title} · ${service.frequency}`)
+                .fontSize(10)
+                .fontColor(this.contains(this.selectedOptionalServices, service.code) ?
+                  $r('app.color.doctor_workspace_focus') : $r('app.color.doctor_workspace_text_secondary'))
+                .padding({ left: 10, right: 10, top: 7, bottom: 7 })
+                .margin({ right: 7, bottom: 7 })
+                .borderRadius(8)
+                .backgroundColor($r('app.color.doctor_workspace_surface'))
+                .border({ width: this.contains(this.selectedOptionalServices, service.code) ? 1.2 : 0.5,
+                  color: this.contains(this.selectedOptionalServices, service.code) ?
+                    $r('app.color.doctor_workspace_focus') : $r('app.color.doctor_workspace_border') })
+                .onClick(() => {
+                  this.selectedOptionalServices = this.toggle(this.selectedOptionalServices, service.code);
+                  this.markDirty();
+                })
+            }, (service: AdmissionCareService) => service.code)
+          }
+          .width('100%')
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+      }
+      this.heading('入住床位', '只显示服务器当前空闲床位，提交时会再次检查占用冲突')
+      if (this.beds.length === 0) {
+        Text('当前没有可分配床位，或床位数据加载失败。')
+          .fontSize(10)
+          .fontColor($r('app.color.doctor_workspace_warning'))
+          .width('100%')
+      } else {
+        Flex({ wrap: FlexWrap.Wrap }) {
+          ForEach(this.beds, (bed: Bed) => {
+            Text(this.bedLabel(bed))
+              .fontSize(10)
+              .fontColor(this.targetBedId === bed.id ?
+                $r('app.color.doctor_workspace_background') : $r('app.color.doctor_workspace_text_secondary'))
+              .padding({ left: 11, right: 11, top: 8, bottom: 8 })
+              .margin({ right: 7, bottom: 7 })
+              .borderRadius(8)
+              .backgroundColor(this.targetBedId === bed.id ?
+                $r('app.color.doctor_workspace_text_primary') : $r('app.color.doctor_workspace_surface'))
+              .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
+              .onClick(() => {
+                this.targetBedId = bed.id;
+                this.markDirty();
+              })
+          }, (bed: Bed) => `${bed.id}`)
+        }
+        .width('100%')
+      }
+      if (!this.planReady()) {
+        Text('取得服务端结果并选择护理计划、空闲床位后才能继续。')
+          .fontSize(10)
+          .fontColor($r('app.color.doctor_workspace_warning'))
+          .width('100%')
+      }
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private metric(label: string, value: string, focused: boolean) {
+    Column({ space: 5 }) {
       Text(label)
-        .fontSize(11)
-        .fontColor($r('app.color.doctor_workspace_text_secondary'))
-        .width(96)
-      Text(value.length > 0 ? value : '—')
-        .fontSize(12)
+        .fontSize(10)
+        .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+      Text(value)
+        .fontSize(18)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(focused ? $r('app.color.doctor_workspace_focus') :
+          $r('app.color.doctor_workspace_text_primary'))
+    }
+    .width('100%')
+    .height(96)
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+    .borderRadius(11)
+    .backgroundColor($r('app.color.doctor_workspace_surface'))
+    .border({ width: focused ? 1.2 : 0.5,
+      color: focused ? $r('app.color.doctor_workspace_focus') : $r('app.color.doctor_workspace_border') })
+  }
+
+  @Builder
+  private confirmation(label: string, description: string, checked: boolean, onChange: (value: boolean) => void) {
+    Row({ space: 11 }) {
+      Checkbox()
+        .select(checked)
+        .selectedColor($r('app.color.doctor_workspace_focus'))
+        .onChange((value: boolean) => {
+          onChange(value);
+          this.markDirty();
+        })
+      Column({ space: 3 }) {
+        Text(label)
+          .fontSize(11)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.doctor_workspace_text_primary'))
+          .width('100%')
+        Text(description)
+          .fontSize(9)
+          .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+          .width('100%')
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+    }
+    .width('100%')
+    .padding({ top: 9, bottom: 9 })
+    .alignItems(VerticalAlign.Top)
+  }
+
+  @Builder
+  private summary(label: string, value: string) {
+    Row({ space: 9 }) {
+      Text(label)
+        .width(72)
+        .fontSize(10)
+        .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+      Text(value.length > 0 ? value : '未填写')
+        .fontSize(10)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('app.color.doctor_workspace_text_primary'))
         .layoutWeight(1)
     }
     .width('100%')
     .padding({ top: 7, bottom: 7 })
-    .border({
-      width: { bottom: 0.5 },
-      color: { bottom: $r('app.color.doctor_workspace_border_soft') }
-    })
-    .alignItems(VerticalAlign.Center)
+    .border({ width: { bottom: 0.5 }, color: { bottom: $r('app.color.doctor_workspace_border_soft') } })
   }
 
   @Builder
-  private assessmentSummary() {
-    Column({ space: 0 }) {
-      ForEach(this.assessments, (dimension: AdmissionAssessmentDimension, index: number) => {
-        Row({ space: 12 }) {
-          Text(dimension.title)
-            .fontSize(11)
-            .fontColor($r('app.color.doctor_workspace_text_secondary'))
-            .layoutWeight(1)
-          Text(this.assessmentOption(index).label)
-            .fontSize(11)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(this.toneColor(this.assessmentOption(index).tone))
-        }
-        .width('100%')
-        .padding({ top: 7, bottom: 7 })
-        .border({
-          width: { bottom: 0.5 },
-          color: { bottom: $r('app.color.doctor_workspace_border_soft') }
-        })
-      }, (dimension: AdmissionAssessmentDimension) => `sum-${dimension.id}`)
-    }
-    .width('100%')
-  }
-
-  @Builder
-  private safetyRiskSummary() {
-    GridRow({ columns: 12, gutter: { x: 12, y: 6 } }) {
-      ForEach(this.safetyRisks, (risk: AdmissionSafetyRisk, index: number) => {
-        GridCol({ span: this.compactWidth ? 12 : 6 }) {
-          Column({ space: 3 }) {
-            Row({ space: 8 }) {
-              Text(risk.title)
-                .fontSize(10)
-                .fontColor($r('app.color.doctor_workspace_text_secondary'))
-                .layoutWeight(1)
-              Text(this.safetyOption(index).label)
-                .fontSize(10)
-                .fontWeight(FontWeight.Medium)
-                .fontColor(this.toneColor(this.safetyOption(index).tone))
-            }
-            if (this.safetyOption(index).score > 0 && this.safetyRiskReady(index)) {
-              Text(this.safetyRiskDetailSummary(index))
-                .fontSize(9)
-                .fontColor($r('app.color.doctor_workspace_text_tertiary'))
-                .width('100%')
-                .maxLines(3)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-            }
-          }
-          .width('100%')
-          .padding({ top: 6, bottom: 6 })
-          .border({
-            width: { bottom: 0.5 },
-            color: { bottom: $r('app.color.doctor_workspace_border_soft') }
-          })
-          .alignItems(HorizontalAlign.Center)
-        }
-      }, (risk: AdmissionSafetyRisk) => `risk-sum-${risk.id}`)
-    }
-    .width('100%')
-  }
-
-  @Builder
-  private confirmationItem(id: string, title: string, description: string,
-    checked: boolean, onChange: (value: boolean) => void) {
-    Row({ space: 12 }) {
-      Checkbox({ name: id })
-        .select(checked)
-        .selectedColor($r('app.color.doctor_workspace_focus'))
-        .width(22)
-        .height(22)
-        .accessibilityLevel('no')
-        .onTouch((event: TouchEvent) => event.stopPropagation())
-        .onChange((value: boolean) => {
-          this.markDirty();
-          onChange(value);
-        })
-      Column({ space: 3 }) {
-        Text(title)
-          .fontSize(12)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.doctor_workspace_text_primary'))
-          .width('100%')
-        Text(description)
-          .fontSize(10)
-          .fontColor($r('app.color.doctor_workspace_text_tertiary'))
-          .width('100%')
-          .lineHeight(16)
-      }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
-    }
-    .width('100%')
-    .constraintSize({ minHeight: 48 })
-    .padding({ top: 9, bottom: 9, left: 4, right: 4 })
-    .alignItems(VerticalAlign.Top)
-    .borderRadius(10)
-    .focusable(true)
-    .focusOnTouch(true)
-    .accessibilityText(`${title}。${description}`)
-    .accessibilityRole(AccessibilityRoleType.CHECKBOX)
-    .accessibilityChecked(checked)
-    .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => {
-      this.markDirty();
-      onChange(!checked);
-    }))
-    .onClick(() => {
-      this.markDirty();
-      onChange(!checked);
-    })
-  }
-
-  @Builder
-  private stepConfirm() {
-    Column() {
-      this.sectionCard('确认并生成草稿', '核对资料，完成医师复核、知情同意和服务费用告知')
-      GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
+  private confirmStep() {
+    Column({ space: 15 }) {
+      this.heading('入住确认', '正式提交将创建长者档案、占用床位并生成护理计划，请再次核对')
+      GridRow({ columns: 12, gutter: { x: 12, y: 12 } }) {
         GridCol({ span: this.compactWidth ? 12 : 5 }) {
-          Column({ space: 12 }) {
-            Text('基础资料')
+          Column({ space: 3 }) {
+            Text('提交摘要')
               .fontSize(13)
               .fontWeight(FontWeight.Bold)
               .fontColor($r('app.color.doctor_workspace_text_primary'))
               .width('100%')
-            this.summaryRow('姓名', this.residentName)
-            this.summaryRow('证件号', this.idNumber)
-            this.summaryRow('性别 / 年龄',
-              `${this.selectedOptionLabel(this.genderOptions, this.genderIndex)} · ${this.age.length > 0 ? this.age + ' 岁' : '—'}`)
-            this.summaryRow('房间 / 床位', `${this.room}-${this.bed}`)
-            this.summaryRow('联系人', this.guardianName)
-            this.summaryRow('联系电话', this.guardianPhone)
-            this.summaryRow('入住来源', this.selectedOptionLabel(this.sourceOptions, this.sourceIndex))
-            this.summaryRow('主要诊断', this.diagnosis)
-            this.summaryRow('过敏史', this.allergies)
+            this.summary('长者', this.residentName)
+            this.summary('资料日期', this.baselineDate)
+            this.summary('能力总分', this.preview === null ? '未取得' : `${this.preview.ability_score} 分`)
+            this.summary('最终等级', this.preview === null ? '未取得' : this.preview.final_level_label)
+            this.summary('护理计划', this.selectedPlanName())
+            this.summary('床位', this.selectedBedLabel())
           }
           .width('100%')
-          .padding(18)
-          .borderRadius(16)
+          .padding(15)
+          .borderRadius(11)
           .backgroundColor($r('app.color.doctor_workspace_surface'))
           .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
           .alignItems(HorizontalAlign.Start)
         }
         GridCol({ span: this.compactWidth ? 12 : 7 }) {
-          Column({ space: 16 }) {
-            Column({ space: 12 }) {
-              Row() {
-                Text('入住初筛摘要')
-                  .fontSize(13)
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor($r('app.color.doctor_workspace_text_primary'))
-                  .layoutWeight(1)
-                Text(this.carePlanSuggestion().label)
-                  .fontSize(10)
-                  .fontWeight(FontWeight.Medium)
-                  .fontColor(this.toneColor(this.carePlanSuggestion().tone))
-                  .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-                  .borderRadius(8)
-                  .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
-                  .border({ width: 0.5, color: this.toneColor(this.carePlanSuggestion().tone) })
-              }
+          Column() {
+            Text('建档前确认')
+              .fontSize(13)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('app.color.doctor_workspace_text_primary'))
               .width('100%')
-              .alignItems(VerticalAlign.Center)
-              this.assessmentSummary()
-              Text('九类服务安全风险')
-                .fontSize(11)
-                .fontWeight(FontWeight.Bold)
-                .fontColor($r('app.color.doctor_workspace_text_primary'))
-                .width('100%')
-                .margin({ top: 4 })
-              this.safetyRiskSummary()
-              Text('以上为入住初筛记录，不等同于正式能力等级或诊断结论。')
-                .fontSize(9)
-                .fontColor($r('app.color.doctor_workspace_text_tertiary'))
-                .width('100%')
-            }
-            .width('100%')
-            .padding(18)
-            .borderRadius(16)
-            .backgroundColor($r('app.color.doctor_workspace_surface'))
-            .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
-            .alignItems(HorizontalAlign.Start)
-            Column({ space: 10 }) {
-              Text('入住照护计划')
-                .fontSize(13)
-                .fontWeight(FontWeight.Bold)
-                .fontColor($r('app.color.doctor_workspace_text_primary'))
-                .width('100%')
-              Flex({
-                direction: this.compactWidth ? FlexDirection.Column : FlexDirection.Row,
-                alignItems: ItemAlign.Start
-              }) {
-                Text(this.planById(this.selectedPlanId).name)
-                  .fontSize(16)
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor($r('app.color.doctor_workspace_text_primary'))
-                  .layoutWeight(this.compactWidth ? 0 : 1)
-                  .width(this.compactWidth ? '100%' : undefined)
-                Text('费用按机构公示，最终以服务协议为准')
-                  .fontSize(11)
-                  .fontColor($r('app.color.doctor_workspace_text_secondary'))
-                  .width(this.compactWidth ? '100%' : undefined)
-                  .margin({ top: this.compactWidth ? 4 : 0 })
-              }
-              .width('100%')
-            }
-            .width('100%')
-            .padding(18)
-            .borderRadius(16)
-            .backgroundColor($r('app.color.doctor_workspace_surface'))
-            .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
-            .alignItems(HorizontalAlign.Start)
+            this.confirmation('医师已复核评估资料与服务端结果', '资料完整、答案与现场情况一致。',
+              this.doctorConfirmed, (value: boolean) => this.doctorConfirmed = value)
+            this.confirmation('长者或代理人已知情并同意护理计划', '已说明评估结论、护理计划及复评安排。',
+              this.planConsentConfirmed, (value: boolean) => this.planConsentConfirmed = value)
+            this.confirmation('服务内容和费用标准已完成告知', '最终内容与费用以双方服务协议为准。',
+              this.serviceFeeInformed, (value: boolean) => this.serviceFeeInformed = value)
+            this.confirmation('信息提供人已核对并签字确认', '确认基础资料、疾病用药和风险事件准确。',
+              this.infoProviderSigned, (value: boolean) => this.infoProviderSigned = value)
           }
           .width('100%')
+          .padding(15)
+          .borderRadius(11)
+          .backgroundColor($r('app.color.doctor_workspace_surface'))
+          .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
+          .alignItems(HorizontalAlign.Start)
         }
       }
       .width('100%')
-      Column({ space: 2 }) {
-        Text('建档前确认')
-          .fontSize(13)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.doctor_workspace_text_primary'))
+      Row({ space: 8 }) {
+        SymbolGlyph($r('sys.symbol.exclamationmark_shield_fill'))
+          .fontSize(15)
+          .fontColor([$r('app.color.doctor_workspace_warning')])
+        Text('服务器会重新校验题库、身份、床位和草稿状态，冲突不会覆盖其他人员的数据。')
+          .fontSize(10)
+          .fontColor($r('app.color.doctor_workspace_text_secondary'))
+          .layoutWeight(1)
+      }
+      .width('100%')
+      .padding(11)
+      .borderRadius(9)
+      .backgroundColor($r('app.color.doctor_workspace_accent_soft'))
+      if (!this.confirmationsReady()) {
+        Text('请完成四项确认后正式提交。')
+          .fontSize(10)
+          .fontColor($r('app.color.doctor_workspace_warning'))
           .width('100%')
-        this.confirmationItem('doctor-confirmed', '医师已复核入住初筛结论',
-          '确认信息完整，并已安排或完成所需的正式能力、健康及专项风险评估。',
-          this.doctorConfirmed, (value: boolean) => this.doctorConfirmed = value)
-        this.confirmationItem('plan-consent', '长者或代理人已知情并同意当前入住照护计划',
-          '已说明所选计划、服务内容和初筛依据；正式照料护理等级仍须另行评定并取得同意。',
-          this.planConsentConfirmed, (value: boolean) => this.planConsentConfirmed = value)
-        this.confirmationItem('service-fee-informed', '服务内容和费用标准已完成告知',
-          '已说明床位住宿、照料护理、膳食、可选项目、收费标准、期限和服务场所，并将写入服务协议。',
-          this.serviceFeeInformed, (value: boolean) => this.serviceFeeInformed = value)
-        if (!this.confirmationReady()) {
-          Text($r('app.string.doctor_admission_validation_confirmations'))
-            .fontSize(10)
-            .fontColor($r('app.color.doctor_workspace_warning'))
-            .width('100%')
-            .margin({ top: 4 })
-        }
       }
-      .width('100%')
-      .padding(18)
-      .margin({ top: 16 })
-      .borderRadius(16)
-      .backgroundColor($r('app.color.doctor_workspace_surface'))
-      .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
-      .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
   }
 
-  // ==================== 本地草稿生成态 ====================
-
-  @Builder
-  private submittedView() {
-    Column({ space: 16 }) {
-      Stack({ alignContent: Alignment.Center }) {
-        Row()
-          .width(72)
-          .height(72)
-          .borderRadius(36)
-          .backgroundColor($r('app.color.doctor_workspace_accent_soft'))
-        SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
-          .fontSize(40)
-          .fontColor([this.toneColor('normal')])
-      }
-      Text('本地入住档案草稿已生成')
-        .fontSize(20)
-        .fontWeight(FontWeight.Bold)
-        .fontColor($r('app.color.doctor_workspace_text_primary'))
-      Text(`${this.residentName.length > 0 ? this.residentName : '新长者'} · ${this.room}-${this.bed} · ${this.planById(this.selectedPlanId).name}`)
-        .fontSize(12)
-        .fontColor($r('app.color.doctor_workspace_text_secondary'))
-      Text('当前仅生成本地演示草稿，尚未提交后台，也不会形成正式入住档案。')
-        .fontSize(11)
-        .fontColor($r('app.color.doctor_workspace_text_tertiary'))
-        .textAlign(TextAlign.Center)
-        .constraintSize({ maxWidth: 420 })
-      Flex({
-        direction: this.compactWidth ? FlexDirection.Column : FlexDirection.Row,
-        alignItems: ItemAlign.Center,
-        justifyContent: FlexAlign.Center,
-        space: { main: LengthMetrics.vp(12) }
-      }) {
-        Button('再办理一位')
-          .height(42)
-          .width(this.compactWidth ? '100%' : undefined)
-          .padding({ left: 20, right: 20 })
-          .borderRadius(12)
-          .fontSize(13)
-          .fontColor($r('app.color.doctor_workspace_text_primary'))
-          .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
-          .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
-          .onClick(() => this.resetFlow())
-        Button('返回工作台')
-          .height(42)
-          .width(this.compactWidth ? '100%' : undefined)
-          .padding({ left: 20, right: 20 })
-          .borderRadius(12)
-          .fontSize(13)
-          .fontColor($r('app.color.doctor_workspace_background'))
-          .backgroundColor($r('app.color.doctor_workspace_text_primary'))
-          .onClick(() => {
-            this.resetFlow();
-            this.onExit();
-          })
-      }
-      .width(this.compactWidth ? '100%' : undefined)
-      .margin({ top: 8 })
-    }
-    .width('100%')
-    .height('100%')
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Center)
-    .padding(this.mainPadding())
-  }
-
-  // ==================== 底部操作栏 ====================
-
-  @Builder
-  private footerBar() {
-    Flex({
-      direction: this.compactWidth ? FlexDirection.Column : FlexDirection.Row,
-      alignItems: this.compactWidth ? ItemAlign.Start : ItemAlign.Center,
-      justifyContent: FlexAlign.Center
-    }) {
-      Text(`第 ${this.currentStep + 1} / ${this.steps.length} 步 · ${this.steps[this.currentStep]}`)
-        .fontSize(11)
-        .fontColor($r('app.color.doctor_workspace_text_tertiary'))
-        .layoutWeight(this.compactWidth ? 0 : 1)
-        .width(this.compactWidth ? '100%' : undefined)
-      Row({ space: 12 }) {
-        if (this.currentStep > 0) {
-          Button('上一步')
-            .height(40)
-            .padding({ left: 18, right: 18 })
-            .borderRadius(11)
-            .fontSize(12)
-            .fontColor($r('app.color.doctor_workspace_text_primary'))
-            .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
-            .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
-            .onClick(() => this.goPrev())
-        }
-        Button(this.currentStep === this.steps.length - 1 ? '生成本地草稿' : '下一步')
-          .height(40)
-          .padding({ left: 22, right: 22 })
-          .borderRadius(11)
-          .fontSize(12)
-          .fontColor($r('app.color.doctor_workspace_background'))
-          .backgroundColor($r('app.color.doctor_workspace_text_primary'))
-          .enabled(this.canProceed())
-          .opacity(this.canProceed() ? 1 : 0.42)
-          .onClick(() => this.goNext())
-      }
-      .width(this.compactWidth ? '100%' : undefined)
-      .justifyContent(FlexAlign.End)
-      .margin({ top: this.compactWidth ? 10 : 0 })
-    }
-    .width('100%')
-    .constraintSize({ maxWidth: 1200 })
-    .padding({
-      left: this.mainPadding(),
-      right: this.mainPadding(),
-      top: 12,
-      bottom: 12 + this.naviIndicatorHeight
-    })
-  }
-
   @Builder
   private stepContent() {
     if (this.currentStep === 0) {
-      this.stepBasicInfo()
+      this.basicStep()
     } else if (this.currentStep === 1) {
-      this.stepAssessment()
+      this.assessmentStep()
     } else if (this.currentStep === 2) {
-      this.stepCarePlan()
+      this.resultStep()
     } else {
-      this.stepConfirm()
+      this.confirmStep()
+    }
+  }
+
+  @Builder
+  private footer() {
+    Flex({ direction: this.compactWidth ? FlexDirection.Column : FlexDirection.Row,
+      alignItems: this.compactWidth ? ItemAlign.Start : ItemAlign.Center }) {
+      Text(`第 ${this.currentStep + 1} / ${this.steps.length} 步 · ${this.steps[this.currentStep]}`)
+        .fontSize(10)
+        .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+        .layoutWeight(this.compactWidth ? 0 : 1)
+        .width(this.compactWidth ? '100%' : undefined)
+      Row({ space: 9 }) {
+        if (this.currentStep > 0) {
+          Button('上一步')
+            .height(37)
+            .fontSize(10)
+            .borderRadius(9)
+            .backgroundColor($r('app.color.doctor_workspace_surface_raised'))
+            .enabled(this.operation.length === 0)
+            .onClick(() => this.previous())
+        }
+        Button(this.operation === 'saving' ? '正在保存' : '保存草稿')
+          .height(37)
+          .fontSize(10)
+          .borderRadius(9)
+          .backgroundColor($r('app.color.doctor_workspace_surface'))
+          .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
+          .enabled(this.operation.length === 0)
+          .onClick(() => this.saveDraft())
+        Button(this.currentStep === this.steps.length - 1 ?
+          (this.operation === 'submitting' ? '正在提交' : '正式提交入住') : '下一步')
+          .height(37)
+          .fontSize(10)
+          .borderRadius(9)
+          .fontColor($r('app.color.doctor_workspace_background'))
+          .backgroundColor($r('app.color.doctor_workspace_text_primary'))
+          .enabled(this.stepReady() && this.operation.length === 0)
+          .opacity(this.stepReady() && this.operation.length === 0 ? 1 : 0.42)
+          .onClick(() => this.next())
+      }
+      .width(this.compactWidth ? '100%' : undefined)
+      .justifyContent(FlexAlign.End)
+      .margin({ top: this.compactWidth ? 8 : 0 })
+    }
+    .width('100%')
+    .constraintSize({ maxWidth: 1136 })
+    .padding({ left: this.mainPadding(), right: this.mainPadding(), top: 10, bottom: 10 + this.naviIndicatorHeight })
+  }
+
+  @Builder
+  private formView() {
+    Column() {
+      Scroll(this.contentScroller) {
+        Column({ space: 17 }) {
+          this.formHeader()
+          this.errorBanner()
+          this.stepContent()
+        }
+        .width('100%')
+        .constraintSize({ maxWidth: 1088 })
+        .padding({ left: this.mainPadding(), right: this.mainPadding(), top: 20, bottom: 24 })
+        .alignItems(HorizontalAlign.Center)
+      }
+      .layoutWeight(1)
+      .width('100%')
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
+      Column() {
+        this.footer()
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Center)
+      .border({ width: { top: 0.5 }, color: { top: $r('app.color.doctor_workspace_border_soft') } })
+    }
+    .width('100%')
+    .height('100%')
+  }
+
+  @Builder
+  private submittedView() {
+    if (this.submitResult === null) {
+      this.stateView($r('sys.symbol.exclamationmark_triangle'), '提交结果缺失', '请返回草稿列表刷新状态。', '返回列表', () => {
+        this.resetForm();
+        this.view = 'drafts';
+      })
+    } else {
+      Column({ space: 13 }) {
+        SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
+          .fontSize(54)
+          .fontColor([$r('app.color.doctor_workspace_success')])
+        Text('入住评估已正式提交')
+          .fontSize(20)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.doctor_workspace_text_primary'))
+        Text(`${this.residentName} · ${this.submitResult.admission.assessment_no}`)
+          .fontSize(11)
+          .fontColor($r('app.color.doctor_workspace_text_secondary'))
+        Text(`能力总分 ${this.submitResult.admission.ability_score} · ${this.levelLabel(this.submitResult.admission.final_level)} · 长者档案 #${this.submitResult.admission.elder_id ?? 0}`)
+          .fontSize(11)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.doctor_workspace_focus'))
+        Text('服务器已在同一事务中完成评估、长者档案、床位和护理计划关联。')
+          .fontSize(10)
+          .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+          .textAlign(TextAlign.Center)
+        Row({ space: 10 }) {
+          Button('再评估一位')
+            .height(37)
+            .fontSize(10)
+            .borderRadius(9)
+            .backgroundColor($r('app.color.doctor_workspace_surface'))
+              .onClick(() => this.startNew())
+          Button('返回工作台')
+            .height(37)
+            .fontSize(10)
+            .borderRadius(9)
+            .fontColor($r('app.color.doctor_workspace_background'))
+            .backgroundColor($r('app.color.doctor_workspace_text_primary'))
+            .onClick(() => {
+              this.resetForm();
+              this.onExit();
+            })
+        }
+      }
+      .width('100%')
+      .height('100%')
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
     }
   }
 
   build() {
     Column() {
-      if (this.submitted) {
+      if (this.view === 'loading') {
+        this.stateView($r('sys.symbol.arrow_clockwise'), '正在读取入住评估',
+          '正在加载服务器题库、草稿和空闲床位。', '', () => this.loadWorkspace())
+      } else if (this.view === 'error') {
+        this.stateView(this.errorKind === 'session' ? $r('sys.symbol.lock_fill') :
+          $r('sys.symbol.exclamationmark_triangle'), this.errorKind === 'session' ? '登录会话已过期' : '入住评估暂不可用',
+          this.errorKind === 'session' ? '请退出后重新登录，再继续评估。' : this.errorMessage,
+          this.errorKind === 'session' ? '返回工作台' : '重试',
+          this.errorKind === 'session' ? () => this.onExit() : () => this.loadWorkspace())
+      } else if (this.view === 'drafts') {
+        this.draftsView()
+      } else if (this.view === 'submitted') {
         this.submittedView()
       } else {
-        Scroll(this.contentScroller) {
-          Column({ space: 18 }) {
-            this.stepContent()
-          }
-          .width('100%')
-          .constraintSize({ maxWidth: 1088 })
-          .padding({ left: this.mainPadding(), right: this.mainPadding(), top: 24, bottom: 24 })
-          .alignItems(HorizontalAlign.Center)
-        }
-        .layoutWeight(1)
-        .width('100%')
-        .align(Alignment.Top)
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.Spring)
-        Column() {
-          this.footerBar()
-        }
-        .width('100%')
-        .alignItems(HorizontalAlign.Center)
-        .backgroundColor($r('app.color.doctor_workspace_background'))
-        .border({
-          width: { top: 0.5 },
-          color: { top: $r('app.color.doctor_workspace_border_soft') }
-        })
+        this.formView()
       }
     }
     .width('100%')

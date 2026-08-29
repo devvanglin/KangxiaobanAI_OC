@@ -21,7 +21,7 @@ func (h *NotificationHandler) List(c *gin.Context) {
 		return
 	}
 	page, size := parsePage(c)
-	items, total, err := h.svc.List(cl.UserID, cl.Roles, c.Query("unread") == "1", page, size)
+	items, total, err := h.svc.List(c.Request.Context(), cl.UserID, cl.Roles, c.Query("unread") == "1", page, size)
 	if err != nil {
 		Fail(c, 500, 500, "查询通知失败")
 		return
@@ -36,7 +36,7 @@ func (h *NotificationHandler) MarkRead(c *gin.Context) {
 		return
 	}
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err := h.svc.MarkRead(uint(id), cl.UserID, cl.Roles); err != nil {
+	if err := h.svc.MarkRead(c.Request.Context(), uint(id), cl.UserID, cl.Roles); err != nil {
 		Fail(c, http.StatusNotFound, 404, "通知不存在")
 		return
 	}

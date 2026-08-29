@@ -1,7 +1,11 @@
 package repository
 
 import (
+	"context"
+	"errors"
 	"kangxiaoban-service/internal/model"
+	"strings"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -11,15 +15,19 @@ type ElderRepository struct{ db *gorm.DB }
 
 func NewElderRepository(db *gorm.DB) *ElderRepository { return &ElderRepository{db: db} }
 
-func (r *ElderRepository) List(keyword string, status, careLevel int, page, size int) ([]model.Elder, int64, error) {
-	return r.ListScoped(keyword, status, careLevel, page, size, nil)
+func (r *ElderRepository) List(ctx context.Context, keyword string, status, careLevel int, page, size int) ([]model.Elder, int64, error) {
+	return r.ListScoped(ctx, keyword, status, careLevel, page, size, nil)
 }
 
 // ListScoped 列表，可限制仅返回 allowed 内的长者；allowed 为空表示不限。
-func (r *ElderRepository) ListScoped(keyword string, status, careLevel int, page, size int, allowed []uint) ([]model.Elder, int64, error) {
-	q := r.db.Model(&model.Elder{})
-	if len(allowed) > 0 {
-		q = q.Where("id IN ?", allowed)
+func (r *ElderRepository) ListScoped(ctx context.Context, keyword string, status, careLevel int, page, size int, allowed []uint) ([]model.Elder, int64, error) {
+	q := r.db.WithContext(ctx).Model(&model.Elder{})
+	if allowed != nil {
+		if len(allowed) == 0 {
+			q = q.Where("1 = 0")
+		} else {
+			q = q.Where("id IN ?", allowed)
+		}
 	}
 	if keyword != "" {
 		q = q.Where("(name LIKE ? OR id_card LIKE ? OR contact_phone LIKE ?)", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
@@ -39,23 +47,36 @@ func (r *ElderRepository) ListScoped(keyword string, status, careLevel int, page
 	return items, total, err
 }
 
-func (r *ElderRepository) Get(id uint) (*model.Elder, error) {
+func (r *ElderRepository) Get(ctx context.Context, id uint) (*model.Elder, error) {
 	var e model.Elder
-	err := r.db.Preload("Bed").First(&e, id).Error
+	err := r.db.WithContext(ctx).Preload("Bed").First(&e, id).Error
 	return &e, err
 }
 
-func (r *ElderRepository) Create(e *model.Elder) error { return r.db.Create(e).Error }
-func (r *ElderRepository) Update(e *model.Elder) error { return r.db.Save(e).Error }
-func (r *ElderRepository) Delete(id uint) error        { return r.db.Delete(&model.Elder{}, id).Error }
+func (r *ElderRepository) Create(ctx context.Context, e *model.Elder) error {
+	return r.db.WithContext(ctx).Create(e).Error
+}
+func (r *ElderRepository) Update(ctx context.Context, e *model.Elder) error {
+	// Never let a request body move an elder between tenants or overwrite
+	// lifecycle timestamps. Update only the editable domain columns.
+	if v, ok := ctx.Value(model.TenantContextKey).(uint); ok && v > 0 {
+		e.TenantID = v
+	}
+	return r.db.WithContext(ctx).Model(&model.Elder{}).Where("id = ?", e.ID).Select(
+		"Name", "IDCard", "Gender", "BirthDate", "ContactPhone", "CareLevel", "Status", "BedID", "EmergencyContacts", "Image", "Remark",
+	).Updates(e).Error
+}
+func (r *ElderRepository) Delete(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).Delete(&model.Elder{}, id).Error
+}
 
 // ResourceRepository 房间 + 床位。
 type ResourceRepository struct{ db *gorm.DB }
 
 func NewResourceRepository(db *gorm.DB) *ResourceRepository { return &ResourceRepository{db: db} }
 
-func (r *ResourceRepository) ListRooms(building string, floor int, page, size int) ([]model.Room, int64, error) {
-	q := r.db.Model(&model.Room{})
+func (r *ResourceRepository) ListRooms(ctx context.Context, building string, floor int, page, size int) ([]model.Room, int64, error) {
+	q := r.db.WithContext(ctx).Model(&model.Room{})
 	if building != "" {
 		q = q.Where("building = ?", building)
 	}
@@ -71,8 +92,8 @@ func (r *ResourceRepository) ListRooms(building string, floor int, page, size in
 	return items, total, err
 }
 
-func (r *ResourceRepository) ListBeds(roomID uint, status string, page, size int) ([]model.Bed, int64, error) {
-	q := r.db.Model(&model.Bed{})
+func (r *ResourceRepository) ListBeds(ctx context.Context, roomID uint, status string, page, size int) ([]model.Bed, int64, error) {
+	q := r.db.WithContext(ctx).Model(&model.Bed{})
 	if roomID > 0 {
 		q = q.Where("room_id = ?", roomID)
 	}
@@ -88,9 +109,9 @@ func (r *ResourceRepository) ListBeds(roomID uint, status string, page, size int
 	return items, total, err
 }
 
-func (r *ResourceRepository) GetBed(id uint) (*model.Bed, error) {
+func (r *ResourceRepository) GetBed(ctx context.Context, id uint) (*model.Bed, error) {
 	var b model.Bed
-	err := r.db.Preload("Room").First(&b, id).Error
+	err := r.db.WithContext(ctx).Preload("Room").First(&b, id).Error
 	return &b, err
 }
 
@@ -99,13 +120,16 @@ type TaskRepository struct{ db *gorm.DB }
 
 func NewTaskRepository(db *gorm.DB) *TaskRepository { return &TaskRepository{db: db} }
 
-func (r *TaskRepository) List(elderID uint, status string, page, size int) ([]model.CareTask, int64, error) {
-	q := r.db.Model(&model.CareTask{})
+func (r *TaskRepository) List(ctx context.Context, elderID uint, status string, assigneeID uint, page, size int) ([]model.CareTask, int64, error) {
+	q := r.db.WithContext(ctx).Model(&model.CareTask{})
 	if elderID > 0 {
 		q = q.Where("elder_id = ?", elderID)
 	}
 	if status != "" {
 		q = q.Where("status = ?", status)
+	}
+	if assigneeID > 0 {
+		q = q.Where("assignee_id = ? OR assignee_id IS NULL", assigneeID)
 	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
@@ -116,28 +140,82 @@ func (r *TaskRepository) List(elderID uint, status string, page, size int) ([]mo
 	return items, total, err
 }
 
-func (r *TaskRepository) Get(id uint) (*model.CareTask, error) {
+func (r *TaskRepository) Get(ctx context.Context, id uint) (*model.CareTask, error) {
 	var t model.CareTask
-	err := r.db.First(&t, id).Error
+	err := r.db.WithContext(ctx).First(&t, id).Error
 	return &t, err
 }
 
-func (r *TaskRepository) Create(t *model.CareTask) error { return r.db.Create(t).Error }
+func (r *TaskRepository) Create(ctx context.Context, t *model.CareTask) error {
+	return r.db.WithContext(ctx).Create(t).Error
+}
 func (r *TaskRepository) Update(t *model.CareTask) error { return r.db.Save(t).Error }
+
+var ErrTaskStateConflict = errors.New("care task state conflict")
+
+// SetStatus updates the task and writes the linked plan execution in one transaction.
+func (r *TaskRepository) SetStatus(ctx context.Context, id uint, fromStatus, toStatus string, executorID uint, executor, result string) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var task model.CareTask
+		if err := tx.First(&task, id).Error; err != nil {
+			return err
+		}
+		if toStatus == "done" && task.PlanItemID != nil {
+			var item model.CarePlanItem
+			if err := tx.First(&item, *task.PlanItemID).Error; err != nil {
+				return err
+			}
+			var plan model.CarePlan
+			if err := tx.First(&plan, item.CarePlanID).Error; err != nil {
+				return err
+			}
+			if !item.Active || plan.Status != "active" || plan.ElderID != task.ElderID {
+				return ErrTaskStateConflict
+			}
+		}
+		updates := map[string]interface{}{"status": toStatus}
+		if task.AssigneeID == nil && executorID > 0 {
+			updates["assignee_id"] = executorID
+			updates["assignee"] = executor
+		}
+		updated := tx.Model(&model.CareTask{}).Where("id = ? AND status = ?", id, fromStatus).Updates(updates)
+		if updated.Error != nil {
+			return updated.Error
+		}
+		if updated.RowsAffected != 1 {
+			return ErrTaskStateConflict
+		}
+		if toStatus != "done" || task.PlanItemID == nil {
+			return nil
+		}
+		executorName := strings.TrimSpace(task.Assignee)
+		if executorName == "" {
+			executorName = executor
+		}
+		execution := model.CareExecution{
+			PlanItemID: *task.PlanItemID, ElderID: task.ElderID, ExecutorID: executorID,
+			Executor: executorName, Status: "completed", ExecutedAt: time.Now(), Result: result,
+		}
+		return tx.Create(&execution).Error
+	})
+}
 
 // HealthRepository 健康体征。
 type HealthRepository struct{ db *gorm.DB }
 
 func NewHealthRepository(db *gorm.DB) *HealthRepository { return &HealthRepository{db: db} }
 
-func (r *HealthRepository) ListByElder(elderID uint, page, size int) ([]model.HealthRecord, int64, error) {
+func (r *HealthRepository) ListByElder(ctx context.Context, elderID uint, page, size int) ([]model.HealthRecord, int64, error) {
+	db := r.db.WithContext(ctx)
 	var total int64
-	if err := r.db.Model(&model.HealthRecord{}).Where("elder_id = ?", elderID).Count(&total).Error; err != nil {
+	if err := db.Model(&model.HealthRecord{}).Where("elder_id = ?", elderID).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 	var items []model.HealthRecord
-	err := r.db.Where("elder_id = ?", elderID).Order("record_time desc").Offset((page - 1) * size).Limit(size).Find(&items).Error
+	err := db.Where("elder_id = ?", elderID).Order("record_time desc").Offset((page - 1) * size).Limit(size).Find(&items).Error
 	return items, total, err
 }
 
-func (r *HealthRepository) Create(hr *model.HealthRecord) error { return r.db.Create(hr).Error }
+func (r *HealthRepository) Create(ctx context.Context, hr *model.HealthRecord) error {
+	return r.db.WithContext(ctx).Create(hr).Error
+}

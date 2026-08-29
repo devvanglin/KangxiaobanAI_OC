@@ -1,25 +1,4 @@
-export type DashboardSection = 'overview' | 'care' | 'safety' | 'facility';
-
 export type DashboardTone = 'brand' | 'success' | 'warning' | 'danger';
-
-export interface DashboardSectionItem {
-  id: DashboardSection;
-  label: string;
-  description: string;
-  symbol: Resource;
-  badge: number;
-}
-
-export interface DashboardMetric {
-  id: string;
-  label: string;
-  value: string;
-  unit: string;
-  trend: string;
-  note: string;
-  tone: DashboardTone;
-  symbol: Resource;
-}
 
 export interface WardStatus {
   id: string;
@@ -33,12 +12,6 @@ export interface WardStatus {
   riskCount: number;
 }
 
-export interface TrendPoint {
-  label: string;
-  value: number;
-  secondaryValue: number;
-}
-
 export interface RiskSummary {
   id: string;
   label: string;
@@ -48,7 +21,7 @@ export interface RiskSummary {
 }
 
 export interface DashboardEvent {
-  id: string;
+  id: number;
   time: string;
   title: string;
   detail: string;
@@ -72,5 +45,72 @@ export interface FacilityStatus {
   online: number;
   total: number;
   note: string;
-  symbol: Resource;
+}
+
+export interface RoomOperation {
+  id: number;
+  building: string;
+  floor: number;
+  room_number: string;
+  resident_names: string[];
+  occupied_beds: number;
+  total_beds: number;
+  care_level: number;
+  owner: string;
+  vital_status: string;
+  devices_online: number;
+  devices_total: number;
+  open_tasks: number;
+  alerts: number;
+  last_round: string;
+  next_task: string;
+  status: string;
+  tone: DashboardTone;
+}
+
+export interface CockpitSummary {
+  residents: number;
+  occupied_beds: number;
+  total_beds: number;
+  free_beds: number;
+  staff_on_duty: number;
+  open_tasks: number;
+  open_alerts: number;
+  emergency_alerts: number;
+  devices_online: number;
+  devices_total: number;
+}
+
+export interface CockpitSnapshot {
+  updated_at: string;
+  summary: CockpitSummary;
+  wards: WardStatus[];
+  rooms: RoomOperation[];
+  events: DashboardEvent[];
+  facilities: FacilityStatus[];
+  work_items: CareWorkItem[];
+  risks: RiskSummary[];
+}
+
+export interface RoleInfo {
+  code: string;
+  name: string;
+}
+
+export interface LoginUser {
+  id: number;
+  username: string;
+  real_name: string;
+  roles: RoleInfo[];
+}
+
+export interface LoginResponse {
+  token: string;
+  user: LoginUser;
+}
+
+export interface ApiResponse<T> {
+  code: number;
+  msg: string;
+  data?: T;
 }

@@ -62,6 +62,7 @@ export struct PhoneMessageChatPage {
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
   @Local replyText: string = '';
   @Local backendRecords: PhoneChatRecord[] = [];
+  @Local loadError: string = '';
   private chatScroller: Scroller = new Scroller();
   private scrollTimerId: number = -1;
 
@@ -79,14 +80,29 @@ export struct PhoneMessageChatPage {
     if (peerId <= 0) {
       return;
     }
-    const response = await MessageApi.list(peerId);
-    const currentUserId: number = AuthStore.getUser()?.id ?? 0;
-    this.backendRecords = response.data.list.map((message: UserMessage): PhoneChatRecord => {
-      return { id: `${message.id}`, role: message.sender_id === currentUserId ? 'outgoing' : 'incoming',
-        author: message.sender_id === currentUserId ? (AuthStore.getUser()?.real_name ?? '我') : this.title,
-        content: message.content, time: message.sent_at.slice(11, 16) };
-    });
-    this.scheduleScrollToBottom();
+    this.loadError = '';
+    try {
+      const response = await MessageApi.list(peerId);
+      if (response.code !== 0 || !response.data) {
+        this.loadError = response.msg || '消息加载失败';
+        return;
+      }
+      const currentUserId: number = AuthStore.getUser()?.id ?? 0;
+      this.backendRecords = response.data.list.map((message: UserMessage): PhoneChatRecord => {
+        return { id: `${message.id}`, role: message.sender_id === currentUserId ? 'outgoing' : 'incoming',
+          author: message.sender_id === currentUserId ? (AuthStore.getUser()?.real_name ?? '我') : this.title,
+          content: message.content, time: message.sent_at.slice(11, 16) };
+      });
+      for (let index: number = 0; index < response.data.list.length; index++) {
+        const message: UserMessage = response.data.list[index];
+        if (message.receiver_id === currentUserId && !message.read_at) {
+          await MessageApi.markRead(message.id);
+        }
+      }
+      this.scheduleScrollToBottom();
+    } catch (_error) {
+      this.loadError = '无法连接服务器，请稍后重试';
+    }
   }
 
   aboutToDisappear(): void {
@@ -123,7 +139,7 @@ export struct PhoneMessageChatPage {
         const record: PhoneChatRecord = {
           id: item.id,
           role: 'outgoing',
-          author: '刘婷',
+          author: AuthStore.getUser()?.real_name || AuthStore.getUser()?.username || '我',
           content: item.content,
           time: item.time
         };
@@ -343,20 +359,31 @@ export struct PhoneMessageChatPage {
   @Builder
   private chatHistory() {
     List({ scroller: this.chatScroller, space: 10 }) {
-      Repeat(this.currentRecords())
-        .each((repeatItem: RepeatItem<PhoneChatRecord>) => {
-          ListItem() {
-            Column({ space: 10 }) {
-              if (repeatItem.item.dayLabel !== undefined) {
-                this.daySeparator(repeatItem.item.dayLabel)
-              }
-              this.chatRecord(repeatItem.item)
-            }
+      if (this.currentRecords().length === 0) {
+        ListItem() {
+          Text(this.loadError.length > 0 ? this.loadError : '暂无聊天记录')
             .width('100%')
-          }
-          .padding({ top: repeatItem.index === 0 ? this.globalInfoModel.statusBarHeight + 64 : 0 })
-        })
-        .key((record: PhoneChatRecord) => record.id)
+            .padding({ top: 56, bottom: 56 })
+            .fontSize($r('sys.float.Body_M'))
+            .fontColor($r('sys.color.font_secondary'))
+            .textAlign(TextAlign.Center)
+        }
+      } else {
+        Repeat(this.currentRecords())
+          .each((repeatItem: RepeatItem<PhoneChatRecord>) => {
+            ListItem() {
+              Column({ space: 10 }) {
+                if (repeatItem.item.dayLabel !== undefined) {
+                  this.daySeparator(repeatItem.item.dayLabel)
+                }
+                this.chatRecord(repeatItem.item)
+              }
+              .width('100%')
+            }
+            .padding({ top: repeatItem.index === 0 ? this.globalInfoModel.statusBarHeight + 64 : 0 })
+          })
+          .key((record: PhoneChatRecord) => record.id)
+      }
       ListItem() {
         Row()
           .width('100%')

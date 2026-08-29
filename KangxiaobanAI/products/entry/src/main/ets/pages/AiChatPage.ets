@@ -37,11 +37,18 @@ import { StorageKey } from '../common/CommonConstants';
 import { BreakpointUtil } from '../util/BreakpointSystem';
 import { AI_BRAND_NAME, AiTitleLabel } from '../component/AiTitleLabel';
 import { WideSlidingCapsule, WideSlidingCapsuleItem } from '../component/wide/WideSlidingCapsule';
+import ApiClient from '../network/ApiClient';
+import AuthStore from '../network/AuthStore';
+import { AiChatRequest, AiChatResponse } from '../network/Dto';
 
 const CONTENT_TOP_OFFSET: number = 56;
 const AI_CHAT_HISTORY_KEY: string = 'aiChatHistoryStore';
 const MAX_CHAT_SESSIONS: number = 50;
-const CURRENT_USER_DISPLAY_NAME: string = '刘婷';
+
+function currentUserHistoryKey(): string {
+  const userId: number = AuthStore.getUser()?.id ?? 0;
+  return `${AI_CHAT_HISTORY_KEY}:${userId > 0 ? userId : 'anonymous'}`;
+}
 
 type ChatRole = 'ai' | 'user';
 type ChatFeedback = 'none' | 'up' | 'down';
@@ -75,12 +82,12 @@ const AI_INFORMATION_FEED_ROWS: AiInformationFeedItem[][] = [
   [
     {
       id: 'care-summary',
-      title: '资讯：今日重点照护事项已汇总 4 条',
+      title: '资讯：汇总今日重点照护事项',
       prompt: '请汇总今天需要优先关注的照护事项'
     },
     {
       id: 'health-change',
-      title: '健康：3 位住户晨间指标出现变化',
+      title: '健康：解读晨间健康指标变化',
       prompt: '请解读今天晨间健康指标的变化和关注重点'
     },
     {
@@ -92,12 +99,12 @@ const AI_INFORMATION_FEED_ROWS: AiInformationFeedItem[][] = [
   [
     {
       id: 'shift-records',
-      title: '交班：下午班新增 2 条重点记录',
+      title: '交班：整理下午班重点记录',
       prompt: '请帮我整理下午班新增的重点交班记录'
     },
     {
       id: 'family-follow-up',
-      title: '家属：今天有 2 项回访需要准备',
+      title: '家属：准备今日回访沟通提纲',
       prompt: '请生成今天家属回访的沟通提纲'
     },
     {
@@ -140,7 +147,7 @@ export struct AiChatPage {
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
   @Local historyStore: AiChatHistoryStore =
-    AppStorageV2.connect(AiChatHistoryStore, AI_CHAT_HISTORY_KEY, () => new AiChatHistoryStore()) ??
+    AppStorageV2.connect(AiChatHistoryStore, currentUserHistoryKey(), () => new AiChatHistoryStore()) ??
       new AiChatHistoryStore();
   @Local messages: ChatMessage[] = [];
   @Local inputText: string = '';
@@ -153,7 +160,7 @@ export struct AiChatPage {
   private historyScroller: Scroller = new Scroller();
   private focusController = this.getUIContext().getFocusController();
   private previousKeyboardAvoidMode: KeyboardAvoidMode = KeyboardAvoidMode.OFFSET;
-  private responseTimer: number = -1;
+  private aiRequestVersion: number = 0;
   private scrollTimer: number = -1;
 
   @Monitor('globalInfoModel.keyboardHeight')
@@ -240,10 +247,7 @@ export struct AiChatPage {
   }
 
   private cancelPendingWork(): void {
-    if (this.responseTimer >= 0) {
-      clearTimeout(this.responseTimer);
-      this.responseTimer = -1;
-    }
+    this.aiRequestVersion++;
     if (this.scrollTimer >= 0) {
       clearTimeout(this.scrollTimer);
       this.scrollTimer = -1;
@@ -613,24 +617,17 @@ export struct AiChatPage {
     }, delay);
   }
 
-  private buildAnswerText(text: string): string {
-    if (text.trim() === '1') {
-      return '你好！看起来你只发了一个“1”，是想测试我是否在线，还是不小心按到了发送键？🙂\n\n不管怎样，我在这里呢！有什么我可以帮你的吗？无论是提问、聊天、查资料，还是需要我帮你处理什么问题，都随时告诉我吧～';
-    }
-    return `我收到了你的消息：“${text}”。\n\n我会整理重点，并优先给出清晰、可执行的建议。如果涉及住户健康或安全风险，请同时补充时间、症状和最近一次测量结果。`;
-  }
-
-  private createAiMessage(id: string, text: string): ChatMessage {
+  private createAiMessage(id: string, answer: string): ChatMessage {
     return {
       id: id,
       role: 'ai',
-      content: this.buildAnswerText(text),
+      content: answer,
       feedback: 'none'
     };
   }
 
-  private appendAiResponse(text: string): void {
-    const message: ChatMessage = this.createAiMessage(`a-${Date.now()}`, text);
+  private appendAiResponse(answer: string): void {
+    const message: ChatMessage = this.createAiMessage(`a-${Date.now()}`, answer);
     const nextMessages: ChatMessage[] = [...this.messages, message];
     this.messages = nextMessages;
     this.syncActiveSession(nextMessages);
@@ -638,7 +635,16 @@ export struct AiChatPage {
     this.scheduleScrollToBottom(100);
   }
 
-  private sendMessage(): void {
+  private async requestAiAnswer(question: string): Promise<string> {
+    const request: AiChatRequest = { question: question };
+    const response = await ApiClient.post<AiChatResponse>('/ai/chat', request);
+    if (response.code !== 0 || !response.data || response.data.answer.trim().length === 0) {
+      throw new Error(response.msg || 'AI 服务暂不可用');
+    }
+    return response.data.answer;
+  }
+
+  private async sendMessage(): Promise<void> {
     const text: string = this.inputText.trim();
     if (text.length === 0 || this.isGenerating) {
       return;
@@ -661,13 +667,22 @@ export struct AiChatPage {
     this.inputText = '';
     this.isGenerating = true;
     this.scheduleScrollToBottom(80);
-    this.responseTimer = setTimeout(() => {
-      this.appendAiResponse(text);
-      this.responseTimer = -1;
-    }, 650);
+    const requestVersion: number = ++this.aiRequestVersion;
+    try {
+      const answer: string = await this.requestAiAnswer(text);
+      if (requestVersion !== this.aiRequestVersion) {
+        return;
+      }
+      this.appendAiResponse(answer);
+    } catch (_error) {
+      if (requestVersion === this.aiRequestVersion) {
+        this.isGenerating = false;
+        this.showToast('AI 服务暂不可用，请稍后重试');
+      }
+    }
   }
 
-  private regenerateMessage(message: ChatMessage): void {
+  private async regenerateMessage(message: ChatMessage): Promise<void> {
     if (this.isGenerating) {
       return;
     }
@@ -677,15 +692,24 @@ export struct AiChatPage {
     }
     this.isGenerating = true;
     this.showToast('正在重新生成');
-    this.responseTimer = setTimeout(() => {
-      const replacement: ChatMessage = this.createAiMessage(message.id, text);
+    const requestVersion: number = ++this.aiRequestVersion;
+    try {
+      const answer: string = await this.requestAiAnswer(text);
+      if (requestVersion !== this.aiRequestVersion) {
+        return;
+      }
+      const replacement: ChatMessage = this.createAiMessage(message.id, answer);
       this.messages = this.messages.map((item: ChatMessage): ChatMessage =>
         item.id === message.id ? replacement : item);
       this.syncActiveSession();
       this.isGenerating = false;
       this.scheduleScrollToBottom(100);
-      this.responseTimer = -1;
-    }, 500);
+    } catch (_error) {
+      if (requestVersion === this.aiRequestVersion) {
+        this.isGenerating = false;
+        this.showToast('AI 服务暂不可用，请稍后重试');
+      }
+    }
   }
 
   private setFeedback(message: ChatMessage, feedback: ChatFeedback): void {
@@ -946,7 +970,9 @@ export struct AiChatPage {
     } else if (hour >= 12) {
       greeting = '中午好';
     }
-    return `${greeting}，${CURRENT_USER_DISPLAY_NAME}`;
+    const user = AuthStore.getUser();
+    const displayName: string = user?.real_name || user?.username || '当前用户';
+    return `${greeting}，${displayName}`;
   }
 
   private informationFeedCategory(title: string): string {
@@ -1453,6 +1479,7 @@ export struct AiChatPage {
     .margin({ bottom: this.inputBottomMargin() })
     .backgroundColor(transparentBackground ? Color.Transparent : $r('sys.color.background_primary'))
     .alignItems(HorizontalAlign.Center)
+    .translate({ y: this.isEmbeddedWideHistory() && this.keyboardOffset === 0 ? 12 : 0 })
   }
 
   @Builder

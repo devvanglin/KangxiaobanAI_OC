@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 
 	"golang.org/x/crypto/bcrypt"
@@ -30,14 +31,15 @@ func NewAuthService(repo *repository.UserRepository, cfg *config.JWTConfig) *Aut
 
 // Login 校验凭据并签发 access token；失败返回业务错误。
 func (s *AuthService) Login(username, password string) (string, *model.User, error) {
-	return s.LoginInTenant(username, password, 1)
+	return s.LoginInTenant(context.Background(), username, password, 1)
 }
 
-func (s *AuthService) LoginInTenant(username, password string, tenantID uint) (string, *model.User, error) {
+func (s *AuthService) LoginInTenant(ctx context.Context, username, password string, tenantID uint) (string, *model.User, error) {
 	if tenantID == 0 {
 		tenantID = 1
 	}
-	user, err := s.repo.FindByUsernameInTenant(username, tenantID)
+	ctx = context.WithValue(ctx, model.TenantContextKey, tenantID)
+	user, err := s.repo.FindByUsernameInTenant(ctx, username, tenantID)
 	if err != nil || user.ID == 0 {
 		return "", nil, ErrInvalidCredentials
 	}

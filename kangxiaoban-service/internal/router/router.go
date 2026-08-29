@@ -25,11 +25,16 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	auditSvc *service.AuditService, auditRepo *repository.AuditRepository,
 	supplySvc *service.SupplyService, familySvc *service.FamilyService,
 	careSvc *service.CareService,
+	admissionSvc *service.AdmissionService,
 	notificationSvc *service.NotificationService,
 	messageSvc *service.MessageService,
 	aiSvc *service.AIService,
 ) *gin.Engine {
-	r := gin.Default()
+	// WebSocket authentication currently supports a query token for native clients. Skip access logging
+	// for that path so reverse-proxy or application logs never persist the JWT-bearing query string.
+	r := gin.New()
+	r.Use(gin.LoggerWithConfig(gin.LoggerConfig{SkipPaths: []string{"/api/v1/ws"}}))
+	r.Use(gin.Recovery())
 	r.Use(middleware.CORS())
 
 	r.GET("/api/v1/healthz", func(c *gin.Context) {
@@ -49,6 +54,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	familyHandler := handler.NewFamilyManageHandler(familySvc)
 	aiHandler := handler.NewAIHandler(aiSvc)
 	careHandler := handler.NewCareHandler(careSvc, familySvc)
+	admissionHandler := handler.NewAdmissionHandler(admissionSvc)
 	notificationHandler := handler.NewNotificationHandler(notificationSvc)
 	messageHandler := handler.NewMessageHandler(messageSvc, familySvc, hub, userRepo)
 
@@ -69,6 +75,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 
 		// 工作台
 		authed.GET("/dashboard/summary", perm("dash:read"), dashboardHandler.Summary)
+		authed.GET("/dashboard/cockpit", perm("dash:read"), dashboardHandler.Cockpit)
 
 		// 长者档案（读）
 		elders := authed.Group("/elders", perm("elder:read"))
@@ -101,7 +108,19 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		authed.POST("/care-plans/:id/items", perm("task:write"), careHandler.AddPlanItem)
 		authed.GET("/care-executions", perm("task:read"), careHandler.ListExecutions)
 		authed.POST("/care-executions", perm("task:write"), careHandler.CreateExecution)
-		authed.PATCH("/care-executions/:id/review", perm("task:write"), careHandler.ReviewExecution)
+		authed.PATCH("/care-executions/:id/review", perm("care:review"), careHandler.ReviewExecution)
+
+		// 入住评估：A 基础信息、B 26项能力评估、C 服务端评分与入院建档。
+		authed.GET("/admission-assessments/templates/current", perm("admission:read"), admissionHandler.CurrentTemplate)
+		authed.GET("/admission-assessments/screening-templates", perm("admission:read"), admissionHandler.ScreeningTemplates)
+		authed.GET("/admission-assessments", perm("admission:read"), admissionHandler.List)
+		authed.POST("/admission-assessments", perm("admission:write"), admissionHandler.Create)
+		authed.GET("/admission-assessments/:id", perm("admission:read"), admissionHandler.Get)
+		authed.PUT("/admission-assessments/:id", perm("admission:write"), admissionHandler.Update)
+		authed.POST("/admission-assessments/:id/preview", perm("admission:write"), admissionHandler.Preview)
+		authed.POST("/admission-assessments/:id/submit", perm("admission:write"), admissionHandler.Submit)
+		authed.GET("/admission-assessments/:id/screenings", perm("admission:read"), admissionHandler.ListScreenings)
+		authed.PUT("/admission-assessments/:id/screenings/:template_code", perm("admission:write"), admissionHandler.SaveScreening)
 		authed.GET("/notifications", notificationHandler.List)
 		authed.PATCH("/notifications/:id/read", notificationHandler.MarkRead)
 		authed.GET("/messages", messageHandler.List)

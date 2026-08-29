@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"kangxiaoban-service/internal/middleware"
 	"kangxiaoban-service/internal/model"
 	"kangxiaoban-service/internal/service"
 	"kangxiaoban-service/internal/ws"
@@ -30,7 +31,7 @@ func (h *HealthHandler) ListByElder(c *gin.Context) {
 		return
 	}
 	page, size := parsePage(c)
-	items, total, err := h.svc.ListByElder(uint(id), page, size)
+	items, total, err := h.svc.ListByElder(c.Request.Context(), uint(id), page, size)
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "查询体征失败")
 		return
@@ -52,7 +53,8 @@ func (h *HealthHandler) Create(c *gin.Context) {
 	if !requireElderAccess(c, h.family, req.ElderID) {
 		return
 	}
-	if err := h.svc.Create(&req); err != nil {
+	req.Base = model.Base{}
+	if err := h.svc.Create(c.Request.Context(), &req); err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "录入体征失败")
 		return
 	}
@@ -61,6 +63,10 @@ func (h *HealthHandler) Create(c *gin.Context) {
 	if req.IsAbnormal {
 		event = "vital.abnormal"
 	}
-	h.hub.BroadcastEvent(event, req)
+	tenantID := uint(1)
+	if cl, ok := middleware.ClaimsFrom(c); ok && cl.TenantID > 0 {
+		tenantID = cl.TenantID
+	}
+	h.hub.SendToTenant(tenantID, event, req)
 	OK(c, req)
 }

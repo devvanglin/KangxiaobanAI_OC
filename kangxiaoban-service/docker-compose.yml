@@ -17,7 +17,7 @@ services:
       KXB_MQTT_ENABLE: "false"
       KXB_AI_ENABLED: "true"
       KXB_AI_PROVIDER: "local"
-      # 预置可验证的演示业务数据；正式接入真实机构数据前可改为 false。
-      KXB_SEED_DEMO: "true"
+      # 空库首启写入一套互相关联的业务初始数据；已有正式数据时可设为 false。
+      KXB_SEED_BUSINESS: "true"
     volumes:
       - ./data:/data

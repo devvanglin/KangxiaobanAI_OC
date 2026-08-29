@@ -19,7 +19,9 @@ import { KeyCode } from '@kit.InputKit';
 import { AiTitleLabel } from '../AiTitleLabel';
 import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule';
 import { BusinessStore } from '../../network/BusinessStore';
-import { CareTask as BackendCareTask, Elder, Room } from '../../network/Dto';
+import ApiClient from '../../network/ApiClient';
+import AuthStore from '../../network/AuthStore';
+import { Bed, CareTask as BackendCareTask, Elder, Room, Schedule, TaskStatusRequest } from '../../network/Dto';
 
 const HOME_LG_MIN_WIDTH: number = 840;
 const HOME_SUMMARY_SPLIT_MIN_WIDTH: number = 960;
@@ -129,6 +131,11 @@ export struct WideHomePage {
     }
   }
 
+  @Monitor('businessStore.tasks', 'businessStore.elders', 'businessStore.beds', 'businessStore.rooms')
+  onBusinessDataChange(): void {
+    this.syncBackendTasks();
+  }
+
   aboutToAppear(): void {
     this.loadBackendTasks();
     this.reportTaskProgress();
@@ -139,12 +146,19 @@ export struct WideHomePage {
     if (!this.businessStore.loaded) {
       return;
     }
+    this.syncBackendTasks();
+  }
+
+  private syncBackendTasks(): void {
     this.backendTaskData = this.businessStore.tasks.map((task: BackendCareTask): CareTaskData => {
       const elder: Elder | undefined = this.businessStore.elders.find((item: Elder) => item.id === task.elder_id);
-      const room: Room | undefined = elder?.bed?.room;
+      const bed: Bed | undefined = this.businessStore.beds.find((item: Bed) => item.id === elder?.bed_id);
+      const room: Room | undefined = bed === undefined ? undefined :
+        this.businessStore.rooms.find((item: Room) => item.id === bed.room_id);
       const state: CareTaskState = task.status === 'doing' ? 'doing' : task.status === 'done' ? 'done' : 'pending';
       return { id: `${task.id}`, category: task.kind === 'medication' ? 'medication' : 'todo', title: task.title,
-        residentId: `${task.elder_id}`, resident: elder?.name ?? '未知长者', room: room ? `${room.floor}F-${room.room_no}` : '未分配',
+        residentId: `${task.elder_id}`, resident: elder?.name ?? '未知长者', room: room && bed ?
+          `${room.floor}F-${room.room_no}-${bed.bed_no}` : '未分配',
         summary: task.remark ?? '', time: task.due_at ? task.due_at.slice(11, 16) : '--', owner: task.assignee ?? '', priority: 'normal', state: state };
     });
     this.reportTaskProgress();
@@ -274,16 +288,37 @@ export struct WideHomePage {
 
   private greetingText(): string {
     const hour: number = this.currentTime.getHours();
+    const user = AuthStore.getUser();
+    const displayName: string = user?.real_name || user?.username || '当前用户';
     if (hour < 11) {
-      return '早上好，刘婷';
+      return `早上好，${displayName}`;
     }
     if (hour < 14) {
-      return '中午好，刘婷';
+      return `中午好，${displayName}`;
     }
     if (hour < 18) {
-      return '下午好，刘婷';
+      return `下午好，${displayName}`;
     }
-    return '晚上好，刘婷';
+    return `晚上好，${displayName}`;
+  }
+
+  private dateValue(): string {
+    const year: string = this.currentTime.getFullYear().toString();
+    const month: string = (this.currentTime.getMonth() + 1).toString().padStart(2, '0');
+    const day: string = this.currentTime.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private shiftSummary(): string {
+    const user = AuthStore.getUser();
+    const names: string[] = [user?.real_name ?? '', user?.username ?? ''];
+    const schedule: Schedule | undefined = this.businessStore.schedules.find((item: Schedule) =>
+      item.work_date === this.dateValue() && names.includes(item.staff));
+    if (!schedule) {
+      return `今日排班未登记 · 当前可见 ${this.businessStore.elders.length} 位长者`;
+    }
+    const scope: string = schedule.room_scope && schedule.room_scope.length > 0 ? schedule.room_scope : '范围未登记';
+    return `${schedule.shift} · ${scope} · 当前可见 ${this.businessStore.elders.length} 位长者`;
   }
 
   private effectiveTaskState(task: CareTaskData): CareTaskState {
@@ -426,7 +461,8 @@ export struct WideHomePage {
   }
 
   private progressPercent(): number {
-    return Math.round(this.completedCount() / this.activeTaskData().length * 100);
+    return this.activeTaskData().length > 0 ?
+      Math.round(this.completedCount() / this.activeTaskData().length * 100) : 0;
   }
 
   private reportTaskProgress(): void {
@@ -559,23 +595,64 @@ export struct WideHomePage {
     return '开始处理';
   }
 
-  private handleTaskAction(task: CareTaskData): void {
+  private async handleTaskAction(task: CareTaskData): Promise<void> {
     const state: CareTaskState = this.effectiveTaskState(task);
     if (state === 'done') {
       return;
     }
-    if (state === 'pending') {
-      this.inProgressTaskIds = [...this.inProgressTaskIds, task.id];
-      return;
+    const nextStatus: CareTaskState = state === 'pending' ? 'doing' : 'done';
+    try {
+      const request: TaskStatusRequest = { status: nextStatus === 'doing' ? 'doing' : 'done' };
+      const response = await ApiClient.patch<Object>(`/tasks/${task.id}/status`, request);
+      if (response.code !== 0) {
+        this.showToast(response.msg || '任务状态更新失败');
+        return;
+      }
+      this.backendTaskData = this.backendTaskData.map((item: CareTaskData): CareTaskData => {
+        if (item.id !== task.id) {
+          return item;
+        }
+        return {
+          id: item.id,
+          category: item.category,
+          title: item.title,
+          residentId: item.residentId,
+          resident: item.resident,
+          room: item.room,
+          summary: item.summary,
+          time: item.time,
+          owner: item.owner,
+          priority: item.priority,
+          state: nextStatus
+        };
+      });
+      this.businessStore.tasks = this.businessStore.tasks.map((item: BackendCareTask): BackendCareTask => {
+        if (`${item.id}` !== task.id) {
+          return item;
+        }
+        return {
+          id: item.id,
+          elder_id: item.elder_id,
+          title: item.title,
+          kind: item.kind,
+          assignee: item.assignee,
+          due_at: item.due_at,
+          status: nextStatus === 'doing' ? 'doing' : 'done',
+          remark: item.remark
+        };
+      });
+      this.reportTaskProgress();
+      this.showToast(nextStatus === 'done' ? '任务已完成' : '任务已开始');
+    } catch (_error) {
+      this.showToast('无法连接服务器，请稍后重试');
     }
-    if (this.taskNote(task.id).trim().length === 0) {
-      this.validationTaskId = task.id;
-      return;
+  }
+
+  private showToast(message: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message: message });
+    } catch (_error) {
     }
-    this.completedTaskIds = [...this.completedTaskIds, task.id];
-    this.inProgressTaskIds = this.inProgressTaskIds.filter((id: string) => id !== task.id);
-    this.validationTaskId = '';
-    this.reportTaskProgress();
   }
 
   private executionSteps(task: CareTaskData): string[] {
@@ -600,7 +677,7 @@ export struct WideHomePage {
             .fontSize(this.useXlLayout() ? 24 : 22)
             .fontWeight(FontWeight.Bold)
             .fontColor($r('sys.color.font_primary'))
-          Text('早班 · 东区照护组 · 负责 28 位长者')
+          Text(this.shiftSummary())
             .fontSize($r('sys.float.Body_M'))
             .fontColor($r('sys.color.font_secondary'))
         }
@@ -916,7 +993,7 @@ export struct WideHomePage {
             Column({ space: 8 }) {
               Row({ space: 7 }) {
                 AiTitleLabel({ text: '康小伴 AI', compact: true })
-                Text('本地演示提醒')
+                Text('护理安全提醒')
                   .fontSize($r('sys.float.Caption_M'))
                   .fontColor($r('sys.color.font_tertiary'))
               }
@@ -1023,7 +1100,7 @@ export struct WideHomePage {
               })
             }
 
-            Text('康小伴仅整理本地演示数据，不替代护理规范、医嘱或现场人工判断。')
+            Text('康小伴根据服务器授权数据提供辅助整理，不替代护理规范、医嘱或现场人工判断。')
               .width('100%')
               .fontSize($r('sys.float.Body_M'))
               .fontColor($r('sys.color.font_tertiary'))
@@ -1442,7 +1519,7 @@ export struct WideHomePage {
                   .fontSize($r('sys.float.Body_L'))
                   .fontWeight(FontWeight.Medium)
                   .fontColor($r('sys.color.font_primary'))
-                Text(task.room + ' · 最近护理记录已同步')
+                Text(task.room + ' · 关联长者档案')
                   .fontSize($r('sys.float.Body_M'))
                   .fontColor($r('sys.color.font_secondary'))
               }
@@ -1504,7 +1581,7 @@ export struct WideHomePage {
                 SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
                   .fontSize(18)
                   .fontColor([$r('app.color.status_normal')])
-                Text('记录已提交，可在长者档案中查看')
+                Text('任务状态已同步到服务器')
                   .fontSize($r('sys.float.Body_M'))
                   .fontColor($r('sys.color.font_secondary'))
               }
@@ -1512,25 +1589,13 @@ export struct WideHomePage {
               .height(48)
               .alignItems(VerticalAlign.Center)
             } else {
-              TextArea({
-                text: this.taskNote(task.id),
-                placeholder: '记录观察情况、处置结果或后续跟进事项'
-              })
+              Text('当前服务仅支持同步任务状态，处理记录接口尚未开放。')
                 .width('100%')
-                .height(104)
                 .padding(12)
                 .fontSize($r('sys.float.Body_M'))
+                .fontColor($r('sys.color.font_secondary'))
                 .backgroundColor($r('sys.color.comp_background_secondary'))
                 .borderRadius(14)
-                .maxLength(200)
-                .barState(BarState.Off)
-                .onChange((value: string) => this.updateTaskNote(task.id, value))
-
-              if (this.validationTaskId === task.id) {
-                Text('请先填写处理记录，再完成当前工作')
-                  .fontSize($r('sys.float.Caption_M'))
-                  .fontColor($r('app.color.status_danger'))
-              }
             }
           }
           .width('100%')

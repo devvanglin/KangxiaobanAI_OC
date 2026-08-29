@@ -82,8 +82,14 @@ struct LoginPage {
       const loginBody: LoginRequest = { username: this.account, password: this.password };
       const resp = await ApiClient.post<LoginResp>('/auth/login', loginBody);
       if (resp.code === 0 && resp.data && resp.data.token.length > 0) {
+        if (!this.hasRole(resp.data.user.roles, this.selectedRoleCode())) {
+          AuthStore.clear();
+          this.loginError = `该账号不是${this.selectedRole}身份`;
+          this.isLoading = false;
+          return;
+        }
         AuthStore.setSession(resp.data.token, resp.data.user);
-        this.globalInfoModel.role = this.roleFromCodes(resp.data.user.roles.map((r: RoleInfo): string => r.code));
+        this.globalInfoModel.role = this.selectedRole;
         Logger.info(TAG, 'backend login ok');
         await this.getUIContext().getRouter().replaceUrl({ url: 'pages/MainPage' });
         return;
@@ -97,17 +103,23 @@ struct LoginPage {
     this.isLoading = false;
   }
 
-  private roleFromCodes(codes: string[]): string {
-    if (codes.indexOf('caregiver') >= 0) {
-      return ROLE_CAREGIVER;
+  private selectedRoleCode(): string {
+    if (this.selectedRole === ROLE_DOCTOR) {
+      return 'doctor';
     }
-    if (codes.indexOf('doctor') >= 0) {
-      return ROLE_DOCTOR;
+    if (this.selectedRole === ROLE_ADMIN) {
+      return 'admin';
     }
-    if (codes.indexOf('admin') >= 0) {
-      return ROLE_ADMIN;
+    return 'caregiver';
+  }
+
+  private hasRole(roles: RoleInfo[], code: string): boolean {
+    for (let index: number = 0; index < roles.length; index++) {
+      if (roles[index].code === code) {
+        return true;
+      }
     }
-    return ROLE_CAREGIVER;
+    return false;
   }
 
   private roleOptions: string[] = [ROLE_CAREGIVER, ROLE_DOCTOR, ROLE_ADMIN];

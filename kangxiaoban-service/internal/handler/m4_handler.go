@@ -29,7 +29,7 @@ func NewM4Handler(schedule *service.ScheduleService, finance *service.FinanceSer
 // ---- 排班 ----
 func (h *M4Handler) ListSchedules(c *gin.Context) {
 	page, size := parsePage(c)
-	items, total, err := h.schedule.ListSchedules(c.Query("date"), page, size)
+	items, total, err := h.schedule.ListSchedules(c.Request.Context(), c.Query("date"), page, size)
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "查询排班失败")
 		return
@@ -43,7 +43,8 @@ func (h *M4Handler) CreateSchedule(c *gin.Context) {
 		Fail(c, http.StatusBadRequest, 400, "参数错误: staff 与 work_date 必填")
 		return
 	}
-	if err := h.schedule.CreateSchedule(&req); err != nil {
+	req.Base = model.Base{}
+	if err := h.schedule.CreateSchedule(c.Request.Context(), &req); err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "创建排班失败")
 		return
 	}
@@ -53,7 +54,7 @@ func (h *M4Handler) CreateSchedule(c *gin.Context) {
 // ---- 交接班 ----
 func (h *M4Handler) ListHandovers(c *gin.Context) {
 	page, size := parsePage(c)
-	items, total, err := h.schedule.ListHandovers(c.Query("date"), page, size)
+	items, total, err := h.schedule.ListHandovers(c.Request.Context(), c.Query("date"), page, size)
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "查询交接班失败")
 		return
@@ -67,7 +68,8 @@ func (h *M4Handler) CreateHandover(c *gin.Context) {
 		Fail(c, http.StatusBadRequest, 400, "参数错误: from_staff 必填")
 		return
 	}
-	if err := h.schedule.CreateHandover(&req); err != nil {
+	req.Base = model.Base{}
+	if err := h.schedule.CreateHandover(c.Request.Context(), &req); err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "创建交接班失败")
 		return
 	}
@@ -78,7 +80,7 @@ func (h *M4Handler) CreateHandover(c *gin.Context) {
 func (h *M4Handler) ListBills(c *gin.Context) {
 	page, size := parsePage(c)
 	bound := boundElderIDs(c, h.family)
-	items, total, err := h.finance.ListBillsScoped(uint(parseUint(c, "elder_id")), c.Query("month"), page, size, bound)
+	items, total, err := h.finance.ListBillsScoped(c.Request.Context(), uint(parseUint(c, "elder_id")), c.Query("month"), page, size, bound)
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "查询账单失败")
 		return
@@ -89,7 +91,7 @@ func (h *M4Handler) ListBills(c *gin.Context) {
 // GenerateBills POST /api/v1/bills/generate —— 为当前月份在院长者生成账单。
 func (h *M4Handler) GenerateBills(c *gin.Context) {
 	month := c.Query("month")
-	created, err := h.finance.GenerateMonth(month)
+	created, err := h.finance.GenerateMonth(c.Request.Context(), month)
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "生成账单失败")
 		return
@@ -111,7 +113,7 @@ func (h *M4Handler) Pay(c *gin.Context) {
 		Fail(c, http.StatusBadRequest, 400, "参数错误")
 		return
 	}
-	if err := h.finance.Pay(req.ElderID, req.Month, req.Amount, req.Reason); err != nil {
+	if err := h.finance.Pay(c.Request.Context(), req.ElderID, req.Month, req.Amount, req.Reason); err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "缴费失败")
 		return
 	}
@@ -125,7 +127,7 @@ func (h *M4Handler) Balance(c *gin.Context) {
 		Fail(c, http.StatusForbidden, 403, "无权限查看该长者余额")
 		return
 	}
-	bal, err := h.finance.Balance(uint(id))
+	bal, err := h.finance.Balance(c.Request.Context(), uint(id))
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "查询余额失败")
 		return
@@ -141,7 +143,7 @@ func (h *M4Handler) ListFlows(c *gin.Context) {
 		return
 	}
 	page, size := parsePage(c)
-	items, total, err := h.finance.ListFlows(uint(id), page, size)
+	items, total, err := h.finance.ListFlows(c.Request.Context(), uint(id), page, size)
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "查询流水失败")
 		return
@@ -168,7 +170,7 @@ func (h *M4Handler) ListMedications(c *gin.Context) {
 			requested = bound[0]
 		}
 	}
-	items, total, err := h.medication.List(requested, c.Query("status"), page, size)
+	items, total, err := h.medication.List(c.Request.Context(), requested, c.Query("status"), page, size)
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "查询用药失败")
 		return
@@ -185,7 +187,8 @@ func (h *M4Handler) CreateMedication(c *gin.Context) {
 	if !requireElderAccess(c, h.family, req.ElderID) {
 		return
 	}
-	if err := h.medication.Create(&req); err != nil {
+	req.Base = model.Base{}
+	if err := h.medication.Create(c.Request.Context(), &req); err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "创建用药记录失败")
 		return
 	}
@@ -210,12 +213,12 @@ func (h *M4Handler) MarkMedicationStatus(c *gin.Context) {
 		Fail(c, http.StatusBadRequest, 400, "status 仅支持 taken/refused/missed")
 		return
 	}
-	if m, err := h.medication.Get(uint(id)); err == nil {
+	if m, err := h.medication.Get(c.Request.Context(), uint(id)); err == nil {
 		if !requireElderAccess(c, h.family, m.ElderID) {
 			return
 		}
 	}
-	if err := h.medication.MarkStatus(uint(id), req.Status); err != nil {
+	if err := h.medication.MarkStatus(c.Request.Context(), uint(id), req.Status); err != nil {
 		Fail(c, http.StatusNotFound, 404, "记录不存在")
 		return
 	}
@@ -225,7 +228,7 @@ func (h *M4Handler) MarkMedicationStatus(c *gin.Context) {
 // ---- 审计 ----
 func (h *M4Handler) ListAudits(c *gin.Context) {
 	page, size := parsePage(c)
-	items, total, err := h.audit.List(page, size)
+	items, total, err := h.audit.List(c.Request.Context(), page, size)
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "查询审计失败")
 		return

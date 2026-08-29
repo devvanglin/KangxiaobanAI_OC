@@ -30,11 +30,11 @@ import {
   MedicationProgress,
   Medication,
   MealRecord,
+  MealType,
   MonitorSnapshot,
   MoodRecord,
   ResidentData,
   RoomDeviceData,
-  RiskAssessment,
   StatusLevel,
   TaskState,
   VitalSign
@@ -42,7 +42,7 @@ import {
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { StorageKey } from '../common/CommonConstants';
 import { BusinessStore } from '../network/BusinessStore';
-import { Alert, CareTask, HealthRecord, IotDevice, MedicationRecord } from '../network/Dto';
+import { Alert, Assessment, CareTask, DiningOrder, HealthRecord, IotDevice, MedicationRecord } from '../network/Dto';
 import {
   RESIDENT_SUMMARY_DETAIL_HEIGHT,
   RESIDENT_SUMMARY_DETAIL_NO_ALLERGY_HEIGHT,
@@ -295,7 +295,7 @@ export struct ResidentDetailPage {
       if ((this.expandedMask & (1 << 9)) !== 0) {
         Column({ space: 0 }) {
           this.descriptionRow('性别', this.genderText(this.resident.gender), false)
-          this.descriptionRow('年龄', `${this.resident.age}岁`, false)
+          this.descriptionRow('年龄', this.resident.age > 0 ? `${this.resident.age}岁` : '未登记', false)
           this.descriptionRow('房间床号', `${this.resident.room} ${this.resident.bed}`, false)
           this.descriptionRow('护理等级', this.resident.careLevel, false)
           this.descriptionRow('入院日期', this.resident.admissionDate, true)
@@ -343,12 +343,15 @@ export struct ResidentDetailPage {
       })
       if ((this.expandedMask & (1 << 8)) !== 0) {
         Column({ space: 0 }) {
-          this.riskRow('跌倒风险', this.riskAssessment().fallRisk, false)
-          this.riskRow('压疮风险', this.riskAssessment().pressureUlcerRisk, false)
-          this.riskRow('走失风险', this.riskAssessment().wanderingRisk, false)
-          this.descriptionRow('ADL 评分', `${this.riskAssessment().adlScore} 分`, false)
-          this.descriptionRow('认知评分', `${this.riskAssessment().cognitiveScore} 分`, false)
-          this.descriptionRow('下次复评', this.riskAssessment().nextReview, true)
+          if (this.hasAssessment()) {
+            this.descriptionRow('评估类型', this.latestAssessmentType(), false)
+            this.riskRow('风险等级', this.latestAssessmentLevel(), false)
+            this.descriptionRow('评分', this.latestAssessmentScore(), false)
+            this.descriptionRow('评估时间', this.latestAssessmentTime(), false)
+            this.descriptionRow('评估说明', this.latestAssessmentNotes(), true)
+          } else {
+            this.sectionEmptyState('暂无服务器风险评估')
+          }
         }
         .width('100%')
         .padding({ left: 12, right: 12 })
@@ -549,10 +552,14 @@ export struct ResidentDetailPage {
       })
       if ((this.expandedMask & (1 << 1)) !== 0) {
         Column({ space: 0 }) {
-          Repeat(this.monitors())
-            .each((repeatItem: RepeatItem<MonitorSnapshot>) => {
-              this.monitorRow(repeatItem.item, repeatItem.index === this.monitors().length - 1)
-            })
+          if (this.monitors().length === 0) {
+            this.sectionEmptyState('房间监控接口尚未开放')
+          } else {
+            Repeat(this.monitors())
+              .each((repeatItem: RepeatItem<MonitorSnapshot>) => {
+                this.monitorRow(repeatItem.item, repeatItem.index === this.monitors().length - 1)
+              })
+          }
         }
         .width('100%')
         .padding({ left: 12, right: 12 })
@@ -693,10 +700,14 @@ export struct ResidentDetailPage {
       })
       if ((this.expandedMask & (1 << 6)) !== 0) {
         Column({ space: 0 }) {
-          Repeat(this.moodRecords())
-            .each((repeatItem: RepeatItem<MoodRecord>) => {
-              this.moodRow(repeatItem.item, repeatItem.index === this.moodRecords().length - 1)
-            })
+          if (this.moodRecords().length === 0) {
+            this.sectionEmptyState('情绪记录接口尚未开放')
+          } else {
+            Repeat(this.moodRecords())
+              .each((repeatItem: RepeatItem<MoodRecord>) => {
+                this.moodRow(repeatItem.item, repeatItem.index === this.moodRecords().length - 1)
+              })
+          }
         }
         .width('100%')
         .padding({ left: 12, right: 12 })
@@ -763,10 +774,14 @@ export struct ResidentDetailPage {
       })
       if ((this.expandedMask & (1 << 5)) !== 0) {
         Column({ space: 0 }) {
-          Repeat(this.footprints())
-            .each((repeatItem: RepeatItem<FootprintRecord>) => {
-              this.footprintRow(repeatItem.item, repeatItem.index === this.footprints().length - 1)
-            })
+          if (this.footprints().length === 0) {
+            this.sectionEmptyState('活动足迹接口尚未开放')
+          } else {
+            Repeat(this.footprints())
+              .each((repeatItem: RepeatItem<FootprintRecord>) => {
+                this.footprintRow(repeatItem.item, repeatItem.index === this.footprints().length - 1)
+              })
+          }
         }
         .width('100%')
         .padding({ left: 12, right: 12 })
@@ -975,10 +990,14 @@ export struct ResidentDetailPage {
       })
       if ((this.expandedMask & (1 << 4)) !== 0) {
         Column({ space: 0 }) {
-          Repeat(this.meals())
-            .each((repeatItem: RepeatItem<MealRecord>) => {
-              this.mealRow(repeatItem.item, repeatItem.index === this.meals().length - 1)
-            })
+          if (this.meals().length === 0) {
+            this.sectionEmptyState('暂无膳食记录')
+          } else {
+            Repeat(this.meals())
+              .each((repeatItem: RepeatItem<MealRecord>) => {
+                this.mealRow(repeatItem.item, repeatItem.index === this.meals().length - 1)
+              })
+          }
         }
         .width('100%')
         .padding({ left: 12, right: 12 })
@@ -1031,6 +1050,16 @@ export struct ResidentDetailPage {
   }
 
   @Builder
+  private sectionEmptyState(message: string) {
+    Text(message)
+      .width('100%')
+      .padding({ top: 18, bottom: 18 })
+      .fontSize($r('sys.float.Body_S'))
+      .fontColor($r('sys.color.font_tertiary'))
+      .textAlign(TextAlign.Center)
+  }
+
+  @Builder
   private divider(isLast: boolean) {
     if (!isLast) {
       Divider()
@@ -1052,10 +1081,7 @@ export struct ResidentDetailPage {
   }
 
   private monitors(): MonitorSnapshot[] {
-    return [
-      { id: 'm1', name: '房间全景', room: this.resident.room, status: 'online', lastEvent: '10:20 人员活动', lastUpdate: '10:24' },
-      { id: 'm2', name: '床头特写', room: this.resident.room, status: 'online', lastEvent: '07:30 起夜', lastUpdate: '10:24' }
-    ];
+    return [];
   }
 
   private residentDevices(): RoomDeviceData[] {
@@ -1066,25 +1092,11 @@ export struct ResidentDetailPage {
   }
 
   private moodRecords(): MoodRecord[] {
-    const base: MoodRecord[] = [
-      { time: '10:24', mood: '低落', level: 'danger', note: 'AI 对话语调低沉，活动量下降 41%' },
-      { time: '09:30', mood: '平静', level: 'normal', note: '早巡时能够简单应答' },
-      { time: '昨天 20:10', mood: '焦虑', level: 'warning', note: '睡前反复询问家属何时来访' },
-      { time: '昨天 15:00', mood: '愉快', level: 'normal', note: '参加书法角，主动展示作品' },
-      { time: '昨天 10:00', mood: '平静', level: 'normal', note: '早餐后看报，状态稳定' }
-    ];
-    return base;
+    return [];
   }
 
   private footprints(): FootprintRecord[] {
-    return [
-      { time: '10:24', location: '3F-302 房间', activity: '卧床', duration: 180, level: 'warning' },
-      { time: '08:30', location: '3F 餐厅', activity: '早餐', duration: 35, level: 'normal' },
-      { time: '07:30', location: '3F 卫生间', activity: '洗漱', duration: 15, level: 'normal' },
-      { time: '昨天 15:00', location: '2F 活动室', activity: '书法角', duration: 60, level: 'normal' },
-      { time: '昨天 14:00', location: '3F 走廊', activity: '散步', duration: 20, level: 'normal' },
-      { time: '昨天 12:00', location: '3F 餐厅', activity: '午餐', duration: 40, level: 'normal' }
-    ];
+    return [];
   }
 
   private medications(): Medication[] {
@@ -1115,26 +1127,64 @@ export struct ResidentDetailPage {
   }
 
   private meals(): MealRecord[] {
-    return [
-      { type: 'breakfast', label: '早餐 · 糖尿病餐', state: 'done', note: '已用完' },
-      { type: 'lunch', label: '午餐 · 低盐软食', state: 'doing', note: '进行中' },
-      { type: 'dinner', label: '晚餐 · 糖尿病餐', state: 'todo' },
-      { type: 'snack', label: '加餐 · 无糖酸奶', state: 'todo' }
-    ];
+    return this.businessStore.diningOrders.filter((item: DiningOrder) => item.elder_id === Number(this.resident.id))
+      .map((item: DiningOrder): MealRecord => ({
+        type: this.mealType(item.meal_time),
+        label: `${this.mealLabel(item.meal_time)} · ${item.items}`,
+        state: item.status === 'served' || item.status === 'completed' ? 'done' :
+          item.status === 'preparing' ? 'doing' : 'todo',
+        note: item.status
+      }));
   }
 
-  private riskAssessment(): RiskAssessment {
-    const map: Record<string, RiskAssessment> = {
-      'r1': { fallRisk: 'danger', pressureUlcerRisk: 'warning', wanderingRisk: 'normal', adlScore: 65, cognitiveScore: 22, nextReview: '2026-09-15' },
-      'r2': { fallRisk: 'warning', pressureUlcerRisk: 'normal', wanderingRisk: 'normal', adlScore: 75, cognitiveScore: 26, nextReview: '2026-09-20' },
-      'r3': { fallRisk: 'danger', pressureUlcerRisk: 'warning', wanderingRisk: 'warning', adlScore: 55, cognitiveScore: 20, nextReview: '2026-09-01' },
-      'r4': { fallRisk: 'normal', pressureUlcerRisk: 'normal', wanderingRisk: 'normal', adlScore: 85, cognitiveScore: 28, nextReview: '2026-12-01' },
-      'r5': { fallRisk: 'normal', pressureUlcerRisk: 'normal', wanderingRisk: 'normal', adlScore: 88, cognitiveScore: 29, nextReview: '2026-12-01' }
-    };
-    return map[this.resident.id] ?? {
-      fallRisk: 'normal', pressureUlcerRisk: 'normal', wanderingRisk: 'normal',
-      adlScore: 0, cognitiveScore: 0, nextReview: '--'
-    };
+  private mealType(value: string): MealType {
+    if (value === 'breakfast' || value === 'lunch' || value === 'dinner' || value === 'snack') {
+      return value;
+    }
+    return 'snack';
+  }
+
+  private mealLabel(value: string): string {
+    if (value === 'breakfast') return '早餐';
+    if (value === 'lunch') return '午餐';
+    if (value === 'dinner') return '晚餐';
+    return '加餐';
+  }
+
+  private latestAssessment(): Assessment | undefined {
+    return this.businessStore.assessments
+      .filter((item: Assessment) => item.elder_id === Number(this.resident.id))
+      .sort((left: Assessment, right: Assessment): number =>
+        right.assessed_at.localeCompare(left.assessed_at))[0];
+  }
+
+  private hasAssessment(): boolean {
+    return this.latestAssessment() !== undefined;
+  }
+
+  private latestAssessmentType(): string {
+    return this.latestAssessment()?.assessment_type ?? '--';
+  }
+
+  private latestAssessmentLevel(): StatusLevel {
+    const level: string = this.latestAssessment()?.risk_level ?? '';
+    if (level === 'high' || level === 'danger') return 'danger';
+    if (level === 'medium' || level === 'warning') return 'warning';
+    return 'normal';
+  }
+
+  private latestAssessmentScore(): string {
+    const score: number | undefined = this.latestAssessment()?.score;
+    return score === undefined ? '未记录' : `${score} 分`;
+  }
+
+  private latestAssessmentTime(): string {
+    const value: string = this.latestAssessment()?.assessed_at ?? '';
+    return value.length > 0 ? value.slice(0, 16) : '--';
+  }
+
+  private latestAssessmentNotes(): string {
+    return this.latestAssessment()?.notes || '未记录';
   }
 
   private alertEvents(): AlertEvent[] {

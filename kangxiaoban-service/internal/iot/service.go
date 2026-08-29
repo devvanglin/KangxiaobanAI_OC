@@ -1,6 +1,7 @@
 package iot
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"strconv"
@@ -37,27 +38,45 @@ type IotService struct {
 	db       *gorm.DB
 	hub      *ws.Hub
 	cooldown sync.Map // key=type:deviceID -> lastTime
-	notify   func(role, typ, title, content, severity string) error
+	notify   func(context.Context, uint, string, string, string, string, string) error
 }
 
 func NewIotService(db *gorm.DB, hub *ws.Hub) *IotService {
 	return &IotService{db: db, hub: hub}
 }
 
-// SetNotifier 注入通知 Provider；未配置时仍保留 WebSocket 广播能力。
+// SetNotifier keeps the original callback shape for integrations compiled
+// against earlier releases. New code should use SetTenantNotifier so the
+// notification write carries the originating tenant.
 func (s *IotService) SetNotifier(fn func(role, typ, title, content, severity string) error) {
+	if fn == nil {
+		s.notify = nil
+		return
+	}
+	s.notify = func(_ context.Context, _ uint, role, typ, title, content, severity string) error {
+		return fn(role, typ, title, content, severity)
+	}
+}
+
+// SetTenantNotifier injects a tenant-aware notification provider.
+func (s *IotService) SetTenantNotifier(fn func(context.Context, uint, string, string, string, string, string) error) {
 	s.notify = fn
 }
 
 // Ingest 处理一帧设备数据（字段扁平）。
 func (s *IotService) Ingest(deviceID, product string, values map[string]interface{}) error {
+	return s.IngestContext(context.Background(), deviceID, product, values)
+}
+
+func (s *IotService) IngestContext(ctx context.Context, deviceID, product string, values map[string]interface{}) error {
 	if deviceID == "" {
 		return nil
 	}
+	db := s.db.WithContext(ctx)
 	now := time.Now()
 
 	var dev model.IotDevice
-	if err := s.db.Where("device_id = ?", deviceID).First(&dev).Error; err != nil {
+	if err := db.Where("device_id = ?", deviceID).First(&dev).Error; err != nil {
 		// 设备未知：登记
 		dev = model.IotDevice{DeviceID: deviceID, Product: product, Protocol: "MQTT", Online: 1}
 		if dev.Product == "" {
@@ -65,7 +84,7 @@ func (s *IotService) Ingest(deviceID, product string, values map[string]interfac
 		}
 		t := now
 		dev.LastSeen = &t
-		if err := s.db.Create(&dev).Error; err != nil {
+		if err := db.Create(&dev).Error; err != nil {
 			return err
 		}
 	} else {
@@ -73,7 +92,7 @@ func (s *IotService) Ingest(deviceID, product string, values map[string]interfac
 		if product != "" && dev.Product == "" {
 			updates["product"] = product
 		}
-		if err := s.db.Model(&dev).Updates(updates).Error; err != nil {
+		if err := db.Model(&dev).Updates(updates).Error; err != nil {
 			return err
 		}
 	}
@@ -85,17 +104,17 @@ func (s *IotService) Ingest(deviceID, product string, values map[string]interfac
 			continue
 		}
 		sr := model.SignalRecord{DeviceID: deviceID, ElderID: dev.ElderID, Type: typ, Value: toStr(v), TS: now}
-		if err := s.db.Create(&sr).Error; err != nil {
+		if err := db.Create(&sr).Error; err != nil {
 			log.Printf("write signal failed: %v", err)
 		}
 	}
 
-	s.evaluate(dev, values, now)
+	s.evaluate(db, dev, values, now)
 	return nil
 }
 
 // evaluate 规则引擎：按阈值产生分级告警（带去重），并经 WS 广播。
-func (s *IotService) evaluate(dev model.IotDevice, values map[string]interface{}, now time.Time) {
+func (s *IotService) evaluate(db *gorm.DB, dev model.IotDevice, values map[string]interface{}, now time.Time) {
 	type alertDef struct {
 		typ  string
 		lvl  string
@@ -120,15 +139,15 @@ func (s *IotService) evaluate(dev model.IotDevice, values map[string]interface{}
 		if !s.okCooldown(d.typ, dev.DeviceID, now) {
 			continue
 		}
-		s.createAlert(dev, d.typ, d.lvl, d.msg, now)
+		s.createAlert(db, dev, d.typ, d.lvl, d.msg, now)
 	}
 }
 
-func (s *IotService) createAlert(dev model.IotDevice, typ, lvl, content string, now time.Time) {
+func (s *IotService) createAlert(db *gorm.DB, dev model.IotDevice, typ, lvl, content string, now time.Time) {
 	content = "[" + dev.DeviceID + "] " + content
 	if dev.ElderID != nil {
 		var elder model.Elder
-		if err := s.db.First(&elder, *dev.ElderID).Error; err == nil {
+		if err := db.First(&elder, *dev.ElderID).Error; err == nil {
 			content = "长者[" + elder.Name + "] " + content
 		}
 	}
@@ -141,11 +160,11 @@ func (s *IotService) createAlert(dev model.IotDevice, typ, lvl, content string, 
 		Status:     "new",
 		CreateTime: now,
 	}
-	if err := s.db.Create(&a).Error; err == nil {
-		s.hub.BroadcastEvent("alert.new", a)
+	if err := db.Create(&a).Error; err == nil {
+		s.hub.SendToTenant(a.TenantID, "alert.new", a)
 		if s.notify != nil {
 			for _, role := range []string{"admin", "caregiver", "doctor"} {
-				_ = s.notify(role, "alert", "新的照护告警", content, lvl)
+				_ = s.notify(db.Statement.Context, a.TenantID, role, "alert", "新的照护告警", content, lvl)
 			}
 		}
 	}
@@ -168,27 +187,69 @@ func (s *IotService) StartEscalationScanner() {
 	ticker := time.NewTicker(15 * time.Second)
 	for range ticker.C {
 		cutoff := time.Now().Add(-escalationAfter)
-		var alerts []model.Alert
-		if err := s.db.Where("level IN ? AND status = 'new' AND create_time < ?", []string{"emergency", "important"}, cutoff).Find(&alerts).Error; err != nil {
-			continue
-		}
-		for i := range alerts {
-			s.db.Model(&alerts[i]).Update("status", "escalated")
-			alerts[i].Status = "escalated"
-			s.hub.BroadcastEvent("alert.escalated", alerts[i])
+		for _, tenantID := range s.tenantIDs() {
+			ctx := context.WithValue(context.Background(), model.TenantContextKey, tenantID)
+			db := s.db.WithContext(ctx)
+			var alerts []model.Alert
+			if err := db.Where("level IN ? AND status = 'new' AND create_time < ?", []string{"emergency", "important"}, cutoff).Find(&alerts).Error; err != nil {
+				continue
+			}
+			for i := range alerts {
+				if err := db.Model(&alerts[i]).Where("status = ?", "new").Update("status", "escalated").Error; err != nil {
+					continue
+				}
+				alerts[i].Status = "escalated"
+				s.hub.SendToTenant(tenantID, "alert.escalated", alerts[i])
+			}
 		}
 	}
 }
 
-// ListDevices 设备列表。
-func (s *IotService) ListDevices(page, size int) ([]model.IotDevice, int64, error) {
-	return s.ListDevicesScoped(page, size, nil)
+// tenantIDs reads the tenant registry (which is intentionally global) so
+// background scanners process every institution instead of silently using
+// tenant 1.
+func (s *IotService) tenantIDs() []uint {
+	var tenants []model.Tenant
+	if err := s.db.Find(&tenants).Error; err != nil {
+		return []uint{1}
+	}
+	ids := make([]uint, 0, len(tenants))
+	for _, tenant := range tenants {
+		if tenant.ID > 0 {
+			ids = append(ids, tenant.ID)
+		}
+	}
+	if len(ids) == 0 {
+		return []uint{1}
+	}
+	return ids
 }
 
-func (s *IotService) ListDevicesScoped(page, size int, allowed []uint) ([]model.IotDevice, int64, error) {
-	q := s.db.Model(&model.IotDevice{})
-	if len(allowed) > 0 {
-		q = q.Where("elder_id IN ?", allowed)
+func (s *IotService) contextForDevice(deviceID string) context.Context {
+	var tenantID uint
+	// Device IDs are globally unique in the current schema, so the raw lookup
+	// can resolve an MQTT frame to its owning tenant before tenant scoping is
+	// applied. Unknown devices are registered in the default tenant for
+	// backward compatibility with existing topic formats.
+	if err := s.db.Raw("SELECT tenant_id FROM iot_devices WHERE device_id = ? AND deleted_at IS NULL", deviceID).Scan(&tenantID).Error; err != nil || tenantID == 0 {
+		tenantID = 1
+	}
+	return context.WithValue(context.Background(), model.TenantContextKey, tenantID)
+}
+
+// ListDevices 设备列表。
+func (s *IotService) ListDevices(page, size int) ([]model.IotDevice, int64, error) {
+	return s.ListDevicesScoped(context.Background(), page, size, nil)
+}
+
+func (s *IotService) ListDevicesScoped(ctx context.Context, page, size int, allowed []uint) ([]model.IotDevice, int64, error) {
+	q := s.db.WithContext(ctx).Model(&model.IotDevice{})
+	if allowed != nil {
+		if len(allowed) == 0 {
+			q = q.Where("1 = 0")
+		} else {
+			q = q.Where("elder_id IN ?", allowed)
+		}
 	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
@@ -199,9 +260,9 @@ func (s *IotService) ListDevicesScoped(page, size int, allowed []uint) ([]model.
 	return items, total, err
 }
 
-func (s *IotService) GetAlert(id uint) (*model.Alert, error) {
+func (s *IotService) GetAlert(ctx context.Context, id uint) (*model.Alert, error) {
 	var a model.Alert
-	if err := s.db.First(&a, id).Error; err != nil {
+	if err := s.db.WithContext(ctx).First(&a, id).Error; err != nil {
 		return nil, err
 	}
 	return &a, nil
@@ -209,14 +270,18 @@ func (s *IotService) GetAlert(id uint) (*model.Alert, error) {
 
 // ListAlerts 告警列表（可按状态/级别筛）。
 func (s *IotService) ListAlerts(status, level string, page, size int) ([]model.Alert, int64, error) {
-	return s.ListAlertsScoped(status, level, page, size, nil)
+	return s.ListAlertsScoped(context.Background(), status, level, page, size, nil)
 }
 
 // ListAlertsScoped 告警列表；allowed 非空时仅返回绑定长者告警（用于家属隔离）。
-func (s *IotService) ListAlertsScoped(status, level string, page, size int, allowed []uint) ([]model.Alert, int64, error) {
-	q := s.db.Model(&model.Alert{})
-	if len(allowed) > 0 {
-		q = q.Where("elder_id IN ?", allowed)
+func (s *IotService) ListAlertsScoped(ctx context.Context, status, level string, page, size int, allowed []uint) ([]model.Alert, int64, error) {
+	q := s.db.WithContext(ctx).Model(&model.Alert{})
+	if allowed != nil {
+		if len(allowed) == 0 {
+			q = q.Where("1 = 0")
+		} else {
+			q = q.Where("elder_id IN ?", allowed)
+		}
 	}
 	if status != "" {
 		q = q.Where("status = ?", status)
@@ -234,9 +299,10 @@ func (s *IotService) ListAlertsScoped(status, level string, page, size int, allo
 }
 
 // HandleAlert 处置告警（转 handled/closed）。
-func (s *IotService) HandleAlert(id uint, by string, closeIt bool) error {
+func (s *IotService) HandleAlert(ctx context.Context, id uint, by string, closeIt bool) error {
+	db := s.db.WithContext(ctx)
 	var a model.Alert
-	if err := s.db.First(&a, id).Error; err != nil {
+	if err := db.First(&a, id).Error; err != nil {
 		return err
 	}
 	status := "handled"
@@ -248,24 +314,24 @@ func (s *IotService) HandleAlert(id uint, by string, closeIt bool) error {
 	if closeIt {
 		updates["close_time"] = now
 	}
-	if err := s.db.Model(&a).Updates(updates).Error; err != nil {
+	if err := db.Model(&a).Updates(updates).Error; err != nil {
 		return err
 	}
 	action := "acknowledge"
 	if closeIt {
 		action = "close"
 	}
-	return s.RecordAlertAction(id, 0, action, "")
+	return s.RecordAlertAction(ctx, id, 0, action, "")
 }
 
 // RecordAlertAction 记录告警处置时间线，便于复盘和质控。
-func (s *IotService) RecordAlertAction(alertID, userID uint, action, note string) error {
-	return s.db.Create(&model.AlertAction{AlertID: alertID, UserID: userID, Action: action, Note: note}).Error
+func (s *IotService) RecordAlertAction(ctx context.Context, alertID, userID uint, action, note string) error {
+	return s.db.WithContext(ctx).Create(&model.AlertAction{AlertID: alertID, UserID: userID, Action: action, Note: note}).Error
 }
 
 // ListAlertActions 查询告警处置时间线。
-func (s *IotService) ListAlertActions(alertID uint, page, size int) ([]model.AlertAction, int64, error) {
-	q := s.db.Model(&model.AlertAction{}).Where("alert_id = ?", alertID)
+func (s *IotService) ListAlertActions(ctx context.Context, alertID uint, page, size int) ([]model.AlertAction, int64, error) {
+	q := s.db.WithContext(ctx).Model(&model.AlertAction{}).Where("alert_id = ?", alertID)
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err

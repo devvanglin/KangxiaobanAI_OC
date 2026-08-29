@@ -85,6 +85,7 @@ export struct WideMessagePage {
   private previousKeyboardAvoidMode: KeyboardAvoidMode = KeyboardAvoidMode.OFFSET;
   private composerHasFocus: boolean = false;
   private wsClient: WsClient = new WsClient();
+  private unreadMessageIdsByConversation: Map<string, number[]> = new Map<string, number[]>();
 
   @Monitor('backRequestToken')
   onBackRequestTokenChange(): void {
@@ -135,6 +136,8 @@ export struct WideMessagePage {
       return;
     }
     const currentUserId: number = AuthStore.getUser()?.id ?? 0;
+    const unreadIdsByConversation: Map<string, number[]> = new Map<string, number[]>();
+    const unreadConversationIds: string[] = [];
     const conversations: WideConversationData[] = resp.data.list.map((contact: MessageContact): WideConversationData => {
       const role: string = contact.roles.length > 0 ? contact.roles[0].code : 'work';
       const kind: WideConversationKind = role === 'family' ? 'family' : 'work';
@@ -158,6 +161,14 @@ export struct WideMessagePage {
       }
       for (const message of messageResp.data.list) {
         records.push(this.toChatRecord(message, currentUserId, conversation.id));
+        if (message.receiver_id === currentUserId && !message.read_at) {
+          const unreadIds: number[] = unreadIdsByConversation.get(conversation.id) ?? [];
+          unreadIds.push(message.id);
+          unreadIdsByConversation.set(conversation.id, unreadIds);
+          if (!unreadConversationIds.includes(conversation.id)) {
+            unreadConversationIds.push(conversation.id);
+          }
+        }
       }
       const latest: UserMessage | undefined = messageResp.data.list.length > 0 ?
         messageResp.data.list[messageResp.data.list.length - 1] : undefined;
@@ -168,6 +179,8 @@ export struct WideMessagePage {
     }
     this.backendConversations = conversations;
     this.backendRecords = records;
+    this.unreadMessageIdsByConversation = unreadIdsByConversation;
+    this.unreadConversationIds = unreadConversationIds;
     if (conversations.length > 0 && this.selectedConversationId.indexOf('user-') !== 0) {
       this.selectedConversationId = conversations[0].id;
     }
@@ -341,7 +354,7 @@ export struct WideMessagePage {
     this.selectedConversationId = item.id;
     this.replyText = '';
     if (this.isUnread(item.id)) {
-      this.unreadConversationIds = this.unreadConversationIds.filter((id: string) => id !== item.id);
+      this.markConversationRead(item.id);
     }
     if (this.compactWidth) {
       this.showCompactDetail();
@@ -349,6 +362,29 @@ export struct WideMessagePage {
       this.onChatScrollerActive();
     }
     this.scheduleScrollToBottom();
+  }
+
+  private async markConversationRead(conversationId: string): Promise<void> {
+    const unreadIds: number[] = this.unreadMessageIdsByConversation.get(conversationId) ?? [];
+    if (unreadIds.length === 0) {
+      return;
+    }
+    let allMarked: boolean = true;
+    for (let index: number = 0; index < unreadIds.length; index++) {
+      try {
+        const response = await MessageApi.markRead(unreadIds[index]);
+        if (response.code !== 0) {
+          allMarked = false;
+        }
+      } catch (_error) {
+        allMarked = false;
+      }
+    }
+    if (!allMarked) {
+      return;
+    }
+    this.unreadMessageIdsByConversation.delete(conversationId);
+    this.unreadConversationIds = this.unreadConversationIds.filter((id: string) => id !== conversationId);
   }
 
   private showCompactList(): void {

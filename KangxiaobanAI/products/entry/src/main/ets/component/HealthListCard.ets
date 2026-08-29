@@ -122,7 +122,8 @@ export struct HealthListCard {
                   textItem: {
                     primaryText: { text: repeatItem.item.name },
                     secondaryText: {
-                      text: `${repeatItem.item.age}岁 · ${repeatItem.item.room} · ${repeatItem.item.bed}`
+                      text: `${repeatItem.item.age > 0 ? `${repeatItem.item.age}岁` : '年龄未登记'} · ${
+                        repeatItem.item.room} · ${repeatItem.item.bed}`
                     }
                   },
                   suffixItem: new SuffixButton({

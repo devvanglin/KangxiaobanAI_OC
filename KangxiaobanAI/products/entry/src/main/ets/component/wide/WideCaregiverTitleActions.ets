@@ -15,6 +15,8 @@
 
 import { SymbolGlyphModifier } from '@kit.ArkUI';
 import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule';
+import AuthStore from '../../network/AuthStore';
+import { LoginUser, RoleInfo } from '../../network/Dto';
 
 @ComponentV2
 export struct WideCaregiverTitleActions {
@@ -72,6 +74,28 @@ export struct WideCaregiverTitleActions {
       $r('sys.color.ohos_id_color_background_transparent');
   }
 
+  private currentUserName(): string {
+    const user: LoginUser | null = AuthStore.getUser();
+    if (user === null) {
+      return '未登录';
+    }
+    const realName: string = user.real_name.trim();
+    return realName.length > 0 ? realName : user.username;
+  }
+
+  private currentUserRoles(): string {
+    const user: LoginUser | null = AuthStore.getUser();
+    if (user === null || user.roles.length === 0) {
+      return '未分配角色';
+    }
+    return user.roles.map((role: RoleInfo): string => role.name).join(' · ');
+  }
+
+  private currentUserAvatar(): string {
+    const name: string = this.currentUserName();
+    return name === '未登录' ? '--' : name.slice(Math.max(0, name.length - 2));
+  }
+
   @Builder
   private primaryNavigation() {
     Row() {
@@ -98,21 +122,14 @@ export struct WideCaregiverTitleActions {
   private profileMenuHeader() {
     Column({ space: 4 }) {
       Row({ space: 7 }) {
-        Text('刘婷')
+        Text(this.currentUserName())
           .fontSize(17)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('sys.color.font_primary'))
-        Text('L3')
-          .fontSize(10)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_secondary'))
-          .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-          .borderRadius(6)
-          .backgroundColor($r('sys.color.comp_background_secondary'))
       }
       .alignItems(VerticalAlign.Center)
 
-      Text('阳光护士（2024） · 护工')
+      Text(this.currentUserRoles())
         .fontSize(12)
         .fontColor($r('sys.color.font_secondary'))
         .maxLines(1)
@@ -168,7 +185,7 @@ export struct WideCaregiverTitleActions {
           .height(34)
           .borderRadius(17)
           .backgroundColor($r('app.color.brand_blue'))
-        Text('LT')
+        Text(this.currentUserAvatar())
           .fontSize(11)
           .fontWeight(FontWeight.Medium)
           .fontColor($r('app.color.text_on_brand'))
@@ -182,7 +199,7 @@ export struct WideCaregiverTitleActions {
     .borderRadius(24)
     .backgroundColor(this.targetBackground('account-entry'))
     .hoverEffect(HoverEffect.None)
-    .accessibilityText('刘婷，护工，打开账户菜单')
+    .accessibilityText(`${this.currentUserName()}，${this.currentUserRoles()}，打开账户菜单`)
     .focusable(true)
     .focusOnTouch(true)
     .onHover((isHover: boolean) => this.hoveredTarget = isHover ? 'account-entry' : '')

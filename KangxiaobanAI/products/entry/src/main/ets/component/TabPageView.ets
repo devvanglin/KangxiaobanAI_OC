@@ -35,8 +35,11 @@ import { TabPageConfig } from '../model/TabPageModel';
 import { BreakpointType, BreakpointUtil } from '../util/BreakpointSystem';
 import { WindowUtil } from '../util/WindowUtil';
 import AuthStore from '../network/AuthStore';
+import ApiClient from '../network/ApiClient';
 import { BusinessStore } from '../network/BusinessStore';
-import { Alert, Bed, CareTask as BackendCareTask, Elder, HealthRecord, IotDevice, MedicationRecord, MessageContact, Room, UserMessage } from '../network/Dto';
+import { Alert, Bed, CareTask as BackendCareTask, Elder, HealthRecord, IotDevice, MedicationRecord, MessageContact,
+  Room, TaskStatusRequest, UserMessage } from '../network/Dto';
+import { MessageApi } from '../network/MessageApi';
 import { HealthListCard, HealthListCardData, HealthListCardRow } from './HealthListCard';
 
 import { EventListCard, EventListCardData, EventListCardRow } from './EventListCard';
@@ -81,6 +84,11 @@ interface BedSummary {
   occupied: number;
   empty: number;
   maintenance: number;
+}
+
+interface TaskStatusResponse {
+  id: number;
+  status: string;
 }
 
 interface DeviceRowData {
@@ -204,7 +212,6 @@ export struct TabPageView {
   @Local taskFilter: 'all' | 'ai' | 'elder' | 'plan' = 'all';
   @Local messageFilter: MessageFilter = 'all';
   @Local selectedMessageId: string = '';
-  @Local readMessageIds: string[] = [];
   @Local isPhoneMessageChatOpen: boolean = false;
   @Local phoneLocalMessageRecords: PhoneLocalMessageRecord[] = [];
   @Local selectedAiReminderId: string = '';
@@ -458,23 +465,20 @@ export struct TabPageView {
   // ---------------- home data ----------------
 
   private bedSummary(): BedSummary {
-    if (this.businessStore.loaded) {
-      const total: number = this.businessStore.beds.length;
-      const occupied: number = this.businessStore.beds.filter((item: Bed) => item.status === 'occupied').length;
-      const maintenance: number = this.businessStore.beds.filter((item: Bed) => item.status === 'maintenance').length;
-      return { total: total, occupied: occupied, empty: Math.max(0, total - occupied - maintenance), maintenance: maintenance };
-    }
-    return { total: 156, occupied: 128, empty: 24, maintenance: 4 };
+    const total: number = this.businessStore.beds.length;
+    const occupied: number = this.businessStore.beds.filter((item: Bed) => item.status === 'occupied').length;
+    const maintenance: number = this.businessStore.beds.filter((item: Bed) => item.status === 'maintenance').length;
+    return { total: total, occupied: occupied, empty: Math.max(0, total - occupied - maintenance), maintenance: maintenance };
   }
 
   private bedOccupiedPercent(): number {
     const bed: BedSummary = this.bedSummary();
-    return Math.round(bed.occupied / bed.total * 100);
+    return bed.total > 0 ? Math.round(bed.occupied / bed.total * 100) : 0;
   }
 
   private bedPercent(value: number): number {
     const bed: BedSummary = this.bedSummary();
-    return Math.round(value / bed.total * 100);
+    return bed.total > 0 ? Math.round(value / bed.total * 100) : 0;
   }
 
   private healthRows(): HealthRowData[] {
@@ -626,9 +630,14 @@ export struct TabPageView {
     if (this.businessStore.loaded) {
       return this.businessStore.tasks.map((task: BackendCareTask): CareTask => {
         const elder: Elder | undefined = this.businessStore.elders.find((item: Elder) => item.id === task.elder_id);
+        const bed: Bed | undefined = elder?.bed_id ?
+          this.businessStore.beds.find((item: Bed): boolean => item.id === elder.bed_id) : undefined;
+        const room: Room | undefined = bed ?
+          this.businessStore.rooms.find((item: Room): boolean => item.id === bed.room_id) : undefined;
+        const location: string = room && bed ? `${room.floor}F-${room.room_no} · ${bed.bed_no}床` : '未分配';
         const status: TaskStatus = task.status === 'doing' || task.status === 'done' ? task.status : 'todo';
         return { id: `${task.id}`, source: task.kind === 'medication' ? 'plan' : 'elder', priority: 'normal', status: status,
-          title: task.title, elder: elder?.name ?? '未知长者', room: '未分配', time: task.due_at ? task.due_at.slice(11, 16) : '--',
+          title: task.title, elder: elder?.name ?? '未知长者', room: location, time: task.due_at ? task.due_at.slice(11, 16) : '--',
           assignee: task.assignee ?? '', detail: task.remark ?? '' };
       });
     }
@@ -647,6 +656,47 @@ export struct TabPageView {
 
   private taskTimeline(): TaskTimelineItem[] {
     return [];
+  }
+
+  private async updateTaskStatus(task: CareTask, status: TaskStatus): Promise<void> {
+    const taskId: number = Number(task.id);
+    if (taskId <= 0) {
+      this.showToast('任务编号无效');
+      return;
+    }
+    try {
+      const request: TaskStatusRequest = { status: status };
+      const response = await ApiClient.patch<TaskStatusResponse>(`/tasks/${taskId}/status`, request);
+      if (response.code !== 0) {
+        this.showToast(response.msg || '任务状态更新失败');
+        return;
+      }
+      this.businessStore.tasks = this.businessStore.tasks.map((item: BackendCareTask): BackendCareTask => {
+        if (item.id !== taskId) {
+          return item;
+        }
+        return {
+          id: item.id,
+          elder_id: item.elder_id,
+          title: item.title,
+          kind: item.kind,
+          assignee: item.assignee,
+          due_at: item.due_at,
+          status: status,
+          remark: item.remark
+        };
+      });
+      this.showToast(status === 'done' ? '任务已完成' : '任务已开始');
+    } catch (_error) {
+      this.showToast('无法连接服务器，请稍后重试');
+    }
+  }
+
+  private showToast(message: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message: message });
+    } catch (_error) {
+    }
   }
 
   // ---------------- shared builders ----------------
@@ -670,6 +720,34 @@ export struct TabPageView {
     }
   }
 
+  private businessEmptyText(emptyText: string): string {
+    if (this.businessStore.loading && !this.businessStore.loaded) {
+      return '正在加载服务器数据';
+    }
+    if (this.businessStore.error.length > 0) {
+      return '服务器数据加载失败，请稍后重试';
+    }
+    return emptyText;
+  }
+
+  @Builder
+  private businessEmptyState(emptyText: string) {
+    Column({ space: 10 }) {
+      if (this.businessStore.loading && !this.businessStore.loaded) {
+        LoadingProgress()
+          .width(28)
+          .height(28)
+      }
+      Text(this.businessEmptyText(emptyText))
+        .fontSize($r('sys.float.Body_M'))
+        .fontColor($r('sys.color.font_secondary'))
+        .textAlign(TextAlign.Center)
+    }
+    .width('100%')
+    .padding({ top: 48, bottom: 48 })
+    .alignItems(HorizontalAlign.Center)
+  }
+
   // ---------------- home builders ----------------
 
   private onlineDeviceCount(): number {
@@ -680,52 +758,38 @@ export struct TabPageView {
     return RESIDENT_SUMMARY_CARD_HEIGHT;
   }
 
-  /** 模拟长者最新体征快照（后续接真实数据源） */
   private residentVitalSign(resident: ResidentData): VitalSign {
-    const map: Record<string, VitalSign> = {
-      'r1': {
-        heartRate: 72, systolic: 138, diastolic: 85, oxygen: 96,
-        temperature: 36.5, respiratory: 18, steps: 1240, sleepHours: 5.2,
-        measuredAt: '10:24'
-      },
-      'r2': {
-        heartRate: 78, systolic: 125, diastolic: 80, oxygen: 97,
-        temperature: 36.4, respiratory: 17, steps: 2100, sleepHours: 6.8,
-        measuredAt: '09:46'
-      },
-      'r3': {
-        heartRate: 70, systolic: 142, diastolic: 88, oxygen: 95,
-        temperature: 36.6, respiratory: 19, steps: 380, sleepHours: 4.5,
-        measuredAt: '09:12'
-      },
-      'r4': {
-        heartRate: 68, systolic: 118, diastolic: 76, oxygen: 98,
-        temperature: 36.3, respiratory: 16, steps: 3200, sleepHours: 7.2,
-        measuredAt: '08:30'
-      },
-      'r5': {
-        heartRate: 75, systolic: 122, diastolic: 78, oxygen: 98,
-        temperature: 36.4, respiratory: 17, steps: 2800, sleepHours: 7.0,
-        measuredAt: '08:15'
-      }
-    };
-    return map[resident.id] ?? {
+    const records: HealthRecord[] = this.businessStore.healthRecords
+      .filter((item: HealthRecord) => item.elder_id === Number(resident.id))
+      .sort((left: HealthRecord, right: HealthRecord): number => right.record_time.localeCompare(left.record_time));
+    const latest: HealthRecord | undefined = records[0];
+    if (!latest) {
+      return {
       heartRate: 0, systolic: 0, diastolic: 0, oxygen: 0,
       temperature: 0, respiratory: 0, steps: 0, sleepHours: 0,
       measuredAt: '--'
+      };
+    }
+    return {
+      heartRate: latest.heart_rate ?? 0,
+      systolic: latest.systolic ?? 0,
+      diastolic: latest.diastolic ?? 0,
+      oxygen: latest.spo2 ?? 0,
+      temperature: latest.temperature ?? 0,
+      respiratory: 0,
+      steps: 0,
+      sleepHours: 0,
+      measuredAt: latest.record_time.slice(11, 16)
     };
   }
 
-  /** 模拟今日用药进度（已完成/总数） */
   private residentMedicationProgress(resident: ResidentData): MedicationProgress {
-    const map: Record<string, MedicationProgress> = {
-      'r1': { done: 3, total: 5 },
-      'r2': { done: 4, total: 4 },
-      'r3': { done: 2, total: 6 },
-      'r4': { done: 2, total: 3 },
-      'r5': { done: 3, total: 3 }
+    const items: MedicationRecord[] = this.businessStore.medications
+      .filter((item: MedicationRecord) => item.elder_id === Number(resident.id));
+    return {
+      done: items.filter((item: MedicationRecord) => item.status === 'taken').length,
+      total: items.length
     };
-    return map[resident.id] ?? { done: 0, total: 0 };
   }
 
   @Builder
@@ -1002,7 +1066,7 @@ export struct TabPageView {
             .backgroundColor($r('sys.color.comp_background_secondary'))
             .alignItems(HorizontalAlign.Start)
 
-            Text('康小伴仅整理本地演示数据，不替代护理规范、医嘱或现场人工判断。')
+            Text('康小伴根据服务器授权数据提供辅助整理，不替代护理规范、医嘱或现场人工判断。')
               .width('100%')
               .fontSize($r('sys.float.Body_M'))
               .fontColor($r('sys.color.font_tertiary'))
@@ -1747,10 +1811,19 @@ export struct TabPageView {
         .width('100%')
         .height(40)
       Column({ space: 0 }) {
-        Repeat(this.taskTimeline())
-          .each((repeatItem: RepeatItem<TaskTimelineItem>) => {
-            this.taskTimelineRow(repeatItem.item, repeatItem.index === this.taskTimeline().length - 1)
-          })
+        if (this.taskTimeline().length === 0) {
+          Text('暂无服务器处理记录')
+            .width('100%')
+            .padding({ top: 16, bottom: 20 })
+            .fontSize($r('sys.float.Body_S'))
+            .fontColor($r('sys.color.font_tertiary'))
+            .textAlign(TextAlign.Center)
+        } else {
+          Repeat(this.taskTimeline())
+            .each((repeatItem: RepeatItem<TaskTimelineItem>) => {
+              this.taskTimelineRow(repeatItem.item, repeatItem.index === this.taskTimeline().length - 1)
+            })
+        }
       }
     }
     .width('100%')
@@ -1789,14 +1862,18 @@ export struct TabPageView {
   @Builder
   private taskActionButtons(task: CareTask) {
     Row({ space: 12 }) {
-      if (task.status !== 'done') {
-        this.actionButton('接单/执行', true, () => {
+      if (task.status === 'todo') {
+        this.actionButton('开始执行', true, () => {
+          this.updateTaskStatus(task, 'doing');
+        })
+      } else if (task.status === 'doing') {
+        this.actionButton('完成任务', true, () => {
+          this.updateTaskStatus(task, 'done');
+        })
+      } else {
+        this.actionButton('已完成', false, () => {
         })
       }
-      this.actionButton('转交', false, () => {
-      })
-      this.actionButton('完成', task.status === 'done', () => {
-      })
     }
     .width('100%')
   }
@@ -1873,14 +1950,20 @@ export struct TabPageView {
           .backgroundColor($r('sys.color.background_secondary'))
 
           List({ scroller: this.currentScroller(), space: 12 }) {
-            Repeat(this.filteredResidents())
-              .each((repeatItem: RepeatItem<ResidentData>) => {
-                this.residentListRow(
-                  repeatItem.item,
-                  repeatItem.index === this.filteredResidents().length - 1
-                )
-              })
-              .key((item: ResidentData) => item.id)
+            if (this.filteredResidents().length === 0) {
+              ListItem() {
+                this.businessEmptyState('暂无长者数据')
+              }
+            } else {
+              Repeat(this.filteredResidents())
+                .each((repeatItem: RepeatItem<ResidentData>) => {
+                  this.residentListRow(
+                    repeatItem.item,
+                    repeatItem.index === this.filteredResidents().length - 1
+                  )
+                })
+                .key((item: ResidentData) => item.id)
+            }
           }
           .width('100%')
           .layoutWeight(1)
@@ -1911,14 +1994,20 @@ export struct TabPageView {
           top: this.contentTopPadding()
         })
 
-        Repeat(this.filteredResidents())
-          .each((repeatItem: RepeatItem<ResidentData>) => {
-            this.residentListRow(
-              repeatItem.item,
-              repeatItem.index === this.filteredResidents().length - 1
-            )
-          })
-          .key((item: ResidentData) => item.id)
+        if (this.filteredResidents().length === 0) {
+          ListItem() {
+            this.businessEmptyState('暂无长者数据')
+          }
+        } else {
+          Repeat(this.filteredResidents())
+            .each((repeatItem: RepeatItem<ResidentData>) => {
+              this.residentListRow(
+                repeatItem.item,
+                repeatItem.index === this.filteredResidents().length - 1
+              )
+            })
+            .key((item: ResidentData) => item.id)
+        }
 
         ListItem() {
           Column() {
@@ -1966,7 +2055,7 @@ export struct TabPageView {
   }
 
   private isMessageUnread(item: InboxMessage): boolean {
-    return item.unread && !this.readMessageIds.includes(item.id);
+    return item.unread;
   }
 
   private filteredInboxMessages(): InboxMessage[] {
@@ -2041,11 +2130,52 @@ export struct TabPageView {
   private openMessage(item: InboxMessage): void {
     this.selectedMessageId = item.id;
     if (this.isMessageUnread(item)) {
-      this.readMessageIds = [...this.readMessageIds, item.id];
+      this.markConversationRead(item);
     }
     if (!this.isWideLayout()) {
       this.isPhoneMessageChatOpen = true;
     }
+  }
+
+  private async markConversationRead(item: InboxMessage): Promise<void> {
+    if (item.id.indexOf('user-') !== 0) {
+      return;
+    }
+    const peerId: number = Number(item.id.slice(5));
+    const currentUserId: number = AuthStore.getUser()?.id ?? 0;
+    const unreadIds: number[] = this.businessStore.messages
+      .filter((message: UserMessage) => message.sender_id === peerId &&
+        message.receiver_id === currentUserId && !message.read_at)
+      .map((message: UserMessage): number => message.id);
+    const markedIds: number[] = [];
+    for (let index: number = 0; index < unreadIds.length; index++) {
+      try {
+        const response = await MessageApi.markRead(unreadIds[index]);
+        if (response.code === 0) {
+          markedIds.push(unreadIds[index]);
+        }
+      } catch (_error) {
+      }
+    }
+    if (markedIds.length === 0) {
+      return;
+    }
+    const readAt: string = new Date().toISOString();
+    this.businessStore.messages = this.businessStore.messages.map((message: UserMessage): UserMessage => {
+      if (!markedIds.includes(message.id)) {
+        return message;
+      }
+      return {
+        id: message.id,
+        sender_id: message.sender_id,
+        receiver_id: message.receiver_id,
+        elder_id: message.elder_id,
+        content: message.content,
+        type: message.type,
+        sent_at: message.sent_at,
+        read_at: readAt
+      };
+    });
   }
 
   @Builder
@@ -2365,10 +2495,16 @@ export struct TabPageView {
           .backgroundColor($r('sys.color.background_secondary'))
 
           List({ scroller: this.currentScroller(), space: 0 }) {
-            Repeat(this.filteredTasks())
-              .each((repeatItem: RepeatItem<CareTask>) => {
-                this.taskListRow(repeatItem.item)
-              })
+            if (this.filteredTasks().length === 0) {
+              ListItem() {
+                this.businessEmptyState('暂无护理任务')
+              }
+            } else {
+              Repeat(this.filteredTasks())
+                .each((repeatItem: RepeatItem<CareTask>) => {
+                  this.taskListRow(repeatItem.item)
+                })
+            }
           }
           .width('100%')
           .layoutWeight(1)
@@ -2422,10 +2558,16 @@ export struct TabPageView {
 
         ListItem() {
           List({ space: 0 }) {
-            Repeat(this.filteredTasks())
-              .each((repeatItem: RepeatItem<CareTask>) => {
-                this.taskListRow(repeatItem.item)
-              })
+            if (this.filteredTasks().length === 0) {
+              ListItem() {
+                this.businessEmptyState('暂无护理任务')
+              }
+            } else {
+              Repeat(this.filteredTasks())
+                .each((repeatItem: RepeatItem<CareTask>) => {
+                  this.taskListRow(repeatItem.item)
+                })
+            }
           }
           .width('100%')
           .scrollBar(BarState.Off)
@@ -2469,9 +2611,9 @@ export struct TabPageView {
       {
         title: '',
         items: [
-          { icon: $r('sys.symbol.lock'), label: '账号安全', value: 'L3 权限', showArrow: true },
+          { icon: $r('sys.symbol.lock'), label: '账号安全', value: this.currentRoleNames(), showArrow: true },
           { icon: $r('sys.symbol.bell'), label: '通知提醒', value: '关键提醒', showArrow: true },
-          { icon: $r('sys.symbol.share'), label: '登录设备', value: '2 台', showArrow: true },
+          { icon: $r('sys.symbol.share'), label: '登录设备', value: '服务器未提供', showArrow: true },
           {
             icon: $r('sys.symbol.info_circle'),
             label: '关于我们',
@@ -2519,6 +2661,40 @@ export struct TabPageView {
     }
   }
 
+  private currentUserName(): string {
+    const user = AuthStore.getUser();
+    return user?.real_name || user?.username || '当前用户';
+  }
+
+  private currentUsername(): string {
+    return AuthStore.getUser()?.username || '未获取';
+  }
+
+  private currentUserPhone(): string {
+    return AuthStore.getUser()?.phone || '未登记';
+  }
+
+  private currentRoleNames(): string {
+    const user = AuthStore.getUser();
+    if (!user || user.roles.length === 0) {
+      return '未分配角色';
+    }
+    return user.roles.map((role) => role.name || role.code).join('、');
+  }
+
+  private currentUserAvatarText(): string {
+    return this.currentUserName().slice(0, 1).toUpperCase();
+  }
+
+  private taskCompletionPercent(): number {
+    const total: number = this.businessStore.tasks.length;
+    if (total === 0) {
+      return 0;
+    }
+    const done: number = this.businessStore.tasks.filter((task: BackendCareTask) => task.status === 'done').length;
+    return Math.round(done / total * 100);
+  }
+
   @Builder
   private mineHero() {
     Column({ space: 16 }) {
@@ -2529,7 +2705,7 @@ export struct TabPageView {
             .height(64)
             .backgroundColor($r('sys.color.comp_background_secondary'))
             .borderRadius(32)
-          Text('LT')
+          Text(this.currentUserAvatarText())
             .fontSize(24)
             .fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary'))
@@ -2537,7 +2713,7 @@ export struct TabPageView {
 
         Column({ space: 6 }) {
           Row({ space: 8 }) {
-            Text('刘婷')
+            Text(this.currentUserName())
               .fontSize(22)
               .fontWeight(FontWeight.Medium)
               .fontColor($r('sys.color.font_primary'))
@@ -2545,7 +2721,7 @@ export struct TabPageView {
               SymbolGlyph($r('sys.symbol.person_crop_circle_fill'))
                 .fontSize(11)
                 .fontColor([$r('sys.color.font_tertiary')])
-              Text('L3')
+              Text(this.currentRoleNames())
                 .fontSize(11)
                 .fontColor($r('sys.color.font_tertiary'))
             }
@@ -2555,7 +2731,7 @@ export struct TabPageView {
           }
           .alignItems(VerticalAlign.Center)
 
-          Text('阳光护士（2024）')
+          Text(this.currentUsername())
             .fontSize(14)
             .fontColor($r('sys.color.font_secondary'))
         }
@@ -2599,14 +2775,14 @@ export struct TabPageView {
       ])
 
       this.profileSheetGroup([
-        { label: '昵称', value: '刘婷' },
-        { label: '性别', value: '女' },
-        { label: '出生日期', value: '1995-08-12' }
+        { label: '姓名', value: this.currentUserName() },
+        { label: '账号', value: this.currentUsername() },
+        { label: '角色', value: this.currentRoleNames() }
       ])
 
       this.profileSheetGroup([
-        { label: '手机号', value: '138****8021' },
-        { label: '实名认证', value: '**婷', tag: '已实名' }
+        { label: '手机号', value: this.currentUserPhone() },
+        { label: '账号状态', value: AuthStore.getUser()?.status === 1 ? '正常' : '停用' }
       ])
     }
     .width('100%')
@@ -2691,7 +2867,7 @@ export struct TabPageView {
   private mineStatsCard() {
     Row({ space: 0 }) {
       Column({ space: 4 }) {
-        Text('28')
+        Text(this.businessStore.elders.length.toString())
           .fontSize(20)
           .fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.font_primary'))
@@ -2703,7 +2879,7 @@ export struct TabPageView {
       .alignItems(HorizontalAlign.Center)
 
       Column({ space: 4 }) {
-        Text('92%')
+        Text(this.taskCompletionPercent().toString() + '%')
           .fontSize(20)
           .fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.font_primary'))
@@ -2715,7 +2891,7 @@ export struct TabPageView {
       .alignItems(HorizontalAlign.Center)
 
       Column({ space: 4 }) {
-        Text('4.9')
+        Text('--')
           .fontSize(20)
           .fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.font_primary'))
@@ -2727,7 +2903,7 @@ export struct TabPageView {
       .alignItems(HorizontalAlign.Center)
 
       Column({ space: 4 }) {
-        Text('12h')
+        Text('--')
           .fontSize(20)
           .fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.font_primary'))

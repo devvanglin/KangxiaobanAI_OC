@@ -110,6 +110,18 @@ function diagnosisText(resident: ResidentData): string {
   return remainingCount > 0 ? `${visibleText} +${remainingCount}` : visibleText;
 }
 
+function ageText(resident: ResidentData): string {
+  return resident.age > 0 ? `${resident.age}岁` : '年龄未登记';
+}
+
+function metricText(value: number): string {
+  return value > 0 ? value.toString() : '--';
+}
+
+function metricUnit(value: number, unit: string): string {
+  return value > 0 ? unit : '';
+}
+
 @Builder
 function residentIdentityRow(options: ResidentSummaryCardOptions) {
   Row() {
@@ -122,7 +134,7 @@ function residentIdentityRow(options: ResidentSummaryCardOptions) {
         .textOverflow({ overflow: TextOverflow.Ellipsis })
     }
 
-    Text(`${options.resident.age}岁·${genderText(options.resident)}`)
+    Text(`${ageText(options.resident)}·${genderText(options.resident)}`)
       .fontSize($r('sys.float.Body_S'))
       .fontColor($r('sys.color.font_secondary'))
       .margin({ left: isDetailMode(options) ? 0 : 8 })
@@ -204,11 +216,17 @@ function residentMetricItem(label: string, value: string, unit: string, level: S
 @Builder
 function residentPrimaryMetrics(options: ResidentSummaryCardOptions) {
   Row() {
-    residentMetricItem('心率', `${options.vitalSign.heartRate}`, 'bpm', heartRateLevel(options.vitalSign), true)
-    residentMetricItem('血压', `${options.vitalSign.systolic}/${options.vitalSign.diastolic}`, '',
-      bloodPressureLevel(options.vitalSign), true)
-    residentMetricItem('步数', `${options.vitalSign.steps}`, '步', 'normal', true)
-    residentMetricItem('用药', `${options.medicationProgress.done}/${options.medicationProgress.total}`, '次',
+    residentMetricItem('心率', metricText(options.vitalSign.heartRate),
+      metricUnit(options.vitalSign.heartRate, 'bpm'),
+      options.vitalSign.heartRate > 0 ? heartRateLevel(options.vitalSign) : 'normal', true)
+    residentMetricItem('血压', options.vitalSign.systolic > 0 && options.vitalSign.diastolic > 0 ?
+      `${options.vitalSign.systolic}/${options.vitalSign.diastolic}` : '--', '',
+      options.vitalSign.systolic > 0 && options.vitalSign.diastolic > 0 ?
+        bloodPressureLevel(options.vitalSign) : 'normal', true)
+    residentMetricItem('步数', '--', '', 'normal', true)
+    residentMetricItem('用药', options.medicationProgress.total > 0 ?
+      `${options.medicationProgress.done}/${options.medicationProgress.total}` : '--',
+      options.medicationProgress.total > 0 ? '次' : '',
       'normal', true)
   }
   .width('100%')
@@ -238,10 +256,12 @@ function residentAllergyNotice(options: ResidentSummaryCardOptions) {
 @Builder
 function residentSecondaryMetrics(options: ResidentSummaryCardOptions) {
   Row() {
-    residentMetricItem('血氧', `${options.vitalSign.oxygen}`, '%', oxygenLevel(options.vitalSign), false)
-    residentMetricItem('体温', `${options.vitalSign.temperature}`, '℃', 'normal', false)
-    residentMetricItem('呼吸', `${options.vitalSign.respiratory}`, '次/分', 'normal', false)
-    residentMetricItem('睡眠', `${options.vitalSign.sleepHours}`, '小时', sleepLevel(options.vitalSign), false)
+    residentMetricItem('血氧', metricText(options.vitalSign.oxygen), metricUnit(options.vitalSign.oxygen, '%'),
+      options.vitalSign.oxygen > 0 ? oxygenLevel(options.vitalSign) : 'normal', false)
+    residentMetricItem('体温', metricText(options.vitalSign.temperature),
+      metricUnit(options.vitalSign.temperature, '℃'), 'normal', false)
+    residentMetricItem('呼吸', '--', '', 'normal', false)
+    residentMetricItem('睡眠', '--', '', 'normal', false)
   }
   .width('100%')
   .height(48)

@@ -51,13 +51,15 @@ type Bed struct {
 // CareTask 护理任务。状态 todo/doing/done。
 type CareTask struct {
 	Base
-	ElderID  uint       `gorm:"index;not null" json:"elder_id"`
-	Title    string     `gorm:"size:128;not null" json:"title"`
-	Kind     string     `gorm:"size:32" json:"kind"` // feeding/bath/medication/turnover/rehab...
-	Assignee string     `gorm:"size:64" json:"assignee"`
-	DueAt    *time.Time `json:"due_at"`
-	Status   string     `gorm:"size:16;default:todo" json:"status"`
-	Remark   string     `gorm:"size:500" json:"remark"`
+	ElderID    uint       `gorm:"index;not null" json:"elder_id"`
+	PlanItemID *uint      `gorm:"index" json:"plan_item_id,omitempty"`
+	Title      string     `gorm:"size:128;not null" json:"title"`
+	Kind       string     `gorm:"size:32" json:"kind"` // feeding/bath/medication/turnover/rehab...
+	AssigneeID *uint      `gorm:"index" json:"assignee_id,omitempty"`
+	Assignee   string     `gorm:"size:64" json:"assignee"`
+	DueAt      *time.Time `json:"due_at"`
+	Status     string     `gorm:"size:16;default:todo" json:"status"`
+	Remark     string     `gorm:"size:500" json:"remark"`
 }
 
 // HealthRecord 健康体征记录。source manual 手录 / iot 设备。
@@ -106,6 +108,7 @@ type CarePlanItem struct {
 	Kind         string     `gorm:"size:32" json:"kind"`
 	Frequency    string     `gorm:"size:64" json:"frequency"`
 	DueAt        *time.Time `json:"due_at"`
+	AssigneeID   *uint      `gorm:"index" json:"assignee_id,omitempty"`
 	Assignee     string     `gorm:"size:64" json:"assignee"`
 	RiskLevel    string     `gorm:"size:16" json:"risk_level"`
 	Instructions string     `gorm:"size:1024" json:"instructions"`

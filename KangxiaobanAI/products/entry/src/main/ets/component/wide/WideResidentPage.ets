@@ -87,7 +87,7 @@ export struct WideResidentPage {
     { title: '护理记录', index: 2 },
     { title: '设备', index: 3 }
   ];
-  @Local selectedResidentId: string = 'r1';
+  @Local selectedResidentId: string = '';
   @Local selectedTab: ResidentDetailTab = 'overview';
   @Local hoveredResidentId: string = '';
   @Local compactDetailVisible: boolean = false;
@@ -254,6 +254,81 @@ export struct WideResidentPage {
     };
   }
 
+  private hasBloodPressure(resident: ResidentData): boolean {
+    const vital: VitalSign = this.residentVitalSign(resident);
+    return vital.systolic > 0 && vital.diastolic > 0;
+  }
+
+  private hasHeartRate(resident: ResidentData): boolean {
+    return this.residentVitalSign(resident).heartRate > 0;
+  }
+
+  private hasOxygen(resident: ResidentData): boolean {
+    return this.residentVitalSign(resident).oxygen > 0;
+  }
+
+  private hasMedicationPlan(resident: ResidentData): boolean {
+    return this.residentMedicationProgress(resident).total > 0;
+  }
+
+  private residentMedications(resident: ResidentData): MedicationRecord[] {
+    return this.businessStore.medications
+      .filter((item: MedicationRecord) => item.elder_id === Number(resident.id))
+      .sort((left: MedicationRecord, right: MedicationRecord): number =>
+        (left.plan_time ?? '').localeCompare(right.plan_time ?? ''));
+  }
+
+  private nextMedicationText(resident: ResidentData): string {
+    const records: MedicationRecord[] = this.residentMedications(resident);
+    if (records.length === 0) {
+      return '暂无计划';
+    }
+    const pending: MedicationRecord | undefined = records.find((item: MedicationRecord): boolean =>
+      item.status !== 'taken');
+    if (pending === undefined) {
+      return '全部完成';
+    }
+    return pending.plan_time ? `下次 ${this.timeText(pending.plan_time)}` : '待执行';
+  }
+
+  private medicationSummary(resident: ResidentData): string {
+    const records: MedicationRecord[] = this.residentMedications(resident);
+    if (records.length === 0) {
+      return '服务器暂无用药计划';
+    }
+    const pending: MedicationRecord | undefined = records.find((item: MedicationRecord): boolean =>
+      item.status !== 'taken');
+    const current: MedicationRecord = pending ?? records[records.length - 1];
+    return `${current.medicine_name} · ${current.dosage}`;
+  }
+
+  private residentCareTasks(resident: ResidentData): CareTask[] {
+    return this.businessStore.tasks
+      .filter((item: CareTask): boolean => item.elder_id === Number(resident.id))
+      .sort((left: CareTask, right: CareTask): number =>
+        (left.due_at ?? '').localeCompare(right.due_at ?? ''));
+  }
+
+  private taskStateText(status: string): string {
+    if (status === 'done') {
+      return '已完成';
+    }
+    if (status === 'doing') {
+      return '进行中';
+    }
+    return '待执行';
+  }
+
+  private taskStateLevel(status: string): StatusLevel {
+    return status === 'done' ? 'normal' : 'warning';
+  }
+
+  private responsibleCaregiver(resident: ResidentData): string {
+    const task: CareTask | undefined = this.residentCareTasks(resident)
+      .find((item: CareTask): boolean => (item.assignee ?? '').trim().length > 0);
+    return task?.assignee ?? '未分配';
+  }
+
   private filteredResidents(): ResidentData[] {
     const activeFilter: ResidentFilter = this.activeResidentFilter();
     return this.allResidents().filter((item: ResidentData) =>
@@ -385,11 +460,30 @@ export struct WideResidentPage {
   private trendRows(resident: ResidentData): VitalTrendRow[] {
     return this.businessStore.healthRecords
       .filter((item: HealthRecord) => item.elder_id === Number(resident.id))
+      .filter((item: HealthRecord): boolean => item.heart_rate !== undefined &&
+        item.systolic !== undefined && item.diastolic !== undefined)
       .sort((left: HealthRecord, right: HealthRecord): number => left.record_time.localeCompare(right.record_time))
       .map((item: HealthRecord): VitalTrendRow => {
         return { time: this.timeText(item.record_time), heartRate: item.heart_rate ?? 0,
           systolic: item.systolic ?? 0, diastolic: item.diastolic ?? 0 };
       });
+  }
+
+  private ageText(resident: ResidentData): string {
+    return resident.age > 0 ? `${resident.age}岁` : '年龄未登记';
+  }
+
+  private measuredAtText(resident: ResidentData): string {
+    const measuredAt: string = this.residentVitalSign(resident).measuredAt;
+    return measuredAt === '--' ? '暂无体征记录' : `${measuredAt} 更新`;
+  }
+
+  private vitalText(value: number): string {
+    return value > 0 ? value.toString() : '--';
+  }
+
+  private vitalUnit(value: number, unit: string): string {
+    return value > 0 ? unit : '';
   }
 
   private careRecords(resident: ResidentData): CareRecordRow[] {
@@ -420,7 +514,7 @@ export struct WideResidentPage {
       .map((item: IotDevice): RoomDeviceData => {
         return { id: item.device_id, name: item.product, type: item.protocol, room: resident.room,
           status: item.online === 1 ? '在线' : '离线', level: item.online === 1 ? 'normal' : 'danger',
-          battery: 0, lastUpdate: item.last_seen ? this.timeText(item.last_seen) : '--' };
+          lastUpdate: item.last_seen ? this.timeText(item.last_seen) : '--' };
       });
   }
 
@@ -780,7 +874,7 @@ export struct WideResidentPage {
         .width('100%')
         .alignItems(VerticalAlign.Center)
 
-        Text(`${resident.age}岁 · ${resident.gender === 'male' ? '男' : '女'} · ${resident.status}`)
+        Text(`${this.ageText(resident)} · ${resident.gender === 'male' ? '男' : '女'} · ${resident.status}`)
           .width('100%')
           .fontSize($r('sys.float.Body_S'))
           .fontColor($r('sys.color.font_secondary'))
@@ -809,7 +903,7 @@ export struct WideResidentPage {
         .height(34)
         .strokeWidth(0.5)
         .color($r('sys.color.comp_divider'))
-      this.profileMetaItem('责任护工', '刘婷')
+      this.profileMetaItem('责任护工', this.responsibleCaregiver(resident))
     }
     .width('100%')
     .alignItems(VerticalAlign.Center)
@@ -865,7 +959,7 @@ export struct WideResidentPage {
               .fontWeight(FontWeight.Medium)
               .fontColor($r('sys.color.font_primary'))
             Blank()
-            Text(`${this.residentVitalSign(resident).measuredAt} 更新`)
+            Text(this.measuredAtText(resident))
               .fontSize($r('sys.float.Caption_M'))
               .fontColor($r('sys.color.font_tertiary'))
           }
@@ -891,7 +985,7 @@ export struct WideResidentPage {
             if (resident.allergies.length > 0) {
               this.allergyBadge(resident)
             }
-            Text(`${this.residentVitalSign(resident).measuredAt} 更新`)
+            Text(this.measuredAtText(resident))
               .fontSize($r('sys.float.Caption_M'))
               .fontColor($r('sys.color.font_tertiary'))
           }
@@ -965,13 +1059,14 @@ export struct WideResidentPage {
 
         if (this.compactWidth) {
           Row({ space: 0 }) {
-            this.secondaryVitalMetric('体温', `${this.residentVitalSign(resident).temperature}`, '℃')
+            this.secondaryVitalMetric('体温', this.vitalText(this.residentVitalSign(resident).temperature),
+              this.vitalUnit(this.residentVitalSign(resident).temperature, '℃'))
             Divider()
               .vertical(true)
               .height(32)
               .strokeWidth(0.5)
               .color($r('sys.color.comp_divider'))
-            this.secondaryVitalMetric('呼吸', `${this.residentVitalSign(resident).respiratory}`, '次/分')
+            this.secondaryVitalMetric('呼吸', '--', '')
           }
           .width('100%')
           .height(54)
@@ -982,38 +1077,39 @@ export struct WideResidentPage {
             .color($r('sys.color.comp_divider'))
 
           Row({ space: 0 }) {
-            this.secondaryVitalMetric('今日步数', `${this.residentVitalSign(resident).steps}`, '步')
+            this.secondaryVitalMetric('今日步数', '--', '')
             Divider()
               .vertical(true)
               .height(32)
               .strokeWidth(0.5)
               .color($r('sys.color.comp_divider'))
-            this.secondaryVitalMetric('昨夜睡眠', `${this.residentVitalSign(resident).sleepHours}`, '小时')
+            this.secondaryVitalMetric('昨夜睡眠', '--', '')
           }
           .width('100%')
           .height(54)
           .alignItems(VerticalAlign.Center)
         } else {
           Row({ space: 0 }) {
-            this.secondaryVitalMetric('体温', `${this.residentVitalSign(resident).temperature}`, '℃')
+            this.secondaryVitalMetric('体温', this.vitalText(this.residentVitalSign(resident).temperature),
+              this.vitalUnit(this.residentVitalSign(resident).temperature, '℃'))
             Divider()
               .vertical(true)
               .height(32)
               .strokeWidth(0.5)
               .color($r('sys.color.comp_divider'))
-            this.secondaryVitalMetric('呼吸', `${this.residentVitalSign(resident).respiratory}`, '次/分')
+            this.secondaryVitalMetric('呼吸', '--', '')
             Divider()
               .vertical(true)
               .height(32)
               .strokeWidth(0.5)
               .color($r('sys.color.comp_divider'))
-            this.secondaryVitalMetric('今日步数', `${this.residentVitalSign(resident).steps}`, '步')
+            this.secondaryVitalMetric('今日步数', '--', '')
             Divider()
               .vertical(true)
               .height(32)
               .strokeWidth(0.5)
               .color($r('sys.color.comp_divider'))
-            this.secondaryVitalMetric('昨夜睡眠', `${this.residentVitalSign(resident).sleepHours}`, '小时')
+            this.secondaryVitalMetric('昨夜睡眠', '--', '')
           }
           .width('100%')
           .height(56)
@@ -1052,49 +1148,64 @@ export struct WideResidentPage {
 
   @Builder
   private bloodPressureMetric(resident: ResidentData) {
-    this.primaryVitalMetric(
-      '血压',
-      `${this.residentVitalSign(resident).systolic}/${this.residentVitalSign(resident).diastolic}`,
-      'mmHg',
-      this.metricStateText(this.bloodPressureLevel(this.residentVitalSign(resident)), '偏高'),
-      this.bloodPressureLevel(this.residentVitalSign(resident))
-    )
+    if (this.hasBloodPressure(resident)) {
+      this.primaryVitalMetric(
+        '血压',
+        `${this.residentVitalSign(resident).systolic}/${this.residentVitalSign(resident).diastolic}`,
+        'mmHg',
+        this.metricStateText(this.bloodPressureLevel(this.residentVitalSign(resident)), '偏高'),
+        this.bloodPressureLevel(this.residentVitalSign(resident))
+      )
+    } else {
+      this.primaryVitalMetric('血压', '--', '', '未上报', 'normal')
+    }
   }
 
   @Builder
   private heartRateMetric(resident: ResidentData) {
-    this.primaryVitalMetric(
-      '心率',
-      `${this.residentVitalSign(resident).heartRate}`,
-      'bpm',
-      this.metricStateText(this.heartRateLevel(this.residentVitalSign(resident)), '需关注'),
-      this.heartRateLevel(this.residentVitalSign(resident))
-    )
+    if (this.hasHeartRate(resident)) {
+      this.primaryVitalMetric(
+        '心率',
+        this.residentVitalSign(resident).heartRate.toString(),
+        'bpm',
+        this.metricStateText(this.heartRateLevel(this.residentVitalSign(resident)), '需关注'),
+        this.heartRateLevel(this.residentVitalSign(resident))
+      )
+    } else {
+      this.primaryVitalMetric('心率', '--', '', '未上报', 'normal')
+    }
   }
 
   @Builder
   private oxygenMetric(resident: ResidentData) {
-    this.primaryVitalMetric(
-      '血氧',
-      `${this.residentVitalSign(resident).oxygen}`,
-      '%',
-      this.metricStateText(this.oxygenLevel(this.residentVitalSign(resident)), '需关注'),
-      this.oxygenLevel(this.residentVitalSign(resident))
-    )
+    if (this.hasOxygen(resident)) {
+      this.primaryVitalMetric(
+        '血氧',
+        this.residentVitalSign(resident).oxygen.toString(),
+        '%',
+        this.metricStateText(this.oxygenLevel(this.residentVitalSign(resident)), '需关注'),
+        this.oxygenLevel(this.residentVitalSign(resident))
+      )
+    } else {
+      this.primaryVitalMetric('血氧', '--', '', '未上报', 'normal')
+    }
   }
 
   @Builder
   private medicationMetric(resident: ResidentData) {
-    this.primaryVitalMetric(
-      '今日用药',
-      `${this.residentMedicationProgress(resident).done}/${this.residentMedicationProgress(resident).total}`,
-      '次',
-      this.residentMedicationProgress(resident).done >= this.residentMedicationProgress(resident).total ?
-        '已完成' :
-        `待完成 ${this.residentMedicationProgress(resident).total -
-          this.residentMedicationProgress(resident).done} 次`,
-      this.medicationLevel(this.residentMedicationProgress(resident))
-    )
+    if (this.hasMedicationPlan(resident)) {
+      this.primaryVitalMetric(
+        '今日用药',
+        `${this.residentMedicationProgress(resident).done}/${this.residentMedicationProgress(resident).total}`,
+        '次',
+        this.residentMedicationProgress(resident).done >= this.residentMedicationProgress(resident).total ?
+          '已完成' :
+          `待完成 ${this.residentMedicationProgress(resident).total - this.residentMedicationProgress(resident).done} 次`,
+        this.medicationLevel(this.residentMedicationProgress(resident))
+      )
+    } else {
+      this.primaryVitalMetric('今日用药', '--', '', '暂无计划', 'normal')
+    }
   }
 
   @Builder
@@ -1249,35 +1360,47 @@ export struct WideResidentPage {
   @Builder
   private carePlanCard(resident: ResidentData) {
     Column({ space: 0 }) {
-      this.cardTitle('今日护理', '4 项 · 已完成 2 项')
-      this.carePlanRow('14:00', '翻身叩背', '待执行', 'warning', false)
-      this.carePlanRow('12:00', '协助服药', '进行中', 'warning', false)
-      this.carePlanRow('10:30', '情绪关怀', '已完成', resident.level, false)
-      this.carePlanRow('09:00', '晨间巡房', '已完成', 'normal', true)
+      this.cardTitle('今日护理', `${this.residentCareTasks(resident).length} 项 · 已完成 ${
+        this.residentCareTasks(resident).filter((item: CareTask): boolean => item.status === 'done').length} 项`)
+      if (this.residentCareTasks(resident).length === 0) {
+        Text('服务器暂无护理任务')
+          .width('100%')
+          .height(48)
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_tertiary'))
+          .textAlign(TextAlign.Center)
+      } else {
+        Repeat(this.residentCareTasks(resident))
+          .each((repeatItem: RepeatItem<CareTask>) => {
+            this.carePlanRow(repeatItem.item,
+              repeatItem.index === this.residentCareTasks(resident).length - 1)
+          })
+          .key((item: CareTask) => item.id.toString())
+      }
     }
     .width('100%')
     .padding({ left: 16, right: 16, top: 4, bottom: 10 })
   }
 
   @Builder
-  private carePlanRow(time: string, project: string, state: string, level: StatusLevel, isLast: boolean) {
+  private carePlanRow(task: CareTask, isLast: boolean) {
     Column({ space: 0 }) {
       Row({ space: 12 }) {
-        Text(time)
+        Text(task.due_at ? this.timeText(task.due_at) : '--')
           .width(48)
           .fontSize($r('sys.float.Body_S'))
           .fontColor($r('sys.color.font_tertiary'))
-        Text(project)
+        Text(task.title)
           .layoutWeight(1)
           .fontSize($r('sys.float.Body_M'))
           .fontColor($r('sys.color.font_primary'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(state)
+        Text(this.taskStateText(task.status))
           .fontSize($r('sys.float.Caption_M'))
-          .fontColor(this.statusColor(level))
+          .fontColor(this.statusColor(this.taskStateLevel(task.status)))
           .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-          .backgroundColor(this.statusBackground(level))
+          .backgroundColor(this.statusBackground(this.taskStateLevel(task.status)))
           .borderRadius(5)
       }
       .width('100%')
@@ -1307,7 +1430,7 @@ export struct WideResidentPage {
   @Builder
   private riskCard(resident: ResidentData) {
     Column({ space: 0 }) {
-      this.cardTitle('风险评估', '本月已评估')
+      this.cardTitle('风险评估', '来自服务器告警记录')
       Repeat(this.riskRows(resident))
         .each((repeatItem: RepeatItem<RiskRow>) => {
           Row() {
@@ -1348,14 +1471,13 @@ export struct WideResidentPage {
         .layoutWeight(1)
 
         Column({ space: 4 }) {
-          Text(this.residentMedicationProgress(resident).done ===
-            this.residentMedicationProgress(resident).total ? '全部完成' : '下次 14:00')
+          Text(this.nextMedicationText(resident))
             .fontSize($r('sys.float.Body_M'))
             .fontWeight(FontWeight.Medium)
             .fontColor(this.residentMedicationProgress(resident).done ===
               this.residentMedicationProgress(resident).total ?
               $r('app.color.status_normal') : $r('app.color.status_warning'))
-          Text('口服 · 请核对医嘱')
+          Text(this.medicationSummary(resident))
             .fontSize($r('sys.float.Caption_M'))
             .fontColor($r('sys.color.font_tertiary'))
         }
@@ -1425,7 +1547,7 @@ export struct WideResidentPage {
       .border({ width: 0.5, color: $r('sys.color.comp_divider') })
 
       Column({ space: 0 }) {
-        this.cardTitle('测量记录', '最近 6 次')
+        this.cardTitle('测量记录', `${this.trendRows(resident).length} 次`)
         Repeat(this.trendRows(resident))
           .each((repeatItem: RepeatItem<VitalTrendRow>) => {
             Row() {
@@ -1570,7 +1692,8 @@ export struct WideResidentPage {
                 .width('100%')
 
                 Row() {
-                  Text(`电量 ${repeatItem.item.battery ?? 0}%`)
+                  Text(repeatItem.item.battery === undefined ? '电量未上报' :
+                    `电量 ${repeatItem.item.battery}%`)
                     .fontSize($r('sys.float.Body_S'))
                     .fontColor($r('sys.color.font_secondary'))
                     .layoutWeight(1)

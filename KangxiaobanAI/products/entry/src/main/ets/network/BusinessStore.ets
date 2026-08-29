@@ -23,6 +23,7 @@ import { MessageApi } from './MessageApi';
 @ObservedV2
 export class BusinessStore {
   private static shared: BusinessStore = new BusinessStore();
+  private pendingForceReload: boolean = false;
 
   @Trace elders: Elder[] = [];
   @Trace rooms: Room[] = [];
@@ -50,16 +51,23 @@ export class BusinessStore {
   }
 
   public async load(force: boolean = false): Promise<void> {
-    if (this.loading || this.loaded && !force) {
+    if (this.loading) {
+      if (force) {
+        this.pendingForceReload = true;
+      }
+      return;
+    }
+    if (this.loaded && !force) {
       return;
     }
     this.loading = true;
-    // 长者区域独立于后续业务接口，不能被整批同步过程长期阻塞。
-    this.eldersLoaded = true;
+    this.eldersLoaded = false;
     this.error = '';
     try {
       const elderResp = await ApiClient.get<Paged<Elder>>('/elders?size=100');
       this.elders = elderResp.data?.list ?? [];
+      // 长者区域独立于后续业务接口，不能被整批同步过程长期阻塞。
+      this.eldersLoaded = true;
       const roomResp = await ApiClient.get<Paged<Room>>('/rooms?size=100');
       this.rooms = roomResp.data?.list ?? [];
       const bedResp = await ApiClient.get<Paged<Bed>>('/beds?size=200');
@@ -108,6 +116,10 @@ export class BusinessStore {
       this.eldersLoaded = true;
     }
     this.loading = false;
+    if (this.pendingForceReload) {
+      this.pendingForceReload = false;
+      await this.load(true);
+    }
   }
 
   public clear(): void {
@@ -126,6 +138,7 @@ export class BusinessStore {
     this.messages = [];
     this.diningOrders = [];
     this.assessments = [];
+    this.pendingForceReload = false;
     this.loaded = false;
     this.eldersLoaded = false;
     this.error = '';

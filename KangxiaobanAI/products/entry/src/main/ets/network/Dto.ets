@@ -29,6 +29,20 @@ export interface LoginResp {
   user: LoginUser;
 }
 
+export interface AiChatResponse {
+  answer: string;
+  model: string;
+  note: string;
+}
+
+export interface AiChatRequest {
+  question: string;
+}
+
+export interface TaskStatusRequest {
+  status: string;
+}
+
 /** 可联系的正式用户。 */
 export interface MessageContact {
   id: number;

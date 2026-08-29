@@ -160,7 +160,7 @@
     <div class="grid">
       <div class="panel"><div class="phead"><h3>排班</h3><span class="tag" id="schCount">-</span></div>
         <div class="pbody"><table><thead><tr><th>日期</th><th>员工</th><th>班次</th><th>负责房间</th></tr></thead><tbody id="scheduleRows"></tbody></table></div>
-        <div class="formbar"><input id="scStaff" placeholder="员工"><input id="scDate" placeholder="日期 2026-08-28"><input id="scShift" placeholder="班次"><button class="btn pri" onclick="addSchedule()">新增</button></div></div>
+        <div class="formbar"><input id="scStaff" placeholder="员工"><input id="scDate" placeholder="日期 YYYY-MM-DD"><input id="scShift" placeholder="班次"><button class="btn pri" onclick="addSchedule()">新增</button></div></div>
       <div class="panel"><div class="phead"><h3>交接班</h3></div>
         <div class="pbody"><table><thead><tr><th>日期</th><th>交班 → 接班</th><th>摘要</th><th>问题</th></tr></thead><tbody id="handoverRows"></tbody></table></div>
         <div class="formbar"><input id="hoFrom" placeholder="交班"><input id="hoTo" placeholder="接班"><textarea style="flex:2;min-width:130px;display:block" id="hoSum" placeholder="交接摘要"></textarea><button class="btn pri" onclick="addHandover()">记录</button></div></div>
@@ -172,18 +172,19 @@
 <div class="overlay" id="loginOverlay">
   <form class="login" onsubmit="return doLogin(event)">
     <h3>进入康养护理中枢</h3>
-    <div class="lsub">演示登录 · 说明：需要运行康小伴后端（1280 段内网）</div>
-    <input id="user" value="admin">
-    <input id="pass" type="password" value="Admin@123456">
+    <div class="lsub">使用机构分配的正式账号登录</div>
+    <input id="user" autocomplete="username" placeholder="账号">
+    <input id="pass" type="password" autocomplete="current-password" placeholder="密码">
     <button type="submit">登录</button>
     <div class="err" id="loginErr"></div>
   </form>
 </div>
 
 <script>
-const API_BASE='http://127.0.0.1:8080/api/v1', WS_BASE='ws://127.0.0.1:8080/api/v1/ws';
+const API_BASE='/api/v1';
+const WS_BASE=(location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/api/v1/ws';
 const $=id=>document.getElementById(id);
-let token=localStorage.getItem('kxb_token')||'', ws=null;
+let token=sessionStorage.getItem('kxb_token')||'', ws=null;
 
 document.getElementById('tabBar').addEventListener('click',e=>{
   const a=e.target.closest('a'); if(!a)return;
@@ -200,8 +201,17 @@ function auth(p,o){o=o||{};o.headers=Object.assign({'Content-Type':'application/
 
 async function doLogin(e){e.preventDefault();$('loginErr').textContent='';
   const r=await auth('/auth/login',{method:'POST',body:JSON.stringify({username:$('user').value,password:$('pass').value})});
-  if(r.code===0&&r.data&&r.data.token){token=r.data.token;localStorage.setItem('kxb_token',token);$('loginOverlay').classList.remove('show');connectWs();refreshAll();}
+  if(r.code===0&&r.data&&r.data.token){token=r.data.token;sessionStorage.setItem('kxb_token',token);$('loginOverlay').classList.remove('show');connectWs();refreshAll();}
   else $('loginErr').textContent=r.msg||'登录失败';}
+
+async function restoreSession(){
+  if(!token){$('loginOverlay').classList.add('show');return;}
+  try{
+    const r=await api('/auth/me');
+    if(r.code===0){$('loginOverlay').classList.remove('show');connectWs();refreshAll();return;}
+  }catch(_){ }
+  token='';sessionStorage.removeItem('kxb_token');$('loginOverlay').classList.add('show');
+}
 
 const LVN={emergency:'紧急',important:'重要',info:'提示'};
 function lvc(l){return l==='emergency'?'lv emergency':(l==='important'?'lv important':'lv info');}
@@ -245,7 +255,7 @@ function connectWs(){if(!token)return;if(ws){try{ws.close();}catch(e){}}ws=new W
 function refreshAll(){refreshSummary();refreshAlerts();refreshDevices();refreshBills();refreshSchedules();refreshHandovers();}
 
 setInterval(clock,1000);clock();
-if(token)doLogin({preventDefault:()=>{}});else $('loginOverlay').classList.add('show');
+restoreSession();
 setInterval(refreshAll,6000);
 </script>
 </body>

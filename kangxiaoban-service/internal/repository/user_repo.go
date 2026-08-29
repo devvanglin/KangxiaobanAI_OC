@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"context"
+
 	"kangxiaoban-service/internal/model"
 
 	"gorm.io/gorm"
@@ -17,12 +19,13 @@ func NewUserRepository(db *gorm.DB) *UserRepository {
 
 // FindByUsername 按用户名查询，预载角色与权限。
 func (r *UserRepository) FindByUsername(username string) (*model.User, error) {
-	return r.FindByUsernameInTenant(username, 1)
+	ctx := context.WithValue(context.Background(), model.TenantContextKey, uint(1))
+	return r.FindByUsernameInTenant(ctx, username, 1)
 }
 
-func (r *UserRepository) FindByUsernameInTenant(username string, tenantID uint) (*model.User, error) {
+func (r *UserRepository) FindByUsernameInTenant(ctx context.Context, username string, tenantID uint) (*model.User, error) {
 	var u model.User
-	err := r.db.
+	err := r.db.WithContext(ctx).
 		Preload("Roles", func(db *gorm.DB) *gorm.DB {
 			return db.Preload("Permissions")
 		}).

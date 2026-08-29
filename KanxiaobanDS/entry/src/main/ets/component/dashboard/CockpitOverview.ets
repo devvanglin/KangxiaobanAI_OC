@@ -1,1198 +1,593 @@
-import { FACILITY_STATUSES, LIVE_EVENTS, WARD_STATUSES } from '../../data/DashboardMockData';
-import { DashboardEvent, DashboardTone, FacilityStatus, WardStatus } from '../../model/DashboardModels';
-import { dashboardToneColor, dashboardToneSoftColor } from './DashboardStyle';
-
-interface RoomOperation {
-  id: string;
-  building: string;
-  floor: string;
-  roomNumber: string;
-  residentNames: string;
-  occupiedBeds: number;
-  totalBeds: number;
-  careLevel: string;
-  owner: string;
-  vitalStatus: string;
-  devicesOnline: number;
-  devicesTotal: number;
-  temperature: string;
-  humidity: string;
-  openTasks: number;
-  alerts: number;
-  lastRound: string;
-  nextTask: string;
-  status: string;
-  tone: DashboardTone;
-}
-
-const ROOM_OPERATIONS: RoomOperation[] = [
-  {
-    id: 'east-a-218', building: '东区 A 栋', floor: '2 层', roomNumber: '218',
-    residentNames: '王桂兰、陈松年', occupiedBeds: 2, totalBeds: 2, careLevel: '三级照护', owner: '李晓',
-    vitalStatus: '1 人离床未归', devicesOnline: 7, devicesTotal: 8, temperature: '23.8℃', humidity: '52%',
-    openTasks: 3, alerts: 1, lastRound: '10:12', nextTask: '10:40 生命体征复测', status: '紧急', tone: 'danger'
-  },
-  {
-    id: 'east-a-220', building: '东区 A 栋', floor: '2 层', roomNumber: '220',
-    residentNames: '周素琴、赵建国', occupiedBeds: 2, totalBeds: 2, careLevel: '二级照护', owner: '刘敏',
-    vitalStatus: '生命体征平稳', devicesOnline: 8, devicesTotal: 8, temperature: '23.5℃', humidity: '49%',
-    openTasks: 1, alerts: 0, lastRound: '10:20', nextTask: '11:00 饮水与翻身', status: '正常', tone: 'success'
-  },
-  {
-    id: 'east-b-307', building: '东区 B 栋', floor: '3 层', roomNumber: '307',
-    residentNames: '孙玉兰、何秀珍', occupiedBeds: 2, totalBeds: 2, careLevel: '认知症照护', owner: '张洁',
-    vitalStatus: '夜间睡眠偏少', devicesOnline: 9, devicesTotal: 9, temperature: '24.1℃', humidity: '55%',
-    openTasks: 2, alerts: 1, lastRound: '10:08', nextTask: '10:35 情绪安抚巡视', status: '关注', tone: 'warning'
-  },
-  {
-    id: 'east-b-309', building: '东区 B 栋', floor: '3 层', roomNumber: '309',
-    residentNames: '林春华', occupiedBeds: 1, totalBeds: 2, careLevel: '认知症照护', owner: '张洁',
-    vitalStatus: '生命体征平稳', devicesOnline: 7, devicesTotal: 7, temperature: '23.7℃', humidity: '50%',
-    openTasks: 0, alerts: 0, lastRound: '10:16', nextTask: '11:20 午餐准备', status: '正常', tone: 'success'
-  },
-  {
-    id: 'medical-506', building: '医养中心', floor: '5 层', roomNumber: '506',
-    residentNames: '郑德荣、吴桂香', occupiedBeds: 2, totalBeds: 2, careLevel: '医护协同', owner: '陈医生 / 郑梅',
-    vitalStatus: '血压待复测', devicesOnline: 11, devicesTotal: 12, temperature: '23.6℃', humidity: '51%',
-    openTasks: 4, alerts: 1, lastRound: '10:05', nextTask: '10:30 血压复测', status: '关注', tone: 'warning'
-  },
-  {
-    id: 'medical-508', building: '医养中心', floor: '5 层', roomNumber: '508',
-    residentNames: '钱月英', occupiedBeds: 1, totalBeds: 1, careLevel: '术后康复', owner: '王医生 / 陈静',
-    vitalStatus: '康复指标平稳', devicesOnline: 10, devicesTotal: 10, temperature: '23.4℃', humidity: '48%',
-    openTasks: 2, alerts: 0, lastRound: '10:22', nextTask: '11:00 步态训练', status: '正常', tone: 'success'
-  },
-  {
-    id: 'west-a-201', building: '西区 A 栋', floor: '2 层', roomNumber: '201',
-    residentNames: '沈伯安、罗桂芳', occupiedBeds: 2, totalBeds: 2, careLevel: '一级照护', owner: '何丽',
-    vitalStatus: '生命体征平稳', devicesOnline: 6, devicesTotal: 6, temperature: '23.2℃', humidity: '47%',
-    openTasks: 1, alerts: 0, lastRound: '10:14', nextTask: '11:10 午前巡视', status: '正常', tone: 'success'
-  },
-  {
-    id: 'west-b-305', building: '西区 B 栋', floor: '3 层', roomNumber: '305',
-    residentNames: '顾爱华、唐福生', occupiedBeds: 2, totalBeds: 2, careLevel: '二级照护', owner: '许婷',
-    vitalStatus: '呼吸频率正常', devicesOnline: 7, devicesTotal: 8, temperature: '24.6℃', humidity: '68%',
-    openTasks: 3, alerts: 1, lastRound: '10:03', nextTask: '10:45 环境工单复核', status: '关注', tone: 'warning'
-  }
-];
-
-@Builder
-function PanelHeading(title: string) {
-  Text(title)
-    .width('100%')
-    .fontSize($r('sys.float.Title_M'))
-    .fontWeight(FontWeight.Bold)
-    .fontColor($r('sys.color.font_primary'))
-}
+import DashboardStore from '../../network/DashboardStore';
+import {
+  CareWorkItem,
+  DashboardEvent,
+  DashboardTone,
+  FacilityStatus,
+  RiskSummary,
+  RoomOperation,
+  WardStatus
+} from '../../model/DashboardModels';
+import { dashboardProgressWidth, dashboardToneColor, dashboardToneSoftColor } from './DashboardStyle';
 
 @ComponentV2
 export struct CockpitOverview {
   @Param compact: boolean = false;
   @Param layoutWidth: number = 0;
   @Param layoutHeight: number = 0;
+  @Param @Require store: DashboardStore;
 
-  build() {
-    if (this.compact) {
-      MobileCockpit()
-    } else {
-      WideCockpit()
-    }
+  private occupancy(): number {
+    const total: number = this.store.snapshot.summary.total_beds;
+    return total > 0 ? this.store.snapshot.summary.occupied_beds * 100 / total : 0;
   }
-}
 
-@ComponentV2
-struct WideCockpit {
-  build() {
-    Column({ space: 12 }) {
-      TodayPulsePanel()
-        .height(116)
+  private deviceRatio(): number {
+    const total: number = this.store.snapshot.summary.devices_total;
+    return total > 0 ? this.store.snapshot.summary.devices_online * 100 / total : 0;
+  }
 
-      Row({ space: 12 }) {
-        Column({ space: 12 }) {
-          RoomOperationsPanel({ compact: false })
-            .layoutWeight(74)
-            .width('100%')
-          FloorTeamPanel()
-            .layoutWeight(26)
-            .width('100%')
+  private updatedLabel(): string {
+    const value: string = this.store.snapshot.updated_at;
+    if (value.length < 16) {
+      return '尚未同步';
+    }
+    return `${value.substring(5, 10).replace('-', '/')} ${value.substring(11, 16)}`;
+  }
+
+  private careLevel(level: number): string {
+    if (level <= 0) {
+      return '未评级';
+    }
+    return `${level} 级照护`;
+  }
+
+  private residentNames(room: RoomOperation): string {
+    return room.resident_names.length > 0 ? room.resident_names.join('、') : '暂无入住长者';
+  }
+
+  private eventIcon(event: DashboardEvent): Resource {
+    return event.tone === 'success' ? $r('sys.symbol.checkmark_circle_fill') :
+      $r('sys.symbol.exclamationmark_triangle_fill');
+  }
+
+  private facilityRatio(item: FacilityStatus): number {
+    return item.total > 0 ? item.online * 100 / item.total : 0;
+  }
+
+  private workCompletion(item: CareWorkItem): number {
+    return item.total > 0 ? item.completed * 100 / item.total : 0;
+  }
+
+  @Builder
+  private header() {
+    Row({ space: 12 }) {
+      Column({ space: 3 }) {
+        Text('全院运营驾驶舱')
+          .fontSize(this.compact ? 22 : 26)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('sys.color.font_primary'))
+        Row({ space: 6 }) {
+          Row().width(7).height(7).borderRadius(4).backgroundColor($r('app.color.status_success'))
+          Text(`数据库同步 ${this.updatedLabel()}`)
+            .fontSize($r('sys.float.Caption_S'))
+            .fontColor($r('sys.color.font_secondary'))
         }
-          .layoutWeight(67)
-          .height('100%')
-
-        Column({ space: 12 }) {
-          LiveAlertPanel({ compact: false })
-            .layoutWeight(62)
-          ReadinessPanel()
-            .layoutWeight(38)
-        }
-        .layoutWeight(33)
-        .height('100%')
       }
       .layoutWeight(1)
-      .width('100%')
-      .height('100%')
-    }
-    .width('100%')
-    .height('100%')
-  }
-}
+      .alignItems(HorizontalAlign.Start)
 
-@ComponentV2
-struct FloorTeamPanel {
-  private wards: WardStatus[] = WARD_STATUSES;
-
-  build() {
-    Row({ space: 18 }) {
-      Column({ space: 6 }) {
-        Row() {
-          Text('院区负荷')
-            .fontSize($r('sys.float.Body_M'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-          Blank()
-          Text('140 张床')
-            .fontSize($r('sys.float.Caption_S'))
-            .fontColor($r('sys.color.font_secondary'))
-        }
-        .width('100%')
-        Row({ space: 12 }) {
-          this.wardLoad(this.wards[0])
-          this.wardLoad(this.wards[1])
-          this.wardLoad(this.wards[2])
-          this.wardLoad(this.wards[3])
-        }
-        .layoutWeight(1)
-        .width('100%')
-      }
-      .layoutWeight(62)
-      .height('100%')
-
-      Row()
-        .width(1)
-        .height('82%')
-        .backgroundColor($r('sys.color.comp_divider'))
-
-      Column({ space: 6 }) {
-        Row() {
-          Text('班组保障')
-            .fontSize($r('sys.float.Body_M'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-          Blank()
-          Text('17:30 交接')
-            .fontSize($r('sys.float.Caption_S'))
-            .fontColor($r('sys.color.font_secondary'))
-        }
-        .width('100%')
-        Row({ space: 8 }) {
-          this.staffMetric('护理在岗', '52', 'success')
-          this.staffMetric('医护协同', '17', 'brand')
-          this.staffMetric('生活照护', '18', 'warning')
-          this.staffMetric('夜班缺口', '2', 'danger')
-        }
-        .layoutWeight(1)
-        .width('100%')
-      }
-      .layoutWeight(38)
-      .height('100%')
-    }
-    .width('100%')
-    .height('100%')
-    .padding({ left: 14, right: 14, top: 12, bottom: 12 })
-    .borderRadius(18)
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .border({ width: 0.5, color: $r('app.color.cockpit_border') })
-  }
-
-  @Builder
-  private wardLoad(ward: WardStatus) {
-    Column({ space: 4 }) {
-      Row() {
-        Text(ward.name)
-          .layoutWeight(1)
-          .fontSize($r('sys.float.Caption_S'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(`${ward.occupancy}%`)
-          .fontSize($r('sys.float.Caption_S'))
-          .fontWeight(FontWeight.Bold)
-          .fontColor(ward.occupancy >= 96 ? $r('app.color.status_warning') : $r('app.color.brand_primary'))
-      }
-      .width('100%')
-      Progress({ value: ward.occupancy, total: 100, type: ProgressType.Linear })
-        .width('100%')
-        .height(4)
-        .color(ward.occupancy >= 96 ? $r('app.color.status_warning') : $r('app.color.brand_primary'))
-        .backgroundColor($r('app.color.chart_track'))
-      Text(`${ward.residents}/${ward.capacity} 床`)
-        .fontSize($r('sys.float.Caption_S'))
-        .fontColor($r('sys.color.font_secondary'))
-    }
-    .layoutWeight(1)
-    .height('100%')
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Start)
-    .accessibilityGroup(true)
-    .accessibilityText(`${ward.name}床位使用率${ward.occupancy}%`)
-  }
-
-  @Builder
-  private staffMetric(label: string, value: string, tone: DashboardTone) {
-    Column({ space: 2 }) {
-      Text(value)
-        .fontSize(18)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(dashboardToneColor(tone))
-      Text(label)
-        .fontSize($r('sys.float.Caption_S'))
-        .fontColor($r('sys.color.font_secondary'))
-        .maxLines(1)
-    }
-    .layoutWeight(1)
-    .height('100%')
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Center)
-    .borderRadius(10)
-    .backgroundColor(dashboardToneSoftColor(tone))
-    .accessibilityGroup(true)
-    .accessibilityText(`${label}${value}`)
-  }
-}
-
-@ComponentV2
-struct TodayPulsePanel {
-  build() {
-    Row({ space: 12 }) {
-      Column({ space: 6 }) {
-        Row({ space: 8 }) {
-          Text('今日运营脉搏')
-            .fontSize(22)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-          Text('值班中')
-            .fontSize($r('sys.float.Caption_S'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.status_success'))
-            .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-            .borderRadius(10)
-            .backgroundColor($r('app.color.status_success_soft'))
-        }
-        Text('先处理安全风险，再看房间节奏与资源保障')
-          .fontSize($r('sys.float.Body_S'))
+      if (!this.compact) {
+        Text(this.store.displayName())
+          .fontSize($r('sys.float.Body_M'))
           .fontColor($r('sys.color.font_secondary'))
           .maxLines(1)
-        Row({ space: 6 }) {
-          SymbolGlyph($r('sys.symbol.clock_fill'))
-            .fontSize(13)
-            .fontColor([$r('sys.color.font_secondary')])
-          Text('本地演示数据 · 16:58 更新')
-            .fontSize($r('sys.float.Caption_S'))
-            .fontColor($r('sys.color.font_secondary'))
+      }
+
+      Button({ type: ButtonType.Circle }) {
+        if (this.store.loading) {
+          LoadingProgress().width(20).height(20).color($r('app.color.brand_primary'))
+        } else {
+          SymbolGlyph($r('sys.symbol.arrow_clockwise'))
+            .fontSize(19)
+            .fontColor([$r('app.color.brand_primary')])
         }
       }
-      .layoutWeight(30)
-      .height('100%')
-      .justifyContent(FlexAlign.Center)
-      .alignItems(HorizontalAlign.Start)
-      .padding({ left: 4 })
+      .width(40)
+      .height(40)
+      .backgroundColor($r('app.color.brand_soft'))
+      .enabled(!this.store.loading)
+      .accessibilityText('刷新驾驶舱')
+      .onClick(() => this.store.load())
 
-      this.metric('在院长者', '356', '床位使用 92.4%', 'brand')
-      this.metric('当前在岗', '87', '夜班仍缺 2 人', 'warning')
-      this.metric('待闭环事项', '8', '其中 1 项紧急', 'danger')
-      this.metric('设备在线', '97.8%', '8 台待排查', 'success')
+      Button({ type: ButtonType.Normal }) {
+        Text('退出')
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor($r('sys.color.font_secondary'))
+      }
+      .height(40)
+      .padding({ left: 14, right: 14 })
+      .borderRadius(8)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .border({ width: 0.5, color: $r('app.color.cockpit_border') })
+      .onClick(() => this.store.logout())
     }
     .width('100%')
-    .height('100%')
-    .padding({ left: 18, right: 14, top: 12, bottom: 12 })
-    .borderRadius(22)
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .border({ width: 0.5, color: $r('app.color.cockpit_border') })
+    .height(54)
   }
 
   @Builder
   private metric(label: string, value: string, note: string, tone: DashboardTone) {
-    Column({ space: 3 }) {
+    Column({ space: 4 }) {
       Text(label)
         .fontSize($r('sys.float.Caption_S'))
         .fontColor($r('sys.color.font_secondary'))
       Text(value)
-        .fontSize(24)
+        .fontSize(this.compact ? 22 : 27)
         .fontWeight(FontWeight.Bold)
         .fontColor(dashboardToneColor(tone))
+        .maxLines(1)
       Text(note)
         .fontSize($r('sys.float.Caption_S'))
-        .fontColor($r('sys.color.font_secondary'))
+        .fontColor($r('sys.color.font_tertiary'))
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
     }
-    .layoutWeight(17)
-    .height('100%')
-    .padding({ left: 14, right: 12 })
-    .justifyContent(FlexAlign.Center)
+    .layoutWeight(1)
+    .height(this.compact ? 92 : 102)
+    .padding({ left: 14, right: 12, top: 12, bottom: 10 })
     .alignItems(HorizontalAlign.Start)
-    .border({ width: { left: 0.5 }, color: { left: $r('sys.color.comp_divider') } })
-    .accessibilityGroup(true)
-    .accessibilityText(`${label}${value}，${note}`)
-  }
-}
-
-@ComponentV2
-struct MobileCockpit {
-  build() {
-    Column({ space: 8 }) {
-      MobileSummaryPanel()
-        .layoutWeight(7)
-
-      RoomOperationsPanel({ compact: true })
-        .layoutWeight(45)
-
-      Row({ space: 8 }) {
-        LiveAlertPanel({ compact: true })
-          .layoutWeight(1)
-          .height('100%')
-        FacilityPanel({ compact: true })
-          .layoutWeight(1)
-          .height('100%')
-      }
-      .layoutWeight(14)
-      .width('100%')
-    }
-    .width('100%')
-    .height('100%')
-  }
-}
-
-@ComponentV2
-struct InstitutionSummaryPanel {
-  build() {
-    Column({ space: 8 }) {
-      PanelHeading('养老院概览')
-      Row() {
-        this.metricCell('在院长者', '356', '人', 'brand')
-        Row()
-          .width(1)
-          .height('62%')
-          .backgroundColor($r('sys.color.comp_divider'))
-        this.metricCell('床位使用', '92.4', '%', 'warning')
-      }
-      .layoutWeight(1)
-      Row()
-        .width('100%')
-        .height(1)
-        .backgroundColor($r('sys.color.comp_divider'))
-      Row() {
-        this.metricCell('当前在岗', '87', '人', 'success')
-        Row()
-          .width(1)
-          .height('62%')
-          .backgroundColor($r('sys.color.comp_divider'))
-        this.metricCell('未闭环', '8', '项', 'danger')
-      }
-      .layoutWeight(1)
-      Row() {
-        Text('本地演示数据')
-          .fontSize($r('sys.float.Caption_S'))
-          .fontColor($r('sys.color.font_secondary'))
-        Blank()
-        Text('更新 16:58')
-          .fontSize($r('sys.float.Caption_S'))
-          .fontColor($r('sys.color.font_secondary'))
-      }
-      .width('100%')
-    }
-    .width('100%')
-    .height('100%')
-    .padding(14)
-    .borderRadius($r('sys.float.corner_radius_level8'))
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .border({ width: 0.5, color: $r('app.color.cockpit_border') })
+    .justifyContent(FlexAlign.Center)
   }
 
   @Builder
-  private metricCell(label: string, value: string, unit: string, tone: DashboardTone) {
+  private summaryStrip() {
+    if (this.compact) {
+      GridRow({ columns: 2, gutter: { x: 8, y: 8 } }) {
+        GridCol({ span: 1 }) {
+          this.metric('在院长者', `${this.store.snapshot.summary.residents}`, `空床 ${this.store.snapshot.summary.free_beds}`, 'brand')
+        }
+        GridCol({ span: 1 }) {
+          this.metric('床位使用', `${this.occupancy().toFixed(1)}%`, `${this.store.snapshot.summary.occupied_beds}/${this.store.snapshot.summary.total_beds}`, 'warning')
+        }
+        GridCol({ span: 1 }) {
+          this.metric('今日在岗', `${this.store.snapshot.summary.staff_on_duty}`, '排班数据库', 'success')
+        }
+        GridCol({ span: 1 }) {
+          this.metric('待闭环', `${this.store.snapshot.summary.open_tasks + this.store.snapshot.summary.open_alerts}`, `紧急 ${this.store.snapshot.summary.emergency_alerts}`, 'danger')
+        }
+      }
+      .width('100%')
+      .padding(6)
+      .borderRadius(8)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .border({ width: 0.5, color: $r('app.color.cockpit_border') })
+    } else {
+      Row() {
+        this.metric('在院长者', `${this.store.snapshot.summary.residents}`, `空床 ${this.store.snapshot.summary.free_beds}`, 'brand')
+        this.divider()
+        this.metric('床位使用', `${this.occupancy().toFixed(1)}%`, `${this.store.snapshot.summary.occupied_beds}/${this.store.snapshot.summary.total_beds}`, 'warning')
+        this.divider()
+        this.metric('今日在岗', `${this.store.snapshot.summary.staff_on_duty}`, '来自当日排班', 'success')
+        this.divider()
+        this.metric('护理待办', `${this.store.snapshot.summary.open_tasks}`, '未完成任务', 'warning')
+        this.divider()
+        this.metric('未闭环告警', `${this.store.snapshot.summary.open_alerts}`, `紧急 ${this.store.snapshot.summary.emergency_alerts}`, 'danger')
+        this.divider()
+        this.metric('设备在线', `${this.deviceRatio().toFixed(1)}%`, `${this.store.snapshot.summary.devices_online}/${this.store.snapshot.summary.devices_total}`, 'success')
+      }
+      .width('100%')
+      .height(104)
+      .borderRadius(8)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .border({ width: 0.5, color: $r('app.color.cockpit_border') })
+    }
+  }
+
+  @Builder
+  private divider() {
+    Row().width(1).height(54).backgroundColor($r('sys.color.comp_divider'))
+  }
+
+  @Builder
+  private panelTitle(title: string, subtitle: string) {
     Column({ space: 2 }) {
-      Row({ space: 2 }) {
-        Text(value)
-          .fontSize(20)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
-        Text(unit)
-          .fontSize($r('sys.float.Caption_S'))
-          .fontColor($r('sys.color.font_secondary'))
-      }
-      Text(label)
+      Text(title)
+        .fontSize($r('sys.float.Title_M'))
+        .fontWeight(FontWeight.Bold)
+        .fontColor($r('sys.color.font_primary'))
+      Text(subtitle)
         .fontSize($r('sys.float.Caption_S'))
         .fontColor($r('sys.color.font_secondary'))
+        .maxLines(1)
     }
-    .layoutWeight(1)
-    .height('100%')
-    .justifyContent(FlexAlign.Center)
+    .width('100%')
     .alignItems(HorizontalAlign.Start)
-    .padding({ left: 10, right: 10 })
-    .accessibilityGroup(true)
-    .accessibilityText(`${label}${value}${unit}`)
   }
-}
 
-@ComponentV2
-struct MobileSummaryPanel {
-  build() {
-    Row() {
-      this.metric('长者', '356', 'brand')
-      Row().width(1).height('52%').backgroundColor($r('sys.color.comp_divider'))
-      this.metric('床位', '92.4%', 'warning')
-      Row().width(1).height('52%').backgroundColor($r('sys.color.comp_divider'))
-      this.metric('在岗', '87', 'success')
-      Row().width(1).height('52%').backgroundColor($r('sys.color.comp_divider'))
-      this.metric('告警', '8', 'danger')
+  @Builder
+  private roomPanel() {
+    Column({ space: 10 }) {
+      this.panelTitle('房间运行', '入住、任务、告警与设备状态')
+      if (this.store.snapshot.rooms.length === 0) {
+        this.emptyState('服务器暂无房间数据')
+      } else {
+        List({ space: 0 }) {
+          ForEach(this.store.snapshot.rooms, (room: RoomOperation) => {
+            ListItem() {
+              Column({ space: 6 }) {
+                Row({ space: 10 }) {
+                  Column({ space: 2 }) {
+                    Text(`${room.building} ${room.floor}层 · ${room.room_number}房`)
+                      .fontSize($r('sys.float.Body_M'))
+                      .fontWeight(FontWeight.Bold)
+                      .fontColor($r('sys.color.font_primary'))
+                    Text(this.residentNames(room))
+                      .fontSize($r('sys.float.Caption_S'))
+                      .fontColor($r('sys.color.font_secondary'))
+                      .maxLines(1)
+                      .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  }
+                  .layoutWeight(1)
+                  .alignItems(HorizontalAlign.Start)
+
+                  Text(room.status)
+                    .fontSize($r('sys.float.Caption_S'))
+                    .fontWeight(FontWeight.Medium)
+                    .fontColor(dashboardToneColor(room.tone))
+                    .padding({ left: 8, right: 8, top: 4, bottom: 4 })
+                    .borderRadius(8)
+                    .backgroundColor(dashboardToneSoftColor(room.tone))
+                }
+                .width('100%')
+
+                Row({ space: 12 }) {
+                  Text(`${room.occupied_beds}/${room.total_beds} 床`)
+                    .fontSize($r('sys.float.Caption_S'))
+                    .fontColor($r('sys.color.font_secondary'))
+                  Text(this.careLevel(room.care_level))
+                    .fontSize($r('sys.float.Caption_S'))
+                    .fontColor($r('sys.color.font_secondary'))
+                  Text(`待办 ${room.open_tasks}`)
+                    .fontSize($r('sys.float.Caption_S'))
+                    .fontColor($r('sys.color.font_secondary'))
+                  Text(`告警 ${room.alerts}`)
+                    .fontSize($r('sys.float.Caption_S'))
+                    .fontColor($r('sys.color.font_secondary'))
+                  Text(`设备 ${room.devices_online}/${room.devices_total}`)
+                    .fontSize($r('sys.float.Caption_S'))
+                    .fontColor($r('sys.color.font_secondary'))
+                }
+                .width('100%')
+
+                Row() {
+                  Text(`${room.vital_status} · 上次照护 ${room.last_round}`)
+                    .layoutWeight(1)
+                    .fontSize($r('sys.float.Caption_S'))
+                    .fontColor($r('sys.color.font_tertiary'))
+                    .maxLines(1)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  Text(room.next_task)
+                    .fontSize($r('sys.float.Caption_S'))
+                    .fontColor($r('sys.color.font_tertiary'))
+                    .maxLines(1)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                }
+                .width('100%')
+              }
+              .width('100%')
+              .padding({ top: 10, bottom: 10 })
+            }
+          }, (room: RoomOperation) => room.id.toString())
+        }
+        .layoutWeight(1)
+        .width('100%')
+        .divider({ strokeWidth: 0.5, color: $r('sys.color.comp_divider') })
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
+      }
     }
     .width('100%')
     .height('100%')
-    .padding(8)
-    .borderRadius(18)
+    .padding(16)
+    .borderRadius(8)
     .backgroundColor($r('sys.color.comp_background_primary'))
     .border({ width: 0.5, color: $r('app.color.cockpit_border') })
   }
 
   @Builder
-  private metric(label: string, value: string, tone: DashboardTone) {
-    Column({ space: 1 }) {
-      Text(value)
-        .fontSize(18)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(dashboardToneColor(tone))
-      Text(label)
-        .fontSize($r('sys.float.Caption_S'))
-        .fontColor($r('sys.color.font_secondary'))
+  private eventPanel() {
+    Column({ space: 10 }) {
+      this.panelTitle('实时告警', '按发生时间读取服务器告警记录')
+      if (this.store.snapshot.events.length === 0) {
+        this.emptyState('当前没有告警记录')
+      } else {
+        List() {
+          ForEach(this.store.snapshot.events, (event: DashboardEvent) => {
+            ListItem() {
+              Row({ space: 10 }) {
+                Stack() {
+                  SymbolGlyph(this.eventIcon(event))
+                    .fontSize(17)
+                    .fontColor([dashboardToneColor(event.tone)])
+                }
+                .width(34)
+                .height(34)
+                .borderRadius(8)
+                .backgroundColor(dashboardToneSoftColor(event.tone))
+                Column({ space: 2 }) {
+                  Row() {
+                    Text(event.title)
+                      .layoutWeight(1)
+                      .fontSize($r('sys.float.Body_M'))
+                      .fontWeight(FontWeight.Medium)
+                      .fontColor($r('sys.color.font_primary'))
+                    Text(event.time)
+                      .fontSize($r('sys.float.Caption_S'))
+                      .fontColor($r('sys.color.font_tertiary'))
+                  }
+                  .width('100%')
+                  Text(`${event.location} · ${event.detail}`)
+                    .width('100%')
+                    .fontSize($r('sys.float.Caption_S'))
+                    .fontColor($r('sys.color.font_secondary'))
+                    .maxLines(2)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                }
+                .layoutWeight(1)
+                .alignItems(HorizontalAlign.Start)
+              }
+              .width('100%')
+              .padding({ top: 10, bottom: 10 })
+            }
+          }, (event: DashboardEvent) => event.id.toString())
+        }
+        .layoutWeight(1)
+        .width('100%')
+        .divider({ strokeWidth: 0.5, color: $r('sys.color.comp_divider'), startMargin: 44 })
+        .scrollBar(BarState.Off)
+      }
     }
-    .layoutWeight(1)
+    .width('100%')
     .height('100%')
-    .justifyContent(FlexAlign.Center)
-    .accessibilityGroup(true)
-    .accessibilityText(`${label}${value}`)
+    .padding(16)
+    .borderRadius(8)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .border({ width: 0.5, color: $r('app.color.cockpit_border') })
   }
-}
 
-@ComponentV2
-struct BedLoadPanel {
-  private wards: WardStatus[] = WARD_STATUSES;
-
-  build() {
-    Column({ space: 8 }) {
-      PanelHeading('床位运行')
-      ForEach(this.wards, (ward: WardStatus) => {
-        Column({ space: 3 }) {
-          Row() {
-            Column({ space: 1 }) {
-              Text(ward.name)
-                .fontSize($r('sys.float.Body_S'))
+  @Builder
+  private wardPanel() {
+    Column({ space: 10 }) {
+      this.panelTitle('楼层负荷', '床位、当日排班、任务与风险')
+      if (this.store.snapshot.wards.length === 0) {
+        this.emptyState('服务器暂无楼层数据')
+      } else {
+        ForEach(this.store.snapshot.wards, (ward: WardStatus) => {
+          Column({ space: 5 }) {
+            Row() {
+              Text(`${ward.name} ${ward.floor}`)
+                .layoutWeight(1)
+                .fontSize($r('sys.float.Caption_S'))
                 .fontWeight(FontWeight.Medium)
                 .fontColor($r('sys.color.font_primary'))
-              Text(`${ward.floor} · ${ward.residents}/${ward.capacity}`)
+              Text(`${ward.occupancy.toFixed(1)}%`)
                 .fontSize($r('sys.float.Caption_S'))
-                .fontColor($r('sys.color.font_secondary'))
-                .maxLines(1)
+                .fontWeight(FontWeight.Bold)
+                .fontColor(ward.occupancy >= 95 ? $r('app.color.status_warning') : $r('app.color.brand_primary'))
             }
-            .alignItems(HorizontalAlign.Start)
-            Blank()
-            Text(`${ward.occupancy}%`)
-              .fontSize($r('sys.float.Body_S'))
-              .fontWeight(FontWeight.Bold)
-              .fontColor(ward.occupancy >= 96 ? $r('app.color.status_warning') : $r('app.color.brand_primary'))
-          }
-          .width('100%')
-          Progress({ value: ward.occupancy, total: 100, type: ProgressType.Linear })
             .width('100%')
-            .height(4)
-            .color(ward.occupancy >= 96 ? $r('app.color.status_warning') : $r('app.color.brand_primary'))
-            .backgroundColor($r('app.color.chart_track'))
-        }
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
-        .accessibilityGroup(true)
-        .accessibilityText(`${ward.name}床位使用率${ward.occupancy}%`)
-      }, (ward: WardStatus) => ward.id)
-    }
-    .width('100%')
-    .height('100%')
-    .padding(14)
-    .borderRadius($r('sys.float.corner_radius_level8'))
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .border({ width: 0.5, color: $r('app.color.cockpit_border') })
-  }
-}
-
-@ComponentV2
-struct WorkforcePanel {
-  build() {
-    Column({ space: 8 }) {
-      PanelHeading('班组态势')
-      Row() {
-        this.staffCell('护理在岗', '52', 'success')
-        Row().width(1).height('62%').backgroundColor($r('sys.color.comp_divider'))
-        this.staffCell('医护协同', '17', 'brand')
-      }
-      .layoutWeight(1)
-      Row()
-        .width('100%')
-        .height(1)
-        .backgroundColor($r('sys.color.comp_divider'))
-      Row() {
-        this.staffCell('生活照护', '18', 'warning')
-        Row().width(1).height('62%').backgroundColor($r('sys.color.comp_divider'))
-        this.staffCell('夜班缺口', '2', 'danger')
-      }
-      .layoutWeight(1)
-    }
-    .width('100%')
-    .height('100%')
-    .padding(14)
-    .borderRadius($r('sys.float.corner_radius_level8'))
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .border({ width: 0.5, color: $r('app.color.cockpit_border') })
-  }
-
-  @Builder
-  private staffCell(label: string, value: string, tone: DashboardTone) {
-    Column({ space: 1 }) {
-      Text(value)
-        .fontSize(18)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(dashboardToneColor(tone))
-      Text(label)
-        .fontSize($r('sys.float.Caption_S'))
-        .fontColor($r('sys.color.font_primary'))
-    }
-    .layoutWeight(1)
-    .height('100%')
-    .justifyContent(FlexAlign.Center)
-    .accessibilityGroup(true)
-    .accessibilityText(`${label}${value}`)
-  }
-}
-
-@ComponentV2
-struct RoomOperationsPanel {
-  @Param compact: boolean = false;
-  @Local currentPage: number = 0;
-  private rooms: RoomOperation[] = ROOM_OPERATIONS;
-  private pageSize: number = 4;
-
-  private pageCount(): number {
-    return Math.ceil(this.rooms.length / this.pageSize);
-  }
-
-  private visibleRoomIndexes(): number[] {
-    const firstIndex: number = this.currentPage * this.pageSize;
-    return [firstIndex, firstIndex + 1, firstIndex + 2, firstIndex + 3];
-  }
-
-  private showPreviousPage(): void {
-    if (this.currentPage > 0) {
-      this.currentPage -= 1;
-    }
-  }
-
-  private showNextPage(): void {
-    if (this.currentPage < this.pageCount() - 1) {
-      this.currentPage += 1;
-    }
-  }
-
-  build() {
-    Column({ space: this.compact ? 7 : 10 }) {
-      this.panelHeader()
-
-      if (this.compact) {
-        ForEach(this.visibleRoomIndexes(), (index: number) => {
-          this.compactRoomCard(this.rooms[index])
-        }, (index: number) => `${index}`)
-      } else {
-        Grid() {
-          ForEach(this.visibleRoomIndexes(), (index: number) => {
-            GridItem() {
-              this.wideRoomCard(this.rooms[index])
-            }
-          }, (index: number) => `${index}`)
-        }
-        .layoutWeight(1)
-        .width('100%')
-        .columnsTemplate('1fr 1fr')
-        .rowsTemplate('1fr 1fr')
-        .columnsGap(10)
-        .rowsGap(10)
-      }
-    }
-    .width('100%')
-    .height('100%')
-    .padding(this.compact ? 6 : 0)
-    .borderRadius(this.compact ? $r('sys.float.corner_radius_level8') : 0)
-    .backgroundColor(this.compact ? $r('sys.color.comp_background_primary') : Color.Transparent)
-    .border({ width: this.compact ? 0.5 : 0, color: $r('app.color.cockpit_border') })
-  }
-
-  @Builder
-  private wideRoomCard(room: RoomOperation) {
-    Column({ space: 7 }) {
-      Row({ space: 10 }) {
-        Column({ space: 2 }) {
-          Row({ space: 5 }) {
-            Text(room.roomNumber)
-              .fontSize(25)
-              .fontWeight(FontWeight.Bold)
-              .fontColor($r('sys.color.font_primary'))
-            Text('房')
-              .fontSize($r('sys.float.Body_S'))
-              .fontColor($r('sys.color.font_secondary'))
-          }
-          Text(`${room.building} · ${room.floor}`)
-            .fontSize($r('sys.float.Caption_S'))
-            .fontColor($r('sys.color.font_secondary'))
-        }
-        .alignItems(HorizontalAlign.Start)
-        Column({ space: 2 }) {
-          Text(room.residentNames)
-            .fontSize($r('sys.float.Body_M'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text(`${room.careLevel} · ${room.owner}`)
-            .fontSize($r('sys.float.Caption_S'))
-            .fontColor($r('sys.color.font_secondary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
-        Text(room.status)
-          .fontSize($r('sys.float.Caption_S'))
-          .fontWeight(FontWeight.Bold)
-          .fontColor(dashboardToneColor(room.tone))
-          .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-          .borderRadius(10)
-          .backgroundColor(dashboardToneSoftColor(room.tone))
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Top)
-
-      Row({ space: 8 }) {
-        this.roomMetric('床位', `${room.occupiedBeds}/${room.totalBeds}`, 'brand')
-        this.roomMetric('设备', `${room.devicesOnline}/${room.devicesTotal}`, room.devicesOnline < room.devicesTotal ?
-          'warning' : 'success')
-        this.roomMetric('温湿度', `${room.temperature} · ${room.humidity}`, 'brand')
-      }
-      .width('100%')
-
-      Row({ space: 7 }) {
-        SymbolGlyph(room.tone === 'danger' ? $r('sys.symbol.exclamationmark_triangle_fill') :
-          $r('sys.symbol.checkmark_circle_fill'))
-          .fontSize(15)
-          .fontColor([dashboardToneColor(room.tone)])
-        Text(room.vitalStatus)
-          .layoutWeight(1)
-          .fontSize($r('sys.float.Body_S'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor(dashboardToneColor(room.tone))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(`巡房 ${room.lastRound}`)
-          .fontSize($r('sys.float.Caption_S'))
-          .fontColor($r('sys.color.font_secondary'))
-      }
-      .width('100%')
-      .padding({ left: 10, right: 10, top: 8, bottom: 8 })
-      .borderRadius(12)
-      .backgroundColor(dashboardToneSoftColor(room.tone))
-
-      Row({ space: 7 }) {
-        SymbolGlyph($r('sys.symbol.clock_fill'))
-          .fontSize(15)
-          .fontColor([$r('app.color.brand_primary')])
-        Text(room.nextTask)
-          .layoutWeight(1)
-          .fontSize($r('sys.float.Body_M'))
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(`${room.openTasks} 项待办 · ${room.alerts} 项告警`)
-          .fontSize($r('sys.float.Caption_S'))
-          .fontColor(room.alerts > 0 ? dashboardToneColor(room.tone) : $r('sys.color.font_secondary'))
-          .maxLines(1)
-      }
-      .width('100%')
-    }
-    .width('100%')
-    .height('100%')
-    .padding(12)
-    .borderRadius(18)
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .border({ width: 0.5, color: room.tone === 'danger' ? $r('app.color.status_danger') :
-      $r('app.color.cockpit_border') })
-    .accessibilityGroup(true)
-    .accessibilityText(`${room.building}${room.floor}${room.roomNumber}房，${room.residentNames}，${room.careLevel}，${room.status}，待办${room.openTasks}项，预警${room.alerts}项`)
-  }
-
-  @Builder
-  private roomMetric(label: string, value: string, tone: DashboardTone) {
-    Column({ space: 2 }) {
-      Text(label)
-        .fontSize($r('sys.float.Caption_S'))
-        .fontColor($r('sys.color.font_secondary'))
-      Text(value)
-        .fontSize($r('sys.float.Body_S'))
-        .fontWeight(FontWeight.Bold)
-        .fontColor(dashboardToneColor(tone))
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-    }
-    .layoutWeight(1)
-    .padding({ left: 9, right: 9, top: 7, bottom: 7 })
-    .borderRadius(11)
-    .backgroundColor($r('app.color.room_metric_surface'))
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  private compactRoomCard(room: RoomOperation) {
-    Column({ space: 4 }) {
-      Row() {
-        Text(`${room.roomNumber} 房`)
-          .fontSize(17)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
-        Text(` · ${room.residentNames}`)
-          .layoutWeight(1)
-          .fontSize($r('sys.float.Body_S'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(`${room.occupiedBeds}/${room.totalBeds}床`)
-          .fontSize($r('sys.float.Body_S'))
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.brand_primary'))
-        Blank()
-        Text(room.status)
-          .fontSize($r('sys.float.Caption_S'))
-          .fontWeight(FontWeight.Bold)
-          .fontColor(dashboardToneColor(room.tone))
-          .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-          .borderRadius(9)
-          .backgroundColor(dashboardToneSoftColor(room.tone))
-      }
-      .width('100%')
-
-      Row() {
-        Text(room.vitalStatus)
-          .layoutWeight(1)
-          .fontSize($r('sys.float.Caption_S'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor(dashboardToneColor(room.tone))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(`${room.devicesOnline}/${room.devicesTotal}台 · ${room.temperature} · ${room.humidity}`)
-          .fontSize($r('sys.float.Caption_S'))
-          .fontColor($r('app.color.brand_primary'))
-      }
-      .width('100%')
-
-      Row() {
-        Text(`${room.careLevel} · ${room.building}`)
-          .fontSize($r('sys.float.Caption_S'))
-          .fontColor($r('sys.color.font_secondary'))
-        Blank()
-        Text(`${room.openTasks}任务/${room.alerts}警 · `)
-          .fontSize($r('sys.float.Caption_S'))
-          .fontColor(room.alerts > 0 ? dashboardToneColor(room.tone) : $r('sys.color.font_secondary'))
-        Text(room.nextTask)
-          .fontSize($r('sys.float.Caption_S'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.brand_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-      }
-      .width('100%')
-    }
-    .layoutWeight(1)
-    .width('100%')
-    .height('100%')
-    .justifyContent(FlexAlign.Center)
-    .padding({ left: 10, right: 10, top: 7, bottom: 7 })
-    .borderRadius(12)
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .border({ width: 1, color: $r('app.color.cockpit_border') })
-    .accessibilityGroup(true)
-    .accessibilityText(`${room.building}${room.floor}${room.roomNumber}房，${room.residentNames}，${room.careLevel}，${room.status}，待办${room.openTasks}项，预警${room.alerts}项`)
-  }
-
-  @Builder
-  private panelHeader() {
-    Row({ space: 8 }) {
-      Column({ space: 1 }) {
-        Text(this.compact ? '房间总览' : '房间运行')
-          .fontSize(this.compact ? $r('sys.float.Body_M') : $r('sys.float.Title_M'))
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
-        if (!this.compact) {
-          Text('优先看异常房间，再按任务时间推进处置')
-            .fontSize($r('sys.float.Caption_S'))
-            .fontColor($r('sys.color.font_secondary'))
-        }
-      }
-      .alignItems(HorizontalAlign.Start)
-
-      Blank()
-
-      Text(`第 ${this.currentPage + 1} / ${this.pageCount()} 页`)
-        .fontSize($r('sys.float.Caption_S'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_secondary'))
-
-      Button({ type: ButtonType.Capsule, stateEffect: true }) {
-        Text('上一页')
-          .fontSize($r('sys.float.Caption_S'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.currentPage > 0 ? $r('sys.color.font_primary') : $r('sys.color.font_tertiary'))
-      }
-      .buttonStyle(ButtonStyleMode.NORMAL)
-      .height(this.compact ? 28 : 30)
-      .padding({ left: 12, right: 12 })
-      .backgroundColor($r('sys.color.comp_background_secondary'))
-      .enabled(this.currentPage > 0)
-      .opacity(this.currentPage > 0 ? 1 : 0.5)
-      .accessibilityText('上一页房间')
-      .onClick(() => {
-        this.showPreviousPage();
-      })
-
-      Button({ type: ButtonType.Capsule, stateEffect: true }) {
-        Text('下一页')
-          .fontSize($r('sys.float.Caption_S'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.currentPage < this.pageCount() - 1 ? Color.White : $r('sys.color.font_tertiary'))
-      }
-      .buttonStyle(ButtonStyleMode.NORMAL)
-      .height(this.compact ? 28 : 30)
-      .padding({ left: 12, right: 12 })
-      .backgroundColor(this.currentPage < this.pageCount() - 1 ? $r('app.color.brand_primary') :
-        $r('sys.color.comp_background_secondary'))
-      .enabled(this.currentPage < this.pageCount() - 1)
-      .opacity(this.currentPage < this.pageCount() - 1 ? 1 : 0.5)
-      .accessibilityText('下一页房间')
-      .onClick(() => {
-        this.showNextPage();
-      })
-    }
-    .width('100%')
-    .height(this.compact ? 30 : 44)
-  }
-
-}
-
-@ComponentV2
-struct LiveAlertPanel {
-  @Param compact: boolean = false;
-  private events: DashboardEvent[] = LIVE_EVENTS;
-
-  build() {
-    Column({ space: this.compact ? 3 : 8 }) {
-      Row() {
-        Column({ space: 2 }) {
-          Text(this.compact ? '实时' : '待处置事件')
-            .fontSize(this.compact ? $r('sys.float.Body_M') : $r('sys.float.Title_M'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-          if (!this.compact) {
-            Text('按紧急程度与发生时间排序')
+            Progress({ value: ward.occupancy, total: 100, type: ProgressType.Linear })
+              .width('100%')
+              .height(5)
+              .color(ward.occupancy >= 95 ? $r('app.color.status_warning') : $r('app.color.brand_primary'))
+              .backgroundColor($r('app.color.chart_track'))
+            Text(`${ward.residents}/${ward.capacity} 床 · 在岗 ${ward.staffOnDuty} · 待办 ${ward.openTasks} · 风险 ${ward.riskCount}`)
               .fontSize($r('sys.float.Caption_S'))
               .fontColor($r('sys.color.font_secondary'))
           }
-        }
-        .alignItems(HorizontalAlign.Start)
-        Blank()
-        if (!this.compact) {
-          Text('8 项')
-            .fontSize($r('sys.float.Caption_S'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.status_danger'))
-            .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-            .borderRadius(10)
-            .backgroundColor($r('app.color.status_danger_soft'))
-        }
-      }
-      .width('100%')
-      if (this.compact) {
-        ForEach(this.events.slice(0, 3), (event: DashboardEvent) => {
-          this.compactEventRow(event)
-        }, (event: DashboardEvent) => event.id)
-      } else {
-        ForEach(this.events.slice(0, 5), (event: DashboardEvent) => {
-          this.wideEventRow(event)
-        }, (event: DashboardEvent) => event.id)
-        Row() {
-          Text('查看全部事件')
-            .fontSize($r('sys.float.Body_S'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.brand_primary'))
-          Blank()
-          Text('其中 3 项需要现场确认')
-            .fontSize($r('sys.float.Caption_S'))
-            .fontColor($r('sys.color.font_secondary'))
-        }
-        .width('100%')
-        .height(32)
-        .padding({ left: 8, right: 8 })
-        .borderRadius(10)
-        .backgroundColor($r('app.color.room_task_surface'))
-      }
-    }
-    .width('100%')
-    .height('100%')
-    .padding(this.compact ? 8 : 14)
-    .borderRadius(this.compact ? 16 : 20)
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .border({ width: 0.5, color: $r('app.color.cockpit_border') })
-  }
-
-  @Builder
-  private wideEventRow(event: DashboardEvent) {
-    Row({ space: 9 }) {
-      Column({ space: 3 }) {
-        Row({ space: 6 }) {
-          Text(event.level)
-            .fontSize($r('sys.float.Caption_S'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor(dashboardToneColor(event.tone))
-          Text(event.title)
-            .layoutWeight(1)
-            .fontSize($r('sys.float.Body_S'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text(event.time)
-            .fontSize($r('sys.float.Caption_S'))
-            .fontColor($r('sys.color.font_secondary'))
-        }
-        .width('100%')
-        Text(`${event.location} · ${event.detail}`)
           .width('100%')
-          .fontSize($r('sys.float.Caption_S'))
-          .fontColor($r('sys.color.font_secondary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }, (ward: WardStatus) => ward.id)
       }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
-    }
-    .layoutWeight(1)
-    .width('100%')
-    .padding({ left: 9, right: 7, top: 6, bottom: 6 })
-    .borderRadius(11)
-    .backgroundColor(event.tone === 'danger' ? $r('app.color.status_danger_soft') : Color.Transparent)
-    .border({ width: { left: 3 }, color: { left: dashboardToneColor(event.tone) } })
-    .focusable(true)
-    .accessibilityGroup(true)
-    .accessibilityText(`${event.time}，${event.level}，${event.title}，${event.location}，${event.detail}`)
-  }
-
-  @Builder
-  private compactEventRow(event: DashboardEvent) {
-    Column({ space: 1 }) {
-      Row({ space: 4 }) {
-        Text(event.title)
-          .layoutWeight(1)
-          .fontSize($r('sys.float.Caption_S'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(event.time)
-          .fontSize($r('sys.float.Caption_S'))
-          .fontColor($r('sys.color.font_secondary'))
-      }
-      .width('100%')
-      Text(`${event.location} · ${event.level}`)
-        .width('100%')
-        .fontSize($r('sys.float.Caption_S'))
-        .fontColor(dashboardToneColor(event.tone))
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-    }
-    .layoutWeight(1)
-    .width('100%')
-    .justifyContent(FlexAlign.Center)
-    .padding({ left: 4, right: 4 })
-    .border({ width: { bottom: 0.5 }, color: $r('sys.color.comp_divider') })
-    .accessibilityGroup(true)
-    .accessibilityText(`${event.time}，${event.level}，${event.title}，${event.location}，${event.detail}`)
-  }
-}
-
-@ComponentV2
-struct ReadinessPanel {
-  private wards: WardStatus[] = WARD_STATUSES;
-  private facilities: FacilityStatus[] = FACILITY_STATUSES;
-
-  private onlineRatio(item: FacilityStatus): number {
-    return Math.round(item.online / item.total * 1000) / 10;
-  }
-
-  build() {
-    Column({ space: 10 }) {
-      Row() {
-        Column({ space: 2 }) {
-          Text('资源保障')
-            .fontSize($r('sys.float.Title_M'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-          Text('床位负荷与设备健康')
-            .fontSize($r('sys.float.Caption_S'))
-            .fontColor($r('sys.color.font_secondary'))
-        }
-        .alignItems(HorizontalAlign.Start)
-        Blank()
-        Text('2 项关注')
-          .fontSize($r('sys.float.Caption_S'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.status_warning'))
-      }
-      .width('100%')
-
-      Row({ space: 10 }) {
-        this.readinessMetric('最高床位负荷', '97.9%', this.wards[0].name, 'warning')
-        this.readinessMetric('设备在线率', '97.8%', '8 台待排查', 'success')
-      }
-      .width('100%')
-
-      Column({ space: 6 }) {
-        this.progressItem(this.facilities[0].label, this.onlineRatio(this.facilities[0]))
-        this.progressItem(this.facilities[1].label, this.onlineRatio(this.facilities[1]))
-        this.progressItem(this.facilities[3].label, this.onlineRatio(this.facilities[3]))
-      }
-      .layoutWeight(1)
-      .width('100%')
-      .justifyContent(FlexAlign.Center)
     }
     .width('100%')
-    .height('100%')
-    .padding(14)
-    .borderRadius(20)
+    .padding(16)
+    .borderRadius(8)
     .backgroundColor($r('sys.color.comp_background_primary'))
     .border({ width: 0.5, color: $r('app.color.cockpit_border') })
   }
 
   @Builder
-  private readinessMetric(label: string, value: string, note: string, tone: DashboardTone) {
-    Column({ space: 2 }) {
-      Text(label)
-        .fontSize($r('sys.float.Caption_S'))
-        .fontColor($r('sys.color.font_secondary'))
-      Text(value)
-        .fontSize(20)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(dashboardToneColor(tone))
-      Text(note)
-        .fontSize($r('sys.float.Caption_S'))
-        .fontColor($r('sys.color.font_secondary'))
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-    }
-    .layoutWeight(1)
-    .padding({ left: 10, right: 10, top: 8, bottom: 8 })
-    .borderRadius(12)
-    .backgroundColor($r('app.color.room_metric_surface'))
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  private progressItem(label: string, ratio: number) {
-    Column({ space: 3 }) {
-      Row() {
-        Text(label)
-          .fontSize($r('sys.float.Caption_S'))
-          .fontColor($r('sys.color.font_primary'))
-        Blank()
-        Text(`${ratio}%`)
-          .fontSize($r('sys.float.Caption_S'))
-          .fontWeight(FontWeight.Bold)
-          .fontColor(ratio < 97 ? $r('app.color.status_warning') : $r('app.color.status_success'))
-      }
-      .width('100%')
-      Progress({ value: ratio, total: 100, type: ProgressType.Linear })
-        .width('100%')
-        .height(4)
-        .color(ratio < 97 ? $r('app.color.status_warning') : $r('app.color.status_success'))
-        .backgroundColor($r('app.color.chart_track'))
-    }
-    .width('100%')
-    .accessibilityGroup(true)
-    .accessibilityText(`${label}在线率${ratio}%`)
-  }
-}
-
-@ComponentV2
-struct FacilityPanel {
-  @Param compact: boolean = false;
-  private facilities: FacilityStatus[] = FACILITY_STATUSES;
-
-  private onlineRatio(item: FacilityStatus): number {
-    return Math.round(item.online / item.total * 1000) / 10;
-  }
-
-  build() {
-    Column({ space: this.compact ? 4 : 8 }) {
-      Text(this.compact ? '设备' : '设备与空间')
-        .width('100%')
-        .fontSize(this.compact ? $r('sys.float.Body_M') : $r('sys.float.Title_M'))
-        .fontWeight(FontWeight.Bold)
-        .fontColor($r('sys.color.font_primary'))
-      ForEach(this.facilities, (item: FacilityStatus) => {
-        Column({ space: 2 }) {
-          Row() {
+  private facilityPanel() {
+    Column({ space: 10 }) {
+      this.panelTitle('设备运行', '按设备产品统计在线状态')
+      if (this.store.snapshot.facilities.length === 0) {
+        this.emptyState('服务器暂无设备数据')
+      } else {
+        ForEach(this.store.snapshot.facilities, (item: FacilityStatus) => {
+          Row({ space: 10 }) {
             Text(item.label)
+              .layoutWeight(1)
+              .fontSize($r('sys.float.Caption_S'))
+              .fontColor($r('sys.color.font_primary'))
+            Text(`${item.online}/${item.total}`)
               .fontSize($r('sys.float.Caption_S'))
               .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_primary'))
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-            Blank()
-            Text(`${this.onlineRatio(item)}%`)
-              .fontSize($r('sys.float.Caption_S'))
-              .fontWeight(FontWeight.Bold)
-              .fontColor(this.onlineRatio(item) < 97 ? $r('app.color.status_warning') :
-                $r('app.color.status_success'))
+              .fontColor(this.facilityRatio(item) < 95 ? $r('app.color.status_warning') : $r('app.color.status_success'))
+            Progress({ value: this.facilityRatio(item), total: 100, type: ProgressType.Linear })
+              .width(74)
+              .height(5)
+              .color(this.facilityRatio(item) < 95 ? $r('app.color.status_warning') : $r('app.color.status_success'))
+              .backgroundColor($r('app.color.chart_track'))
           }
           .width('100%')
-          Progress({ value: this.onlineRatio(item), total: 100, type: ProgressType.Linear })
+        }, (item: FacilityStatus) => item.id)
+      }
+    }
+    .width('100%')
+    .padding(16)
+    .borderRadius(8)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .border({ width: 0.5, color: $r('app.color.cockpit_border') })
+  }
+
+  @Builder
+  private workPanel() {
+    Column({ space: 10 }) {
+      this.panelTitle('照护执行', '按数据库任务类型汇总')
+      if (this.store.snapshot.work_items.length === 0) {
+        this.emptyState('服务器暂无护理任务')
+      } else {
+        ForEach(this.store.snapshot.work_items, (item: CareWorkItem) => {
+          Column({ space: 4 }) {
+            Row() {
+              Text(item.label)
+                .layoutWeight(1)
+                .fontSize($r('sys.float.Caption_S'))
+                .fontColor($r('sys.color.font_primary'))
+              Text(`${item.completed}/${item.total}`)
+                .fontSize($r('sys.float.Caption_S'))
+                .fontColor(item.overdue > 0 ? $r('app.color.status_warning') : $r('app.color.status_success'))
+            }
             .width('100%')
-            .height(this.compact ? 3 : 4)
-            .color(this.onlineRatio(item) < 97 ? $r('app.color.status_warning') :
-              $r('app.color.status_success'))
-            .backgroundColor($r('app.color.chart_track'))
-          if (!this.compact) {
-            Text(item.note)
-              .fontSize($r('sys.float.Caption_S'))
-              .fontColor($r('sys.color.font_secondary'))
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
+            Stack({ alignContent: Alignment.Start }) {
+              Row().width('100%').height(5).borderRadius(3).backgroundColor($r('app.color.chart_track'))
+              Row().width(dashboardProgressWidth(this.workCompletion(item))).height(5).borderRadius(3)
+                .backgroundColor(item.overdue > 0 ? $r('app.color.status_warning') : $r('app.color.status_success'))
+            }
+            .width('100%')
           }
+          .width('100%')
+        }, (item: CareWorkItem) => item.id)
+      }
+    }
+    .width('100%')
+    .padding(16)
+    .borderRadius(8)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .border({ width: 0.5, color: $r('app.color.cockpit_border') })
+  }
+
+  @Builder
+  private riskPanel() {
+    Column({ space: 10 }) {
+      this.panelTitle('风险结构', '当前未闭环告警分布')
+      if (this.store.snapshot.risks.length === 0) {
+        this.emptyState('当前没有未闭环风险')
+      } else {
+        ForEach(this.store.snapshot.risks, (risk: RiskSummary) => {
+          Row({ space: 8 }) {
+            Row().width(8).height(8).borderRadius(4).backgroundColor(dashboardToneColor(risk.tone))
+            Text(risk.label)
+              .layoutWeight(1)
+              .fontSize($r('sys.float.Caption_S'))
+              .fontColor($r('sys.color.font_primary'))
+            Text(`${risk.count} · ${risk.ratio.toFixed(0)}%`)
+              .fontSize($r('sys.float.Caption_S'))
+              .fontWeight(FontWeight.Medium)
+              .fontColor(dashboardToneColor(risk.tone))
+          }
+          .width('100%')
+        }, (risk: RiskSummary) => risk.id)
+      }
+    }
+    .width('100%')
+    .padding(16)
+    .borderRadius(8)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .border({ width: 0.5, color: $r('app.color.cockpit_border') })
+  }
+
+  @Builder
+  private emptyState(text: string) {
+    Column({ space: 8 }) {
+      SymbolGlyph($r('sys.symbol.doc_text'))
+        .fontSize(24)
+        .fontColor([$r('sys.color.icon_tertiary')])
+      Text(text)
+        .fontSize($r('sys.float.Body_M'))
+        .fontColor($r('sys.color.font_secondary'))
+    }
+    .width('100%')
+    .layoutWeight(1)
+    .justifyContent(FlexAlign.Center)
+  }
+
+  @Builder
+  private wideLayout() {
+    Column({ space: 12 }) {
+      this.header()
+      this.summaryStrip()
+      Row({ space: 12 }) {
+        Column() {
+          this.roomPanel()
         }
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
-        .accessibilityGroup(true)
-        .accessibilityText(`${item.label}在线率${this.onlineRatio(item)}%，${item.note}`)
-      }, (item: FacilityStatus) => item.id)
+        .layoutWeight(64)
+        .height('100%')
+        Column() {
+          this.eventPanel()
+        }
+        .layoutWeight(36)
+        .height('100%')
+      }
+      .layoutWeight(1)
+      .width('100%')
+      .constraintSize({ minHeight: 300 })
+      Row({ space: 12 }) {
+        Column() { this.wardPanel() }.layoutWeight(1).height('100%')
+        Column() { this.workPanel() }.layoutWeight(1).height('100%')
+        Column() { this.facilityPanel() }.layoutWeight(1).height('100%')
+        Column() { this.riskPanel() }.layoutWeight(1).height('100%')
+      }
+      .width('100%')
+      .constraintSize({ minHeight: 160, maxHeight: 230 })
+      if (this.store.error.length > 0) {
+        Text(this.store.error)
+          .width('100%')
+          .fontSize($r('sys.float.Caption_S'))
+          .fontColor($r('app.color.status_danger'))
+      }
     }
     .width('100%')
     .height('100%')
-    .padding(this.compact ? 8 : 12)
-    .borderRadius(this.compact ? 16 : $r('sys.float.corner_radius_level8'))
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .border({ width: 0.5, color: $r('app.color.cockpit_border') })
+  }
+
+  @Builder
+  private compactLayout() {
+    Column({ space: 10 }) {
+      this.header()
+      if (this.store.error.length > 0) {
+        Text(this.store.error)
+          .width('100%')
+          .fontSize($r('sys.float.Caption_S'))
+          .fontColor($r('app.color.status_danger'))
+      }
+      Scroll() {
+        Column({ space: 10 }) {
+          this.summaryStrip()
+          Column() { this.roomPanel() }.width('100%').height(420)
+          Column() { this.eventPanel() }.width('100%').height(360)
+          this.wardPanel()
+          this.workPanel()
+          this.facilityPanel()
+          this.riskPanel()
+        }
+        .width('100%')
+      }
+      .layoutWeight(1)
+      .width('100%')
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
+    }
+    .width('100%')
+    .height('100%')
+  }
+
+  build() {
+    if (this.compact) {
+      this.compactLayout()
+    } else {
+      this.wideLayout()
+    }
   }
 }

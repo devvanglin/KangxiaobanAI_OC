@@ -1,16 +1,21 @@
 import { router } from '@kit.ArkUI';
-import ApiClient from '../network/ApiClient';
+import { ApiClient } from '../network/ApiClient';
 import AuthStore from '../network/AuthStore';
-import { LoginResp } from '../network/Dto';
+import { ApiResp, LoginResp, RoleInfo } from '../network/Dto';
 import Logger from '../util/Logger';
 
 const TAG: string = '[LoginPage]';
 
+interface LoginRequest {
+  username: string;
+  password: string;
+}
+
 @Entry
 @ComponentV2
 struct LoginPage {
-  @Local account: string = 'family';
-  @Local password: string = 'Family@123456';
+  @Local account: string = '';
+  @Local password: string = '';
   @Local loading: boolean = false;
   @Local error: string = '';
 
@@ -21,8 +26,16 @@ struct LoginPage {
     this.loading = true;
     this.error = '';
     try {
-      const resp = await ApiClient.post<LoginResp>('/auth/login', { username: this.account, password: this.password });
+      const request: LoginRequest = { username: this.account, password: this.password };
+      const resp: ApiResp<LoginResp> = await ApiClient.post<LoginResp>(
+        '/auth/login', request);
       if (resp.code === 0 && resp.data && resp.data.token.length > 0) {
+        if (!this.isFamilyAccount(resp.data.user.roles)) {
+          AuthStore.clear();
+          this.error = '该账号不是家属身份';
+          this.loading = false;
+          return;
+        }
         AuthStore.setSession(resp.data.token, resp.data.user);
         router.replaceUrl({ url: 'pages/MainPage' });
         return;
@@ -33,6 +46,15 @@ struct LoginPage {
       this.error = '无法连接服务器，请确认后端已运行';
     }
     this.loading = false;
+  }
+
+  private isFamilyAccount(roles: RoleInfo[]): boolean {
+    for (let index: number = 0; index < roles.length; index++) {
+      if (roles[index].code === 'family') {
+        return true;
+      }
+    }
+    return false;
   }
 
   build() {
@@ -67,7 +89,7 @@ struct LoginPage {
       if (this.error.length > 0) {
         Text(this.error)
           .fontSize(13)
-          .fontColor(Color.fromRgb(255, 93, 108))
+          .fontColor('#FF5D6C')
       }
 
       Button() {

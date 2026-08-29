@@ -10,6 +10,11 @@
 *.tsbuildinfo.linter
 *.log
 
+# Local verification artifacts.
+tmp/
+KangxiaobanAI/screenshots/
+kangxiaoban-service/kangxiaoban-server
+
 .claude/settings.local.json
 
 # Hvigor-generated files and dependency locks from local sample builds.

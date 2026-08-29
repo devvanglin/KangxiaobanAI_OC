@@ -36,7 +36,7 @@ func boundElderIDs(c *gin.Context, fam *service.FamilyService) []uint {
 	if !ok {
 		return []uint{}
 	}
-	ids, err := fam.BoundElderIDs(cl.UserID)
+	ids, err := fam.BoundElderIDs(c.Request.Context(), cl.UserID)
 	if err != nil {
 		return []uint{}
 	}

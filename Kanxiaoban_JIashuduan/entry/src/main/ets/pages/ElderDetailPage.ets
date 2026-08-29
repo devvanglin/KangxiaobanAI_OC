@@ -1,5 +1,5 @@
 import { router } from '@kit.ArkUI';
-import ApiClient from '../network/ApiClient';
+import { ApiClient } from '../network/ApiClient';
 import { ApiResp, Elder, HealthRecord, Paged } from '../network/Dto';
 import Logger from '../util/Logger';
 
@@ -12,6 +12,7 @@ struct ElderDetailPage {
   @Local elder: Elder | null = null;
   @Local records: HealthRecord[] = [];
   @Local loading: boolean = true;
+  @Local error: string = '';
 
   aboutToAppear(): void {
     const params: Record<string, Object> = router.getParams() as Record<string, Object>;
@@ -21,15 +22,20 @@ struct ElderDetailPage {
 
   private async loadDetail(): Promise<void> {
     this.loading = true;
+    this.error = '';
     try {
-      const [e, h] = await Promise.all([
-        ApiClient.get<ApiResp<Elder>>(`/elders/${this.elderId}`),
-        ApiClient.get<ApiResp<Paged<HealthRecord>>>(`/elders/${this.elderId}/health-records?size=20`)
-      ]);
-      this.elder = e.data ?? null;
-      this.records = h.data ? (h.data as Paged<HealthRecord>).list ?? [] : [];
-    } catch (err) {
-      Logger.error(TAG, `detail err: ${JSON.stringify(err)}`);
+      const e: ApiResp<Elder> = await ApiClient.get<Elder>(`/elders/${this.elderId}`);
+      const h: ApiResp<Paged<HealthRecord>> =
+        await ApiClient.get<Paged<HealthRecord>>(`/elders/${this.elderId}/health-records?size=20`);
+      if (e.code !== 0 || h.code !== 0) {
+        this.error = e.msg || h.msg || '详情加载失败';
+      } else {
+        this.elder = e.data ?? null;
+        this.records = h.data?.list ?? [];
+      }
+    } catch (_error) {
+      Logger.error(TAG, 'detail load failed');
+      this.error = '无法连接服务器，请稍后重试';
     }
     this.loading = false;
   }
@@ -82,7 +88,22 @@ struct ElderDetailPage {
             .fontWeight(FontWeight.Medium)
             .width('100%')
 
-          ForEach(this.records, (r: HealthRecord) => {
+          if (!this.loading && this.error.length > 0) {
+            Text(this.error)
+              .width('100%')
+              .padding(20)
+              .textAlign(TextAlign.Center)
+              .fontSize(14)
+              .fontColor('#FF5D6C')
+          } else if (!this.loading && this.records.length === 0) {
+            Text('暂无健康记录')
+              .width('100%')
+              .padding(20)
+              .textAlign(TextAlign.Center)
+              .fontSize(14)
+              .fontColor($r('sys.color.font_secondary'))
+          } else {
+            ForEach(this.records, (r: HealthRecord) => {
             Row({ space: 10 }) {
               Column({ space: 2 }) {
                 Text(`体温 ${r.temperature ?? '-'}℃`)
@@ -97,7 +118,7 @@ struct ElderDetailPage {
               Row({ space: 6 }) {
                 Text(r.is_abnormal ? '异常' : '正常')
                   .fontSize(12)
-                  .fontColor(r.is_abnormal ? Color.fromRgb(255, 93, 108) : $r('sys.color.font_secondary'))
+                  .fontColor(r.is_abnormal ? '#FF5D6C' : $r('sys.color.font_secondary'))
                 Text(`${r.source === 'iot' ? '雷达' : '手录'}`)
                   .fontSize(12)
                   .fontColor($r('sys.color.font_tertiary'))
@@ -107,7 +128,8 @@ struct ElderDetailPage {
             .padding(14)
             .backgroundColor($r('sys.color.comp_background_secondary'))
             .borderRadius(12)
-          })
+            })
+          }
         }
         .width('100%')
         .padding(16)

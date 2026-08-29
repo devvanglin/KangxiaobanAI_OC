@@ -1,6 +1,7 @@
 package iot
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"strings"
@@ -62,7 +63,7 @@ func (s *IotService) onMQTTMessage(topic string, payload []byte) {
 		return
 	}
 	values := extractFields(raw)
-	if err := s.Ingest(deviceID, product, values); err != nil {
+	if err := s.IngestContext(s.contextForDevice(deviceID), deviceID, product, values); err != nil {
 		log.Printf("[IoT] ingest %s failed: %v", deviceID, err)
 	}
 }
@@ -100,15 +101,21 @@ func (s *IotService) StartOfflineScanner() {
 	ticker := time.NewTicker(30 * time.Second)
 	for range ticker.C {
 		now := time.Now()
-		var devs []model.IotDevice
-		if err := s.db.Where("online = 1").Find(&devs).Error; err != nil {
-			continue
-		}
-		for _, d := range devs {
-			if d.LastSeen != nil && now.Sub(*d.LastSeen) > offlineAfter {
-				s.db.Model(&d).Update("online", 0)
-				if s.okCooldown("offline", d.DeviceID, now) {
-					s.createAlert(d, "offline", "info", "设备离线(超过"+offlineWindow+"无上报)", now)
+		for _, tenantID := range s.tenantIDs() {
+			ctx := context.WithValue(context.Background(), model.TenantContextKey, tenantID)
+			db := s.db.WithContext(ctx)
+			var devs []model.IotDevice
+			if err := db.Where("online = 1").Find(&devs).Error; err != nil {
+				continue
+			}
+			for _, d := range devs {
+				if d.LastSeen != nil && now.Sub(*d.LastSeen) > offlineAfter {
+					if err := db.Model(&d).Update("online", 0).Error; err != nil {
+						continue
+					}
+					if s.okCooldown("offline", d.DeviceID, now) {
+						s.createAlert(db, d, "offline", "info", "设备离线(超过"+offlineWindow+"无上报)", now)
+					}
 				}
 			}
 		}
@@ -116,7 +123,7 @@ func (s *IotService) StartOfflineScanner() {
 }
 
 const (
-	offlineAfter   = 60 * time.Second
-	offlineWindow  = "60s"
+	offlineAfter    = 60 * time.Second
+	offlineWindow   = "60s"
 	escalationAfter = 60 * time.Second
 )

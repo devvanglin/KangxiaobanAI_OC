@@ -8,7 +8,7 @@ import (
 
 // Config 应用配置，由环境变量 / .env 注入，区分开发与生产。
 type Config struct {
-	Server ServerConfig
+	Server   ServerConfig
 	Database DBConfig
 	JWT      JWTConfig
 	MQTT     MQTTConfig
@@ -19,8 +19,8 @@ type ServerConfig struct {
 	Port string
 	// StaticDir 展示壳静态目录（落地页/大屏），空则不托管。
 	StaticDir string
-	// SeedDemo 首次启动是否播种演示数据（设备/告警/账单等），默认 true。
-	SeedDemo bool
+	// SeedBusiness 首次启动是否写入一套互相关联的业务初始数据，默认 true。
+	SeedBusiness bool
 }
 
 // AIConfig AI 对话网关（可插拔 provider）。
@@ -62,9 +62,9 @@ func Load() *Config {
 	_ = godotenv.Load()
 	return &Config{
 		Server: ServerConfig{
-			Port:      env("KXB_SERVER_PORT", "8080"),
-			StaticDir: env("KXB_STATIC_DIR", "../showcase"),
-			SeedDemo:  env("KXB_SEED_DEMO", "true") == "true",
+			Port:         env("KXB_SERVER_PORT", "8080"),
+			StaticDir:    env("KXB_STATIC_DIR", "../showcase"),
+			SeedBusiness: seedBusinessEnabled(),
 		},
 		Database: DBConfig{
 			Driver:     env("KXB_DB_DRIVER", "sqlite"), // 默认 sqlite，开发即跑
@@ -92,6 +92,14 @@ func Load() *Config {
 			APIKey:   os.Getenv("KXB_AI_API_KEY"),
 		},
 	}
+}
+
+func seedBusinessEnabled() bool {
+	if value := os.Getenv("KXB_SEED_BUSINESS"); value != "" {
+		return value == "true"
+	}
+	// 兼容旧部署变量；新部署统一使用 KXB_SEED_BUSINESS。
+	return env("KXB_SEED_DEMO", "true") == "true"
 }
 
 func env(key, def string) string {

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -68,8 +69,12 @@ func (h *MessageHandler) List(c *gin.Context) {
 			return
 		}
 	}
-	items, total, err := h.svc.List(cl.UserID, uint(peer), elderID, page, size)
+	items, total, err := h.svc.List(c.Request.Context(), cl.UserID, uint(peer), elderID, page, size)
 	if err != nil {
+		if errors.Is(err, service.ErrMessagePeerUnavailable) {
+			Fail(c, http.StatusNotFound, 404, "联系人不存在")
+			return
+		}
 		Fail(c, 500, 500, "查询消息失败")
 		return
 	}
@@ -101,8 +106,12 @@ func (h *MessageHandler) Send(c *gin.Context) {
 	if req.ElderID != nil && !requireElderAccess(c, h.family, *req.ElderID) {
 		return
 	}
-	msg, err := h.svc.Send(cl.UserID, req.ReceiverID, req.ElderID, req.Content, req.Type)
+	msg, err := h.svc.Send(c.Request.Context(), cl.UserID, req.ReceiverID, req.ElderID, req.Content, req.Type)
 	if err != nil {
+		if errors.Is(err, service.ErrMessagePeerUnavailable) {
+			Fail(c, http.StatusNotFound, 404, "联系人不存在")
+			return
+		}
 		Fail(c, 500, 500, "发送消息失败")
 		return
 	}
@@ -117,7 +126,7 @@ func (h *MessageHandler) MarkRead(c *gin.Context) {
 		return
 	}
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err := h.svc.MarkRead(cl.UserID, uint(id)); err != nil {
+	if err := h.svc.MarkRead(c.Request.Context(), cl.UserID, uint(id)); err != nil {
 		Fail(c, http.StatusNotFound, 404, "消息不存在")
 		return
 	}

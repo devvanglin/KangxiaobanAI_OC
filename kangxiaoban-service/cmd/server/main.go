@@ -35,7 +35,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("数据库连接失败: %v", err)
 	}
-	if err := database.AutoMigrateAndSeed(db, cfg.Server.SeedDemo); err != nil {
+	if err := database.AutoMigrateAndSeed(db, cfg.Server.SeedBusiness); err != nil {
 		log.Fatalf("数据库初始化失败: %v", err)
 	}
 
@@ -54,6 +54,9 @@ func main() {
 	notificationRepo := repository.NewNotificationRepository(db)
 	messageRepo := repository.NewMessageRepository(db)
 
+	hub := ws.NewHub()
+	go hub.Run()
+
 	authSvc := service.NewAuthService(userRepo, &cfg.JWT)
 	elderSvc := service.NewElderService(elderRepo)
 	resourceSvc := service.NewResourceService(resourceRepo)
@@ -66,15 +69,13 @@ func main() {
 	supplySvc := service.NewSupplyService(supplyRepo)
 	familySvc := service.NewFamilyService(familyRepo, db)
 	careSvc := service.NewCareService(careRepo)
+	admissionSvc := service.NewAdmissionService(db, hub)
 	notificationSvc := service.NewNotificationService(notificationRepo)
 	messageSvc := service.NewMessageService(messageRepo)
 	aiSvc := service.NewAIService(&cfg.AI, db)
 
-	hub := ws.NewHub()
-	go hub.Run()
-
 	iotSvc := iot.NewIotService(db, hub)
-	iotSvc.SetNotifier(notificationSvc.CreateRoleNotification)
+	iotSvc.SetTenantNotifier(notificationSvc.CreateRoleNotificationContext)
 	if cfg.MQTT.Enable {
 		go iotSvc.StartMQTT(cfg.MQTT)
 	}
@@ -82,7 +83,7 @@ func main() {
 	go iotSvc.StartEscalationScanner()
 
 	r := router.New(db, cfg, hub, iotSvc, userRepo, authSvc, elderSvc, resourceSvc, taskSvc, healthSvc,
-		scheduleSvc, financeSvc, medicationSvc, auditSvc, auditRepo, supplySvc, familySvc, careSvc, notificationSvc, messageSvc, aiSvc)
+		scheduleSvc, financeSvc, medicationSvc, auditSvc, auditRepo, supplySvc, familySvc, careSvc, admissionSvc, notificationSvc, messageSvc, aiSvc)
 
 	// 展示壳静态托管：落地页(/)与大屏(/dashboard.html)（API 路由优先，未匹配路径回落到静态）
 	if cfg.Server.StaticDir != "" {

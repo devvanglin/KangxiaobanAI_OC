@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"kangxiaoban-service/internal/model"
 	"kangxiaoban-service/internal/repository"
 
@@ -19,14 +20,15 @@ func NewFamilyService(repo *repository.FamilyRepository, db *gorm.DB) *FamilySer
 }
 
 // BoundElderIDs 该家属可查看的长者 id 集合。
-func (s *FamilyService) BoundElderIDs(userID uint) ([]uint, error) {
-	return s.repo.BoundElderIDs(userID)
+func (s *FamilyService) BoundElderIDs(ctx context.Context, userID uint) ([]uint, error) {
+	return s.repo.BoundElderIDs(ctx, userID)
 }
 
 // CreateMember 为家长建家属账号并绑定长者（已存在的绑定幂等跳过）。
-func (s *FamilyService) CreateMember(username, password, realName, phone string, elderIDs []uint) (*model.User, error) {
+func (s *FamilyService) CreateMember(ctx context.Context, username, password, realName, phone string, elderIDs []uint) (*model.User, error) {
+	db := s.db.WithContext(ctx)
 	var n int64
-	if err := s.db.Model(&model.User{}).Where("username = ?", username).Count(&n).Error; err != nil {
+	if err := db.Model(&model.User{}).Where("username = ?", username).Count(&n).Error; err != nil {
 		return nil, err
 	}
 	if n > 0 {
@@ -37,18 +39,18 @@ func (s *FamilyService) CreateMember(username, password, realName, phone string,
 		return nil, err
 	}
 	u := model.User{Username: username, PasswordHash: string(hash), RealName: realName, Phone: phone, Status: 1}
-	if err := s.db.Create(&u).Error; err != nil {
+	if err := db.Create(&u).Error; err != nil {
 		return nil, err
 	}
 	var famRole model.Role
-	if err := s.db.Where("code = ?", "family").First(&famRole).Error; err != nil {
+	if err := db.Where("code = ?", "family").First(&famRole).Error; err != nil {
 		return nil, err
 	}
-	if err := s.db.Model(&u).Association("Roles").Replace([]model.Role{famRole}); err != nil {
+	if err := db.Model(&u).Association("Roles").Replace([]model.Role{famRole}); err != nil {
 		return nil, err
 	}
 	for _, eid := range elderIDs {
-		_ = s.repo.Bind(u.ID, eid)
+		_ = s.repo.Bind(ctx, u.ID, eid)
 	}
 	u.PasswordHash = ""
 	return &u, nil
@@ -61,8 +63,8 @@ type svcError struct{ msg string }
 func (e *svcError) Error() string { return e.msg }
 
 // ListBindings 绑定列表（可按 elder_id 过滤），关联家长与长者信息。
-func (s *FamilyService) ListBindings(elderID uint, page, size int) ([]model.FamilyElder, int64, error) {
-	q := s.db.Model(&model.FamilyElder{})
+func (s *FamilyService) ListBindings(ctx context.Context, elderID uint, page, size int) ([]model.FamilyElder, int64, error) {
+	q := s.db.WithContext(ctx).Model(&model.FamilyElder{})
 	if elderID > 0 {
 		q = q.Where("elder_id = ?", elderID)
 	}
@@ -76,6 +78,6 @@ func (s *FamilyService) ListBindings(elderID uint, page, size int) ([]model.Fami
 }
 
 // Unbind 解除家属与长者的绑定。
-func (s *FamilyService) Unbind(userID, elderID uint) error {
-	return s.db.Where("user_id = ? AND elder_id = ?", userID, elderID).Delete(&model.FamilyElder{}).Error
+func (s *FamilyService) Unbind(ctx context.Context, userID, elderID uint) error {
+	return s.db.WithContext(ctx).Where("user_id = ? AND elder_id = ?", userID, elderID).Delete(&model.FamilyElder{}).Error
 }
