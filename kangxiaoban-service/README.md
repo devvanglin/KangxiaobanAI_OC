@@ -24,16 +24,15 @@ PATCH    /api/v1/notifications/:id/read
 
 短信、Push、微信等外部渠道仍需实现对应 Provider；当前通知记录和 WebSocket 广播是可运行的基础层。
 
-## 演示登录账号
+## 登录账号
 
-首次启动会创建以下测试账号（生产环境请立即改密或删除）：
+首次启动会创建以下基础账号，密码可在生产环境按机构策略修改：
 
 ```text
 管理员：admin / Admin@123456
-演示管理员：admin_demo / 123456
-护工：caregiver_demo / 123456
-医师：doctor_demo / 123456
-家属：family_demo / Family@123456
+护工：caregiver / 123456
+医师：doctor / 123456
+家属：family / Family@123456
 ```
 
 ## 验证

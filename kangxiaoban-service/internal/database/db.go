@@ -84,6 +84,9 @@ func ensureDefaultTenant(db *gorm.DB) error {
 }
 
 func seed(db *gorm.DB) error {
+	if err := migrateDemoAccounts(db); err != nil {
+		return err
+	}
 	// 权限：M0-M1 核心权限集；后续里程碑扩展。
 	perms := []struct{ code, name string }{
 		{"dash:read", "工作台查看"},
@@ -158,14 +161,14 @@ func seed(db *gorm.DB) error {
 	}
 	_ = admin
 
-	// 演示家属账号 family_demo / Family@123456，角色 family
+	// 正式家属账号 family / Family@123456，角色 family
 	var family model.User
-	if err := db.Where("username = ?", "family_demo").First(&family).Error; err != nil {
+	if err := db.Where("username = ?", "family").First(&family).Error; err != nil {
 		hash, err2 := bcrypt.GenerateFromPassword([]byte("Family@123456"), bcrypt.DefaultCost)
 		if err2 != nil {
 			return err2
 		}
-		family = model.User{Username: "family_demo", PasswordHash: string(hash), RealName: "张伟", Status: 1}
+		family = model.User{Username: "family", PasswordHash: string(hash), RealName: "张伟", Status: 1}
 		if err := db.Create(&family).Error; err != nil {
 			return err
 		}
@@ -179,15 +182,14 @@ func seed(db *gorm.DB) error {
 	}
 	_ = family
 
-	// 客户端角色选择对应的演示账号，便于测试真实后端权限；生产环境应立即改密或删除。
-	demoUsers := []struct {
+	// 客户端角色选择对应的正式账号；生产环境请按机构策略修改密码。
+	formalUsers := []struct {
 		username, password, realName, roleCode string
 	}{
-		{"caregiver_demo", "123456", "演示护工", "caregiver"},
-		{"doctor_demo", "123456", "演示医师", "doctor"},
-		{"admin_demo", "123456", "演示管理员", "admin"},
+		{"caregiver", "123456", "护理员", "caregiver"},
+		{"doctor", "123456", "医师", "doctor"},
 	}
-	for _, demo := range demoUsers {
+	for _, demo := range formalUsers {
 		var u model.User
 		if err := db.Where("username = ?", demo.username).First(&u).Error; err == nil {
 			continue
@@ -209,6 +211,47 @@ func seed(db *gorm.DB) error {
 		if err := db.Model(&u).Association("Roles").Replace([]model.Role{role}); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// migrateDemoAccounts 将旧版本的 *_demo 账号改为正式账号，并删除重复的 admin_demo。
+// 只迁移用户名，不重置密码，保留既有账号凭据和家属绑定关系。
+func migrateDemoAccounts(db *gorm.DB) error {
+	rename := func(oldName, newName string) error {
+		var oldUser model.User
+		if err := db.Where("username = ?", oldName).First(&oldUser).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil
+			}
+			return err
+		}
+		var newUser model.User
+		if err := db.Where("username = ?", newName).First(&newUser).Error; err == nil {
+			_ = db.Model(&oldUser).Association("Roles").Clear()
+			return db.Delete(&oldUser).Error
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		return db.Model(&oldUser).Update("username", newName).Error
+	}
+	if err := rename("caregiver_demo", "caregiver"); err != nil {
+		return err
+	}
+	if err := rename("doctor_demo", "doctor"); err != nil {
+		return err
+	}
+	if err := rename("family_demo", "family"); err != nil {
+		return err
+	}
+	var adminDemo model.User
+	if err := db.Where("username = ?", "admin_demo").First(&adminDemo).Error; err == nil {
+		_ = db.Model(&adminDemo).Association("Roles").Clear()
+		if err := db.Delete(&adminDemo).Error; err != nil {
+			return err
+		}
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
 	}
 	return nil
 }
@@ -269,9 +312,9 @@ func seedBusiness(db *gorm.DB) error {
 	db.Create(&model.CareTask{ElderID: binding[0].ID, Title: "早间翻身", Kind: "turnover", Assignee: "李护工", Status: "todo", Remark: "两小时一次"})
 	db.Create(&model.CareTask{ElderID: binding[1].ID, Title: "服用降压药", Kind: "medication", Assignee: "刘护工", Status: "todo"})
 
-	// 家属演示绑定：family_demo 仅绑定长者1，用于验证数据隔离
+	// 家属绑定：family 仅绑定长者1，用于验证数据隔离
 	var fam model.User
-	if err := db.Where("username = ?", "family_demo").First(&fam).Error; err == nil {
+	if err := db.Where("username = ?", "family").First(&fam).Error; err == nil {
 		db.FirstOrCreate(&model.FamilyElder{UserID: fam.ID, ElderID: binding[0].ID}, model.FamilyElder{UserID: fam.ID, ElderID: binding[0].ID})
 	}
 
