@@ -1421,7 +1421,7 @@ export struct AiChatPage {
       return 8;
     }
     if (this.embeddedCaregiverWide && this.isWideLayout()) {
-      return Math.max(8, this.globalInfoModel.naviIndicatorHeight - 8);
+      return Math.max(0, this.globalInfoModel.naviIndicatorHeight - 16);
     }
     return this.isWideLayout() ? Math.max(12, this.globalInfoModel.naviIndicatorHeight) :
       this.globalInfoModel.naviIndicatorHeight;
