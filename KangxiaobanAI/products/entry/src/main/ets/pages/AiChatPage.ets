@@ -1421,7 +1421,7 @@ export struct AiChatPage {
       return 8;
     }
     if (this.embeddedCaregiverWide && this.isWideLayout()) {
-      return Math.max(0, this.globalInfoModel.naviIndicatorHeight - 16);
+      return Math.max(0, this.globalInfoModel.naviIndicatorHeight - 28);
     }
     return this.isWideLayout() ? Math.max(12, this.globalInfoModel.naviIndicatorHeight) :
       this.globalInfoModel.naviIndicatorHeight;
@@ -1429,7 +1429,7 @@ export struct AiChatPage {
 
   @Builder
   private inputArea(showDisclaimer: boolean, transparentBackground: boolean = false) {
-    Column({ space: 6 }) {
+    Column({ space: this.isEmbeddedWideHistory() ? 1 : 6 }) {
       if (transparentBackground && this.embeddedCaregiverWide) {
         this.embeddedComposer()
       } else {
@@ -1437,7 +1437,7 @@ export struct AiChatPage {
       }
       if (showDisclaimer && this.keyboardOffset === 0) {
         Text('内容由 AI 生成，请仔细甄别')
-          .fontSize($r('sys.float.Caption_M'))
+          .fontSize($r('sys.float.Body_S'))
           .fontColor($r('sys.color.font_tertiary'))
           .width('100%')
           .textAlign(TextAlign.Center)
@@ -1448,7 +1448,7 @@ export struct AiChatPage {
       left: this.isWideLayout() ? 28 : this.pagePadding(),
       right: this.isWideLayout() ? 28 : this.pagePadding(),
       top: 8,
-      bottom: this.keyboardOffset > 0 ? 0 : 2
+      bottom: this.keyboardOffset > 0 || this.isEmbeddedWideHistory() ? 0 : 2
     })
     .margin({ bottom: this.inputBottomMargin() })
     .backgroundColor(transparentBackground ? Color.Transparent : $r('sys.color.background_primary'))
@@ -2038,6 +2038,7 @@ export struct AiChatPage {
     }
     .width('100%')
     .height('100%')
+    .padding({ bottom: 15 })
     .backgroundColor($r('sys.color.background_secondary'))
   }
 
