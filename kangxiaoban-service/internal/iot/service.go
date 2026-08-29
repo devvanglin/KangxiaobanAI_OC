@@ -37,10 +37,16 @@ type IotService struct {
 	db       *gorm.DB
 	hub      *ws.Hub
 	cooldown sync.Map // key=type:deviceID -> lastTime
+	notify   func(role, typ, title, content, severity string) error
 }
 
 func NewIotService(db *gorm.DB, hub *ws.Hub) *IotService {
 	return &IotService{db: db, hub: hub}
+}
+
+// SetNotifier 注入通知 Provider；未配置时仍保留 WebSocket 广播能力。
+func (s *IotService) SetNotifier(fn func(role, typ, title, content, severity string) error) {
+	s.notify = fn
 }
 
 // Ingest 处理一帧设备数据（字段扁平）。
@@ -137,6 +143,11 @@ func (s *IotService) createAlert(dev model.IotDevice, typ, lvl, content string, 
 	}
 	if err := s.db.Create(&a).Error; err == nil {
 		s.hub.BroadcastEvent("alert.new", a)
+		if s.notify != nil {
+			for _, role := range []string{"admin", "caregiver", "doctor"} {
+				_ = s.notify(role, "alert", "新的照护告警", content, lvl)
+			}
+		}
 	}
 }
 
@@ -171,13 +182,29 @@ func (s *IotService) StartEscalationScanner() {
 
 // ListDevices 设备列表。
 func (s *IotService) ListDevices(page, size int) ([]model.IotDevice, int64, error) {
+	return s.ListDevicesScoped(page, size, nil)
+}
+
+func (s *IotService) ListDevicesScoped(page, size int, allowed []uint) ([]model.IotDevice, int64, error) {
+	q := s.db.Model(&model.IotDevice{})
+	if len(allowed) > 0 {
+		q = q.Where("elder_id IN ?", allowed)
+	}
 	var total int64
-	if err := s.db.Model(&model.IotDevice{}).Count(&total).Error; err != nil {
+	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 	var items []model.IotDevice
-	err := s.db.Order("id desc").Offset((page - 1) * size).Limit(size).Find(&items).Error
+	err := q.Order("id desc").Offset((page - 1) * size).Limit(size).Find(&items).Error
 	return items, total, err
+}
+
+func (s *IotService) GetAlert(id uint) (*model.Alert, error) {
+	var a model.Alert
+	if err := s.db.First(&a, id).Error; err != nil {
+		return nil, err
+	}
+	return &a, nil
 }
 
 // ListAlerts 告警列表（可按状态/级别筛）。
@@ -221,7 +248,31 @@ func (s *IotService) HandleAlert(id uint, by string, closeIt bool) error {
 	if closeIt {
 		updates["close_time"] = now
 	}
-	return s.db.Model(&a).Updates(updates).Error
+	if err := s.db.Model(&a).Updates(updates).Error; err != nil {
+		return err
+	}
+	action := "acknowledge"
+	if closeIt {
+		action = "close"
+	}
+	return s.RecordAlertAction(id, 0, action, "")
+}
+
+// RecordAlertAction 记录告警处置时间线，便于复盘和质控。
+func (s *IotService) RecordAlertAction(alertID, userID uint, action, note string) error {
+	return s.db.Create(&model.AlertAction{AlertID: alertID, UserID: userID, Action: action, Note: note}).Error
+}
+
+// ListAlertActions 查询告警处置时间线。
+func (s *IotService) ListAlertActions(alertID uint, page, size int) ([]model.AlertAction, int64, error) {
+	q := s.db.Model(&model.AlertAction{}).Where("alert_id = ?", alertID)
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var out []model.AlertAction
+	err := q.Order("id asc").Offset((page - 1) * size).Limit(size).Find(&out).Error
+	return out, total, err
 }
 
 // toStr 任意值转字符串。

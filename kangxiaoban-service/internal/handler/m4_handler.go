@@ -121,6 +121,10 @@ func (h *M4Handler) Pay(c *gin.Context) {
 // Balance GET /api/v1/elders/:id/balance —— 预缴余额。
 func (h *M4Handler) Balance(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	if bound := boundElderIDs(c, h.family); bound != nil && !contains(uint(id), bound) {
+		Fail(c, http.StatusForbidden, 403, "无权限查看该长者余额")
+		return
+	}
 	bal, err := h.finance.Balance(uint(id))
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "查询余额失败")
@@ -132,6 +136,10 @@ func (h *M4Handler) Balance(c *gin.Context) {
 // ListFlows GET /api/v1/elders/:id/flows —— 资金流水。
 func (h *M4Handler) ListFlows(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	if bound := boundElderIDs(c, h.family); bound != nil && !contains(uint(id), bound) {
+		Fail(c, http.StatusForbidden, 403, "无权限查看该长者流水")
+		return
+	}
 	page, size := parsePage(c)
 	items, total, err := h.finance.ListFlows(uint(id), page, size)
 	if err != nil {
@@ -144,7 +152,23 @@ func (h *M4Handler) ListFlows(c *gin.Context) {
 // ---- 用药 ----
 func (h *M4Handler) ListMedications(c *gin.Context) {
 	page, size := parsePage(c)
-	items, total, err := h.medication.List(uint(parseUint(c, "elder_id")), c.Query("status"), page, size)
+	requested := uint(parseUint(c, "elder_id"))
+	if bound := boundElderIDs(c, h.family); bound != nil {
+		// 家属不允许通过任意 elder_id 探测其他长者；未指定时只返回绑定集合中的记录。
+		if requested > 0 && !contains(requested, bound) {
+			Fail(c, http.StatusForbidden, 403, "无权限查看该长者用药")
+			return
+		}
+		if requested == 0 {
+			// 当前 Repository 只支持单 elder_id 过滤；家属端逐个查询绑定长者，避免返回越权数据。
+			if len(bound) == 0 {
+				OK(c, gin.H{"list": []model.MedicationRecord{}, "page": page, "size": size, "total": 0})
+				return
+			}
+			requested = bound[0]
+		}
+	}
+	items, total, err := h.medication.List(requested, c.Query("status"), page, size)
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "查询用药失败")
 		return
@@ -156,6 +180,9 @@ func (h *M4Handler) CreateMedication(c *gin.Context) {
 	var req model.MedicationRecord
 	if err := c.ShouldBindJSON(&req); err != nil || req.ElderID == 0 || req.MedicineName == "" {
 		Fail(c, http.StatusBadRequest, 400, "参数错误: elder_id 与 medicine_name 必填")
+		return
+	}
+	if !requireElderAccess(c, h.family, req.ElderID) {
 		return
 	}
 	if err := h.medication.Create(&req); err != nil {
@@ -182,6 +209,11 @@ func (h *M4Handler) MarkMedicationStatus(c *gin.Context) {
 	default:
 		Fail(c, http.StatusBadRequest, 400, "status 仅支持 taken/refused/missed")
 		return
+	}
+	if m, err := h.medication.Get(uint(id)); err == nil {
+		if !requireElderAccess(c, h.family, m.ElderID) {
+			return
+		}
 	}
 	if err := h.medication.MarkStatus(uint(id), req.Status); err != nil {
 		Fail(c, http.StatusNotFound, 404, "记录不存在")

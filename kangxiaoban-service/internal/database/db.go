@@ -36,6 +36,9 @@ func Connect(cfg *config.DBConfig) (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open db (%s): %w", cfg.Driver, err)
 	}
+	if err := RegisterTenantScope(db); err != nil {
+		return nil, fmt.Errorf("register tenant scope: %w", err)
+	}
 	return db, nil
 }
 
@@ -43,6 +46,10 @@ func Connect(cfg *config.DBConfig) (*gorm.DB, error) {
 func AutoMigrateAndSeed(db *gorm.DB, seedDemo bool) error {
 	if err := model.AutoMigrateAll(db); err != nil {
 		return fmt.Errorf("auto migrate: %w", err)
+	}
+	// 单机构历史库统一迁移到默认租户，避免新增 tenant_id 后出现不可见数据。
+	if err := ensureDefaultTenant(db); err != nil {
+		return fmt.Errorf("ensure default tenant: %w", err)
 	}
 	if err := seed(db); err != nil {
 		return err
@@ -52,6 +59,26 @@ func AutoMigrateAndSeed(db *gorm.DB, seedDemo bool) error {
 	}
 	if seedDemo {
 		return seedDemoData(db)
+	}
+	return nil
+}
+
+func ensureDefaultTenant(db *gorm.DB) error {
+	var tenant model.Tenant
+	if err := db.Where("id = ?", 1).First(&tenant).Error; err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		tenant = model.Tenant{Base: model.Base{ID: 1, TenantID: 1}, Code: "default", Name: "默认机构", Status: 1}
+		if err := db.Create(&tenant).Error; err != nil {
+			return err
+		}
+	}
+	// GORM 默认值通常会填充历史行；显式修复可能遗留的 0 值。
+	for _, table := range []interface{}{&model.User{}, &model.Role{}, &model.Permission{}, &model.AuditLog{}, &model.Elder{}, &model.Room{}, &model.Bed{}, &model.CareTask{}, &model.HealthRecord{}, &model.Assessment{}, &model.CarePlan{}, &model.CarePlanItem{}, &model.CareExecution{}, &model.Incident{}, &model.IotDevice{}, &model.SignalRecord{}, &model.Alert{}, &model.AlertAction{}, &model.Notification{}, &model.Schedule{}, &model.ShiftHandover{}, &model.Bill{}, &model.FundFlow{}, &model.MedicationRecord{}, &model.MedicineStock{}, &model.DiningOrder{}, &model.FamilyElder{}} {
+		if err := db.Model(table).Where("tenant_id = 0").Update("tenant_id", 1).Error; err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -222,8 +249,8 @@ func seedBusiness(db *gorm.DB) error {
 	return nil
 }
 
-func fp(v float64) *float64      { return &v }
-func pi(v int) *int              { return &v }
+func fp(v float64) *float64 { return &v }
+func pi(v int) *int         { return &v }
 
 // seedDemoData 播演示业务数据（设备/告警/账单/任务），仅空库首次启动时执行，让展示壳开即有数据。
 func seedDemoData(db *gorm.DB) error {

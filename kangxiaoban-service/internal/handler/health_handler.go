@@ -49,6 +49,9 @@ func (h *HealthHandler) Create(c *gin.Context) {
 		Fail(c, http.StatusBadRequest, 400, "elder_id 必填")
 		return
 	}
+	if !requireElderAccess(c, h.family, req.ElderID) {
+		return
+	}
 	if err := h.svc.Create(&req); err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "录入体征失败")
 		return

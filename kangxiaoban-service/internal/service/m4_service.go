@@ -10,7 +10,9 @@ import (
 )
 
 // ScheduleService 排班 + 交接班。
-type ScheduleService struct{ repo *repository.ScheduleRepository }
+type ScheduleService struct {
+	repo *repository.ScheduleRepository
+}
 
 func NewScheduleService(repo *repository.ScheduleRepository) *ScheduleService {
 	return &ScheduleService{repo: repo}
@@ -19,11 +21,15 @@ func NewScheduleService(repo *repository.ScheduleRepository) *ScheduleService {
 func (s *ScheduleService) ListSchedules(date string, page, size int) ([]model.Schedule, int64, error) {
 	return s.repo.ListSchedules(date, page, size)
 }
-func (s *ScheduleService) CreateSchedule(sch *model.Schedule) error { return s.repo.CreateSchedule(sch) }
+func (s *ScheduleService) CreateSchedule(sch *model.Schedule) error {
+	return s.repo.CreateSchedule(sch)
+}
 func (s *ScheduleService) ListHandovers(date string, page, size int) ([]model.ShiftHandover, int64, error) {
 	return s.repo.ListHandovers(date, page, size)
 }
-func (s *ScheduleService) CreateHandover(h *model.ShiftHandover) error { return s.repo.CreateHandover(h) }
+func (s *ScheduleService) CreateHandover(h *model.ShiftHandover) error {
+	return s.repo.CreateHandover(h)
+}
 
 // feeTable 简易费率：床位费/餐饮费按常量，护理费按照护等级。
 var feeTable = map[int]float64{1: 1200, 2: 1800, 3: 2400, 4: 3000, 5: 3600}
@@ -128,7 +134,9 @@ func (s *FinanceService) Balance(elderID uint) (float64, error) {
 }
 
 // MedicationService 用药记录。
-type MedicationService struct{ repo *repository.MedicationRepository }
+type MedicationService struct {
+	repo *repository.MedicationRepository
+}
 
 func NewMedicationService(repo *repository.MedicationRepository) *MedicationService {
 	return &MedicationService{repo: repo}
@@ -137,7 +145,8 @@ func NewMedicationService(repo *repository.MedicationRepository) *MedicationServ
 func (s *MedicationService) List(elderID uint, status string, page, size int) ([]model.MedicationRecord, int64, error) {
 	return s.repo.List(elderID, status, page, size)
 }
-func (s *MedicationService) Create(m *model.MedicationRecord) error { return s.repo.Create(m) }
+func (s *MedicationService) Create(m *model.MedicationRecord) error       { return s.repo.Create(m) }
+func (s *MedicationService) Get(id uint) (*model.MedicationRecord, error) { return s.repo.Get(id) }
 
 // MarkTaken 标记已服药。status: taken/refused/missed。
 func (s *MedicationService) MarkStatus(id uint, status string) error {

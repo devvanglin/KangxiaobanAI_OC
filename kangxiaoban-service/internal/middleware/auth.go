@@ -1,12 +1,14 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 
 	"kangxiaoban-service/internal/auth"
+	"kangxiaoban-service/internal/model"
 	"kangxiaoban-service/internal/repository"
 )
 
@@ -14,6 +16,9 @@ type ctxKey string
 
 // ClaimsKey context 中存放已解析身份的键。
 const ClaimsKey ctxKey = "claims"
+
+// TenantKey 当前请求的机构租户 ID。
+const TenantKey ctxKey = "tenant_id"
 
 // JWTAuth 校验 Authorization: Bearer <token>，并把身份写入上下文。
 func JWTAuth(secret string) gin.HandlerFunc {
@@ -28,7 +33,12 @@ func JWTAuth(secret string) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": "令牌无效或已过期"})
 			return
 		}
+		if claims.TenantID == 0 {
+			claims.TenantID = 1 // 兼容旧 token
+		}
 		c.Set(string(ClaimsKey), claims)
+		c.Set(string(TenantKey), claims.TenantID)
+		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), model.TenantContextKey, claims.TenantID))
 		c.Next()
 	}
 }

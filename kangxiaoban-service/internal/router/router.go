@@ -24,6 +24,8 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	financeSvc *service.FinanceService, medicationSvc *service.MedicationService,
 	auditSvc *service.AuditService, auditRepo *repository.AuditRepository,
 	supplySvc *service.SupplyService, familySvc *service.FamilyService,
+	careSvc *service.CareService,
+	notificationSvc *service.NotificationService,
 	aiSvc *service.AIService,
 ) *gin.Engine {
 	r := gin.Default()
@@ -37,14 +39,16 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	dashboardHandler := handler.NewDashboardHandler(db)
 	elderHandler := handler.NewElderHandler(elderSvc, familySvc)
 	resourceHandler := handler.NewResourceHandler(resourceSvc)
-	taskHandler := handler.NewTaskHandler(taskSvc, hub)
+	taskHandler := handler.NewTaskHandler(taskSvc, hub, familySvc)
 	healthHandler := handler.NewHealthHandler(healthSvc, hub, familySvc)
 	wsHandler := handler.NewWSHandler(hub, cfg.JWT.Secret)
 	iotHandler := handler.NewIotHandler(iotSvc, familySvc)
 	m4Handler := handler.NewM4Handler(scheduleSvc, financeSvc, medicationSvc, auditSvc, familySvc)
-	supplyHandler := handler.NewSupplyHandler(supplySvc)
+	supplyHandler := handler.NewSupplyHandler(supplySvc, familySvc)
 	familyHandler := handler.NewFamilyManageHandler(familySvc)
 	aiHandler := handler.NewAIHandler(aiSvc)
+	careHandler := handler.NewCareHandler(careSvc, familySvc)
+	notificationHandler := handler.NewNotificationHandler(notificationSvc)
 
 	// 访问校验封装
 	perm := func(code string) gin.HandlerFunc { return middleware.RequirePermission(userRepo, code) }
@@ -87,9 +91,23 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		// 体征录入（查看在 /elders/:id/health-records）
 		authed.POST("/health-records", perm("health:write"), healthHandler.Create)
 
+		// 护理闭环：评估 -> 计划 -> 执行 -> 复核
+		authed.GET("/assessments", perm("health:read"), careHandler.ListAssessments)
+		authed.POST("/assessments", perm("health:write"), careHandler.CreateAssessment)
+		authed.GET("/care-plans", perm("task:read"), careHandler.ListPlans)
+		authed.POST("/care-plans", perm("task:write"), careHandler.CreatePlan)
+		authed.POST("/care-plans/:id/items", perm("task:write"), careHandler.AddPlanItem)
+		authed.GET("/care-executions", perm("task:read"), careHandler.ListExecutions)
+		authed.POST("/care-executions", perm("task:write"), careHandler.CreateExecution)
+		authed.PATCH("/care-executions/:id/review", perm("task:write"), careHandler.ReviewExecution)
+		authed.GET("/notifications", notificationHandler.List)
+		authed.PATCH("/notifications/:id/read", notificationHandler.MarkRead)
+
 		// 物联网：设备/告警读写
 		authed.GET("/iot/devices", perm("alert:read"), iotHandler.ListDevices)
 		authed.GET("/alerts", perm("alert:read"), iotHandler.ListAlerts)
+		authed.GET("/alerts/:id/actions", perm("alert:read"), iotHandler.ListAlertActions)
+		authed.POST("/alerts/:id/actions", perm("task:write"), iotHandler.CreateAlertAction)
 		authed.PATCH("/alerts/:id/handle", perm("admin:all"), iotHandler.HandleAlert)
 		authed.POST("/iot/ingest", perm("admin:all"), iotHandler.Ingest)
 

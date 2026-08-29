@@ -17,17 +17,27 @@ func NewUserRepository(db *gorm.DB) *UserRepository {
 
 // FindByUsername 按用户名查询，预载角色与权限。
 func (r *UserRepository) FindByUsername(username string) (*model.User, error) {
+	return r.FindByUsernameInTenant(username, 1)
+}
+
+func (r *UserRepository) FindByUsernameInTenant(username string, tenantID uint) (*model.User, error) {
 	var u model.User
 	err := r.db.
 		Preload("Roles", func(db *gorm.DB) *gorm.DB {
 			return db.Preload("Permissions")
 		}).
-		Where("username = ?", username).
+		Where("username = ? AND tenant_id = ?", username, tenantID).
 		First(&u).Error
 	if err != nil {
 		return nil, err
 	}
 	return &u, nil
+}
+
+func (r *UserRepository) TenantByCode(code string) (*model.Tenant, error) {
+	var t model.Tenant
+	err := r.db.Where("code = ? AND status = 1", code).First(&t).Error
+	return &t, err
 }
 
 // FindByID 按主键查询，预载角色与权限。

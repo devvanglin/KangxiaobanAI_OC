@@ -50,6 +50,8 @@ func main() {
 	auditRepo := repository.NewAuditRepository(db)
 	supplyRepo := repository.NewSupplyRepository(db)
 	familyRepo := repository.NewFamilyRepository(db)
+	careRepo := repository.NewCareRepository(db)
+	notificationRepo := repository.NewNotificationRepository(db)
 
 	authSvc := service.NewAuthService(userRepo, &cfg.JWT)
 	elderSvc := service.NewElderService(elderRepo)
@@ -62,12 +64,15 @@ func main() {
 	auditSvc := service.NewAuditService(auditRepo)
 	supplySvc := service.NewSupplyService(supplyRepo)
 	familySvc := service.NewFamilyService(familyRepo, db)
+	careSvc := service.NewCareService(careRepo)
+	notificationSvc := service.NewNotificationService(notificationRepo)
 	aiSvc := service.NewAIService(&cfg.AI, db)
 
 	hub := ws.NewHub()
 	go hub.Run()
 
 	iotSvc := iot.NewIotService(db, hub)
+	iotSvc.SetNotifier(notificationSvc.CreateRoleNotification)
 	if cfg.MQTT.Enable {
 		go iotSvc.StartMQTT(cfg.MQTT)
 	}
@@ -75,7 +80,7 @@ func main() {
 	go iotSvc.StartEscalationScanner()
 
 	r := router.New(db, cfg, hub, iotSvc, userRepo, authSvc, elderSvc, resourceSvc, taskSvc, healthSvc,
-		scheduleSvc, financeSvc, medicationSvc, auditSvc, auditRepo, supplySvc, familySvc, aiSvc)
+		scheduleSvc, financeSvc, medicationSvc, auditSvc, auditRepo, supplySvc, familySvc, careSvc, notificationSvc, aiSvc)
 
 	// 展示壳静态托管：落地页(/)与大屏(/dashboard.html)（API 路由优先，未匹配路径回落到静态）
 	if cfg.Server.StaticDir != "" {

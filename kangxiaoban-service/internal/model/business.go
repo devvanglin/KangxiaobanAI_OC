@@ -63,13 +63,81 @@ type CareTask struct {
 // HealthRecord 健康体征记录。source manual 手录 / iot 设备。
 type HealthRecord struct {
 	Base
-	ElderID     uint     `gorm:"index;not null" json:"elder_id"`
-	Temperature *float64 `json:"temperature"`
-	Systolic    *int     `json:"systolic"`
-	Diastolic   *int     `json:"diastolic"`
-	HeartRate   *int     `json:"heart_rate"`
-	Spo2        *float64 `json:"spo2"`
-	Source      string   `gorm:"size:16;default:manual" json:"source"`
+	ElderID     uint      `gorm:"index;not null" json:"elder_id"`
+	Temperature *float64  `json:"temperature"`
+	Systolic    *int      `json:"systolic"`
+	Diastolic   *int      `json:"diastolic"`
+	HeartRate   *int      `json:"heart_rate"`
+	Spo2        *float64  `json:"spo2"`
+	Source      string    `gorm:"size:16;default:manual" json:"source"`
 	RecordTime  time.Time `json:"record_time"`
-	IsAbnormal  bool     `gorm:"default:false" json:"is_abnormal"`
+	IsAbnormal  bool      `gorm:"default:false" json:"is_abnormal"`
+}
+
+// Assessment 长者照护/风险评估。评估结果用于生成护理计划，不等同于临床诊断。
+type Assessment struct {
+	Base
+	ElderID        uint      `gorm:"index;not null" json:"elder_id"`
+	AssessorID     uint      `gorm:"index" json:"assessor_id"`
+	AssessmentType string    `gorm:"size:32;not null" json:"assessment_type"` // adl/fall/cognition/nutrition
+	Score          *float64  `json:"score"`
+	RiskLevel      string    `gorm:"size:16" json:"risk_level"`
+	Notes          string    `gorm:"size:1024" json:"notes"`
+	AssessedAt     time.Time `json:"assessed_at"`
+}
+
+// CarePlan 护理计划主表。
+type CarePlan struct {
+	Base
+	ElderID   uint           `gorm:"index;not null" json:"elder_id"`
+	Name      string         `gorm:"size:128;not null" json:"name"`
+	Status    string         `gorm:"size:16;default:active" json:"status"` // draft/active/paused/completed
+	StartDate string         `gorm:"size:10" json:"start_date"`
+	EndDate   string         `gorm:"size:10" json:"end_date"`
+	CreatedBy uint           `gorm:"index" json:"created_by"`
+	Items     []CarePlanItem `json:"items,omitempty"`
+}
+
+// CarePlanItem 护理计划中的周期性项目。
+type CarePlanItem struct {
+	Base
+	CarePlanID   uint       `gorm:"index;not null" json:"care_plan_id"`
+	Title        string     `gorm:"size:128;not null" json:"title"`
+	Kind         string     `gorm:"size:32" json:"kind"`
+	Frequency    string     `gorm:"size:64" json:"frequency"`
+	DueAt        *time.Time `json:"due_at"`
+	Assignee     string     `gorm:"size:64" json:"assignee"`
+	RiskLevel    string     `gorm:"size:16" json:"risk_level"`
+	Instructions string     `gorm:"size:1024" json:"instructions"`
+	Active       bool       `gorm:"default:true" json:"active"`
+}
+
+// CareExecution 护理项目实际执行记录，用于复核与质控。
+type CareExecution struct {
+	Base
+	PlanItemID uint       `gorm:"index;not null" json:"plan_item_id"`
+	ElderID    uint       `gorm:"index;not null" json:"elder_id"`
+	ExecutorID uint       `gorm:"index" json:"executor_id"`
+	Executor   string     `gorm:"size:64" json:"executor"`
+	Status     string     `gorm:"size:16;default:completed" json:"status"` // completed/skipped/abnormal/reviewed
+	ExecutedAt time.Time  `json:"executed_at"`
+	Result     string     `gorm:"size:1024" json:"result"`
+	Abnormal   string     `gorm:"size:1024" json:"abnormal"`
+	ReviewedBy uint       `gorm:"index" json:"reviewed_by"`
+	ReviewedAt *time.Time `json:"reviewed_at"`
+}
+
+// Incident 事故/异常事件记录，承接告警后的人工处置。
+type Incident struct {
+	Base
+	ElderID     *uint      `gorm:"index" json:"elder_id"`
+	AlertID     *uint      `gorm:"index" json:"alert_id"`
+	Type        string     `gorm:"size:32;not null" json:"type"`
+	Level       string     `gorm:"size:16" json:"level"`
+	Status      string     `gorm:"size:16;default:open" json:"status"` // open/handling/resolved/closed
+	OwnerID     uint       `gorm:"index" json:"owner_id"`
+	Description string     `gorm:"size:2048" json:"description"`
+	Resolution  string     `gorm:"size:2048" json:"resolution"`
+	OccurredAt  time.Time  `json:"occurred_at"`
+	ResolvedAt  *time.Time `json:"resolved_at"`
 }

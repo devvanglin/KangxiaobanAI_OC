@@ -53,8 +53,9 @@ Treat the current application as a **high-fidelity local interactive prototype**
 - Login accepts any non-empty account/password after a timer.
 - Resident, health, task, device, message, doctor, administrator, and workbench records are local mock data.
 - AI responses are deterministic local text generated after a timer.
-- There is no application network layer, repository, RDB schema, authenticated session, API DTO, WebSocket,
-  distributed data service, or model gateway.
+- The HarmonyOS UI still has no complete repository/data-source integration; a separate Go backend now provides
+  authenticated REST, SQLite/MySQL persistence, WebSocket/MQTT, API DTOs, and an AI gateway. Only login and a small
+  subset of the HarmonyOS pages consume that backend today.
 - There is no permission declaration in the main module because the current product does not call restricted Kits.
 - Existing tests are DevEco/Hypium template assertions rather than product tests.
 
@@ -383,6 +384,10 @@ The following local data must be treated as mock/demo state:
   nine service-safety risks, care-plan selection, and confirmation flags.
 - `WideAdminWorkspace.ets`: local operations overview KPIs, bed-usage progress, follow-up event state, and placeholder
   entries for six additional management modules.
+
+The Go backend additionally exposes the first persisted care-closure chain (`assessments`, `care-plans`,
+`care-executions`) and alert action timelines/notifications. These are server contracts; the current HarmonyOS UI has
+not yet migrated its mock data to them.
 
 The admission flow does not call a repository, Preferences, RDB, or backend. Its generated draft exists only in
 component state and is lost when the component is destroyed. The wide doctor AI submit control, wide message replies,
