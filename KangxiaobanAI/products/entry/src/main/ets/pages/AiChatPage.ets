@@ -148,6 +148,7 @@ export struct AiChatPage {
   @Local isGenerating: boolean = false;
   @Local historyDrawerOpen: boolean = false;
   @Local embeddedHistoryCollapsed: boolean = false;
+  @Local historySearchText: string = '';
   @Local embeddedAssistantMode: number = 0;
   private historyScroller: Scroller = new Scroller();
   private focusController = this.getUIContext().getFocusController();
@@ -297,6 +298,7 @@ export struct AiChatPage {
     this.historyStore.activeSessionId = '';
     this.messages = [];
     this.inputText = '';
+    this.historySearchText = '';
     this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
     this.closeHistoryDrawer();
   }
@@ -358,8 +360,21 @@ export struct AiChatPage {
     return this.embeddedCaregiverWide && this.isWideLayout();
   }
 
+  private embeddedHistoryPaneWidth(): number {
+    if (this.embeddedHistoryCollapsed) {
+      return 64;
+    }
+    if (this.globalInfoModel.deviceWidth <= 0) {
+      return 356;
+    }
+    return Math.min(380, Math.max(280, (this.globalInfoModel.deviceWidth - 68) * 0.26));
+  }
+
   private toggleEmbeddedHistory(): void {
-    this.embeddedHistoryCollapsed = !this.embeddedHistoryCollapsed;
+    this.focusController.clearFocus();
+    this.getUIContext().animateTo({ duration: 280, curve: Curve.Friction }, () => {
+      this.embeddedHistoryCollapsed = !this.embeddedHistoryCollapsed;
+    });
   }
 
   private embeddedSuggestionWidth(title: string): number {
@@ -1310,7 +1325,8 @@ export struct AiChatPage {
     .width('100%')
     .height('100%')
     .padding({
-      top: this.usesWideImmersiveInset() ? this.caregiverWideTitleBarOffset() + 34 : 34
+      top: this.usesWideImmersiveInset() ? this.caregiverWideTitleBarOffset() + 34 :
+        (this.isEmbeddedWideHistory() ? this.embeddedPaneTopOffset() + 34 : 34)
     })
     .alignItems(HorizontalAlign.Center)
   }
@@ -1404,6 +1420,9 @@ export struct AiChatPage {
     if (this.keyboardOffset > 0) {
       return 8;
     }
+    if (this.embeddedCaregiverWide && this.isWideLayout()) {
+      return Math.max(8, this.globalInfoModel.naviIndicatorHeight - 8);
+    }
     return this.isWideLayout() ? Math.max(12, this.globalInfoModel.naviIndicatorHeight) :
       this.globalInfoModel.naviIndicatorHeight;
   }
@@ -1486,6 +1505,9 @@ export struct AiChatPage {
     .shadow({ radius: 8, color: 'rgba(0,0,0,0.06)', offsetY: 2 })
     .focusable(true)
     .focusOnTouch(true)
+    .keyboardShortcut('J', [ModifierKey.CTRL], () => {
+      this.startNewConversation();
+    })
     .onClick(() => {
       this.startNewConversation();
     })
@@ -1512,12 +1534,41 @@ export struct AiChatPage {
     return '更早';
   }
 
-  private shouldShowSessionGroup(index: number): boolean {
-    if (index <= 0 || index >= this.historyStore.sessions.length) {
+  private filteredHistorySessions(): ChatSession[] {
+    if (!this.isEmbeddedWideHistory()) {
+      return this.historyStore.sessions;
+    }
+    const query: string = this.historySearchText.trim().toLowerCase();
+    if (query.length === 0) {
+      return this.historyStore.sessions;
+    }
+    const matches: ChatSession[] = [];
+    for (let i: number = 0; i < this.historyStore.sessions.length; i++) {
+      const session: ChatSession = this.historyStore.sessions[i];
+      if (session.title.toLowerCase().includes(query)) {
+        matches.push(session);
+        continue;
+      }
+      let contentMatches: boolean = false;
+      for (let j: number = 0; j < session.messages.length; j++) {
+        if (session.messages[j].content.toLowerCase().includes(query)) {
+          contentMatches = true;
+          break;
+        }
+      }
+      if (contentMatches) {
+        matches.push(session);
+      }
+    }
+    return matches;
+  }
+
+  private shouldShowSessionGroup(sessions: ChatSession[], index: number): boolean {
+    if (index <= 0 || index >= sessions.length) {
       return true;
     }
-    return this.sessionGroupLabel(this.historyStore.sessions[index - 1].updatedAt) !==
-      this.sessionGroupLabel(this.historyStore.sessions[index].updatedAt);
+    return this.sessionGroupLabel(sessions[index - 1].updatedAt) !==
+      this.sessionGroupLabel(sessions[index].updatedAt);
   }
 
   @Builder
@@ -1527,6 +1578,26 @@ export struct AiChatPage {
       .fontColor($r('sys.color.font_tertiary'))
       .width('100%')
       .padding({ left: this.isEmbeddedWideHistory() ? 14 : 8, top: 14, bottom: 6 })
+  }
+
+  @Builder
+  private embeddedHistorySearch() {
+    Search({ value: this.historySearchText, placeholder: '搜索对话记录' })
+      .width('100%')
+      .height(40)
+      .fontColor($r('sys.color.font_primary'))
+      .placeholderColor($r('sys.color.font_tertiary'))
+      .backgroundColor($r('sys.color.comp_background_secondary'))
+      .borderRadius(20)
+      .focusBox({
+        margin: LengthMetrics.vp(1),
+        strokeWidth: LengthMetrics.vp(2),
+        strokeColor: ColorMetrics.numeric(0xFF1D63ED)
+      })
+      .onChange((value: string) => {
+        this.historySearchText = value;
+        this.historyScroller.scrollEdge(Edge.Top);
+      })
   }
 
   @Builder
@@ -1567,7 +1638,8 @@ export struct AiChatPage {
       SymbolGlyph($r('sys.symbol.AI_message'))
         .fontSize(30)
         .fontColor([$r('sys.color.icon_tertiary')])
-      Text('暂无对话记录')
+      Text(this.isEmbeddedWideHistory() && this.historySearchText.trim().length > 0 ?
+        '未找到相关对话' : '暂无对话记录')
         .fontSize($r('sys.float.Body_S'))
         .fontColor($r('sys.color.font_secondary'))
     }
@@ -1576,13 +1648,13 @@ export struct AiChatPage {
   }
 
   @Builder
-  private historyItems() {
+  private historyItems(sessions: ChatSession[]) {
     Column({ space: 1 }) {
-      if (this.historyStore.sessions.length === 0) {
+      if (sessions.length === 0) {
         this.emptyHistory()
       } else {
-        ForEach(this.historyStore.sessions, (session: ChatSession, index: number) => {
-          if (this.shouldShowSessionGroup(index)) {
+        ForEach(sessions, (session: ChatSession, index: number) => {
+          if (this.shouldShowSessionGroup(sessions, index)) {
             this.sessionGroupTitle(this.sessionGroupLabel(session.updatedAt))
           }
           this.historySessionItem(session)
@@ -1609,7 +1681,7 @@ export struct AiChatPage {
           .alignItems(VerticalAlign.Center)
 
           this.newConversationButton()
-          this.historyItems()
+          this.historyItems(this.filteredHistorySessions())
         }
         .width('100%')
         .padding({
@@ -1643,7 +1715,7 @@ export struct AiChatPage {
         this.newConversationButton()
 
         Scroll() {
-          this.historyItems()
+          this.historyItems(this.filteredHistorySessions())
         }
         .layoutWeight(1)
         .align(Alignment.Top)
@@ -1700,7 +1772,8 @@ export struct AiChatPage {
           .justifyContent(FlexAlign.Center)
         }
         .padding({
-          top: this.usesWideImmersiveInset() && index === 0 ? this.caregiverWideTitleBarOffset() + 8 : 0
+          top: index === 0 ? (this.usesWideImmersiveInset() ? this.caregiverWideTitleBarOffset() + 8 :
+            (this.isEmbeddedWideHistory() ? this.embeddedPaneTopOffset() : 0)) : 0
         })
       }, (message: ChatMessage) => `${message.id}-${message.feedback ?? 'none'}`)
 
@@ -1717,8 +1790,9 @@ export struct AiChatPage {
           .justifyContent(FlexAlign.Center)
         }
         .padding({
-          top: this.usesWideImmersiveInset() && this.messages.length === 0 ?
-            this.caregiverWideTitleBarOffset() + 8 : 0
+          top: this.messages.length === 0 ? (this.usesWideImmersiveInset() ?
+            this.caregiverWideTitleBarOffset() + 8 :
+            (this.isEmbeddedWideHistory() ? this.embeddedPaneTopOffset() : 0)) : 0
         })
       }
     }
@@ -1728,7 +1802,7 @@ export struct AiChatPage {
     .contentStartOffset(this.usesWideImmersiveInset() ? 0 : 8)
     .contentEndOffset(8)
     .margin({
-      top: this.usesWideImmersiveInset() ? 0 :
+      top: this.usesWideImmersiveInset() || this.isEmbeddedWideHistory() ? 0 :
         (this.isWideLayout() ? 16 : this.globalInfoModel.statusBarHeight + CONTENT_TOP_OFFSET)
     })
     .clip(true)
@@ -1855,72 +1929,77 @@ export struct AiChatPage {
         .width('100%')
         .height(this.embeddedPaneTopOffset())
 
-      Column({ space: 12 }) {
-        if (this.embeddedHistoryCollapsed) {
-          Column({ space: 16 }) {
+      if (this.embeddedHistoryCollapsed) {
+        Column() {
+          Column({ space: 10 }) {
             SymbolGlyph($r('sys.symbol.AI_message'))
               .fontSize(24)
               .fontColor([$r('app.color.brand_blue')])
 
-            Column({ space: 2 }) {
-              Button({ type: ButtonType.Circle, stateEffect: true }) {
-                SymbolGlyph($r('sys.symbol.open_sidebar'))
-                  .fontSize(21)
-                  .fontColor([$r('sys.color.icon_primary')])
-              }
-              .buttonStyle(ButtonStyleMode.NORMAL)
-              .width(44)
-              .height(44)
-              .backgroundColor(Color.Transparent)
-              .accessibilityText('展开会话栏')
-              .onClick(() => {
-                this.toggleEmbeddedHistory();
-              })
-
-              Button({ type: ButtonType.Circle, stateEffect: true }) {
-                SymbolGlyph($r('sys.symbol.magnifyingglass'))
-                  .fontSize(21)
-                  .fontColor([$r('sys.color.icon_primary')])
-              }
-              .buttonStyle(ButtonStyleMode.NORMAL)
-              .width(44)
-              .height(44)
-              .backgroundColor(Color.Transparent)
-              .accessibilityText('搜索会话')
-
-              Button({ type: ButtonType.Circle, stateEffect: true }) {
-                SymbolGlyph($r('sys.symbol.plus_circle'))
-                  .fontSize(21)
-                  .fontColor([$r('sys.color.icon_primary')])
-              }
-              .buttonStyle(ButtonStyleMode.NORMAL)
-              .width(44)
-              .height(44)
-              .backgroundColor(Color.Transparent)
-              .accessibilityText('开启新对话')
-              .onClick(() => {
-                this.startNewConversation();
-              })
+            Button({ type: ButtonType.Circle, stateEffect: true }) {
+              SymbolGlyph($r('sys.symbol.open_sidebar'))
+                .fontSize(21)
+                .fontColor([$r('sys.color.icon_primary')])
             }
-            .padding({ top: 4, bottom: 4 })
+            .buttonStyle(ButtonStyleMode.NORMAL)
+            .width(44)
+            .height(44)
             .backgroundColor(Color.Transparent)
+            .accessibilityText('展开会话栏')
+            .onClick(() => {
+              this.toggleEmbeddedHistory();
+            })
           }
           .width('100%')
           .alignItems(HorizontalAlign.Center)
-        } else {
+
+          Blank()
+
+          Button({ type: ButtonType.Circle, stateEffect: true }) {
+            SymbolGlyph($r('sys.symbol.plus_circle'))
+              .fontSize(21)
+              .fontColor([$r('sys.color.icon_primary')])
+          }
+          .buttonStyle(ButtonStyleMode.NORMAL)
+          .width(44)
+          .height(44)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .accessibilityText('开启新对话')
+          .keyboardShortcut('J', [ModifierKey.CTRL], () => {
+            this.startNewConversation();
+          })
+          .onClick(() => {
+            this.startNewConversation();
+          })
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .padding({ top: 14, bottom: 14 })
+        .alignItems(HorizontalAlign.Center)
+        .backgroundColor($r('sys.color.comp_background_primary'))
+        .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+        .borderRadius(30)
+        .shadow({ radius: 10, color: 'rgba(0,0,0,0.06)', offsetY: 2 })
+        .clip(true)
+        .transition(TransitionEffect.OPACITY.animation({ duration: 160, curve: Curve.EaseInOut }))
+      } else {
+        Column({ space: 12 }) {
           Row({ space: 12 }) {
             Text('对话记录')
               .fontSize($r('sys.float.Title_S'))
               .fontWeight(FontWeight.Medium)
               .fontColor($r('sys.color.font_primary'))
               .layoutWeight(1)
-            SymbolGlyph($r('sys.symbol.magnifyingglass'))
-              .fontSize(21)
-              .fontColor([$r('sys.color.icon_secondary')])
-              .accessibilityText('搜索会话')
-            SymbolGlyph($r('sys.symbol.close_sidebar'))
-              .fontSize(21)
-              .fontColor([$r('sys.color.icon_secondary')])
+
+            Button({ type: ButtonType.Circle, stateEffect: true }) {
+              SymbolGlyph($r('sys.symbol.close_sidebar'))
+                .fontSize(21)
+                .fontColor([$r('sys.color.icon_secondary')])
+            }
+              .buttonStyle(ButtonStyleMode.NORMAL)
+              .width(40)
+              .height(40)
+              .backgroundColor(Color.Transparent)
               .accessibilityText('收起会话栏')
               .onClick(() => {
                 this.toggleEmbeddedHistory();
@@ -1931,31 +2010,31 @@ export struct AiChatPage {
           .padding({ left: 14, right: 14 })
           .alignItems(VerticalAlign.Center)
 
+          this.embeddedHistorySearch()
+
           Scroll(this.historyScroller) {
-            Column({ space: 12 }) {
-              this.newConversationButton()
-              this.historyItems()
-            }
-            .width('100%')
-            .padding({ left: 14, right: 14, bottom: 16 })
+            this.historyItems(this.filteredHistorySessions())
           }
           .layoutWeight(1)
           .width('100%')
-          .contentEndOffset(Math.max(18, this.globalInfoModel.naviIndicatorHeight + 8))
+          .contentEndOffset(8)
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring)
           .align(Alignment.TopStart)
           .clip(true)
+
+          this.newConversationButton()
         }
+        .width('100%')
+        .layoutWeight(1)
+        .padding({ left: 14, right: 14, top: 10, bottom: 14 })
+        .backgroundColor($r('sys.color.comp_background_primary'))
+        .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+        .borderRadius(20)
+        .shadow({ radius: 10, color: 'rgba(0,0,0,0.06)', offsetY: 2 })
+        .clip(true)
+        .transition(TransitionEffect.OPACITY.animation({ duration: 180, curve: Curve.EaseInOut }))
       }
-      .width('100%')
-      .layoutWeight(1)
-      .padding({ top: 12 })
-      .backgroundColor($r('sys.color.comp_background_primary'))
-      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-      .borderRadius(24)
-      .shadow({ radius: 12, color: 'rgba(0,0,0,0.06)', offsetY: 2 })
-      .clip(true)
     }
     .width('100%')
     .height('100%')
@@ -1965,18 +2044,7 @@ export struct AiChatPage {
   @Builder
   private embeddedChatPane() {
     Column() {
-      Row()
-        .width('100%')
-        .height(this.embeddedPaneTopOffset())
-
-      Column() {
-        this.wideConversationContent(true)
-      }
-      .width('100%')
-      .layoutWeight(1)
-      .backgroundColor(Color.Transparent)
-      .borderRadius(20)
-      .clip(true)
+      this.wideConversationContent(true)
     }
     .width('100%')
     .height('100%')
@@ -1989,11 +2057,7 @@ export struct AiChatPage {
       Column() {
         this.embeddedHistoryPane()
       }
-      .width(this.embeddedHistoryCollapsed ? 76 : '30%')
-      .constraintSize({
-        minWidth: this.embeddedHistoryCollapsed ? 76 : 360,
-        maxWidth: this.embeddedHistoryCollapsed ? 76 : 440
-      })
+      .width(this.embeddedHistoryPaneWidth())
       .height('100%')
 
       Column() {
