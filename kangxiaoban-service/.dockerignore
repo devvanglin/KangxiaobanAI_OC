@@ -1,6 +1,4 @@
 .git
-*.db
-*.exe
-.env
-data
-README.md
+*
+!kangxiaoban-server
+!ca-certificates.crt
