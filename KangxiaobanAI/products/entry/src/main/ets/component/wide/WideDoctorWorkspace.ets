@@ -7,7 +7,7 @@ import { WideDoctorAdmission } from './WideDoctorAdmission';
 import ApiClient from '../../network/ApiClient';
 import AuthStore from '../../network/AuthStore';
 import { BusinessStore } from '../../network/BusinessStore';
-import { AiChatRequest, AiChatResponse, Alert, Assessment, Bed, CareTask, Elder, HealthRecord, MessageContact,
+import { AiChatRequest, AiChatResponse, Alert, Assessment, Bed, CareExecution, CareTask, Elder, HealthRecord, MessageContact,
   MedicationRecord, Room, UserMessage } from '../../network/Dto';
 
 interface DoctorNavItem {
@@ -27,6 +27,11 @@ interface DoctorRecentPatient {
   bed: string;
   displayName: string;
   visitedAt: string;
+}
+
+interface DoctorRecentPatientWithTimestamp {
+  patient: DoctorRecentPatient;
+  timestamp: number;
 }
 
 interface DoctorQueueItem {
@@ -127,14 +132,21 @@ export struct WideDoctorWorkspace {
     }
   ];
 
-  private recentPatients: DoctorRecentPatient[] = [];
+  @Local recentPatients: DoctorRecentPatient[] = [];
   @Local judgmentQueue: DoctorQueueItem[] = [];
   @Local roundsQueue: DoctorQueueItem[] = [];
   @Local reviewQueue: DoctorQueueItem[] = [];
   @Local moduleRows: DoctorModuleRow[] = [];
   @Local patientRows: DoctorModuleRow[] = [];
-  private riskTrendValues: number[] = [];
-  private closureTrendValues: number[] = [];
+  @Local riskTrendValues: number[] = [];
+  @Local closureTrendValues: number[] = [];
+
+  @Monitor('businessStore.elders', 'businessStore.beds', 'businessStore.rooms',
+    'businessStore.tasks', 'businessStore.careExecutions', 'businessStore.alerts',
+    'businessStore.assessments', 'businessStore.healthRecords', 'businessStore.medications')
+  onBusinessDataChange(): void {
+    this.syncWorkspaceData(false);
+  }
 
   aboutToAppear(): void {
     this.loadWorkspaceData();
@@ -142,6 +154,11 @@ export struct WideDoctorWorkspace {
 
   private async loadWorkspaceData(): Promise<void> {
     await this.businessStore.load();
+    this.syncWorkspaceData(true);
+  }
+
+  /** Rebuild all doctor queues and derived summaries from the current tenant data. */
+  private syncWorkspaceData(selectFirstRow: boolean): void {
     this.judgmentQueue = this.businessStore.assessments.map((item: Assessment): DoctorQueueItem => ({
       id: `assessment-${item.id}`,
       elderId: item.elder_id,
@@ -198,8 +215,140 @@ export struct WideDoctorWorkspace {
       status: item.status === 2 ? '在院' : item.status === 1 ? '登记' : '退住',
       tone: item.status === 2 ? 'normal' : 'neutral'
     }));
-    const firstRow: DoctorModuleRow | undefined = this.rowsForCurrentModule()[0];
-    this.selectedModuleRowId = firstRow?.id ?? '';
+    this.recentPatients = this.buildRecentPatients();
+    this.riskTrendValues = this.buildRiskTrend();
+    this.closureTrendValues = this.buildClosureTrend();
+    if (selectFirstRow || this.selectedModuleRowId.length === 0) {
+      const firstRow: DoctorModuleRow | undefined = this.rowsForCurrentModule()[0];
+      this.selectedModuleRowId = firstRow?.id ?? '';
+    }
+  }
+
+  private parseTimestamp(value?: string): number {
+    if (!value || value.trim().length === 0) {
+      return 0;
+    }
+    const direct: number = Date.parse(value);
+    if (Number.isFinite(direct)) {
+      return direct;
+    }
+    const normalized: number = Date.parse(value.replace(' ', 'T'));
+    return Number.isFinite(normalized) ? normalized : 0;
+  }
+
+  private trendDayKey(value?: string): string {
+    const timestamp: number = this.parseTimestamp(value);
+    if (timestamp <= 0) {
+      return '';
+    }
+    const date: Date = new Date(timestamp);
+    const month: string = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day: string = date.getDate().toString().padStart(2, '0');
+    return `${date.getFullYear()}-${month}-${day}`;
+  }
+
+  private recentDayKeys(): string[] {
+    const keys: string[] = [];
+    const today: Date = new Date();
+    for (let offset: number = 6; offset >= 0; offset--) {
+      const date: Date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - offset);
+      const month: string = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day: string = date.getDate().toString().padStart(2, '0');
+      keys.push(`${date.getFullYear()}-${month}-${day}`);
+    }
+    return keys;
+  }
+
+  private scaleTrend(counts: number[]): number[] {
+    const maxCount: number = Math.max(...counts);
+    if (maxCount <= 0) {
+      return [];
+    }
+    return counts.map((count: number): number => count === 0 ? 0 : Math.max(8,
+      Math.round(count / maxCount * 100)));
+  }
+
+  private buildRiskTrend(): number[] {
+    const keys: string[] = this.recentDayKeys();
+    const counts: number[] = keys.map((key: string): number => this.businessStore.alerts.filter((item: Alert) =>
+      this.trendDayKey(item.create_time) === key).length);
+    return this.scaleTrend(counts);
+  }
+
+  private buildClosureTrend(): number[] {
+    const keys: string[] = this.recentDayKeys();
+    const counts: number[] = keys.map((key: string): number => {
+      const dayTasks: CareTask[] = this.businessStore.tasks.filter((item: CareTask) =>
+        this.trendDayKey(item.due_at) === key);
+      if (dayTasks.length === 0) {
+        return 0;
+      }
+      const completed: number = dayTasks.filter((item: CareTask) => item.status === 'done').length;
+      return Math.round(completed / dayTasks.length * 100);
+    });
+    return this.scaleTrend(counts);
+  }
+
+  private recentDisplayTime(timestamp: number): string {
+    if (timestamp <= 0) {
+      return '--';
+    }
+    const date: Date = new Date(timestamp);
+    const month: string = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day: string = date.getDate().toString().padStart(2, '0');
+    const hour: string = date.getHours().toString().padStart(2, '0');
+    const minute: string = date.getMinutes().toString().padStart(2, '0');
+    return `${month}-${day} ${hour}:${minute}`;
+  }
+
+  /** There is no view-audit API yet, so this list reflects the latest server activity. */
+  private buildRecentPatients(): DoctorRecentPatient[] {
+    const latestByElder: Map<number, number> = new Map<number, number>();
+    const register = (elderId: number | undefined, value?: string): void => {
+      if (elderId === undefined) {
+        return;
+      }
+      const timestamp: number = this.parseTimestamp(value);
+      if (timestamp <= 0 || timestamp <= (latestByElder.get(elderId) ?? 0)) {
+        return;
+      }
+      latestByElder.set(elderId, timestamp);
+    };
+    for (const elder of this.businessStore.elders) {
+      register(elder.id, elder.created_at);
+    }
+    for (const record of this.businessStore.healthRecords) {
+      register(record.elder_id, record.record_time);
+    }
+    for (const assessment of this.businessStore.assessments) {
+      register(assessment.elder_id, assessment.assessed_at);
+    }
+    for (const execution of this.businessStore.careExecutions) {
+      register(execution.elder_id, execution.executed_at);
+    }
+    for (const alert of this.businessStore.alerts) {
+      register(alert.elder_id, alert.create_time);
+    }
+
+    const rows: DoctorRecentPatientWithTimestamp[] = [];
+    for (const elder of this.businessStore.elders) {
+      const timestamp: number = latestByElder.get(elder.id) ?? 0;
+      if (timestamp <= 0) {
+        continue;
+      }
+      rows.push({
+        patient: {
+          id: `elder-${elder.id}`,
+          bed: this.elderBed(elder.id),
+          displayName: elder.name,
+          visitedAt: this.recentDisplayTime(timestamp)
+        },
+        timestamp: timestamp
+      });
+    }
+    rows.sort((left: DoctorRecentPatientWithTimestamp, right: DoctorRecentPatientWithTimestamp): number =>
+      right.timestamp - left.timestamp);
+    return rows.slice(0, 5).map((item: DoctorRecentPatientWithTimestamp): DoctorRecentPatient => item.patient);
   }
 
   private elderName(elderId: number): string {
@@ -371,7 +520,7 @@ export struct WideDoctorWorkspace {
   private openRecentPatient(patient: DoctorRecentPatient): void {
     this.runAfterAdmissionGuard(() => {
       const matchedRow: DoctorModuleRow | undefined =
-        this.patientRows.find((row: DoctorModuleRow) => row.bed === patient.bed);
+        this.patientRows.find((row: DoctorModuleRow) => row.id === patient.id);
       this.patientSearchQuery = '';
       this.moduleFilterIndex = 0;
       this.selectedModuleRowId = matchedRow?.id ?? this.patientRows[0]?.id ?? '';
@@ -521,7 +670,7 @@ export struct WideDoctorWorkspace {
           .fontWeight(FontWeight.Medium)
           .fontColor($r('app.color.doctor_workspace_text_primary'))
           .maxLines(1)
-        Text(`最近查看 · ${patient.visitedAt}`)
+        Text(`最近更新 · ${patient.visitedAt}`)
           .fontSize(10)
           .fontColor($r('app.color.doctor_workspace_text_tertiary'))
           .maxLines(1)
@@ -537,7 +686,7 @@ export struct WideDoctorWorkspace {
       $r('app.color.doctor_workspace_surface_hover') : Color.Transparent)
     .justifyContent(FlexAlign.Start)
     .alignItems(VerticalAlign.Center)
-    .accessibilityText(`最近查看长者，${patient.bed} ${patient.displayName}`)
+    .accessibilityText(`最近更新长者，${patient.bed} ${patient.displayName}`)
     .accessibilityRole(AccessibilityRoleType.BUTTON)
     .focusable(true)
     .focusOnTouch(true)
@@ -631,10 +780,19 @@ export struct WideDoctorWorkspace {
     Scroll(this.sidebarScroller) {
       Column({ space: 3 }) {
         this.sidebarNavItem(this.homeNavItem)
-        this.sidebarGroupTitle('最近查看长者')
-        ForEach(this.recentPatients, (patient: DoctorRecentPatient) => {
-          this.recentPatientItem(patient)
-        }, (patient: DoctorRecentPatient) => patient.id)
+        this.sidebarGroupTitle('最近更新长者')
+        if (this.recentPatients.length === 0) {
+          Text('暂无最近活动')
+            .width('100%')
+            .height(40)
+            .fontSize(10)
+            .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+            .textAlign(TextAlign.Center)
+        } else {
+          ForEach(this.recentPatients, (patient: DoctorRecentPatient) => {
+            this.recentPatientItem(patient)
+          }, (patient: DoctorRecentPatient) => patient.id)
+        }
         ForEach(this.navGroups, (group: DoctorNavGroup, groupIndex: number) => {
           Column({ space: 3 }) {
             this.sidebarGroupTitle(group.label)

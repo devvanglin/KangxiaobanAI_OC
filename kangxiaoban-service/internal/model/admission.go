@@ -156,6 +156,14 @@ type AdmissionAssessment struct {
 	Education                string                      `gorm:"size:32" json:"education"`
 	LivingSituations         []string                    `gorm:"serializer:json" json:"living_situations"`
 	MaritalStatus            string                      `gorm:"size:32" json:"marital_status"`
+	SpouseSatisfaction       string                      `gorm:"size:32" json:"spouse_satisfaction"`
+	ChildrenCount            int                         `json:"children_count"`
+	ChildrenSatisfaction     string                      `gorm:"size:32" json:"children_satisfaction"`
+	Hobbies                  []string                    `gorm:"serializer:json" json:"hobbies"`
+	SocialParticipation      []string                    `gorm:"serializer:json" json:"social_participation"`
+	Exercise                 []string                    `gorm:"serializer:json" json:"exercise"`
+	Worries                  []string                    `gorm:"serializer:json" json:"worries"`
+	LifeChanges              []string                    `gorm:"serializer:json" json:"life_changes"`
 	MedicalPayments          []string                    `gorm:"serializer:json" json:"medical_payments"`
 	IncomeSources            []string                    `gorm:"serializer:json" json:"income_sources"`
 	RiskEvents               []AdmissionRiskEvent        `gorm:"serializer:json" json:"risk_events"`

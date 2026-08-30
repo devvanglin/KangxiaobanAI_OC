@@ -18,7 +18,7 @@ func TestAdmissionScreeningTemplatesAreOptionalAndPersisted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]int{"GAD7": 21, "GDS15": 15, "SLEEP5": 0, "MINI_COG": 5, "MMSE": 30, "MOCA_BEIJING": 30}
+	want := map[string]int{"GAD7": 21, "GDS15": 15, "SLEEP5": 0, "AD8": 8, "MINI_COG": 5, "MMSE": 30, "MOCA_BEIJING": 30}
 	if len(templates) != len(want) {
 		t.Fatalf("screening template count = %d, want %d", len(templates), len(want))
 	}
@@ -77,6 +77,59 @@ func TestAdmissionScreeningServerScoringDraftCorrectionAndCompletion(t *testing.
 	}
 	assertCount(t, db, &model.AdmissionScreening{}, "admission_id = ? AND template_id = ?", 1, draft.ID, gad7.ID)
 	assertCount(t, db, &model.AdmissionScreeningAnswer{}, "screening_id = ?", 7, corrected.Screening.ID)
+}
+
+func TestAdmissionScreeningSelectionPrefersCurrentTemplateVersion(t *testing.T) {
+	svc, db, doctorID, ctx := newAdmissionTestService(t)
+	draft := createAdmissionDraftForScreening(t, svc, db, doctorID, ctx)
+	legacy := screeningTemplate(t, svc, ctx, "GAD7")
+	completed, err := svc.SaveScreening(ctx, AdmissionActor{UserID: doctorID}, draft.ID, legacy.Code, AdmissionScreeningInput{
+		Completed: true, Answers: screeningAnswers(legacy, 0),
+	})
+	if err != nil {
+		t.Fatalf("save legacy screening: %v", err)
+	}
+
+	// An institution may publish a new version while retaining old records.
+	// The new template intentionally has no questions here: the draft status
+	// lets the test assert which row the gate selected before scoring begins.
+	current := model.AssessmentTemplate{
+		Base: model.Base{TenantID: 1}, Code: legacy.Code, Name: legacy.Name,
+		Version: "TEST_V2", Description: legacy.Description, Category: legacy.Category,
+		MaxScore: legacy.MaxScore, Required: false, Enabled: true, SortOrder: legacy.SortOrder,
+		LevelRules: legacy.LevelRules, AdjustmentRules: legacy.AdjustmentRules, ScoringNotes: legacy.ScoringNotes,
+	}
+	if err := db.WithContext(ctx).Create(&current).Error; err != nil {
+		t.Fatalf("create current template: %v", err)
+	}
+	currentScreening := model.AdmissionScreening{
+		Base: model.Base{TenantID: 1}, AdmissionID: draft.ID, TemplateID: current.ID,
+		TemplateCode: current.Code, TemplateVersion: current.Version, AssessorID: doctorID, Status: "draft",
+	}
+	if err := db.WithContext(ctx).Create(&currentScreening).Error; err != nil {
+		t.Fatalf("create current screening draft: %v", err)
+	}
+
+	selected, template, _, err := loadAndCalculateScreening(db.WithContext(ctx), draft.ID, legacy.Code)
+	if !errors.Is(err, ErrAdmissionIncomplete) {
+		t.Fatalf("current draft selection error = %v, want ErrAdmissionIncomplete", err)
+	}
+	if selected == nil || selected.ID != currentScreening.ID {
+		t.Fatalf("selected screening = %+v, want current id %d (legacy id %d)", selected, currentScreening.ID, completed.Screening.ID)
+	}
+	if template == nil || template.ID != current.ID || template.Version != current.Version {
+		t.Fatalf("selected template = %+v, want id/version %d/%s", template, current.ID, current.Version)
+	}
+
+	// The old row remains independently readable through the history endpoint;
+	// selecting the current version for the gate must not erase it.
+	history, err := svc.ListScreenings(ctx, draft.ID)
+	if err != nil {
+		t.Fatalf("list screening history: %v", err)
+	}
+	if len(history) != 2 {
+		t.Fatalf("screening history length = %d, want 2", len(history))
+	}
 }
 
 func TestAdmissionScreeningRejectsForgedOptionAndForeignActor(t *testing.T) {
@@ -340,6 +393,66 @@ func TestAdmissionScreeningGateFollowsMiniCogFlow(t *testing.T) {
 			t.Fatalf("submit with Mini-Cog 3 = %+v, %v", result, err)
 		}
 	})
+}
+
+func TestAdmissionScreeningGateAcceptsPositiveAD8Flow(t *testing.T) {
+	svc, db, doctorID, ctx := newAdmissionTestService(t)
+	draft := createAdmissionDraftForScreening(t, svc, db, doctorID, ctx)
+	ad8 := screeningTemplate(t, svc, ctx, "AD8")
+	positive := screeningAnswersForTotal(ad8, 2)
+	result, err := svc.SaveScreening(ctx, AdmissionActor{UserID: doctorID}, draft.ID, ad8.Code, AdmissionScreeningInput{Completed: true, Answers: positive})
+	if err != nil {
+		t.Fatalf("complete AD8: %v", err)
+	}
+	if result.Screening.AdjustedScore != 2 || result.Screening.ResultCode != "positive" {
+		t.Fatalf("unexpected AD8 result: %+v", result.Screening)
+	}
+	mmse := screeningTemplate(t, svc, ctx, "MMSE")
+	if _, err := svc.SaveScreening(ctx, AdmissionActor{UserID: doctorID}, draft.ID, mmse.Code, AdmissionScreeningInput{Completed: true, Answers: screeningAnswers(mmse, -1)}); err != nil {
+		t.Fatalf("complete MMSE after AD8: %v", err)
+	}
+	moca := screeningTemplate(t, svc, ctx, "MOCA_BEIJING")
+	if _, err := svc.SaveScreening(ctx, AdmissionActor{UserID: doctorID}, draft.ID, moca.Code, AdmissionScreeningInput{Completed: true, EducationYears: intPointer(30), Answers: screeningAnswers(moca, -1)}); err != nil {
+		t.Fatalf("complete MoCA after AD8: %v", err)
+	}
+	submitted, err := svc.Submit(ctx, AdmissionActor{UserID: doctorID}, draft.ID)
+	if err != nil || submitted.Admission.Status != "submitted" {
+		t.Fatalf("submit after AD8 path = %+v, %v", submitted, err)
+	}
+}
+
+func TestAdmissionScreeningGateDoesNotRequireFurtherScalesForNegativeAD8(t *testing.T) {
+	svc, db, doctorID, ctx := newAdmissionTestService(t)
+	draft := createAdmissionDraftForScreening(t, svc, db, doctorID, ctx)
+	ad8 := screeningTemplate(t, svc, ctx, "AD8")
+	if _, err := svc.SaveScreening(ctx, AdmissionActor{UserID: doctorID}, draft.ID, ad8.Code, AdmissionScreeningInput{Completed: true, Answers: screeningAnswersForTotal(ad8, 1)}); err != nil {
+		t.Fatalf("complete negative AD8: %v", err)
+	}
+	submitted, err := svc.Submit(ctx, AdmissionActor{UserID: doctorID}, draft.ID)
+	if err != nil || submitted.Admission.Status != "submitted" {
+		t.Fatalf("submit after negative AD8 = %+v, %v", submitted, err)
+	}
+}
+
+func TestAdmissionScreeningGateIgnoresIncompleteAlternativePrimaryDraft(t *testing.T) {
+	svc, db, doctorID, ctx := newAdmissionTestService(t)
+	draft := createAdmissionDraftForScreening(t, svc, db, doctorID, ctx)
+	miniCog := screeningTemplate(t, svc, ctx, "MINI_COG")
+	if _, err := svc.SaveScreening(ctx, AdmissionActor{UserID: doctorID}, draft.ID, miniCog.Code, AdmissionScreeningInput{
+		Answers: screeningAnswers(miniCog, -1)[:1],
+	}); err != nil {
+		t.Fatalf("save incomplete Mini-Cog draft: %v", err)
+	}
+	ad8 := screeningTemplate(t, svc, ctx, "AD8")
+	if _, err := svc.SaveScreening(ctx, AdmissionActor{UserID: doctorID}, draft.ID, ad8.Code, AdmissionScreeningInput{
+		Completed: true, Answers: screeningAnswersForTotal(ad8, 1),
+	}); err != nil {
+		t.Fatalf("complete negative AD8 with alternative draft: %v", err)
+	}
+	submitted, err := svc.Submit(ctx, AdmissionActor{UserID: doctorID}, draft.ID)
+	if err != nil || submitted.Admission.Status != "submitted" {
+		t.Fatalf("submit with one completed primary and one incomplete draft = %+v, %v", submitted, err)
+	}
 }
 
 func TestFurtherScreeningCannotCompleteBeforeMiniCog(t *testing.T) {

@@ -105,9 +105,46 @@ func admissionScreeningTemplateSeeds() []admissionScreeningTemplateSeed {
 		gad7ScreeningSeed(),
 		gds15ScreeningSeed(),
 		sleepScreeningSeed(),
+		ad8ScreeningSeed(),
 		miniCogScreeningSeed(),
 		mmseScreeningSeed(),
 		mocaScreeningSeed(),
+	}
+}
+
+// ad8ScreeningSeed describes the eight-item AD8 informant screen used as an
+// alternative first-stage cognitive screen in the PDF workflow. Each "是"
+// means a change from prior ability and contributes one point; a score of two
+// or more is a positive screen and opens the MMSE/MoCA second stage.
+func ad8ScreeningSeed() admissionScreeningTemplateSeed {
+	questions := []string{
+		"判断力有变化吗（例如处理财务、做决定）？",
+		"兴趣爱好有变化吗？",
+		"重复同一问题或故事吗？",
+		"学习使用工具、设备或家电有困难吗？",
+		"记不住月份或年份吗？",
+		"处理复杂财务（如账单、所得税）有困难吗？",
+		"记住约定和预约有困难吗？",
+		"日常思维和记忆有持续下降吗？",
+	}
+	items := make([]admissionScreeningQuestionSeed, 0, len(questions))
+	for i, title := range questions {
+		items = append(items, admissionScreeningQuestionSeed{
+			code: fmt.Sprintf("AD8.%d", i+1), groupCode: "AD8", groupName: "AD8认知变化",
+			title: title, guidance: "请与知情家属或照护者核对近几年相较以往的变化；有变化选“是”",
+			maxScore: 1, required: true, options: yesNoOptions(1, 0),
+		})
+	}
+	return admissionScreeningTemplateSeed{
+		code: "AD8", name: "AD8认知功能变化筛查", version: "PDF_AD8",
+		description: "PDF 入住评估流程首阶段可选初筛，由知情家属或照护者报告认知变化。",
+		maxScore:    8, sortOrder: 13,
+		levelRules: screeningRules([]screeningRuleSeed{
+			{"negative", "未达到认知变化筛查阈值", 0, 1},
+			{"positive", "可能存在认知功能变化", 2, 8},
+		}),
+		scoringNotes: []string{"8个变化项目各计0或1分，总分0-8分。", "AD8总分≥2分为阳性筛查提示；结果不能替代临床诊断。"},
+		questions:    items,
 	}
 }
 

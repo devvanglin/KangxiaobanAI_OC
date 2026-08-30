@@ -402,8 +402,9 @@ The four gates are:
 4. four human confirmations: doctor review, plan consent, fee disclosure, and information-provider signature.
 
 The server recalculates every score from option IDs, applies the coma and grade-adjustment rules, and refuses incomplete
-or inconsistent submissions. Optional GAD-7, GDS-15, sleep, Mini-Cog, MMSE, and MoCA Beijing screenings use persisted
-templates. Their output is screening/advisory information, not a diagnosis.
+or inconsistent submissions. Optional GAD-7, GDS-15, sleep, Mini-Cog, AD8, MMSE, and MoCA Beijing screenings use
+persisted templates. Mini-Cog/AD8 are alternative first-stage screens; a positive result requires MMSE and MoCA before
+submission. Their output is screening/advisory information, not a diagnosis.
 
 The admission dirty guard still protects explicit in-workbench navigation. Drafts are persisted on step transitions,
 so component destruction no longer destroys saved work. A successful submit transaction creates/links the elder, bed,

@@ -20,7 +20,7 @@ struct MainPage {
 
   private elderName(elderId: number): string {
     const elder: Elder | undefined = this.elders.find((item: Elder): boolean => item.id === elderId);
-    return elder?.name ?? `长者 #${elderId}`;
+    return elder?.name ?? '长者姓名未返回';
   }
 
   aboutToAppear(): void {

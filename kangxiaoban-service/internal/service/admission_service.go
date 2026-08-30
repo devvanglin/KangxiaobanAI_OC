@@ -57,6 +57,14 @@ type AdmissionDraftInput struct {
 	Education                string                      `json:"education"`
 	LivingSituations         []string                    `json:"living_situations"`
 	MaritalStatus            string                      `json:"marital_status"`
+	SpouseSatisfaction       string                      `json:"spouse_satisfaction"`
+	ChildrenCount            int                         `json:"children_count"`
+	ChildrenSatisfaction     string                      `json:"children_satisfaction"`
+	Hobbies                  []string                    `json:"hobbies"`
+	SocialParticipation      []string                    `json:"social_participation"`
+	Exercise                 []string                    `json:"exercise"`
+	Worries                  []string                    `json:"worries"`
+	LifeChanges              []string                    `json:"life_changes"`
 	MedicalPayments          []string                    `json:"medical_payments"`
 	IncomeSources            []string                    `json:"income_sources"`
 	RiskEvents               []model.AdmissionRiskEvent  `json:"risk_events"`
@@ -180,6 +188,9 @@ func (s *AdmissionService) Create(ctx context.Context, actor AdmissionActor, inp
 	if actor.UserID == 0 {
 		return nil, ErrAdmissionForbidden
 	}
+	if err := validateAdmissionDraftInput(input); err != nil {
+		return nil, err
+	}
 	template, err := s.currentTemplate(s.db.WithContext(ctx))
 	if err != nil {
 		return nil, err
@@ -207,6 +218,9 @@ func (s *AdmissionService) Create(ctx context.Context, actor AdmissionActor, inp
 }
 
 func (s *AdmissionService) Update(ctx context.Context, actor AdmissionActor, id uint, input AdmissionDraftInput) (*model.AdmissionAssessment, error) {
+	if err := validateAdmissionDraftInput(input); err != nil {
+		return nil, err
+	}
 	db := s.db.WithContext(ctx)
 	err := db.Transaction(func(tx *gorm.DB) error {
 		var admission model.AdmissionAssessment
@@ -230,7 +244,8 @@ func (s *AdmissionService) Update(ctx context.Context, actor AdmissionActor, id 
 		if err := tx.Model(&admission).Select(
 			"ElderID", "CurrentStep", "AssessmentReason", "BaselineDate", "ResidentName", "Gender",
 			"BirthDate", "IDCard", "HeightCM", "WeightKG", "Ethnicity", "Religion", "Education",
-			"LivingSituations", "MaritalStatus", "MedicalPayments", "IncomeSources", "RiskEvents",
+			"LivingSituations", "MaritalStatus", "SpouseSatisfaction", "ChildrenCount", "ChildrenSatisfaction",
+			"Hobbies", "SocialParticipation", "Exercise", "Worries", "LifeChanges", "MedicalPayments", "IncomeSources", "RiskEvents",
 			"Diagnoses", "DementiaOrMentalDisorder", "Medications", "HealthIssues", "Coma",
 			"InfoProviderName", "InfoProviderRelation", "ContactName", "ContactPhone", "TargetBedID",
 			"SelectedCarePlanCode", "SelectedOptionalServices", "AssessmentLocation", "DoctorConfirmed",
@@ -735,6 +750,18 @@ func validateRiskEvents(template *model.AssessmentTemplate, events []model.Admis
 	return nil
 }
 
+// validateAdmissionDraftInput keeps scalar appendix-A values within the
+// institution's supported range before they are persisted. Zero children is
+// valid for residents without children; negative or implausibly large values
+// are malformed input rather than meaningful business data.
+func validateAdmissionDraftInput(input AdmissionDraftInput) error {
+	const maxChildrenCount = 30
+	if input.ChildrenCount < 0 || input.ChildrenCount > maxChildrenCount {
+		return fmt.Errorf("%w: children_count must be between 0 and %d", ErrAdmissionValidation, maxChildrenCount)
+	}
+	return nil
+}
+
 func (s *AdmissionService) selectPlanTemplate(tx *gorm.DB, admission *model.AdmissionAssessment, finalLevel string) (*model.AdmissionCarePlanTemplate, error) {
 	q := tx.Where("template_id = ? AND target_level = ? AND enabled = ?", admission.TemplateID, finalLevel, true)
 	if admission.SelectedCarePlanCode != "" {
@@ -1054,6 +1081,10 @@ func (input AdmissionDraftInput) toModel() model.AdmissionAssessment {
 		BirthDate: input.BirthDate, IDCard: input.IDCard, HeightCM: input.HeightCM, WeightKG: input.WeightKG,
 		Ethnicity: input.Ethnicity, Religion: input.Religion, Education: input.Education,
 		LivingSituations: input.LivingSituations, MaritalStatus: input.MaritalStatus,
+		SpouseSatisfaction: input.SpouseSatisfaction, ChildrenCount: input.ChildrenCount,
+		ChildrenSatisfaction: input.ChildrenSatisfaction, Hobbies: input.Hobbies,
+		SocialParticipation: input.SocialParticipation, Exercise: input.Exercise,
+		Worries: input.Worries, LifeChanges: input.LifeChanges,
 		MedicalPayments: input.MedicalPayments, IncomeSources: input.IncomeSources,
 		RiskEvents: input.RiskEvents, Diagnoses: input.Diagnoses,
 		DementiaOrMentalDisorder: input.DementiaOrMentalDisorder, Medications: input.Medications,

@@ -694,7 +694,7 @@ export struct WideDoctorAdmission {
       return;
     }
     if (!this.screeningGateReady) {
-      this.setFailure('validation', '请先完成 Mini-Cog 首阶段筛查；Mini-Cog ≤2 分时还需完成 MMSE 和 MoCA。');
+      this.setFailure('validation', '请先完成 Mini-Cog 或 AD8 首阶段筛查；首阶段阳性时还需完成 MMSE 和 MoCA。');
       return;
     }
     if (!await this.saveDraft(this.currentStep, false)) {
@@ -1857,7 +1857,7 @@ export struct WideDoctorAdmission {
         .width('100%')
       }
       if (!this.screeningGateReady) {
-        Text('请先完成 Mini-Cog 首阶段筛查；Mini-Cog ≤2 分时还需完成 MMSE、MoCA。')
+        Text('请先完成 Mini-Cog 或 AD8 首阶段筛查；首阶段阳性时还需完成 MMSE、MoCA。')
           .fontSize(10)
           .fontColor($r('app.color.doctor_workspace_warning'))
           .width('100%')
@@ -2134,10 +2134,10 @@ export struct WideDoctorAdmission {
           .fontSize(20)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.doctor_workspace_text_primary'))
-        Text(`${this.residentName} · ${this.submitResult.admission.assessment_no}`)
+        Text(`${this.submitResult.admission.resident_name || this.residentName} · ${this.submitResult.admission.assessment_no}`)
           .fontSize(11)
           .fontColor($r('app.color.doctor_workspace_text_secondary'))
-        Text(`能力总分 ${this.submitResult.admission.ability_score} · ${this.levelLabel(this.submitResult.admission.final_level)} · 长者档案 #${this.submitResult.admission.elder_id ?? 0}`)
+        Text(`能力总分 ${this.submitResult.admission.ability_score} · ${this.levelLabel(this.submitResult.admission.final_level)} · 长者档案已关联`)
           .fontSize(11)
           .fontWeight(FontWeight.Medium)
           .fontColor($r('app.color.doctor_workspace_focus'))

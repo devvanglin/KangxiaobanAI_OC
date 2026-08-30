@@ -12,6 +12,11 @@ import (
 	"kangxiaoban-service/internal/model"
 )
 
+var (
+	errAdmissionScreeningMissing    = errors.New("admission screening record missing")
+	errAdmissionScreeningIncomplete = errors.New("admission screening record incomplete")
+)
+
 // AdmissionScreeningAnswerInput contains a server-owned option and optional examiner notes.
 type AdmissionScreeningAnswerInput struct {
 	QuestionID uint                               `json:"question_id" binding:"required"`
@@ -77,6 +82,9 @@ func (s *AdmissionService) ListScreenings(ctx context.Context, admissionID uint)
 		}
 		if !strings.EqualFold(screenings[i].TemplateCode, template.Code) {
 			return nil, fmt.Errorf("%w: screening template code does not match persisted template", ErrAdmissionValidation)
+		}
+		if strings.TrimSpace(screenings[i].TemplateVersion) != strings.TrimSpace(template.Version) {
+			return nil, fmt.Errorf("%w: screening template version does not match persisted template", ErrAdmissionValidation)
 		}
 		calculated, err := calculateAdmissionScreening(template, screenings[i].Answers, screenings[i].EducationYears, screenings[i].Status == "completed")
 		if err != nil {
@@ -161,8 +169,8 @@ func (s *AdmissionService) SaveScreening(ctx context.Context, actor AdmissionAct
 			return err
 		}
 		// MMSE and MoCA are the second stage of the PDF flow. A draft may be
-		// saved early, but completing either scale requires both first-stage
-		// screens and a positive Mini-Cog result.
+		// saved early, but completing either scale requires a completed positive
+		// first-stage screen (Mini-Cog or AD8).
 		if input.Completed {
 			if err := validateFurtherScreeningPrerequisites(tx, admissionID, template.Code); err != nil {
 				return err
@@ -221,29 +229,52 @@ func (s *AdmissionService) SaveScreening(ctx context.Context, actor AdmissionAct
 }
 
 func (s *AdmissionService) screeningTemplateByCode(db *gorm.DB, code string) (*model.AssessmentTemplate, error) {
-	var template model.AssessmentTemplate
-	err := db.Preload("Questions", func(q *gorm.DB) *gorm.DB { return q.Order("sort_order asc, id asc") }).
-		Preload("Questions.Options", func(q *gorm.DB) *gorm.DB { return q.Order("sort_order asc, id asc") }).
-		Where("code = ? AND category = ? AND enabled = ?", code, "admission_screening", true).
-		Order("sort_order asc, id desc").First(&template).Error
+	template, err := loadEnabledScreeningTemplate(db, code)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("%w: screening template not found", ErrAdmissionValidation)
 	}
-	return &template, err
+	return template, err
 }
 
 // screeningTemplateByIDForRead loads a historical screening template even if
 // an administrator has since disabled it. Existing records must remain
 // inspectable, while their score is still interpreted from server-owned data.
 func (s *AdmissionService) screeningTemplateByIDForRead(db *gorm.DB, id uint) (*model.AssessmentTemplate, error) {
-	var template model.AssessmentTemplate
-	err := db.Preload("Questions", func(q *gorm.DB) *gorm.DB { return q.Order("sort_order asc, id asc") }).
-		Preload("Questions.Options", func(q *gorm.DB) *gorm.DB { return q.Order("sort_order asc, id asc") }).
-		Where("id = ? AND category = ?", id, "admission_screening").First(&template).Error
+	template, err := loadScreeningTemplateByID(db, id)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("%w: screening template not found", ErrAdmissionValidation)
 	}
-	return &template, err
+	return template, err
+}
+
+func preloadScreeningTemplate(db *gorm.DB) *gorm.DB {
+	return db.Preload("Questions", func(q *gorm.DB) *gorm.DB { return q.Order("sort_order asc, id asc") }).
+		Preload("Questions.Options", func(q *gorm.DB) *gorm.DB { return q.Order("sort_order asc, id asc") })
+}
+
+// loadEnabledScreeningTemplate resolves the active template for a code using
+// the same deterministic ordering as the template API. The template ID and
+// version are then used together when selecting a screening record, so an old
+// version cannot win merely because it happens to be returned by First.
+func loadEnabledScreeningTemplate(db *gorm.DB, code string) (*model.AssessmentTemplate, error) {
+	var template model.AssessmentTemplate
+	err := preloadScreeningTemplate(db).
+		Where("code = ? AND category = ? AND enabled = ?", strings.ToUpper(strings.TrimSpace(code)), "admission_screening", true).
+		Order("sort_order asc, id desc").First(&template).Error
+	if err != nil {
+		return nil, err
+	}
+	return &template, nil
+}
+
+func loadScreeningTemplateByID(db *gorm.DB, id uint) (*model.AssessmentTemplate, error) {
+	var template model.AssessmentTemplate
+	err := preloadScreeningTemplate(db).
+		Where("id = ? AND category = ?", id, "admission_screening").First(&template).Error
+	if err != nil {
+		return nil, err
+	}
+	return &template, nil
 }
 
 func screeningQuestionByID(template *model.AssessmentTemplate, id uint) (model.AssessmentQuestion, bool) {
@@ -273,61 +304,128 @@ func (s *AdmissionService) getScreening(db *gorm.DB, id uint) (*model.AdmissionS
 	return &screening, err
 }
 
-// loadAndCalculateScreening reads a screening by its persisted template code,
-// loads the server template/options, and recalculates the score from those
-// options. Database snapshots (raw_score, adjusted_score, result_code) are
-// deliberately ignored.
+// loadAndCalculateScreening reads a screening using the active template ID
+// and version when that version has been started for the admission. If an
+// admission only has an older screening, the newest historical record is
+// retained as the fallback; its own template ID/version is still validated
+// and used for scoring. This keeps historical records readable without
+// allowing an arbitrary same-code row to win a gate check.
 func loadAndCalculateScreening(tx *gorm.DB, admissionID uint, code string) (*model.AdmissionScreening, *model.AssessmentTemplate, *admissionScreeningScore, error) {
-	var screening model.AdmissionScreening
-	err := tx.Preload("Answers", func(q *gorm.DB) *gorm.DB { return q.Order("question_id asc, id asc") }).
-		Where("admission_id = ? AND template_code = ?", admissionID, code).
-		First(&screening).Error
+	screening, template, err := loadAdmissionScreeningForCode(tx, admissionID, code)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil, nil, fmt.Errorf("%w: required screening %s is not completed", ErrAdmissionIncomplete, code)
-	}
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	var template model.AssessmentTemplate
-	err = tx.Preload("Questions", func(q *gorm.DB) *gorm.DB { return q.Order("sort_order asc, id asc") }).
-		Preload("Questions.Options", func(q *gorm.DB) *gorm.DB { return q.Order("sort_order asc, id asc") }).
-		Where("id = ? AND category = ?", screening.TemplateID, "admission_screening").First(&template).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil, nil, fmt.Errorf("%w: screening template %s is missing", ErrAdmissionValidation, code)
+		return nil, nil, nil, fmt.Errorf("%w: %w: required screening %s is not completed", ErrAdmissionIncomplete, errAdmissionScreeningMissing, code)
 	}
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	if screening.Status != "completed" {
-		return &screening, &template, nil, fmt.Errorf("%w: required screening %s is not completed", ErrAdmissionIncomplete, code)
+		return screening, template, nil, fmt.Errorf("%w: %w: required screening %s is not completed", ErrAdmissionIncomplete, errAdmissionScreeningIncomplete, code)
 	}
-	calculated, err := calculateAdmissionScreening(&template, screening.Answers, screening.EducationYears, true)
+	calculated, err := calculateAdmissionScreening(template, screening.Answers, screening.EducationYears, true)
 	if err != nil {
-		return &screening, &template, nil, err
+		return screening, template, nil, err
 	}
 	if !calculated.complete {
-		return &screening, &template, calculated, fmt.Errorf("%w: required screening %s answers are incomplete", ErrAdmissionIncomplete, code)
+		return screening, template, calculated, fmt.Errorf("%w: %w: required screening %s answers are incomplete", ErrAdmissionIncomplete, errAdmissionScreeningIncomplete, code)
 	}
 	if adjustmentRulesRequireEducationYears(template.AdjustmentRules, calculated.ruleContext) && screening.EducationYears == nil {
-		return &screening, &template, calculated, fmt.Errorf("%w: education_years is required by screening %s adjustment rules", ErrAdmissionValidation, code)
+		return screening, template, calculated, fmt.Errorf("%w: education_years is required by screening %s adjustment rules", ErrAdmissionValidation, code)
 	}
-	return &screening, &template, calculated, nil
+	return screening, template, calculated, nil
+}
+
+// loadAdmissionScreeningForCode returns one unambiguous screening/template
+// pair. A current enabled template is preferred only when a record for that
+// exact template ID and version exists; otherwise the latest historical row
+// is used and validated against the template it persisted.
+func loadAdmissionScreeningForCode(tx *gorm.DB, admissionID uint, code string) (*model.AdmissionScreening, *model.AssessmentTemplate, error) {
+	normalizedCode := strings.ToUpper(strings.TrimSpace(code))
+	activeTemplate, activeErr := loadEnabledScreeningTemplate(tx, normalizedCode)
+	if activeErr != nil && !errors.Is(activeErr, gorm.ErrRecordNotFound) {
+		return nil, nil, activeErr
+	}
+	// Bind the gate lookup to the active template's immutable identity. This
+	// prevents a historical row with the same code from being selected by an
+	// unconstrained First query.
+	if activeErr == nil {
+		var current model.AdmissionScreening
+		err := preloadAdmissionScreening(tx).
+			Where("admission_id = ? AND template_id = ? AND template_version = ?", admissionID, activeTemplate.ID, activeTemplate.Version).
+			Order("updated_at desc, id desc").First(&current).Error
+		if err == nil {
+			return validateAdmissionScreeningPair(&current, activeTemplate, normalizedCode)
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil, err
+		}
+		// A row for the active template ID with a different version is corrupt,
+		// not a valid historical fallback. Surface it instead of silently using
+		// another version.
+		var mismatched model.AdmissionScreening
+		mismatchErr := preloadAdmissionScreening(tx).
+			Where("admission_id = ? AND template_id = ?", admissionID, activeTemplate.ID).
+			Order("updated_at desc, id desc").First(&mismatched).Error
+		if mismatchErr == nil {
+			return nil, nil, fmt.Errorf("%w: screening %s template version does not match active template", ErrAdmissionValidation, normalizedCode)
+		}
+		if !errors.Is(mismatchErr, gorm.ErrRecordNotFound) {
+			return nil, nil, mismatchErr
+		}
+	}
+
+	// No active-version row exists. Keep older records readable by selecting
+	// the newest persisted row deterministically, then validate its own
+	// template ID/version before calculating any score.
+	var historical model.AdmissionScreening
+	err := preloadAdmissionScreening(tx).
+		Where("admission_id = ? AND template_code = ?", admissionID, normalizedCode).
+		Order("updated_at desc, id desc").First(&historical).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil, gorm.ErrRecordNotFound
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	template, err := loadScreeningTemplateByID(tx, historical.TemplateID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil, fmt.Errorf("%w: screening template %s is missing", ErrAdmissionValidation, normalizedCode)
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	return validateAdmissionScreeningPair(&historical, template, normalizedCode)
+}
+
+func preloadAdmissionScreening(db *gorm.DB) *gorm.DB {
+	return db.Preload("Answers", func(q *gorm.DB) *gorm.DB { return q.Order("question_id asc, id asc") })
+}
+
+func validateAdmissionScreeningPair(screening *model.AdmissionScreening, template *model.AssessmentTemplate, code string) (*model.AdmissionScreening, *model.AssessmentTemplate, error) {
+	if !strings.EqualFold(strings.TrimSpace(screening.TemplateCode), strings.TrimSpace(template.Code)) {
+		return nil, nil, fmt.Errorf("%w: screening template code does not match persisted template", ErrAdmissionValidation)
+	}
+	if strings.TrimSpace(screening.TemplateVersion) != strings.TrimSpace(template.Version) {
+		return nil, nil, fmt.Errorf("%w: screening %s template version does not match persisted template", ErrAdmissionValidation, code)
+	}
+	return screening, template, nil
 }
 
 // validateFurtherScreeningPrerequisites enforces the PDF's second-stage
-// sequence when a doctor marks MMSE or MoCA complete. Drafts can still be
-// saved early so an interrupted assessment is recoverable.
+// sequence when a doctor marks MMSE or MoCA complete. Either Mini-Cog or AD8
+// may serve as the first-stage screen; a positive result on either one is
+// required. Drafts can still be saved early so an interrupted assessment is
+// recoverable.
 func validateFurtherScreeningPrerequisites(tx *gorm.DB, admissionID uint, code string) error {
 	code = strings.ToUpper(strings.TrimSpace(code))
 	if code != "MMSE" && code != "MOCA_BEIJING" {
 		return nil
 	}
-	_, _, miniCog, err := loadAndCalculateScreening(tx, admissionID, "MINI_COG")
+	primary, err := loadPrimaryScreenings(tx, admissionID)
 	if err != nil {
 		return err
 	}
-	if miniCog.adjustedScore > 2 {
-		return fmt.Errorf("%w: %s is only required when Mini-Cog score is 0-2", ErrAdmissionValidation, code)
+	if !primary.hasPositive {
+		return fmt.Errorf("%w: %s requires a positive Mini-Cog (0-2) or AD8 (2-8) first-stage screen", ErrAdmissionValidation, code)
 	}
 	return nil
 }
@@ -336,19 +434,70 @@ func validateFurtherScreeningPrerequisites(tx *gorm.DB, admissionID uint, code s
 // the submission transaction. This prevents a client from bypassing the gate
 // by editing status or score snapshots directly.
 func validateAdmissionScreeningGate(tx *gorm.DB, admissionID uint) error {
-	_, _, miniCog, err := loadAndCalculateScreening(tx, admissionID, "MINI_COG")
+	primary, err := loadPrimaryScreenings(tx, admissionID)
 	if err != nil {
 		return err
 	}
-	if miniCog.adjustedScore > 2 {
+	if !primary.hasPositive {
 		return nil
 	}
 	for _, code := range []string{"MMSE", "MOCA_BEIJING"} {
 		if _, _, _, err := loadAndCalculateScreening(tx, admissionID, code); err != nil {
-			return fmt.Errorf("%w: Mini-Cog score %d requires %s", err, miniCog.adjustedScore, code)
+			return fmt.Errorf("%w: a positive first-stage screen requires %s", err, code)
 		}
 	}
 	return nil
+}
+
+type primaryScreeningState struct {
+	hasCompleted bool
+	hasPositive  bool
+}
+
+// loadPrimaryScreenings loads both first-stage alternatives when present. A
+// missing alternative is expected; the gate only requires one completed
+// primary screen. Any other error (tampered template/answers, for example) is
+// returned so submission cannot proceed on unverifiable data.
+func loadPrimaryScreenings(tx *gorm.DB, admissionID uint) (primaryScreeningState, error) {
+	state := primaryScreeningState{}
+	for _, code := range []string{"MINI_COG", "AD8"} {
+		_, template, calculated, err := loadAndCalculateScreening(tx, admissionID, code)
+		if err != nil {
+			if errors.Is(err, errAdmissionScreeningMissing) || errors.Is(err, errAdmissionScreeningIncomplete) {
+				continue
+			}
+			return state, err
+		}
+		state.hasCompleted = true
+		if primaryScreeningIsPositive(code, template, calculated.adjustedScore) {
+			state.hasPositive = true
+		}
+	}
+	if !state.hasCompleted {
+		return state, fmt.Errorf("%w: complete Mini-Cog or AD8 first-stage screening", ErrAdmissionIncomplete)
+	}
+	return state, nil
+}
+
+func primaryScreeningIsPositive(code string, template *model.AssessmentTemplate, adjustedScore int) bool {
+	if template != nil {
+		if rule, ok := ruleForScore(template.LevelRules, adjustedScore); ok {
+			if rule.Code == "positive" {
+				return true
+			}
+			if rule.Code == "negative" {
+				return false
+			}
+		}
+	}
+	switch strings.ToUpper(strings.TrimSpace(code)) {
+	case "MINI_COG":
+		return adjustedScore <= 2
+	case "AD8":
+		return adjustedScore >= 2
+	default:
+		return false
+	}
 }
 
 func buildAdmissionScreeningAnswers(template *model.AssessmentTemplate, screeningID uint, input []AdmissionScreeningAnswerInput) ([]model.AdmissionScreeningAnswer, error) {

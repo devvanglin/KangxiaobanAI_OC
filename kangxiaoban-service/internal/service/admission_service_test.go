@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -340,6 +341,83 @@ func TestAdmissionSubmitIsIdempotentAndTraceable(t *testing.T) {
 	}
 	if publisher.calls != 1 || publisher.tenantID != 1 || publisher.role != "caregiver" || publisher.eventType != "admission.submitted" {
 		t.Fatalf("unexpected admission event: %+v", publisher)
+	}
+}
+
+func TestAdmissionAppendixAFamilyAndLifestyleFieldsRoundTrip(t *testing.T) {
+	svc, db, doctorID, ctx := newAdmissionTestService(t)
+	input := validAdmissionInput(t, svc, db, ctx)
+	input.SpouseSatisfaction = "满意"
+	input.ChildrenCount = 3
+	input.ChildrenSatisfaction = "一般"
+	input.Hobbies = []string{"书法", "戏曲"}
+	input.SocialParticipation = []string{"社区活动", "志愿服务"}
+	input.Exercise = []string{"散步", "太极拳"}
+	input.Worries = []string{"健康", "子女"}
+	input.LifeChanges = []string{"近期搬迁"}
+
+	draft, err := svc.Create(ctx, AdmissionActor{UserID: doctorID}, input)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	assertAdmissionAppendixAFamilyFields(t, draft, input)
+
+	input.SpouseSatisfaction = "不满意"
+	input.ChildrenCount = 1
+	input.ChildrenSatisfaction = "满意"
+	input.Hobbies = []string{"听广播"}
+	input.SocialParticipation = []string{"无"}
+	input.Exercise = []string{"无"}
+	input.Worries = []string{"无"}
+	input.LifeChanges = []string{}
+	updated, err := svc.Update(ctx, AdmissionActor{UserID: doctorID}, draft.ID, input)
+	if err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+	assertAdmissionAppendixAFamilyFields(t, updated, input)
+
+	var persisted model.AdmissionAssessment
+	if err := db.First(&persisted, draft.ID).Error; err != nil {
+		t.Fatalf("reload persisted admission: %v", err)
+	}
+	assertAdmissionAppendixAFamilyFields(t, &persisted, input)
+}
+
+func TestAdmissionChildrenCountValidation(t *testing.T) {
+	svc, db, doctorID, ctx := newAdmissionTestService(t)
+	for _, count := range []int{-1, 31} {
+		input := validAdmissionInput(t, svc, db, ctx)
+		input.ChildrenCount = count
+		if _, err := svc.Create(ctx, AdmissionActor{UserID: doctorID}, input); !errors.Is(err, ErrAdmissionValidation) {
+			t.Fatalf("Create children_count=%d error = %v, want ErrAdmissionValidation", count, err)
+		}
+	}
+	input := validAdmissionInput(t, svc, db, ctx)
+	input.ChildrenCount = 30
+	draft, err := svc.Create(ctx, AdmissionActor{UserID: doctorID}, input)
+	if err != nil {
+		t.Fatalf("Create children_count=30: %v", err)
+	}
+	input.ChildrenCount = -1
+	if _, err := svc.Update(ctx, AdmissionActor{UserID: doctorID}, draft.ID, input); !errors.Is(err, ErrAdmissionValidation) {
+		t.Fatalf("Update negative children_count error = %v, want ErrAdmissionValidation", err)
+	}
+}
+
+func assertAdmissionAppendixAFamilyFields(t *testing.T, got *model.AdmissionAssessment, want AdmissionDraftInput) {
+	t.Helper()
+	if got.SpouseSatisfaction != want.SpouseSatisfaction || got.ChildrenCount != want.ChildrenCount ||
+		got.ChildrenSatisfaction != want.ChildrenSatisfaction {
+		t.Fatalf("family satisfaction fields mismatch: got spouse=%q children=%d/%q, want spouse=%q children=%d/%q",
+			got.SpouseSatisfaction, got.ChildrenCount, got.ChildrenSatisfaction,
+			want.SpouseSatisfaction, want.ChildrenCount, want.ChildrenSatisfaction)
+	}
+	if !reflect.DeepEqual(got.Hobbies, want.Hobbies) || !reflect.DeepEqual(got.SocialParticipation, want.SocialParticipation) ||
+		!reflect.DeepEqual(got.Exercise, want.Exercise) || !reflect.DeepEqual(got.Worries, want.Worries) ||
+		!reflect.DeepEqual(got.LifeChanges, want.LifeChanges) {
+		t.Fatalf("lifestyle fields mismatch: got hobbies=%v social=%v exercise=%v worries=%v changes=%v, want hobbies=%v social=%v exercise=%v worries=%v changes=%v",
+			got.Hobbies, got.SocialParticipation, got.Exercise, got.Worries, got.LifeChanges,
+			want.Hobbies, want.SocialParticipation, want.Exercise, want.Worries, want.LifeChanges)
 	}
 }
 

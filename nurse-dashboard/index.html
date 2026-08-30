@@ -185,6 +185,8 @@ const API_BASE='/api/v1';
 const WS_BASE=(location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/api/v1/ws';
 const $=id=>document.getElementById(id);
 let token=sessionStorage.getItem('kxb_token')||'', ws=null;
+let elderNames=new Map();
+let elderNamesPromise=null;
 
 document.getElementById('tabBar').addEventListener('click',e=>{
   const a=e.target.closest('a'); if(!a)return;
@@ -209,6 +211,24 @@ async function apiAll(path,size=200){
     page++;
   }
   return {code:0,msg:'',data:{list:list,total:Math.max(total,list.length),page:1,size:list.length}};
+}
+
+async function refreshElderNames(){
+  if(elderNamesPromise)return elderNamesPromise;
+  elderNamesPromise=apiAll('/elders').then(r=>{
+    if(r.code!==0||!r.data)return;
+    const next=new Map();
+    (r.data.list||[]).forEach(e=>{
+      const id=Number(e.id),name=String(e.name||'').trim();
+      if(id>0&&name)next.set(id,name);
+    });
+    elderNames=next;
+  }).catch(()=>{}).finally(()=>{elderNamesPromise=null;});
+  return elderNamesPromise;
+}
+
+function elderDisplayName(id){
+  return elderNames.get(Number(id))||'长者姓名未返回';
 }
 
 async function doLogin(e){e.preventDefault();$('loginErr').textContent='';
@@ -245,13 +265,13 @@ function refreshDevices(){apiAll('/iot/devices').then(r=>{if(r.code!==0)return;c
   l.sort((a,b)=>(b.online||0)-(a.online||0));
   $('deviceRows').innerHTML=l.map(d=>`<tr><td>${esc(d.device_id)}</td><td style="color:var(--mute)">${esc(d.product)}</td><td>${d.online===1?'<span class="ok">● 在线</span>':'<span class="bad">● 离线</span>'}</td><td style="color:var(--mute)">${d.last_seen?ft(d.last_seen):'-'}</td></tr>`).join('')||'<tr><td colspan="4" style="color:var(--mute)">暂无设备</td></tr>';});}
 
-function refreshBills(){apiAll('/bills').then(r=>{if(r.code!==0)return;const l=r.data.list||[];let sum=0,paid=0;
+async function refreshBills(){if(elderNames.size===0)await refreshElderNames();return apiAll('/bills').then(r=>{if(r.code!==0)return;const l=r.data.list||[];let sum=0,paid=0;
   l.forEach(b=>{sum+=b.amount;paid+=b.paid;});
   $('bCount').textContent=l.length;$('bSum').textContent=money(sum);$('bPaid').textContent=money(paid);$('bDue').textContent=money(sum-paid);
   $('bRate').textContent=(sum?Math.round(paid/sum*100):0)+'%';
-  $('billRows').innerHTML=l.map(b=>`<tr><td>${esc(b.bill_month)}</td><td>长者 #${b.elder_id}</td><td>${b.bed_fee}</td><td>${b.nursing_fee}</td><td>${b.meal_fee}</td><td class="money">${b.amount}</td><td>${b.paid}</td><td><span class="st ${b.status==='paid'?'paid':(b.status==='partial'?'partial':'')}">${b.status}</span></td><td>${b.paid>=b.amount?'':`<button class="btn sec" onclick="payBill(${b.elder_id},'${b.bill_month}')">缴费</button>`}</td></tr>`).join('')||'<tr><td colspan="9" style="color:var(--mute)">暂无账单</td></tr>';});}
+  $('billRows').innerHTML=l.map(b=>`<tr><td>${esc(b.bill_month)}</td><td>${esc(elderDisplayName(b.elder_id))}</td><td>${b.bed_fee}</td><td>${b.nursing_fee}</td><td>${b.meal_fee}</td><td class="money">${b.amount}</td><td>${b.paid}</td><td><span class="st ${b.status==='paid'?'paid':(b.status==='partial'?'partial':'')}">${b.status}</span></td><td>${b.paid>=b.amount?'':`<button class="btn sec" onclick="payBill(${b.elder_id},'${b.bill_month}')">缴费</button>`}</td></tr>`).join('')||'<tr><td colspan="9" style="color:var(--mute)">暂无账单</td></tr>';});}
 function genBills(){auth('/bills/generate',{method:'POST'}).then(r=>{alert('本月账单已生成：'+(r.data?r.data.created:0)+' 笔');refreshBills();});}
-function payBill(eld,month){const amt=parseFloat(prompt('为长者 #'+eld+' 缴纳 '+month+' 金额：'));if(!amt)return;
+function payBill(eld,month){const amt=parseFloat(prompt('为'+elderDisplayName(eld)+'缴纳 '+month+' 金额：'));if(!amt)return;
   auth('/bills/pay',{method:'POST',body:JSON.stringify({elder_id:Number(eld),month:month,amount:amt})}).then(()=>refreshBills());}
 
 function refreshSchedules(){apiAll('/schedules').then(r=>{if(r.code!==0)return;const l=r.data.list||[];$('schCount').textContent=l.length+' 条';
@@ -265,7 +285,7 @@ function addHandover(){auth('/handovers',{method:'POST',body:JSON.stringify({fro
 function connectWs(){if(!token)return;if(ws){try{ws.close();}catch(e){}}ws=new WebSocket(WS_BASE+'?token='+encodeURIComponent(token));
   ws.onopen=()=>setWs(true,'实时连接');ws.onmessage=e=>{let ev;try{ev=JSON.parse(e.data);}catch(_){return;}if(ev.type==='alert.new'){refreshAlerts();}};
   ws.onclose=()=>{setWs(false,'重连中');setTimeout(connectWs,3000);};ws.onerror=()=>{try{ws.close();}catch(_){}};}
-function refreshAll(){refreshSummary();refreshAlerts();refreshDevices();refreshBills();refreshSchedules();refreshHandovers();}
+async function refreshAll(){await refreshElderNames();refreshSummary();refreshAlerts();refreshDevices();refreshBills();refreshSchedules();refreshHandovers();}
 
 setInterval(clock,1000);clock();
 restoreSession();
