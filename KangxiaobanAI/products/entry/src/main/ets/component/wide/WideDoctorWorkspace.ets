@@ -7,10 +7,10 @@ import { WideAdminWorkspace } from './WideAdminWorkspace';
  * Compatibility facade for callers that still use the historical doctor
  * workspace name.
  *
- * The doctor and administrator wide consoles intentionally have one visual
- * source of truth. Keeping this facade preserves the old component contract
- * for incremental migrations without reintroducing a second navigation tree
- * or a second set of layout tokens.
+ * The doctor and administrator wide consoles intentionally share one
+ * responsive shell, with role-specific labels and data views supplied by the
+ * shared implementation. Keeping this facade preserves the old component
+ * contract without reintroducing a second navigation tree or token set.
  */
 @ComponentV2
 export struct WideDoctorWorkspace {

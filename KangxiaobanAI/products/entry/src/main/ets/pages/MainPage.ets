@@ -343,17 +343,23 @@ struct MainPage {
   }
 
   private isRoleAdapted(): boolean {
-    // The doctor and administrator roles intentionally share the same
-    // management-console surface. Both remain wide-only; on a phone they
-    // use the same adaptation placeholder instead of exposing a second,
-    // visually different workflow.
+    // The doctor and administrator roles share the same responsive shell,
+    // while the wide workspace supplies role-specific labels and data views.
+    // Both remain wide-only; on a phone they use an explicit adaptation
+    // placeholder instead of exposing an unfinished workflow.
     return this.globalInfoModel.role === '护工' ||
       ((this.globalInfoModel.role === '医师' || this.globalInfoModel.role === '管理') && this.isWideLayout());
   }
 
   private roleWipTitle(): string {
-    return this.globalInfoModel.role === '医师' || this.globalInfoModel.role === '管理' ?
-      '管理端' : `${this.globalInfoModel.role}端`;
+    if (this.globalInfoModel.role === '医师') {
+      return '医师工作台';
+    }
+    return this.globalInfoModel.role === '管理' ? '管理端' : `${this.globalInfoModel.role}端`;
+  }
+
+  private roleWipMessage(): string {
+    return this.globalInfoModel.role === '医师' ? '医师端移动工作区正在适配中' : '该角色页面正在开发中，敬请期待';
   }
 
   @Builder
@@ -369,7 +375,7 @@ struct MainPage {
       Text('适配中')
         .fontSize($r('sys.float.Body_L'))
         .fontColor($r('sys.color.font_secondary'))
-      Text('该角色页面正在开发中，敬请期待')
+      Text(this.roleWipMessage())
         .fontSize($r('sys.float.Body_M'))
         .fontColor($r('sys.color.font_tertiary'))
     }
