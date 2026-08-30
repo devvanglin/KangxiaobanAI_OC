@@ -339,6 +339,33 @@ func TestAdmissionSubmitKeepsScreeningsOptionalAndProjectsCompletedOnes(t *testi
 	}
 }
 
+func TestAdmissionSubmitRejectsScreeningTemplateVersionMismatch(t *testing.T) {
+	svc, db, doctorID, ctx := newAdmissionTestService(t)
+	draft := createAdmissionDraftForScreening(t, svc, db, doctorID, ctx)
+	completePrimaryScreenings(t, svc, db, doctorID, ctx, draft.ID, 3)
+	gad7 := screeningTemplate(t, svc, ctx, "GAD7")
+	completed, err := svc.SaveScreening(ctx, AdmissionActor{UserID: doctorID}, draft.ID, gad7.Code, AdmissionScreeningInput{
+		Completed: true, Answers: screeningAnswers(gad7, 0), Notes: "版本一致性测试",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&model.AdmissionScreening{}).Where("id = ?", completed.Screening.ID).
+		Update("template_version", "tampered-version").Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Submit(ctx, AdmissionActor{UserID: doctorID}, draft.ID); !errors.Is(err, ErrAdmissionValidation) {
+		t.Fatalf("submit with screening version mismatch error = %v, want ErrAdmissionValidation", err)
+	}
+	var persisted model.AdmissionAssessment
+	if err := db.First(&persisted, draft.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if persisted.Status != "draft" || persisted.ElderID != nil {
+		t.Fatalf("version mismatch mutated admission: %+v", persisted)
+	}
+}
+
 func TestAdmissionSubmitRequiresPrimaryScreenings(t *testing.T) {
 	svc, db, doctorID, ctx := newAdmissionTestService(t)
 	input := validAdmissionInput(t, svc, db, ctx)

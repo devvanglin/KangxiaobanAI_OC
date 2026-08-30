@@ -962,6 +962,9 @@ func createAdmissionScreeningAssessments(tx *gorm.DB, admissionID, elderID uint,
 		if !strings.EqualFold(screening.TemplateCode, template.Code) {
 			return fmt.Errorf("%w: screening template code does not match persisted template", ErrAdmissionValidation)
 		}
+		if strings.TrimSpace(screening.TemplateVersion) != strings.TrimSpace(template.Version) {
+			return fmt.Errorf("%w: screening %s template version does not match persisted template", ErrAdmissionValidation, template.Code)
+		}
 		calculated, err := calculateAdmissionScreening(&template, screening.Answers, screening.EducationYears, true)
 		if err != nil {
 			return err

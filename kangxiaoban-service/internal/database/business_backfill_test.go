@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -96,6 +97,247 @@ func TestBusinessFieldsSeedAndBackfill(t *testing.T) {
 	}
 	if copiedPlanInstructions.Remark != planItem.Instructions {
 		t.Fatalf("linked plan instructions were not copied: got %q want %q", copiedPlanInstructions.Remark, planItem.Instructions)
+	}
+}
+
+func TestLegacyDemoDisplayNamesAndRelationsAreNormalized(t *testing.T) {
+	dsn := fmt.Sprintf("file:legacy_display_names_%d?mode=memory&cache=shared", time.Now().UnixNano())
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := RegisterTenantScope(db); err != nil {
+		t.Fatal(err)
+	}
+	if err := AutoMigrateAndSeed(db, true); err != nil {
+		t.Fatal(err)
+	}
+
+	var caregiver, doctor model.User
+	if err := db.Where("username = ?", "caregiver").First(&caregiver).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Where("username = ?", "doctor").First(&doctor).Error; err != nil {
+		t.Fatal(err)
+	}
+	var seedElder model.Elder
+	if err := db.Where("id_card = ?", "110101193805120011").First(&seedElder).Error; err != nil {
+		t.Fatal(err)
+	}
+	var seedPlan model.CarePlan
+	if err := db.Where("elder_id = ?", seedElder.ID).First(&seedPlan).Error; err != nil {
+		t.Fatal(err)
+	}
+	var seedItem model.CarePlanItem
+	if err := db.Where("care_plan_id = ?", seedPlan.ID).First(&seedItem).Error; err != nil {
+		t.Fatal(err)
+	}
+	doctorExecution := model.CareExecution{PlanItemID: seedItem.ID, ElderID: seedElder.ID, ExecutorID: doctor.ID, Executor: "演示医师", Status: "completed", ExecutedAt: time.Now(), Result: "医师复核"}
+	if err := db.Create(&doctorExecution).Error; err != nil {
+		t.Fatal(err)
+	}
+	customElder := model.Elder{Name: "机构自定义长者", Gender: "F", BirthDate: "1940-01-01", IDCard: "110101194001010099", Status: 2}
+	if err := db.Create(&customElder).Error; err != nil {
+		t.Fatal(err)
+	}
+	customTask := model.CareTask{ElderID: customElder.ID, Title: "早间翻身", Kind: "turnover", Assignee: "李护工", Status: "todo"}
+	if err := db.Create(&customTask).Error; err != nil {
+		t.Fatal(err)
+	}
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	customSchedule := model.Schedule{Staff: "护理员", WorkDate: yesterday, Shift: "morning", RoomScope: "custom"}
+	if err := db.Create(&customSchedule).Error; err != nil {
+		t.Fatal(err)
+	}
+	customPlan := model.CarePlan{ElderID: customElder.ID, Name: "机构自定义计划", Status: "active", StartDate: yesterday, CreatedBy: doctor.ID}
+	if err := db.Create(&customPlan).Error; err != nil {
+		t.Fatal(err)
+	}
+	customItem := model.CarePlanItem{CarePlanID: customPlan.ID, Title: "机构自定义项目", Kind: "round", Assignee: "李护工", Active: true}
+	if err := db.Create(&customItem).Error; err != nil {
+		t.Fatal(err)
+	}
+	customExecution := model.CareExecution{PlanItemID: customItem.ID, ElderID: customElder.ID, Executor: "刘护工", Status: "completed", ExecutedAt: time.Now(), Result: "机构记录"}
+	if err := db.Create(&customExecution).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&caregiver).Update("real_name", "演示护工").Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&doctor).Update("real_name", "演示医师").Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&model.CareTask{}).Where("assignee_id = ?", caregiver.ID).Update("assignee", "演示护工").Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&model.Schedule{}).Where("staff = ?", "护理员").Update("staff", "演示护工").Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&model.Schedule{}).Where("staff = ?", "医师").Update("staff", "演示医师").Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&model.ShiftHandover{}).Updates(map[string]interface{}{"from_staff": "演示护工", "to_staff": "演示医师"}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if err := AutoMigrateAndSeed(db, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Where("username = ?", "caregiver").First(&caregiver).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Where("username = ?", "doctor").First(&doctor).Error; err != nil {
+		t.Fatal(err)
+	}
+	if caregiver.RealName != "护理员" || doctor.RealName != "医师" {
+		t.Fatalf("legacy demo display names were retained: caregiver=%q doctor=%q", caregiver.RealName, doctor.RealName)
+	}
+	var task model.CareTask
+	if err := db.Where("assignee_id = ?", caregiver.ID).First(&task).Error; err != nil {
+		t.Fatal(err)
+	}
+	if task.Assignee != "护理员" {
+		t.Fatalf("task assignee was not normalized: %q", task.Assignee)
+	}
+	var schedule model.Schedule
+	if err := db.Where("staff = ?", "演示护工").First(&schedule).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("demo caregiver schedule remains: %+v err=%v", schedule, err)
+	}
+	if err := db.Where("staff = ?", "演示医师").First(&schedule).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("demo doctor schedule remains: %+v err=%v", schedule, err)
+	}
+	var preservedCustomTask model.CareTask
+	if err := db.First(&preservedCustomTask, customTask.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if preservedCustomTask.Assignee != "李护工" || preservedCustomTask.AssigneeID != nil {
+		t.Fatalf("custom task relation was overwritten: %+v", preservedCustomTask)
+	}
+	var preservedCustomSchedule model.Schedule
+	if err := db.First(&preservedCustomSchedule, customSchedule.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if preservedCustomSchedule.Staff != "护理员" {
+		t.Fatalf("historical custom schedule was overwritten: %+v", preservedCustomSchedule)
+	}
+	var preservedCustomItem model.CarePlanItem
+	if err := db.First(&preservedCustomItem, customItem.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if preservedCustomItem.Assignee != "李护工" || preservedCustomItem.AssigneeID != nil {
+		t.Fatalf("custom plan item relation was overwritten: %+v", preservedCustomItem)
+	}
+	var preservedCustomExecution model.CareExecution
+	if err := db.First(&preservedCustomExecution, customExecution.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if preservedCustomExecution.Executor != "刘护工" || preservedCustomExecution.ExecutorID != 0 {
+		t.Fatalf("custom execution relation was overwritten: %+v", preservedCustomExecution)
+	}
+	var preservedDoctorExecution model.CareExecution
+	if err := db.First(&preservedDoctorExecution, doctorExecution.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if preservedDoctorExecution.Executor != "医师" || preservedDoctorExecution.ExecutorID != doctor.ID {
+		t.Fatalf("doctor execution was not kept with doctor account: %+v", preservedDoctorExecution)
+	}
+}
+
+func TestLegacyDuplicateAccountMergePreservesUserReferences(t *testing.T) {
+	dsn := fmt.Sprintf("file:legacy_duplicate_accounts_%d?mode=memory&cache=shared", time.Now().UnixNano())
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := RegisterTenantScope(db); err != nil {
+		t.Fatal(err)
+	}
+	if err := AutoMigrateAndSeed(db, true); err != nil {
+		t.Fatal(err)
+	}
+
+	var formalFamily, formalCaregiver, formalDoctor model.User
+	for username, target := range map[string]*model.User{
+		"family": &formalFamily, "caregiver": &formalCaregiver, "doctor": &formalDoctor,
+	} {
+		if err := db.Where("username = ?", username).First(target).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	var elder model.Elder
+	if err := db.Order("id").First(&elder).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	legacyFamily := model.User{Username: "family_demo", PasswordHash: "legacy-family-hash", RealName: "演示家属", Status: 1}
+	if err := db.Create(&legacyFamily).Error; err != nil {
+		t.Fatal(err)
+	}
+	legacyCaregiver := model.User{Username: "caregiver_demo", PasswordHash: "legacy-caregiver-hash", RealName: "演示护工", Status: 1}
+	if err := db.Create(&legacyCaregiver).Error; err != nil {
+		t.Fatal(err)
+	}
+	var caregiverRole model.Role
+	if err := db.Where("code = ?", "caregiver").First(&caregiverRole).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&legacyCaregiver).Association("Roles").Replace([]model.Role{caregiverRole}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.FamilyElder{UserID: legacyFamily.ID, ElderID: elder.ID}).Error; err != nil {
+		t.Fatal(err)
+	}
+	legacyTask := model.CareTask{ElderID: elder.ID, Title: "重复账号关联任务", Kind: "round", AssigneeID: &legacyCaregiver.ID, Assignee: "演示护工", Status: "todo"}
+	if err := db.Create(&legacyTask).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.Message{SenderID: legacyFamily.ID, ReceiverID: formalDoctor.ID, ElderID: &elder.ID, Content: "历史消息", SentAt: time.Now()}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if err := migrateLegacyAccountNames(db); err != nil {
+		t.Fatal(err)
+	}
+	var reloadedTask model.CareTask
+	if err := db.First(&reloadedTask, legacyTask.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if reloadedTask.AssigneeID == nil || *reloadedTask.AssigneeID != formalCaregiver.ID {
+		t.Fatalf("task assignee reference was not rebound: %+v", reloadedTask)
+	}
+	var message model.Message
+	if err := db.Where("content = ?", "历史消息").First(&message).Error; err != nil {
+		t.Fatal(err)
+	}
+	if message.SenderID != formalFamily.ID {
+		t.Fatalf("message sender reference was not rebound: %+v", message)
+	}
+	var familyBindingCount int64
+	if err := db.Model(&model.FamilyElder{}).Where("user_id = ? AND elder_id = ?", formalFamily.ID, elder.ID).Count(&familyBindingCount).Error; err != nil {
+		t.Fatal(err)
+	}
+	if familyBindingCount != 1 {
+		t.Fatalf("formal family binding count = %d, want 1", familyBindingCount)
+	}
+	var oldBindingCount int64
+	if err := db.Model(&model.FamilyElder{}).Where("user_id = ?", legacyFamily.ID).Count(&oldBindingCount).Error; err != nil {
+		t.Fatal(err)
+	}
+	if oldBindingCount != 0 {
+		t.Fatalf("legacy family binding remains: %d", oldBindingCount)
+	}
+	for username := range map[string]struct{}{"family_demo": {}, "caregiver_demo": {}} {
+		var user model.User
+		if err := db.Where("username = ?", username).First(&user).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+			t.Fatalf("legacy account %q remains queryable: %+v err=%v", username, user, err)
+		}
+	}
+	var roleMembership int64
+	if err := db.Table("sys_user_role").Where("user_id = ? AND role_id = ?", formalCaregiver.ID, caregiverRole.ID).Count(&roleMembership).Error; err != nil {
+		t.Fatal(err)
+	}
+	if roleMembership != 1 {
+		t.Fatalf("formal caregiver role membership count = %d, want 1", roleMembership)
 	}
 }
 

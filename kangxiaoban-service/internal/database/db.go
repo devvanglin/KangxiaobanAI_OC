@@ -342,44 +342,166 @@ func seed(db *gorm.DB) error {
 	return nil
 }
 
-// migrateLegacyAccountNames 将旧版本的 *_demo 账号改为正式账号，并删除重复账号。
-// 只迁移用户名，不重置密码，保留既有账号凭据和家属绑定关系。
+// migrateLegacyAccountNames 将旧版本的 *_demo 账号改为正式账号，并合并重复账号。
+// 迁移保留旧账号的密码和业务历史；当正式账号已存在时，先将所有 user_id
+// 引用合并到正式账号，再删除旧账号，避免家属绑定、消息和审计记录悬挂。
 func migrateLegacyAccountNames(db *gorm.DB) error {
-	rename := func(oldName, newName string) error {
-		var oldUser model.User
-		if err := db.Where("username = ?", oldName).First(&oldUser).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil
+	return db.Transaction(func(tx *gorm.DB) error {
+		rename := func(oldName, newName string) error {
+			var oldUser model.User
+			if err := tx.Where("username = ?", oldName).First(&oldUser).Error; err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return nil
+				}
+				return err
 			}
-			return err
+			var newUser model.User
+			if err := tx.Where("username = ?", newName).First(&newUser).Error; err == nil {
+				if oldUser.ID == newUser.ID {
+					return nil
+				}
+				if err := rebindUserReferences(tx, oldUser.ID, newUser.ID); err != nil {
+					return err
+				}
+				return tx.Delete(&oldUser).Error
+			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+			return tx.Model(&oldUser).Update("username", newName).Error
 		}
-		var newUser model.User
-		if err := db.Where("username = ?", newName).First(&newUser).Error; err == nil {
-			_ = db.Model(&oldUser).Association("Roles").Clear()
-			return db.Delete(&oldUser).Error
+		for _, names := range [][2]string{
+			{"caregiver_demo", "caregiver"},
+			{"doctor_demo", "doctor"},
+			{"family_demo", "family"},
+		} {
+			if err := rename(names[0], names[1]); err != nil {
+				return err
+			}
+		}
+		// Convert admin_demo as well. If a formal admin already exists, retain its
+		// audit/history references before removing the duplicate legacy account.
+		var legacyAdmin model.User
+		if err := tx.Where("username = ?", "admin_demo").First(&legacyAdmin).Error; err == nil {
+			var admin model.User
+			adminErr := tx.Where("username = ?", "admin").First(&admin).Error
+			if adminErr == nil {
+				if err := rebindUserReferences(tx, legacyAdmin.ID, admin.ID); err != nil {
+					return err
+				}
+				if err := tx.Delete(&legacyAdmin).Error; err != nil {
+					return err
+				}
+			} else if !errors.Is(adminErr, gorm.ErrRecordNotFound) {
+				return adminErr
+			} else if err := tx.Model(&legacyAdmin).Update("username", "admin").Error; err != nil {
+				return err
+			}
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
-		return db.Model(&oldUser).Update("username", newName).Error
-	}
-	if err := rename("caregiver_demo", "caregiver"); err != nil {
+
+		// Older deployments renamed *_demo usernames but retained their demo
+		// display names. Normalize only those known seed aliases; an institution's
+		// unrelated custom display name must remain untouched.
+		for _, item := range []struct {
+			username string
+			aliases  []string
+			formal   string
+		}{
+			{username: "caregiver", aliases: []string{"演示护工", "演示护理员", "Demo Caregiver"}, formal: "护理员"},
+			{username: "doctor", aliases: []string{"演示医师", "演示医生", "Demo Doctor"}, formal: "医师"},
+			{username: "family", aliases: []string{"演示家属", "Demo Family"}, formal: "家属"},
+		} {
+			var user model.User
+			if err := tx.Where("username = ?", item.username).First(&user).Error; err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					continue
+				}
+				return err
+			}
+			for _, alias := range item.aliases {
+				if strings.TrimSpace(user.RealName) == alias {
+					if err := tx.Model(&user).Update("real_name", item.formal).Error; err != nil {
+						return err
+					}
+					break
+				}
+			}
+		}
+		return nil
+	})
+}
+
+// rebindUserReferences merges role memberships and every persisted user-ID
+// reference before a legacy account is removed. The explicit list mirrors the
+// model fields rather than relying on database-specific foreign-key cascades.
+func rebindUserReferences(tx *gorm.DB, oldID, newID uint) error {
+	var roleIDs []uint
+	if err := tx.Table("sys_user_role").Where("user_id = ?", oldID).Pluck("role_id", &roleIDs).Error; err != nil {
 		return err
 	}
-	if err := rename("doctor_demo", "doctor"); err != nil {
-		return err
-	}
-	if err := rename("family_demo", "family"); err != nil {
-		return err
-	}
-	var legacyAdmin model.User
-	if err := db.Where("username = ?", "admin_demo").First(&legacyAdmin).Error; err == nil {
-		_ = db.Model(&legacyAdmin).Association("Roles").Clear()
-		if err := db.Delete(&legacyAdmin).Error; err != nil {
+	for _, roleID := range roleIDs {
+		var existing int64
+		if err := tx.Table("sys_user_role").Where("user_id = ? AND role_id = ?", newID, roleID).Count(&existing).Error; err != nil {
 			return err
 		}
-	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		if existing > 0 {
+			if err := tx.Exec("DELETE FROM sys_user_role WHERE user_id = ? AND role_id = ?", oldID, roleID).Error; err != nil {
+				return err
+			}
+			continue
+		}
+		if err := tx.Table("sys_user_role").Where("user_id = ? AND role_id = ?", oldID, roleID).Update("user_id", newID).Error; err != nil {
+			return err
+		}
+	}
+
+	// FamilyElder has a unique (user_id, elder_id) key, so merge duplicate
+	// bindings one row at a time before changing the user ID.
+	var familyBindings []model.FamilyElder
+	if err := tx.Where("user_id = ?", oldID).Find(&familyBindings).Error; err != nil {
 		return err
 	}
+	for _, binding := range familyBindings {
+		var existing int64
+		if err := tx.Model(&model.FamilyElder{}).Where("user_id = ? AND elder_id = ?", newID, binding.ElderID).Count(&existing).Error; err != nil {
+			return err
+		}
+		if existing > 0 {
+			if err := tx.Delete(&binding).Error; err != nil {
+				return err
+			}
+		} else if err := tx.Model(&model.FamilyElder{}).Where("id = ?", binding.ID).Update("user_id", newID).Error; err != nil {
+			return err
+		}
+	}
+
+	for _, reference := range []struct {
+		model  interface{}
+		column string
+	}{
+		{&model.AuditLog{}, "user_id"},
+		{&model.AlertAction{}, "user_id"},
+		{&model.Notification{}, "user_id"},
+		{&model.Message{}, "sender_id"},
+		{&model.Message{}, "receiver_id"},
+		{&model.AIConversation{}, "user_id"},
+		{&model.AIMessage{}, "user_id"},
+		{&model.CareTask{}, "assignee_id"},
+		{&model.CarePlan{}, "created_by"},
+		{&model.CarePlanItem{}, "assignee_id"},
+		{&model.CareExecution{}, "executor_id"},
+		{&model.CareExecution{}, "reviewed_by"},
+		{&model.Assessment{}, "assessor_id"},
+		{&model.Incident{}, "owner_id"},
+		{&model.AdmissionAssessment{}, "assessor_id"},
+		{&model.AdmissionScreening{}, "assessor_id"},
+	} {
+		if err := tx.Model(reference.model).Where(reference.column+" = ?", oldID).Update(reference.column, newID).Error; err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -483,8 +605,9 @@ func seedCoreBusinessDataTx(db *gorm.DB) error {
 	return nil
 }
 
-// ensureBusinessRelations repairs only the known bootstrap rows so tasks, due times and today's
-// schedule refer to the formal caregiver account instead of detached display-only names.
+// ensureBusinessRelations repairs known bootstrap rows and explicit legacy
+// aliases so current business views refer to formal accounts without touching
+// unrelated institution-owned records.
 func ensureBusinessRelations(db *gorm.DB) error {
 	var caregiver model.User
 	if err := db.Where("username = ?", "caregiver").First(&caregiver).Error; err != nil {
@@ -497,36 +620,86 @@ func ensureBusinessRelations(db *gorm.DB) error {
 	if staffName == "" {
 		staffName = caregiver.Username
 	}
+	var doctor model.User
+	if err := db.Where("username = ?", "doctor").First(&doctor).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
 	doctorName := formalUserDisplayName(db, "doctor", "医师")
+	legacyCaregiverNames := []string{"李护工", "演示护工", "演示护理员", "Demo Caregiver"}
+	legacyCaregiverCurrentNames := append(append([]string{}, legacyCaregiverNames...), "护理员")
+	legacyDoctorNames := []string{"刘护工", "演示医师", "演示医生", "Demo Doctor"}
 	now := time.Now()
 	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	workDate := now.Format("2006-01-02")
+
+	// Only the two immutable seed identities are eligible for relation repair.
+	// This keeps a similarly named resident or institution-owned task outside
+	// the migration's scope.
+	var bootstrapElderIDs []uint
+	if err := db.Model(&model.Elder{}).
+		Where("id_card IN ?", []string{"110101193805120011", "110101194511020012"}).
+		Pluck("id", &bootstrapElderIDs).Error; err != nil {
+		return err
+	}
+	var bootstrapPlanIDs []uint
+	if len(bootstrapElderIDs) > 0 {
+		if err := db.Model(&model.CarePlan{}).Where("elder_id IN ?", bootstrapElderIDs).Pluck("id", &bootstrapPlanIDs).Error; err != nil {
+			return err
+		}
+	}
+	var bootstrapPlanItemIDs []uint
+	if len(bootstrapPlanIDs) > 0 {
+		if err := db.Model(&model.CarePlanItem{}).Where("care_plan_id IN ?", bootstrapPlanIDs).Pluck("id", &bootstrapPlanItemIDs).Error; err != nil {
+			return err
+		}
+	}
 	dueByTitle := map[string]time.Time{
 		"早间翻身":  startOfDay.Add(8*time.Hour + 30*time.Minute),
 		"服用降压药": startOfDay.Add(10 * time.Hour),
 	}
-	for title, dueAt := range dueByTitle {
-		if err := db.Model(&model.CareTask{}).
-			Where("title = ? AND status IN ? AND (assignee IN ? OR assignee = '')", title, []string{"todo", "doing"}, []string{"李护工", "刘护工", "护理员", staffName}).
-			Updates(map[string]interface{}{"assignee_id": caregiver.ID, "assignee": staffName, "due_at": &dueAt}).Error; err != nil {
+	if len(bootstrapElderIDs) > 0 {
+		for title, dueAt := range dueByTitle {
+			if err := db.Model(&model.CareTask{}).
+				Where("elder_id IN ? AND title = ? AND status IN ? AND (assignee_id = ? OR assignee_id IS NULL) AND (assignee IN ? OR assignee = '')", bootstrapElderIDs, title, []string{"todo", "doing"}, caregiver.ID, legacyCaregiverCurrentNames).
+				Updates(map[string]interface{}{"assignee_id": caregiver.ID, "assignee": staffName, "due_at": &dueAt}).Error; err != nil {
+				return err
+			}
+		}
+	}
+	if err := db.Model(&model.Schedule{}).Where("staff IN ?", legacyCaregiverNames).Update("staff", staffName).Error; err != nil {
+		return err
+	}
+	if err := db.Model(&model.Schedule{}).Where("work_date = ? AND staff = ?", workDate, "护理员").Update("staff", staffName).Error; err != nil {
+		return err
+	}
+	if err := db.Model(&model.Schedule{}).Where("work_date = ? AND staff IN ?", workDate, legacyDoctorNames).Update("staff", doctorName).Error; err != nil {
+		return err
+	}
+	if len(bootstrapPlanIDs) > 0 {
+		if err := db.Model(&model.CarePlanItem{}).Where("care_plan_id IN ? AND (assignee_id = ? OR assignee_id IS NULL) AND assignee IN ?", bootstrapPlanIDs, caregiver.ID, legacyCaregiverCurrentNames).
+			Updates(map[string]interface{}{"assignee_id": caregiver.ID, "assignee": staffName}).Error; err != nil {
 			return err
 		}
 	}
-	if err := db.Model(&model.Schedule{}).Where("work_date = ? AND staff IN ?", now.Format("2006-01-02"), []string{"李护工", "护理员"}).Update("staff", staffName).Error; err != nil {
+	if len(bootstrapPlanItemIDs) > 0 {
+		if err := db.Model(&model.CareExecution{}).Where("plan_item_id IN ? AND executor IN ?", bootstrapPlanItemIDs, legacyCaregiverCurrentNames).
+			Updates(map[string]interface{}{"executor": staffName, "executor_id": caregiver.ID}).Error; err != nil {
+			return err
+		}
+		if doctor.ID > 0 {
+			if err := db.Model(&model.CareExecution{}).Where("plan_item_id IN ? AND executor IN ?", bootstrapPlanItemIDs, legacyDoctorNames).
+				Updates(map[string]interface{}{"executor": doctorName, "executor_id": doctor.ID}).Error; err != nil {
+				return err
+			}
+		}
+	}
+	if err := db.Model(&model.ShiftHandover{}).Where("from_staff IN ?", legacyCaregiverNames).Update("from_staff", staffName).Error; err != nil {
 		return err
 	}
-	if err := db.Model(&model.Schedule{}).Where("work_date = ? AND staff = ?", now.Format("2006-01-02"), "刘护工").Update("staff", doctorName).Error; err != nil {
+	if err := db.Model(&model.ShiftHandover{}).Where("work_date = ? AND from_staff = ?", workDate, "护理员").Update("from_staff", staffName).Error; err != nil {
 		return err
 	}
-	if err := db.Model(&model.CarePlanItem{}).Where("assignee IN ?", []string{"李护工", "刘护工", "护理员", staffName}).Updates(map[string]interface{}{"assignee_id": caregiver.ID, "assignee": staffName}).Error; err != nil {
-		return err
-	}
-	if err := db.Model(&model.CareExecution{}).Where("executor IN ?", []string{"李护工", "刘护工", "护理员"}).Updates(map[string]interface{}{"executor": staffName, "executor_id": caregiver.ID}).Error; err != nil {
-		return err
-	}
-	if err := db.Model(&model.ShiftHandover{}).Where("from_staff = ?", "李护工").Update("from_staff", staffName).Error; err != nil {
-		return err
-	}
-	if err := db.Model(&model.ShiftHandover{}).Where("to_staff = ?", "刘护工").Update("to_staff", doctorName).Error; err != nil {
+	if err := db.Model(&model.ShiftHandover{}).Where("work_date = ? AND to_staff IN ?", workDate, legacyDoctorNames).Update("to_staff", doctorName).Error; err != nil {
 		return err
 	}
 	var schedule model.Schedule
