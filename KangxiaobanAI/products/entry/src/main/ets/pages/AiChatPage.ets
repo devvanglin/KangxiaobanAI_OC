@@ -1594,7 +1594,6 @@ export struct AiChatPage {
     .margin({ bottom: this.inputBottomMargin() })
     .backgroundColor(transparentBackground ? Color.Transparent : $r('sys.color.background_primary'))
     .alignItems(HorizontalAlign.Center)
-    .translate({ y: this.isEmbeddedWideHistory() && this.keyboardOffset === 0 ? 12 : 0 })
   }
 
   @Builder
