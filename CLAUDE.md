@@ -71,8 +71,11 @@ Logic centralized in `util/BreakpointSystem.ets`: `BreakpointUtil.isWide()` = MD
 ### Role × layout gating (护工 / 医师 / 管理 = caregiver / doctor / admin)
 
 - Role is a plain `string` on `GlobalInfoModel.role` (default `'护工'`), set at login. **Display-only, NOT authorization.**
-- `MainPage.wideShell()` dispatches by role: `管理`→`WideAdminWorkspace`, `医师`→`WideDoctorWorkspace`, else `WideCaregiverWorkspace` (all in `component/wide/`).
-- **Phone builds out 护工 (caregiver) only.** Doctor/admin have no phone equivalent — on phone they show the "适配中" stub (`roleWipPanel`). All three roles get a dedicated wide workspace on tablet/PC.
+- `MainPage.wideShell()` dispatches by role: `管理` and `医师` both use the shared `WideAdminWorkspace`, while other
+  roles use `WideCaregiverWorkspace` (all in `component/wide/`). `WideDoctorWorkspace` is retained only as a
+  compatibility facade.
+- **Phone builds out 护工 (caregiver) only.** Doctor/admin have no phone equivalent — on phone both show the same
+  "适配中" stub (`roleWipPanel`).
 
 ### Navigation: three distinct mechanisms
 
@@ -112,7 +115,7 @@ Two token systems coexist. Dark mode is automatic (`COLOR_MODE_NOT_SET` + `dark/
 | `pages/LoginPage.ets` | Auth/role selection (accepts any non-empty creds after 800ms) |
 | `pages/AiChatPage.ets` | 康小伴 AI chat (dual-layout, sessions in AppStorageV2, deterministic local AI) |
 | `component/TabPageView.ets` | Phone shell (~3450 lines) — 4 tabs, mock data, sheets + expand covers |
-| `component/wide/Wide*Workspace.ets` | Per-role wide consoles (Caregiver/Doctor/Admin) |
+| `component/wide/Wide*Workspace.ets` | Caregiver console plus the shared Admin console used by Doctor/Admin; `WideDoctorWorkspace` is a compatibility facade |
 | `component/wide/WideSlidingCapsule.ets` | Shared animated segmented-control primitive |
 | `component/*Card.ets` | Shared list cards (Health/Event/Device/ResidentSummary) |
 | `model/GlobalInfoModel.ets` | Single global observed state class |
@@ -125,9 +128,9 @@ Two token systems coexist. Dark mode is automatic (`COLOR_MODE_NOT_SET` + `dark/
 - Keep I/O, timers, mutation, and heavy parsing/sorting out of `build()` and hot builders. Use `@Builder` for repeated UI; plain private functions for calculation. Use stable keys for `ForEach`/`Repeat`/`LazyForEach`.
 - Fixed information architecture: **don't add a new first-level tab** without explicit product approval. New flows enter via an existing feature root + NavPathStack destination.
 - Use resource refs (`$r('app.string.*')`, `$r('sys.color.*')`, `$r('sys.symbol.*')`); don't grow hard-coded Chinese-text/color/spacing debt; don't edit generated resource files.
-- **File-size discipline**: `TabPageView.ets` (~3450 lines), `WideDoctorWorkspace.ets` (~1685), `AiChatPage.ets` (~1555) are warning points, not templates. Don't pile a new feature root + dataset + nav flow into one of these in a single change; split by real ownership while preserving behavior.
+- **File-size discipline**: `TabPageView.ets` (~3450 lines) and `AiChatPage.ets` (~1555) are warning points, not templates. `WideDoctorWorkspace.ets` is now a small compatibility facade over `WideAdminWorkspace`; keep it that way. Don't pile a new feature root + dataset + nav flow into a warning-point file in a single change; split by real ownership while preserving behavior.
 - `StatusLevel` + `statusColor()`/`statusBg()`/`statusText()` helper triplets are currently duplicated across components (not centralized) — match the local pattern.
-- **Known open defects** (avoid depending on them): `PreferenceManager.hasValue()` unbounded recursion; `HealthExpandPage` ListScroller not bound to its Scroll; `WindowUtil` listeners lack teardown (add symmetric cleanup before adding listeners); wide-doctor AI submit is a no-op; `MaterialUtil` unused; reduce-motion setting doesn't drive behavior.
+- **Known open defects** (avoid depending on them): `PreferenceManager.hasValue()` unbounded recursion; `HealthExpandPage` ListScroller not bound to its Scroll; `WindowUtil` listeners lack teardown (add symmetric cleanup before adding listeners); the retained `WideDoctorAdmission` component is not currently mounted by the parity shell; `MaterialUtil` unused; reduce-motion setting doesn't drive behavior.
 
 ### Security & Git
 

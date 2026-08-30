@@ -26,9 +26,10 @@ application and the top-level projects are not equal delivery targets.
 ### 1.1 Product definition
 
 `KangxiaobanAI` is a HarmonyOS NEXT native smart elderly-care workbench. The current code primarily serves caregivers;
-it also contains a wide-screen doctor workspace and a wide-screen administrator workspace. The doctor role is an
-elder-care/maintenance and assessment role, not an outpatient diagnosis screen. Phone doctor and administrator layouts
-remain WIP placeholders. The active clients now use the repository's Go institution backend, but the product is still
+it also contains a shared wide-screen management workspace used by doctor and administrator accounts. The doctor role is an
+elder-care/maintenance and assessment role, not an outpatient diagnosis screen. Doctor and administrator clients now
+share the same management-console UI tree on wide layouts; both use the same WIP adaptation placeholder on phones.
+The active clients now use the repository's Go institution backend, but the product is still
 not a certified clinical system or a distributed-device application.
 
 The fixed product information architecture is:
@@ -235,7 +236,7 @@ The role/layout matrix is fixed by current behavior:
 | Role | Narrow phone layout | MD/LG/XL wide layout |
 |---|---|---|
 | Caregiver (`护工`) | Four HDS tabs | `WideCaregiverWorkspace` |
-| Doctor (`医师`) | WIP placeholder | `WideDoctorWorkspace` |
+| Doctor (`医师`) | WIP placeholder | `WideAdminWorkspace` (shared management-console UI) |
 | Administrator (`管理`) | WIP placeholder | `WideAdminWorkspace` local operations prototype |
 | Any other string | WIP placeholder | WIP placeholder |
 
@@ -262,9 +263,16 @@ The home root is an on-shift workbench with shift status, advisory AI priorities
 and an on-demand detail pane. Resident and message roots use an open shared canvas with independent work surfaces: at
 1180vp and above they retain side-by-side master/detail interaction; below 1180vp they use a full-width list followed by
 a full-width detail view whose return action is the native root HDS title-bar back control, not a page-wide return row.
-Wide doctor layout mounts the backend-connected `WideDoctorAdmission` flow directly in its `admission` sidebar branch;
-it is not a router or `NavPathStack` destination. Wide administrator layouts mount `WideAdminWorkspace` directly. Its
-operations overview reads server records and tenant policy, while the other management modules remain placeholders.
+Wide doctor layouts reuse `WideAdminWorkspace` directly (and `WideDoctorWorkspace` remains only as a compatibility
+facade), so the sidebar, title/overview geometry, typography, colors, responsive spacing, and every module placeholder
+are one shared implementation. Both workspaces constrain the content column after the sidebar so the four overview
+cards remain inside the available window (the previous administrator root could clip the fourth card on a 2-in-1
+display). The doctor account keeps alert rows read-only because the current backend doctor role has `task:read` but not
+`task:write`/`admin:all`; the shared button appearance is retained and a guarded click explains the read-only state
+without bypassing RBAC. The backend-connected
+`WideDoctorAdmission` component remains in the source for a later, explicitly approved entry point, but is not mounted
+by the current parity shell. Wide administrator layouts mount `WideAdminWorkspace` directly; its operations overview
+reads server records and tenant policy, while the other management modules remain placeholders.
 
 `HdsNavigation` uses an immersive/adaptive system material title bar, gradient-blur scroll effect, the currently active
 bound Scroller, a back button hidden except for compact caregiver local-detail state, a hidden title bar for the other
@@ -286,7 +294,8 @@ before extending preload.
 | Health expansion | transparent `bindContentCover` | `TabPageView` | `HealthExpandPage` |
 | Task expansion | transparent `bindContentCover` | `TabPageView` | internal HDS destination UI |
 | Task/message/profile detail | sheet/local pane | `TabPageView` | internal builders |
-| Doctor admission | local workspace branch | `WideDoctorWorkspace` | `WideDoctorAdmission` |
+| Doctor management console | shared local workspace branch | `MainPage` | `WideAdminWorkspace` |
+| Doctor admission (retained component) | not currently mounted | `WideDoctorAdmission` | future approved entry point |
 | Administrator workspace | local wide workspace branch | `MainPage` | `WideAdminWorkspace` |
 
 There is no `router_map.json`/`route_map.json` in the core product. If notification, card, deep link, dynamic HAR, or
@@ -383,16 +392,17 @@ mapping boundary explicit:
 - Task progress, message replies, AI conversations, and doctor admission drafts/submissions write through server APIs.
 - AI starter prompts, health thresholds, billing rates, operation thresholds, assessment templates/options/dictionaries,
   and level-specific care packages are tenant-owned database reference data. Clients must not duplicate their values.
-- `WideAdminWorkspace` modules outside the operations overview and several wide-doctor overview widgets remain explicit
-  placeholders. A placeholder is not permission to populate a local demo dataset.
+- `WideAdminWorkspace` modules outside the operations overview remain explicit placeholders. The doctor parity shell
+  intentionally uses those same placeholders; a placeholder is not permission to populate a local demo dataset.
 - View-only labels, enum presentation names, responsive dimensions, and temporary form state remain client concerns;
   persistent business facts and configurable institutional rules belong to the server.
 
 ### 6.6 Doctor admission workflow and state contract
 
-`WideDoctorAdmission` is mounted directly by the `admission` branch of `WideDoctorWorkspace`; it is not a route or a
-`NavPathStack` destination. `AdmissionRepository` loads the current server template and free beds, creates/resumes a
-database draft, saves each step, requests authoritative scoring, and submits the completed workflow.
+`WideDoctorAdmission` is retained as a backend-connected component but is not mounted by the current parity shell. It is
+not a route or a `NavPathStack` destination. If a future approved entry point mounts it, `AdmissionRepository` loads the
+current server template and free beds, creates/resumes a database draft, saves each step, requests authoritative
+scoring, and submits the completed workflow.
 
 The four gates are:
 
@@ -431,7 +441,7 @@ Current production source is under `KangxiaobanAI/products/entry/src/main/ets`.
 | `pages/HealthExpandPage.ets` | expanded health list and resident index UI |
 | `pages/MineDetailPage.ets` | about/general settings and Preferences-backed toggle values |
 | `component/wide/WideCaregiverWorkspace.ets` | responsive top command-bar shell, sliding primary navigation, live message badge, persistent wide feature roots, avatar account actions, local-back cleanup, and safe-area forwarding |
-| `component/wide/WideDoctorWorkspace.ets` | wide doctor shell, admission branch, dirty guard, and admission layout forwarding |
+| `component/wide/WideDoctorWorkspace.ets` | compatibility facade that delegates the visible doctor console to `WideAdminWorkspace`; the former duplicate doctor builders were removed |
 | `component/wide/WideDoctorAdmission.ets` | backend-persisted four-step appendix A/B/C admission workflow, server preview/scoring, screenings, care-plan selection, confirmations, and submission result |
 | `component/wide/WideAdminWorkspace.ets` | server-backed operations overview, tenant policy thresholds, and explicit placeholder management modules |
 | `component/wide/WideHomePage.ets` | caregiver on-shift workbench, server task summaries/queue, resident rhythm, and persisted task actions |
@@ -457,7 +467,7 @@ Current production source is under `KangxiaobanAI/products/entry/src/main/ets`.
 The largest current files are architectural warning points, not templates for further growth:
 
 - `TabPageView.ets`: about 3,447 lines;
-- `WideDoctorWorkspace.ets`: about 1,686 lines;
+- `WideDoctorWorkspace.ets`: small compatibility facade (the former duplicate doctor shell was removed);
 - `WideDoctorAdmission.ets`: about 1,793 lines;
 - `WideAdminWorkspace.ets`: about 348 lines;
 - `AiChatPage.ets`: about 1,552 lines;
@@ -640,7 +650,9 @@ Treat these as verified open risks, not necessarily part of every unrelated task
 - `HealthExpandPage` creates a `ListScroller`, but the rendered `Scroll()` does not bind that scroller; index positioning
   is ineffective.
 - `WindowUtil` listeners do not have symmetric teardown from Ability lifecycle.
-- Phone doctor/administrator layouts and non-overview administrator modules remain placeholders.
+- The administrator and doctor phone layouts, and non-overview management modules, remain WIP placeholders. The
+  backend-connected admission component is retained but intentionally not mounted until a parity-compatible entry is
+  approved.
 - Several optional detail concepts have no server records and intentionally render empty states.
 - Admission drafts persist, but offline conflict resolution and multi-editor locking are not implemented.
 - `MaterialUtil` and the `MATERIAL_LEVEL` storage key are currently unused.

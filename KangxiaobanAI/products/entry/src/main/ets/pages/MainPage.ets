@@ -38,8 +38,6 @@ import {
   WideCaregiverWorkspace
 } from '../component/wide/WideCaregiverWorkspace';
 import { WideCaregiverTitleActions } from '../component/wide/WideCaregiverTitleActions';
-import { WideDoctorWorkspace } from '../component/wide/WideDoctorWorkspace';
-import { WideDoctorAdmission } from '../component/wide/WideDoctorAdmission';
 import { WideAdminWorkspace } from '../component/wide/WideAdminWorkspace';
 import { AI_BRAND_NAME } from '../component/AiTitleLabel';
 import { AiChatPage } from '../pages/AiChatPage';
@@ -133,7 +131,6 @@ struct MainPage {
   @Local caregiverBackRequestToken: number = 0;
   @Local caregiverUnreadMessageCount: number = 0;
   @Local caregiverMaterialScrollerOwner: CaregiverMaterialScrollerOwner = 'residentDetail';
-  @Local phoneDoctorAdmissionDirty: boolean = false;
   private wideHomeScroller: Scroller = new Scroller();
   private wideHomeTaskDetailScroller: Scroller = new Scroller();
   private wideResidentMasterScroller: Scroller = new Scroller();
@@ -284,24 +281,6 @@ struct MainPage {
         style: this.immersiveTitleBarStyle()
       };
     }
-    if (!this.isWideLayout() && this.globalInfoModel.role === '医师') {
-      return {
-        padding: {
-          start: LengthMetrics.vp(16),
-          end: LengthMetrics.vp(12)
-        },
-        avoidLayoutSafeArea: true,
-        enableComponentSafeArea: false,
-        content: {
-          title: {
-            mainTitle: '入住评估'
-          },
-          menu: { value: [] },
-          stackBuilder: (): void => this.phoneDoctorTitleActions()
-        },
-        style: this.immersiveTitleBarStyle()
-      };
-    }
     return {
       avoidLayoutSafeArea: true,
       enableComponentSafeArea: false,
@@ -317,9 +296,6 @@ struct MainPage {
 
   private navigationScrollers(): Scroller[] {
     if (!this.isWideLayout()) {
-      if (this.globalInfoModel.role === '医师') {
-        return [];
-      }
       return PAGE_SCROLLER_MAP.get(PageKeyEnum.ADAPTIVE_TAB) ?? [];
     }
     if (this.isCaregiverWideWorkspace()) {
@@ -367,8 +343,17 @@ struct MainPage {
   }
 
   private isRoleAdapted(): boolean {
-    return this.globalInfoModel.role === '护工' || this.globalInfoModel.role === '医师' ||
-      (this.globalInfoModel.role === '管理' && this.isWideLayout());
+    // The doctor and administrator roles intentionally share the same
+    // management-console surface. Both remain wide-only; on a phone they
+    // use the same adaptation placeholder instead of exposing a second,
+    // visually different workflow.
+    return this.globalInfoModel.role === '护工' ||
+      ((this.globalInfoModel.role === '医师' || this.globalInfoModel.role === '管理') && this.isWideLayout());
+  }
+
+  private roleWipTitle(): string {
+    return this.globalInfoModel.role === '医师' || this.globalInfoModel.role === '管理' ?
+      '管理端' : `${this.globalInfoModel.role}端`;
   }
 
   @Builder
@@ -377,7 +362,7 @@ struct MainPage {
       SymbolGlyph($r('sys.symbol.hammer_fill'))
         .fontSize(56)
         .fontColor([$r('sys.color.icon_tertiary')])
-      Text(`${this.globalInfoModel.role}端`)
+      Text(this.roleWipTitle())
         .fontSize($r('sys.float.Title_M'))
         .fontWeight(FontWeight.Medium)
         .fontColor($r('sys.color.font_primary'))
@@ -1006,93 +991,6 @@ struct MainPage {
     })
   }
 
-  @Builder
-  private phoneDoctorProfileMenu() {
-    Menu() {
-      MenuItem({ content: '退出登录' })
-        .height(46)
-        .contentFont({ size: 14, weight: FontWeight.Medium })
-        .contentFontColor($r('app.color.status_danger'))
-        .onClick(() => this.requestPhoneDoctorLogout())
-    }
-    .width(180)
-    .radius(14)
-  }
-
-  @Builder
-  private phoneDoctorTitleActions() {
-    Row() {
-      Button({ type: ButtonType.Circle, stateEffect: true }) {
-        SymbolGlyph($r('sys.symbol.person_crop_circle_fill'))
-          .fontSize(30)
-          .fontColor([$r('app.color.brand_blue')])
-      }
-      .width(44)
-      .height(44)
-      .backgroundColor(Color.Transparent)
-      .accessibilityText('打开账户菜单')
-      .bindMenu(this.phoneDoctorProfileMenu, {
-        placement: Placement.BottomRight,
-        enableArrow: true,
-        offset: { x: 0, y: 6 }
-      })
-    }
-    .width('100%')
-    .height('100%')
-    .padding({ right: 8 })
-    .justifyContent(FlexAlign.End)
-    .alignItems(VerticalAlign.Center)
-  }
-
-  private requestPhoneDoctorLogout(): void {
-    if (!this.phoneDoctorAdmissionDirty) {
-      this.handleLogout();
-      return;
-    }
-    try {
-      this.getUIContext().showAlertDialog({
-        title: $r('app.string.doctor_admission_leave_title'),
-        message: $r('app.string.doctor_admission_leave_message'),
-        autoCancel: true,
-        alignment: DialogAlignment.Center,
-        buttonDirection: DialogButtonDirection.HORIZONTAL,
-        buttons: [
-          {
-            value: $r('app.string.doctor_admission_leave_stay'),
-            action: () => {
-            }
-          },
-          {
-            value: $r('app.string.doctor_admission_leave_discard'),
-            fontColor: $r('app.color.status_danger'),
-            action: () => {
-              this.phoneDoctorAdmissionDirty = false;
-              this.handleLogout();
-            }
-          }
-        ]
-      });
-    } catch (_error) {
-      Logger.warn(TAG, 'Doctor admission logout dialog unavailable');
-    }
-  }
-
-  @Builder
-  private phoneDoctorAdmission() {
-    WideDoctorAdmission({
-      compactWidth: true,
-      standaloneMode: true,
-      contentTopInset: WIDE_TITLE_BAR_HEIGHT + this.globalInfoModel.statusBarHeight,
-      naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
-      onDirtyChange: (dirty: boolean) => {
-        this.phoneDoctorAdmissionDirty = dirty;
-      },
-      onExit: () => {
-        this.handleLogout();
-      }
-    })
-  }
-
   // ==================== 平板 / PC 共用工作台 ====================
 
   @Builder
@@ -1134,27 +1032,16 @@ struct MainPage {
 
   @Builder
   private wideShell() {
-    if (this.globalInfoModel.role === '管理') {
+    if (this.globalInfoModel.role === '管理' || this.globalInfoModel.role === '医师') {
+      // One component tree is used for both roles so geometry, typography,
+      // colors, navigation and placeholder states cannot drift. The doctor
+      // role remains read-only for the administrator-only alert mutation;
+      // the backend remains the final authorization boundary.
       WideAdminWorkspace({
         statusBarHeight: this.globalInfoModel.statusBarHeight,
         naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
         compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
-        onOpenAbout: () => {
-          this.pathStack.pushPath({ name: 'AboutPage' });
-        },
-        onOpenGeneral: () => {
-          this.pathStack.pushPath({ name: 'GeneralSettingsPage' });
-        },
-        onLogout: () => {
-          this.handleLogout();
-        }
-      })
-    } else if (this.globalInfoModel.role === '医师') {
-      WideDoctorWorkspace({
-        statusBarHeight: this.globalInfoModel.statusBarHeight,
-        naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
-        compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
-        admissionCompactWidth: this.globalInfoModel.widthBreakpoint !== WidthBreakpoint.WIDTH_XL,
+        canHandleAlerts: this.globalInfoModel.role === '管理',
         onOpenAbout: () => {
           this.pathStack.pushPath({ name: 'AboutPage' });
         },
@@ -1265,8 +1152,6 @@ struct MainPage {
         HdsNavigation(this.pathStack) {
           if (this.isWideLayout()) {
             this.wideShell()
-          } else if (this.globalInfoModel.role === '医师') {
-            this.phoneDoctorAdmission()
           } else {
             this.phoneTabs()
           }

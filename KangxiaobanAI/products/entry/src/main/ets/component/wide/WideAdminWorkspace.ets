@@ -46,6 +46,11 @@ export struct WideAdminWorkspace {
   @Param statusBarHeight: number = 0;
   @Param naviIndicatorHeight: number = 0;
   @Param compactWidth: boolean = false;
+  // The doctor console reuses this exact visual surface but does not have
+  // admin:all/task:write permission to mutate alert state.  Keep the action
+  // affordance in the shared layout while allowing the caller to make it
+  // read-only without forking the UI.
+  @Param canHandleAlerts: boolean = true;
   @Event onOpenAbout: () => void = () => {};
   @Event onOpenGeneral: () => void = () => {};
   @Event onLogout: () => void = () => {};
@@ -128,6 +133,14 @@ export struct WideAdminWorkspace {
   }
 
   private async handleAlert(item: AdminEvent): Promise<void> {
+    if (!this.canHandleAlerts) {
+      try {
+        this.getUIContext().getPromptAction().showToast({ message: '医师端仅支持查看风险事件' });
+      } catch (_error) {
+        // The permission boundary is still enforced if the prompt service is unavailable.
+      }
+      return;
+    }
     try {
       const request: AlertHandleRequest = {};
       const response = await ApiClient.patch<Object>(`/alerts/${item.alertId}/handle?close=0`, request);
@@ -255,6 +268,7 @@ export struct WideAdminWorkspace {
         }
         .width('100%').height(38).borderRadius(10)
         .backgroundColor($r('app.color.doctor_workspace_surface_hover'))
+        .accessibilityText(this.isSidebarCollapsed ? '展开侧栏' : '收起侧栏')
         .onClick(() => this.isSidebarCollapsed = !this.isSidebarCollapsed)
       }
       .width('100%')
@@ -307,6 +321,9 @@ export struct WideAdminWorkspace {
         .height(32).fontSize(10).borderRadius(9)
         .fontColor($r('app.color.doctor_workspace_text_primary'))
         .backgroundColor($r('app.color.doctor_workspace_surface_hover'))
+        // Keep the visual affordance identical across roles. Doctor clicks
+        // are handled by the guarded method above and never reach the admin
+        // mutation endpoint.
         .enabled(item.status !== '已闭环' && item.status !== '跟进中')
         .onClick(() => this.handleAlert(item))
     }
@@ -432,11 +449,17 @@ export struct WideAdminWorkspace {
   build() {
     Row() {
       this.sidebar()
-      if (this.selectedNavId === 'overview') {
-        this.dashboard()
-      } else {
-        this.modulePlaceholder()
+      Column() {
+        if (this.selectedNavId === 'overview') {
+          this.dashboard()
+        } else {
+          this.modulePlaceholder()
+        }
       }
+      .layoutWeight(1)
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('app.color.doctor_workspace_background'))
     }
     .width('100%').height('100%')
     .backgroundColor($r('app.color.doctor_workspace_background'))
