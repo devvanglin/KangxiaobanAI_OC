@@ -29,10 +29,10 @@ PATCH    /api/v1/notifications/:id/read
 首次启动会创建以下基础账号，密码可在生产环境按机构策略修改：
 
 ```text
-管理员：admin / Admin@123456
+管理员：admin / 123456
 护工：caregiver / 123456
 医师：doctor / 123456
-家属：family / Family@123456
+家属：family / 123456
 ```
 
 ## 验证

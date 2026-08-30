@@ -23,9 +23,6 @@ import AuthStore from '../network/AuthStore';
 import { LoginResp, RoleInfo } from '../network/Dto';
 
 const TAG: string = '[LoginPage]';
-const ROLE_CAREGIVER: string = '护工';
-const ROLE_DOCTOR: string = '医师';
-const ROLE_ADMIN: string = '管理';
 
 interface LoginRequest {
   username: string;
@@ -41,8 +38,6 @@ struct LoginPage {
   @Local isLoading: boolean = false;
   @Local rememberMe: boolean = false;
   @Local keyboardOffset: number = 0;
-  @Local selectedRole: string = ROLE_CAREGIVER;
-  @Local isRoleMenuOpen: boolean = false;
   @Local loginError: string = '';
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO, () => new GlobalInfoModel()) ?? new GlobalInfoModel();
@@ -82,14 +77,15 @@ struct LoginPage {
       const loginBody: LoginRequest = { username: this.account, password: this.password };
       const resp = await ApiClient.post<LoginResp>('/auth/login', loginBody);
       if (resp.code === 0 && resp.data && resp.data.token.length > 0) {
-        if (!this.hasRole(resp.data.user.roles, this.selectedRoleCode())) {
+        const role: string = this.resolveRole(resp.data.user.roles);
+        if (role.length === 0) {
           AuthStore.clear();
-          this.loginError = `该账号不是${this.selectedRole}身份`;
+          this.loginError = '该账号暂无可用的应用角色，请联系管理员';
           this.isLoading = false;
           return;
         }
         AuthStore.setSession(resp.data.token, resp.data.user);
-        this.globalInfoModel.role = this.selectedRole;
+        this.globalInfoModel.role = role;
         Logger.info(TAG, 'backend login ok');
         await this.getUIContext().getRouter().replaceUrl({ url: 'pages/MainPage' });
         return;
@@ -103,49 +99,25 @@ struct LoginPage {
     this.isLoading = false;
   }
 
-  private selectedRoleCode(): string {
-    if (this.selectedRole === ROLE_DOCTOR) {
-      return 'doctor';
-    }
-    if (this.selectedRole === ROLE_ADMIN) {
-      return 'admin';
-    }
-    return 'caregiver';
-  }
-
-  private hasRole(roles: RoleInfo[], code: string): boolean {
-    for (let index: number = 0; index < roles.length; index++) {
-      if (roles[index].code === code) {
-        return true;
+  private resolveRole(roles: RoleInfo[]): string {
+    // The backend is authoritative; prefer the most privileged supported role
+    // when an account has more than one role.
+    const rolePriority: string[] = ['admin', 'doctor', 'caregiver'];
+    for (let priorityIndex: number = 0; priorityIndex < rolePriority.length; priorityIndex++) {
+      for (let roleIndex: number = 0; roleIndex < roles.length; roleIndex++) {
+        if (roles[roleIndex].code !== rolePriority[priorityIndex]) {
+          continue;
+        }
+        if (rolePriority[priorityIndex] === 'admin') {
+          return '管理';
+        }
+        if (rolePriority[priorityIndex] === 'doctor') {
+          return '医师';
+        }
+        return '护工';
       }
     }
-    return false;
-  }
-
-  private roleOptions: string[] = [ROLE_CAREGIVER, ROLE_DOCTOR, ROLE_ADMIN];
-
-  @Builder
-  private roleSelector() {
-    Row({ space: 4 }) {
-      Text(this.selectedRole)
-        .fontSize($r('sys.float.Body_M'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('app.color.brand_blue'))
-      SymbolGlyph($r('sys.symbol.chevron_down'))
-        .fontSize(14)
-        .fontColor([$r('app.color.brand_blue')])
-    }
-    .height(36)
-    .padding({ left: 12, right: 12 })
-    .justifyContent(FlexAlign.Center)
-    .alignItems(VerticalAlign.Center)
-    .bindMenu(this.roleOptions.map((role: string): MenuElement => ({
-      value: role,
-      action: () => {
-        this.selectedRole = role;
-        this.globalInfoModel.role = role;
-      }
-    })))
+    return '';
   }
 
   @Builder
@@ -264,16 +236,6 @@ struct LoginPage {
 
   build() {
     Column() {
-      // 顶部行：左上角角色选择器
-      Row() {
-        this.roleSelector()
-      }
-      .width('100%')
-      .height(40)
-      .padding({ left: 0, right: 0 })
-      .justifyContent(FlexAlign.Start)
-      .alignItems(VerticalAlign.Center)
-
       // 中间内容区（随键盘动画上移）
       Column() {
         // 上方弹性空间

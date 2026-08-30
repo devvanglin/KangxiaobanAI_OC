@@ -17,6 +17,8 @@ import (
 	"kangxiaoban-service/internal/model"
 )
 
+const defaultAccountPassword = "123456"
+
 // Connect 根据配置驱动建立 GORM 连接。
 // 开发默认 sqlite（无外部依赖，开箱即跑），生产用 mysql（配置 KXB_DB_DRIVER=mysql）。
 func Connect(cfg *config.DBConfig) (*gorm.DB, error) {
@@ -250,10 +252,10 @@ func seed(db *gorm.DB) error {
 		}
 	}
 
-	// 默认管理员账号 admin / Admin@123456（生产必须改并注入密钥）。
+	// 默认管理员账号 admin / 123456（生产必须改并注入密钥）。
 	var admin model.User
 	if err := db.Where("username = ?", "admin").First(&admin).Error; err != nil {
-		hash, err2 := bcrypt.GenerateFromPassword([]byte("Admin@123456"), bcrypt.DefaultCost)
+		hash, err2 := bcrypt.GenerateFromPassword([]byte(defaultAccountPassword), bcrypt.DefaultCost)
 		if err2 != nil {
 			return err2
 		}
@@ -277,10 +279,10 @@ func seed(db *gorm.DB) error {
 	}
 	_ = admin
 
-	// 正式家属账号 family / Family@123456，角色 family
+	// 正式家属账号 family / 123456，角色 family
 	var family model.User
 	if err := db.Where("username = ?", "family").First(&family).Error; err != nil {
-		hash, err2 := bcrypt.GenerateFromPassword([]byte("Family@123456"), bcrypt.DefaultCost)
+		hash, err2 := bcrypt.GenerateFromPassword([]byte(defaultAccountPassword), bcrypt.DefaultCost)
 		if err2 != nil {
 			return err2
 		}
@@ -309,12 +311,12 @@ func seed(db *gorm.DB) error {
 		}
 	}
 
-	// 客户端角色选择对应的正式账号；生产环境请按机构策略修改密码。
+	// 客户端支持的正式账号；生产环境请按机构策略修改密码。
 	formalUsers := []struct {
 		username, password, realName, roleCode string
 	}{
-		{"caregiver", "123456", "护理员", "caregiver"},
-		{"doctor", "123456", "医师", "doctor"},
+		{"caregiver", defaultAccountPassword, "护理员", "caregiver"},
+		{"doctor", defaultAccountPassword, "医师", "doctor"},
 	}
 	for _, userSeed := range formalUsers {
 		var u model.User
