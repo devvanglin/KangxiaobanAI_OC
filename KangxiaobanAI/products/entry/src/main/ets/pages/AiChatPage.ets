@@ -88,7 +88,11 @@ export struct AiChatPage {
   @Param caregiverWideImmersive: boolean = false;
   @Param embeddedCaregiverWide: boolean = false;
   @Param @Require embeddedListScroller: ListScroller;
+  @Param historyOpenRequestToken: number = 0;
+  @Param historySearchRequestToken: number = 0;
+  @Param newConversationRequestToken: number = 0;
   @Event onClose: () => void = () => {};
+  @Event onHistoryCollapsedChange: (collapsed: boolean) => void = (_collapsed: boolean) => {};
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
   @Local sessions: ChatSession[] = [];
@@ -99,6 +103,7 @@ export struct AiChatPage {
   @Local isGenerating: boolean = false;
   @Local historyDrawerOpen: boolean = false;
   @Local embeddedHistoryCollapsed: boolean = false;
+  @Local historySearchVisible: boolean = false;
   @Local historySearchText: string = '';
   @Local embeddedAssistantMode: number = 0;
   @Local isHistoryLoading: boolean = false;
@@ -116,6 +121,9 @@ export struct AiChatPage {
   private promptLoadVersion: number = 0;
   private componentVisible: boolean = false;
   private scrollTimer: number = -1;
+  private lastHistoryOpenRequestToken: number = 0;
+  private lastHistorySearchRequestToken: number = 0;
+  private lastNewConversationRequestToken: number = 0;
 
   @Monitor('globalInfoModel.keyboardHeight')
   onKeyboardHeightChange(): void {
@@ -342,6 +350,7 @@ export struct AiChatPage {
     this.messages = [];
     this.inputText = '';
     this.historySearchText = '';
+    this.historySearchVisible = false;
     this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
     this.closeHistoryDrawer();
     try {
@@ -437,20 +446,104 @@ export struct AiChatPage {
   }
 
   private embeddedHistoryPaneWidth(): number {
-    if (this.embeddedHistoryCollapsed) {
-      return 64;
-    }
     if (this.globalInfoModel.deviceWidth <= 0) {
       return 356;
     }
     return Math.min(380, Math.max(280, (this.globalInfoModel.deviceWidth - 68) * 0.26));
   }
 
-  private toggleEmbeddedHistory(): void {
+  private setEmbeddedHistoryCollapsed(collapsed: boolean): void {
+    if (!this.isEmbeddedWideHistory()) {
+      return;
+    }
+    if (this.embeddedHistoryCollapsed === collapsed) {
+      return;
+    }
     this.focusController.clearFocus();
     this.getUIContext().animateTo({ duration: 280, curve: Curve.Friction }, () => {
-      this.embeddedHistoryCollapsed = !this.embeddedHistoryCollapsed;
+      this.embeddedHistoryCollapsed = collapsed;
+      if (collapsed) {
+        this.historySearchVisible = false;
+        this.historySearchText = '';
+      }
+      this.onHistoryCollapsedChange(collapsed);
     });
+  }
+
+  private toggleEmbeddedHistory(): void {
+    this.setEmbeddedHistoryCollapsed(!this.embeddedHistoryCollapsed);
+  }
+
+  private expandEmbeddedHistory(): void {
+    this.setEmbeddedHistoryCollapsed(false);
+  }
+
+  private focusHistorySearch(): void {
+    try {
+      this.focusController.requestFocus('ai-history-search');
+    } catch (_error) {
+      // Search remains available for touch input when focus is unavailable.
+    }
+  }
+
+  private toggleHistorySearch(): void {
+    if (this.historySearchVisible) {
+      this.historySearchVisible = false;
+      this.historySearchText = '';
+      this.focusController.clearFocus();
+      return;
+    }
+    this.historySearchVisible = true;
+    this.expandEmbeddedHistory();
+    setTimeout(() => {
+      if (this.componentVisible && !this.embeddedHistoryCollapsed && this.historySearchVisible) {
+        this.focusHistorySearch();
+      }
+    }, 220);
+  }
+
+  @Monitor('historyOpenRequestToken')
+  onHistoryOpenRequest(): void {
+    if (!this.isEmbeddedWideHistory()) {
+      return;
+    }
+    if (this.historyOpenRequestToken <= this.lastHistoryOpenRequestToken) {
+      return;
+    }
+    this.lastHistoryOpenRequestToken = this.historyOpenRequestToken;
+    this.historySearchVisible = false;
+    this.historySearchText = '';
+    this.expandEmbeddedHistory();
+  }
+
+  @Monitor('historySearchRequestToken')
+  onHistorySearchRequest(): void {
+    if (!this.isEmbeddedWideHistory()) {
+      return;
+    }
+    if (this.historySearchRequestToken <= this.lastHistorySearchRequestToken) {
+      return;
+    }
+    this.lastHistorySearchRequestToken = this.historySearchRequestToken;
+    this.historySearchVisible = true;
+    this.expandEmbeddedHistory();
+    setTimeout(() => {
+      if (this.componentVisible && !this.embeddedHistoryCollapsed) {
+        this.focusHistorySearch();
+      }
+    }, 320);
+  }
+
+  @Monitor('newConversationRequestToken')
+  onNewConversationRequest(): void {
+    if (!this.isEmbeddedWideHistory()) {
+      return;
+    }
+    if (this.newConversationRequestToken <= this.lastNewConversationRequestToken) {
+      return;
+    }
+    this.lastNewConversationRequestToken = this.newConversationRequestToken;
+    this.startNewConversation();
   }
 
   private embeddedSuggestionWidth(title: string): number {
@@ -507,6 +600,9 @@ export struct AiChatPage {
 
   aboutToAppear(): void {
     this.componentVisible = true;
+    this.lastHistoryOpenRequestToken = this.historyOpenRequestToken;
+    this.lastHistorySearchRequestToken = this.historySearchRequestToken;
+    this.lastNewConversationRequestToken = this.newConversationRequestToken;
     this.previousKeyboardAvoidMode = this.getUIContext().getKeyboardAvoidMode();
     this.loadConversations();
     this.loadPromptSuggestions();
@@ -1725,6 +1821,7 @@ export struct AiChatPage {
   @Builder
   private embeddedHistorySearch() {
     Search({ value: this.historySearchText, placeholder: '搜索对话记录' })
+      .id('ai-history-search')
       .width('100%')
       .height(40)
       .fontColor($r('sys.color.font_primary'))
@@ -1740,6 +1837,24 @@ export struct AiChatPage {
         this.historySearchText = value;
         this.historyScroller.scrollEdge(Edge.Top);
       })
+  }
+
+  @Builder
+  private embeddedHistoryActionButton(symbol: Resource, label: string, action: () => void) {
+    Button({ type: ButtonType.Circle, stateEffect: true }) {
+      SymbolGlyph(symbol)
+        .fontSize(19)
+        .fontColor([$r('sys.color.icon_primary')])
+    }
+    .buttonStyle(ButtonStyleMode.NORMAL)
+    .width(36)
+    .height(36)
+    .padding(0)
+    .backgroundColor(Color.Transparent)
+    .accessibilityText(label)
+    .focusable(true)
+    .focusOnTouch(true)
+    .onClick(action)
   }
 
   @Builder
@@ -2088,112 +2203,56 @@ export struct AiChatPage {
         .width('100%')
         .height(this.embeddedPaneTopOffset())
 
-      if (this.embeddedHistoryCollapsed) {
-        Column() {
-          Column({ space: 10 }) {
-            SymbolGlyph($r('sys.symbol.AI_message'))
-              .fontSize(24)
-              .fontColor([$r('app.color.brand_blue')])
+      Column({ space: 12 }) {
+        Row({ space: 4 }) {
+          Text('对话记录')
+            .fontSize($r('sys.float.Title_S'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
 
-            Button({ type: ButtonType.Circle, stateEffect: true }) {
-              SymbolGlyph($r('sys.symbol.open_sidebar'))
-                .fontSize(21)
-                .fontColor([$r('sys.color.icon_primary')])
-            }
-            .buttonStyle(ButtonStyleMode.NORMAL)
-            .width(44)
-            .height(44)
-            .backgroundColor(Color.Transparent)
-            .accessibilityText('展开会话栏')
-            .onClick(() => {
-              this.toggleEmbeddedHistory();
+          this.embeddedHistoryActionButton($r('sys.symbol.message_badge_plus_fill'), '新建对话', () => {
+            this.startNewConversation();
+          })
+
+          this.embeddedHistoryActionButton(
+            this.historySearchVisible ? $r('sys.symbol.xmark') : $r('sys.symbol.magnifyingglass'),
+            this.historySearchVisible ? '关闭搜索' : '搜索对话记录',
+            () => {
+              this.toggleHistorySearch();
             })
-          }
-          .width('100%')
-          .alignItems(HorizontalAlign.Center)
 
-          Blank()
-
-          Button({ type: ButtonType.Circle, stateEffect: true }) {
-            SymbolGlyph($r('sys.symbol.plus_circle'))
-              .fontSize(21)
-              .fontColor([$r('sys.color.icon_primary')])
-          }
-          .buttonStyle(ButtonStyleMode.NORMAL)
-          .width(44)
-          .height(44)
-          .backgroundColor($r('sys.color.comp_background_secondary'))
-          .accessibilityText('开启新对话')
-          .keyboardShortcut('J', [ModifierKey.CTRL], () => {
-            this.startNewConversation();
-          })
-          .onClick(() => {
-            this.startNewConversation();
+          this.embeddedHistoryActionButton($r('sys.symbol.close_sidebar'), '收起会话栏', () => {
+            this.toggleEmbeddedHistory();
           })
         }
         .width('100%')
-        .layoutWeight(1)
-        .padding({ top: 14, bottom: 14 })
-        .alignItems(HorizontalAlign.Center)
-        .backgroundColor($r('sys.color.comp_background_primary'))
-        .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-        .borderRadius(30)
-        .shadow({ radius: 10, color: 'rgba(0,0,0,0.06)', offsetY: 2 })
-        .clip(true)
-        .transition(TransitionEffect.OPACITY.animation({ duration: 160, curve: Curve.EaseInOut }))
-      } else {
-        Column({ space: 12 }) {
-          Row({ space: 12 }) {
-            Text('对话记录')
-              .fontSize($r('sys.float.Title_S'))
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_primary'))
-              .layoutWeight(1)
+        .height(44)
+        .padding({ left: 14, right: 14 })
+        .alignItems(VerticalAlign.Center)
 
-            Button({ type: ButtonType.Circle, stateEffect: true }) {
-              SymbolGlyph($r('sys.symbol.close_sidebar'))
-                .fontSize(21)
-                .fontColor([$r('sys.color.icon_secondary')])
-            }
-              .buttonStyle(ButtonStyleMode.NORMAL)
-              .width(40)
-              .height(40)
-              .backgroundColor(Color.Transparent)
-              .accessibilityText('收起会话栏')
-              .onClick(() => {
-                this.toggleEmbeddedHistory();
-              })
-          }
-          .width('100%')
-          .height(44)
-          .padding({ left: 14, right: 14 })
-          .alignItems(VerticalAlign.Center)
-
+        if (this.historySearchVisible) {
           this.embeddedHistorySearch()
-
-          Scroll(this.historyScroller) {
-            this.historyItems(this.filteredHistorySessions())
-          }
-          .layoutWeight(1)
-          .width('100%')
-          .contentEndOffset(8)
-          .scrollBar(BarState.Off)
-          .edgeEffect(EdgeEffect.Spring)
-          .align(Alignment.TopStart)
-          .clip(true)
-
-          this.newConversationButton()
         }
-        .width('100%')
+
+        Scroll(this.historyScroller) {
+          this.historyItems(this.filteredHistorySessions())
+        }
         .layoutWeight(1)
-        .padding({ left: 14, right: 14, top: 10, bottom: 14 })
-        .backgroundColor($r('sys.color.comp_background_primary'))
-        .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-        .borderRadius(20)
-        .shadow({ radius: 10, color: 'rgba(0,0,0,0.06)', offsetY: 2 })
+        .width('100%')
+        .contentEndOffset(8)
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
+        .align(Alignment.TopStart)
         .clip(true)
-        .transition(TransitionEffect.OPACITY.animation({ duration: 180, curve: Curve.EaseInOut }))
       }
+      .width('100%')
+      .layoutWeight(1)
+      .padding({ left: 14, right: 14, top: 10, bottom: 14 })
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+      .borderRadius(20)
+      .shadow({ radius: 10, color: 'rgba(0,0,0,0.06)', offsetY: 2 })
     }
     .width('100%')
     .height('100%')
@@ -2213,23 +2272,36 @@ export struct AiChatPage {
 
   @Builder
   private embeddedMessageStyleWideLayout() {
-    Row({ space: 20 }) {
+    Stack({ alignContent: Alignment.TopStart }) {
+      Column() {
+        this.embeddedChatPane()
+      }
+      .width('100%')
+      .height('100%')
+      .padding({
+        left: this.embeddedHistoryCollapsed ? 0 : this.embeddedHistoryPaneWidth() + 20
+      })
+      .zIndex(1)
+
+      // Keep the history pane mounted so the slide-out animation is independent
+      // from the chat pane's width reflow.
       Column() {
         this.embeddedHistoryPane()
       }
       .width(this.embeddedHistoryPaneWidth())
       .height('100%')
-
-      Column() {
-        this.embeddedChatPane()
-      }
-      .layoutWeight(1)
-      .height('100%')
+      .zIndex(2)
+      .translate({
+        x: this.embeddedHistoryCollapsed ? -(this.embeddedHistoryPaneWidth() + 32) : 0,
+        y: 0
+      })
+      .animation({ duration: 280, curve: Curve.Friction })
     }
     .width('100%')
     .height('100%')
     .padding({ left: 24, right: 24, bottom: 24 })
     .backgroundColor($r('sys.color.background_secondary'))
+    .clip(false)
   }
 
   @Builder

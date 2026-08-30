@@ -89,6 +89,10 @@ struct MainPage {
   @Local primaryTabIndex: number = 0;
   @Local isSidebarCollapsed: boolean = false;
   @Local isAiChatShow: boolean = false;
+  @Local aiHistoryCollapsed: boolean = false;
+  @Local aiHistoryOpenRequestToken: number = 0;
+  @Local aiHistorySearchRequestToken: number = 0;
+  @Local aiNewConversationRequestToken: number = 0;
   @Local isResidentDetailShow: boolean = false;
   @Local selectedResident: ResidentData = {
     id: '',
@@ -429,11 +433,31 @@ struct MainPage {
   }
 
   private openAiChat(): void {
+    this.aiHistoryCollapsed = false;
+    // Re-open the embedded history pane when a new AI workspace is shown.
+    this.aiHistoryOpenRequestToken += 1;
     this.isAiChatShow = true;
   }
 
   private closeAiChat(): void {
     this.isAiChatShow = false;
+    this.aiHistoryCollapsed = false;
+  }
+
+  private updateAiHistoryCollapsed(collapsed: boolean): void {
+    this.aiHistoryCollapsed = collapsed;
+  }
+
+  private requestAiHistoryOpen(): void {
+    this.aiHistoryOpenRequestToken += 1;
+  }
+
+  private requestAiHistorySearch(): void {
+    this.aiHistorySearchRequestToken += 1;
+  }
+
+  private requestNewAiConversation(): void {
+    this.aiNewConversationRequestToken += 1;
   }
 
   private openResidentDetail(resident: ResidentData, vitalSign: VitalSign,
@@ -1074,6 +1098,7 @@ struct MainPage {
       primaryTabIndex: this.primaryTabIndex,
       unreadMessageCount: this.caregiverUnreadMessageCount,
       aiChatVisible: this.isAiChatShow,
+      aiHistoryCollapsed: this.aiHistoryCollapsed,
       compactWidth: this.useCompactCaregiverWorkspace(),
       iconOnlyNavigation: this.useIconOnlyCaregiverNavigation(),
       onSwitchTab: (index: number) => {
@@ -1081,6 +1106,15 @@ struct MainPage {
       },
       onOpenAiChat: () => {
         this.openAiChat();
+      },
+      onOpenAiHistory: () => {
+        this.requestAiHistoryOpen();
+      },
+      onSearchAiHistory: () => {
+        this.requestAiHistorySearch();
+      },
+      onNewAiConversation: () => {
+        this.requestNewAiConversation();
       },
       onOpenAbout: () => {
         this.pathStack.pushPath({ name: 'AboutPage' });
@@ -1167,6 +1201,12 @@ struct MainPage {
           caregiverWideImmersive: false,
           embeddedCaregiverWide: true,
           embeddedListScroller: this.wideAiChatScroller,
+          historyOpenRequestToken: this.aiHistoryOpenRequestToken,
+          historySearchRequestToken: this.aiHistorySearchRequestToken,
+          newConversationRequestToken: this.aiNewConversationRequestToken,
+          onHistoryCollapsedChange: (collapsed: boolean) => {
+            this.updateAiHistoryCollapsed(collapsed);
+          },
           onClose: () => {
             this.closeAiChat();
           }
