@@ -1578,10 +1578,11 @@ export struct AiChatPage {
       }
       if (showDisclaimer && this.keyboardOffset === 0) {
         Text('内容由 AI 生成，请仔细甄别')
-          .fontSize($r('sys.float.Body_S'))
+          .fontSize(this.isEmbeddedWideHistory() ? $r('sys.float.Body_M') : $r('sys.float.Body_S'))
           .fontColor($r('sys.color.font_tertiary'))
           .width('100%')
           .textAlign(TextAlign.Center)
+          .translate({ y: this.isEmbeddedWideHistory() ? 4 : 0 })
       }
     }
     .width('100%')
