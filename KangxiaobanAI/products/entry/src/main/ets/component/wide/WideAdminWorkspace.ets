@@ -51,6 +51,7 @@ export struct WideAdminWorkspace {
   // affordance in the shared layout while allowing the caller to make it
   // read-only without forking the UI.
   @Param canHandleAlerts: boolean = true;
+  @Param isDoctor: boolean = false;
   @Event onOpenAbout: () => void = () => {};
   @Event onOpenGeneral: () => void = () => {};
   @Event onLogout: () => void = () => {};
@@ -60,15 +61,28 @@ export struct WideAdminWorkspace {
   @Local hoveredId: string = '';
   @Local businessStore: BusinessStore = BusinessStore.getShared();
 
-  private navItems: AdminNavItem[] = [
-    { id: 'overview', label: '运营总览', symbol: $r('sys.symbol.square_grid_2x2') },
-    { id: 'residents', label: '长者与床位', symbol: $r('sys.symbol.person_2_fill') },
-    { id: 'staff', label: '人员与排班', symbol: $r('sys.symbol.person_crop_circle_fill') },
-    { id: 'quality', label: '养护质量', symbol: $r('sys.symbol.checkmark_shield_fill') },
-    { id: 'risk', label: '风险事件', symbol: $r('sys.symbol.exclamationmark_triangle_fill') },
-    { id: 'assets', label: '设备与物资', symbol: $r('sys.symbol.archivebox_fill') },
-    { id: 'reports', label: '运营报表', symbol: $r('sys.symbol.waveform_path_ecg_square') }
-  ];
+  private navItemsForRole(): AdminNavItem[] {
+    if (this.isDoctor) {
+      return [
+        { id: 'overview', label: '临床工作台', symbol: $r('sys.symbol.square_grid_2x2') },
+        { id: 'residents', label: '长者档案', symbol: $r('sys.symbol.person_2_fill') },
+        { id: 'staff', label: '护理协作', symbol: $r('sys.symbol.person_crop_circle_fill') },
+        { id: 'quality', label: '评估与照护计划', symbol: $r('sys.symbol.checkmark_shield_fill') },
+        { id: 'risk', label: '风险复核', symbol: $r('sys.symbol.exclamationmark_triangle_fill') },
+        { id: 'assets', label: '健康监测', symbol: $r('sys.symbol.waveform_path_ecg_square') },
+        { id: 'reports', label: '评估记录', symbol: $r('sys.symbol.checkmark_shield_fill') }
+      ];
+    }
+    return [
+      { id: 'overview', label: '运营总览', symbol: $r('sys.symbol.square_grid_2x2') },
+      { id: 'residents', label: '长者与床位', symbol: $r('sys.symbol.person_2_fill') },
+      { id: 'staff', label: '人员与排班', symbol: $r('sys.symbol.person_crop_circle_fill') },
+      { id: 'quality', label: '养护质量', symbol: $r('sys.symbol.checkmark_shield_fill') },
+      { id: 'risk', label: '风险事件', symbol: $r('sys.symbol.exclamationmark_triangle_fill') },
+      { id: 'assets', label: '设备与物资', symbol: $r('sys.symbol.archivebox_fill') },
+      { id: 'reports', label: '运营报表', symbol: $r('sys.symbol.waveform_path_ecg_square') }
+    ];
+  }
 
   aboutToAppear(): void {
     this.businessStore.load();
@@ -92,6 +106,23 @@ export struct WideAdminWorkspace {
     const openAlerts: Alert[] = this.businessStore.alerts.filter((item: Alert) =>
       item.status !== 'handled' && item.status !== 'closed');
     const emergencyAlerts: number = openAlerts.filter((item: Alert) => item.level === 'emergency').length;
+    if (this.isDoctor) {
+      const focusElders: number = this.businessStore.elders.filter((elder) =>
+        openAlerts.some((alert: Alert) => alert.elder_id === elder.id)).length;
+      const activeElders = this.businessStore.elders.filter((item) => item.status === 2);
+      const pendingAssessments: number = activeElders.filter((elder) =>
+        !this.businessStore.assessments.some((assessment) => assessment.elder_id === elder.id)).length;
+      return [
+        { label: '重点关注长者', value: focusElders.toString(), note: `${openAlerts.length} 条待复核风险`,
+          symbol: $r('sys.symbol.person_2_fill'), tone: 'focus' },
+        { label: '待复核风险', value: openAlerts.length.toString(), note: `${emergencyAlerts} 项紧急风险`,
+          symbol: $r('sys.symbol.exclamationmark_triangle_fill'), tone: 'danger' },
+        { label: '待评估长者', value: pendingAssessments.toString(), note: '当前在院且暂无评估记录',
+          symbol: $r('sys.symbol.checkmark_shield_fill'), tone: 'warning' },
+        { label: '护理执行进度', value: `${completion}%`, note: `${doneTasks}/${totalTasks} 项护理任务已完成`,
+          symbol: $r('sys.symbol.checkmark_circle_fill'), tone: 'success' }
+      ];
+    }
     return [
       { label: '在院长者', value: this.businessStore.elders.filter((item) => item.status === 2).length.toString(),
         note: `床位使用率 ${occupancy}%`, symbol: $r('sys.symbol.person_2_fill'), tone: 'focus' },
@@ -112,7 +143,8 @@ export struct WideAdminWorkspace {
       detail: item.content,
       owner: item.handled_by || '未分配',
       time: item.create_time.length >= 16 ? item.create_time.slice(11, 16) : '--',
-      status: item.status === 'closed' ? '已闭环' : item.status === 'handled' ? '跟进中' : '待处理',
+      status: this.isDoctor ? (item.status === 'closed' ? '已复核' : item.status === 'handled' ? '复核中' : '待复核') :
+        (item.status === 'closed' ? '已闭环' : item.status === 'handled' ? '跟进中' : '待处理'),
       tone: item.level === 'emergency' ? 'danger' : item.level === 'important' ? 'warning' : 'neutral'
     }));
   }
@@ -135,7 +167,7 @@ export struct WideAdminWorkspace {
   private async handleAlert(item: AdminEvent): Promise<void> {
     if (!this.canHandleAlerts) {
       try {
-        this.getUIContext().getPromptAction().showToast({ message: '医师端仅支持查看风险事件' });
+        this.getUIContext().getPromptAction().showToast({ message: '医师端当前仅支持查看风险记录' });
       } catch (_error) {
         // The permission boundary is still enforced if the prompt service is unavailable.
       }
@@ -172,7 +204,17 @@ export struct WideAdminWorkspace {
   }
 
   private title(): string {
-    return this.navItems.find((item: AdminNavItem) => item.id === this.selectedNavId)?.label ?? '运营总览';
+    return this.navItemsForRole().find((item: AdminNavItem) => item.id === this.selectedNavId)?.label ??
+      (this.isDoctor ? '临床工作台' : '运营总览');
+  }
+
+  private workspaceTitle(): string {
+    return this.isDoctor ? '医师工作台' : '机构运营总览';
+  }
+
+  private workspaceSubtitle(): string {
+    return this.isDoctor ? '围绕长者健康评估、风险复核与护理计划协作开展今日工作' :
+      '围绕长者安全、人员配置与养护质量组织今日运营';
   }
 
   private activate(event: KeyEvent, action: () => void): void {
@@ -231,11 +273,11 @@ export struct WideAdminWorkspace {
           .fontColor([$r('app.color.doctor_workspace_accent')])
         if (!this.isSidebarCollapsed) {
           Column({ space: 2 }) {
-            Text('机构管理端')
+            Text(this.isDoctor ? '医师工作台' : '机构管理端')
               .fontSize(15)
               .fontWeight(FontWeight.Bold)
               .fontColor($r('app.color.doctor_workspace_text_primary'))
-            Text('康小伴养老养护平台')
+            Text(this.isDoctor ? '长者健康评估与照护协作' : '康小伴养老养护平台')
               .fontSize(9)
               .fontColor($r('app.color.doctor_workspace_text_tertiary'))
           }.alignItems(HorizontalAlign.Start)
@@ -246,7 +288,7 @@ export struct WideAdminWorkspace {
       .padding({ left: this.isSidebarCollapsed ? 25 : 18 })
       .alignItems(VerticalAlign.Center)
       Column({ space: 6 }) {
-        ForEach(this.navItems, (item: AdminNavItem) => this.navItem(item), (item: AdminNavItem) => item.id)
+        ForEach(this.navItemsForRole(), (item: AdminNavItem) => this.navItem(item), (item: AdminNavItem) => item.id)
       }
       .layoutWeight(1)
       .width('100%')
@@ -290,7 +332,8 @@ export struct WideAdminWorkspace {
           SymbolGlyph(metric.symbol).fontSize(20).fontColor([this.toneColor(metric.tone)])
         }
         Blank()
-        Text('服务器数据').fontSize(9).fontColor($r('app.color.doctor_workspace_text_tertiary'))
+        Text(this.isDoctor ? '健康与照护数据' : '服务器数据').fontSize(9)
+          .fontColor($r('app.color.doctor_workspace_text_tertiary'))
       }.width('100%')
       Text(metric.label).fontSize(12).fontColor($r('app.color.doctor_workspace_text_secondary')).width('100%')
       Text(metric.value).fontSize(28).fontWeight(FontWeight.Bold)
@@ -317,14 +360,15 @@ export struct WideAdminWorkspace {
         Text(item.status).fontSize(10).fontColor(this.toneColor(item.tone))
         Text(`${item.owner} · ${item.time}`).fontSize(9).fontColor($r('app.color.doctor_workspace_text_tertiary'))
       }.alignItems(HorizontalAlign.End)
-      Button(item.status === '已闭环' || item.status === '跟进中' ? item.status : '标记跟进')
+      Button(this.isDoctor ? '仅供查看' :
+        (item.status === '已闭环' || item.status === '跟进中' ? item.status : '标记跟进'))
         .height(32).fontSize(10).borderRadius(9)
         .fontColor($r('app.color.doctor_workspace_text_primary'))
         .backgroundColor($r('app.color.doctor_workspace_surface_hover'))
         // Keep the visual affordance identical across roles. Doctor clicks
         // are handled by the guarded method above and never reach the admin
         // mutation endpoint.
-        .enabled(item.status !== '已闭环' && item.status !== '跟进中')
+        .enabled(this.isDoctor ? true : item.status !== '已闭环' && item.status !== '跟进中')
         .onClick(() => this.handleAlert(item))
     }
     .width('100%').height(68).padding({ left: 14, right: 12 })
@@ -336,14 +380,16 @@ export struct WideAdminWorkspace {
   private occupancyPanel() {
     Column({ space: 16 }) {
       Row() {
-        Text('区域床位使用').fontSize(16).fontWeight(FontWeight.Bold)
+        Text(this.isDoctor ? '照护区域入住情况' : '区域床位使用').fontSize(16).fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.doctor_workspace_text_primary'))
         Blank()
-        Text(`共 ${this.businessStore.beds.length} 张`).fontSize(10)
+        Text(this.isDoctor ? `共 ${this.businessStore.elders.filter((item) => item.status === 2).length} 位` :
+          `共 ${this.businessStore.beds.length} 张`).fontSize(10)
           .fontColor($r('app.color.doctor_workspace_text_tertiary'))
       }.width('100%')
       if (this.occupancyRows().length === 0) {
-        Text(this.businessStore.loading ? '正在加载床位数据' : '暂无床位数据')
+        Text(this.businessStore.loading ? (this.isDoctor ? '正在加载长者入住数据' : '正在加载床位数据') :
+          (this.isDoctor ? '暂无长者入住数据' : '暂无床位数据'))
           .width('100%')
           .padding({ top: 48, bottom: 48 })
           .fontSize(11)
@@ -382,12 +428,12 @@ export struct WideAdminWorkspace {
       Column({ space: 20 }) {
         Row() {
           Column({ space: 5 }) {
-            Text('机构运营总览').fontSize(this.compactWidth ? 26 : 30).fontWeight(FontWeight.Bold)
+            Text(this.workspaceTitle()).fontSize(this.compactWidth ? 26 : 30).fontWeight(FontWeight.Bold)
               .fontColor($r('app.color.doctor_workspace_text_primary'))
-            Text('围绕长者安全、人员配置与养护质量组织今日运营').fontSize(11)
+            Text(this.workspaceSubtitle()).fontSize(11)
               .fontColor($r('app.color.doctor_workspace_text_secondary'))
           }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-          Text('实时数据')
+          Text(this.isDoctor ? '实时健康数据' : '实时数据')
             .fontSize(10)
             .fontColor($r('app.color.doctor_workspace_text_secondary'))
             .padding({ left: 12, right: 12, top: 8, bottom: 8 })
@@ -404,13 +450,14 @@ export struct WideAdminWorkspace {
           GridCol({ span: this.compactWidth ? 12 : 7 }) {
             Column() {
               Row() {
-                Text('今日运营关注').fontSize(16).fontWeight(FontWeight.Bold)
+                Text(this.isDoctor ? '今日风险复核' : '今日运营关注').fontSize(16).fontWeight(FontWeight.Bold)
                   .fontColor($r('app.color.doctor_workspace_text_primary'))
                 Blank()
                 Text(`${this.events().length} 项`).fontSize(10).fontColor($r('app.color.doctor_workspace_text_tertiary'))
               }.width('100%').height(52).padding({ left: 16, right: 16 })
               if (this.events().length === 0) {
-                Text(this.businessStore.loading ? '正在加载告警数据' : '暂无运营关注事项')
+                Text(this.businessStore.loading ? (this.isDoctor ? '正在加载风险记录' : '正在加载告警数据') :
+                  (this.isDoctor ? '暂无待复核风险事件' : '暂无运营关注事项'))
                   .width('100%')
                   .padding({ top: 56, bottom: 56 })
                   .fontSize(11)
@@ -432,14 +479,14 @@ export struct WideAdminWorkspace {
   @Builder
   private modulePlaceholder() {
     Column({ space: 14 }) {
-      SymbolGlyph(this.navItems.find((item: AdminNavItem) => item.id === this.selectedNavId)?.symbol ??
+      SymbolGlyph(this.navItemsForRole().find((item: AdminNavItem) => item.id === this.selectedNavId)?.symbol ??
         $r('sys.symbol.square_grid_2x2'))
         .fontSize(42).fontColor([$r('app.color.doctor_workspace_accent')])
       Text(this.title()).fontSize(26).fontWeight(FontWeight.Bold)
         .fontColor($r('app.color.doctor_workspace_text_primary'))
-      Text('该模块尚未开放服务器业务接口。')
+      Text(this.isDoctor ? '该医师工作模块尚未开放服务器业务接口。' : '该模块尚未开放服务器业务接口。')
         .fontSize(12).fontColor($r('app.color.doctor_workspace_text_secondary'))
-      Button('返回运营总览').height(40).borderRadius(12).fontSize(12)
+      Button(this.isDoctor ? '返回医师工作台' : '返回运营总览').height(40).borderRadius(12).fontSize(12)
         .fontColor($r('app.color.doctor_workspace_background'))
         .backgroundColor($r('app.color.doctor_workspace_text_primary'))
         .onClick(() => this.selectedNavId = 'overview')

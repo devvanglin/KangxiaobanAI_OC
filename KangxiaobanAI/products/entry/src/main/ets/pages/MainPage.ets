@@ -1042,6 +1042,7 @@ struct MainPage {
         naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
         compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
         canHandleAlerts: this.globalInfoModel.role === '管理',
+        isDoctor: this.globalInfoModel.role === '医师',
         onOpenAbout: () => {
           this.pathStack.pushPath({ name: 'AboutPage' });
         },

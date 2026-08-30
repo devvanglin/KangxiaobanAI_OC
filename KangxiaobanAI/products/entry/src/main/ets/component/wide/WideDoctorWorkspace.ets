@@ -29,6 +29,7 @@ export struct WideDoctorWorkspace {
       naviIndicatorHeight: this.naviIndicatorHeight,
       compactWidth: this.compactWidth,
       canHandleAlerts: false,
+      isDoctor: true,
       onOpenAbout: () => this.onOpenAbout(),
       onOpenGeneral: () => this.onOpenGeneral(),
       onLogout: () => this.onLogout()
