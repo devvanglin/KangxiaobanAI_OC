@@ -672,7 +672,7 @@ func ensureBusinessRelations(db *gorm.DB) error {
 	if err := db.Model(&model.Schedule{}).Where("work_date = ? AND staff = ?", workDate, "护理员").Update("staff", staffName).Error; err != nil {
 		return err
 	}
-	if err := db.Model(&model.Schedule{}).Where("work_date = ? AND staff IN ?", workDate, legacyDoctorNames).Update("staff", doctorName).Error; err != nil {
+	if err := db.Model(&model.Schedule{}).Where("staff IN ?", legacyDoctorNames).Update("staff", doctorName).Error; err != nil {
 		return err
 	}
 	if len(bootstrapPlanIDs) > 0 {
@@ -699,7 +699,7 @@ func ensureBusinessRelations(db *gorm.DB) error {
 	if err := db.Model(&model.ShiftHandover{}).Where("work_date = ? AND from_staff = ?", workDate, "护理员").Update("from_staff", staffName).Error; err != nil {
 		return err
 	}
-	if err := db.Model(&model.ShiftHandover{}).Where("work_date = ? AND to_staff IN ?", workDate, legacyDoctorNames).Update("to_staff", doctorName).Error; err != nil {
+	if err := db.Model(&model.ShiftHandover{}).Where("to_staff IN ?", legacyDoctorNames).Update("to_staff", doctorName).Error; err != nil {
 		return err
 	}
 	var schedule model.Schedule

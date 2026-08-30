@@ -149,6 +149,14 @@ func TestLegacyDemoDisplayNamesAndRelationsAreNormalized(t *testing.T) {
 	if err := db.Create(&customSchedule).Error; err != nil {
 		t.Fatal(err)
 	}
+	historicalDoctorSchedule := model.Schedule{Staff: "刘护工", WorkDate: yesterday, Shift: "night", RoomScope: "101-102"}
+	if err := db.Create(&historicalDoctorSchedule).Error; err != nil {
+		t.Fatal(err)
+	}
+	historicalHandover := model.ShiftHandover{FromStaff: "李护工", ToStaff: "刘护工", WorkDate: yesterday, Summary: "历史交接"}
+	if err := db.Create(&historicalHandover).Error; err != nil {
+		t.Fatal(err)
+	}
 	customPlan := model.CarePlan{ElderID: customElder.ID, Name: "机构自定义计划", Status: "active", StartDate: yesterday, CreatedBy: doctor.ID}
 	if err := db.Create(&customPlan).Error; err != nil {
 		t.Fatal(err)
@@ -205,6 +213,16 @@ func TestLegacyDemoDisplayNamesAndRelationsAreNormalized(t *testing.T) {
 	}
 	if err := db.Where("staff = ?", "演示医师").First(&schedule).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
 		t.Fatalf("demo doctor schedule remains: %+v err=%v", schedule, err)
+	}
+	if err := db.Where("staff = ?", "刘护工").First(&schedule).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("legacy doctor schedule remains: %+v err=%v", schedule, err)
+	}
+	var reloadedHandover model.ShiftHandover
+	if err := db.First(&reloadedHandover, historicalHandover.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if reloadedHandover.FromStaff != "护理员" || reloadedHandover.ToStaff != "医师" {
+		t.Fatalf("historical handover was not normalized: %+v", reloadedHandover)
 	}
 	var preservedCustomTask model.CareTask
 	if err := db.First(&preservedCustomTask, customTask.ID).Error; err != nil {
