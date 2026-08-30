@@ -54,7 +54,7 @@ import { WindowUtil } from '../util/WindowUtil';
 import { PreferenceManager } from '../util/PreferenceManager';
 import AuthStore from '../network/AuthStore';
 import { BusinessStore } from '../network/BusinessStore';
-import { Schedule, WsEvent } from '../network/Dto';
+import { Alert, Elder, HealthRecord, Schedule, WsEvent } from '../network/Dto';
 import { WsClient } from '../network/WsClient';
 
 const TAG: string = '[MainPage]';
@@ -131,6 +131,7 @@ struct MainPage {
   @Local caregiverBackRequestToken: number = 0;
   @Local caregiverUnreadMessageCount: number = 0;
   @Local caregiverMaterialScrollerOwner: CaregiverMaterialScrollerOwner = 'residentDetail';
+  @Local businessStore: BusinessStore = BusinessStore.getShared();
   private wideHomeScroller: Scroller = new Scroller();
   private wideHomeTaskDetailScroller: Scroller = new Scroller();
   private wideResidentMasterScroller: Scroller = new Scroller();
@@ -345,10 +346,10 @@ struct MainPage {
   private isRoleAdapted(): boolean {
     // The doctor and administrator roles share the same responsive shell,
     // while the wide workspace supplies role-specific labels and data views.
-    // Both remain wide-only; on a phone they use an explicit adaptation
-    // placeholder instead of exposing an unfinished workflow.
-    return this.globalInfoModel.role === '护工' ||
-      ((this.globalInfoModel.role === '医师' || this.globalInfoModel.role === '管理') && this.isWideLayout());
+    // Doctors also get a compact read-only summary on phones; administrators
+    // remain wide-only until their mobile operations workflow is implemented.
+    return this.globalInfoModel.role === '护工' || this.globalInfoModel.role === '医师' ||
+      (this.globalInfoModel.role === '管理' && this.isWideLayout());
   }
 
   private roleWipTitle(): string {
@@ -360,6 +361,78 @@ struct MainPage {
 
   private roleWipMessage(): string {
     return this.globalInfoModel.role === '医师' ? '医师端移动工作区正在适配中' : '该角色页面正在开发中，敬请期待';
+  }
+
+  private doctorElderName(elderId: number): string {
+    return this.businessStore.elders.find((item: Elder) => item.id === elderId)?.name ?? '未知长者';
+  }
+
+  @Builder
+  private doctorPhonePanel() {
+    Column() {
+      Scroll() {
+        Column({ space: 14 }) {
+          Column({ space: 5 }) {
+            Text('医师工作台').fontSize(25).fontWeight(FontWeight.Bold)
+              .fontColor($r('sys.color.font_primary'))
+            Text('查看长者健康、风险与评估进度').fontSize(13)
+              .fontColor($r('sys.color.font_secondary'))
+          }.width('100%').alignItems(HorizontalAlign.Start)
+
+          Row({ space: 10 }) {
+            this.doctorPhoneMetric('重点风险', this.businessStore.alerts.filter((item: Alert) =>
+              item.status !== 'handled' && item.status !== 'closed').length.toString(),
+              $r('app.color.doctor_workspace_warning'))
+            this.doctorPhoneMetric('在院长者', this.businessStore.elders.filter((item: Elder) => item.status === 2).length.toString(),
+              $r('app.color.doctor_workspace_focus'))
+          }.width('100%')
+
+          Column({ space: 8 }) {
+            Text('风险复核').fontSize(17).fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary')).width('100%')
+            if (this.businessStore.alerts.length === 0) {
+              Text('暂无待复核风险事件').fontSize(13).fontColor($r('sys.color.font_secondary'))
+                .padding({ top: 24, bottom: 24 }).width('100%').textAlign(TextAlign.Center)
+            } else {
+              ForEach(this.businessStore.alerts.slice(-8).reverse(), (item: Alert) => {
+                Row({ space: 8 }) {
+                  Text(item.level === 'emergency' ? '紧急' : item.level === 'important' ? '重要' : '提示')
+                    .fontSize(11).fontColor(item.level === 'emergency' ? '#FF5D6C' : '#FFB547')
+                  Text(item.content).fontSize(12).layoutWeight(1).maxLines(2)
+                    .fontColor($r('sys.color.font_primary'))
+                }.width('100%').padding(11).borderRadius(10)
+                  .backgroundColor($r('sys.color.comp_background_secondary'))
+              }, (item: Alert) => `doctor-phone-alert-${item.id}`)
+            }
+          }.width('100%').alignItems(HorizontalAlign.Start)
+
+          Column({ space: 8 }) {
+            Text('最近体征').fontSize(17).fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary')).width('100%')
+            ForEach(this.businessStore.healthRecords.slice(-6).reverse(), (record: HealthRecord) => {
+              Row({ space: 8 }) {
+                Text(this.doctorElderName(record.elder_id)).fontSize(12).layoutWeight(1)
+                  .fontColor($r('sys.color.font_primary'))
+                Text(`心率 ${record.heart_rate ?? '--'} · 血氧 ${record.spo2 ?? '--'}`)
+                  .fontSize(11).fontColor(record.is_abnormal ? '#FFB547' : $r('sys.color.font_secondary'))
+              }.width('100%').padding(11)
+                .backgroundColor($r('sys.color.comp_background_secondary')).borderRadius(10)
+            }, (record: HealthRecord) => `doctor-phone-health-${record.id}`)
+          }.width('100%').alignItems(HorizontalAlign.Start)
+        }
+        .width('100%').padding({ left: 16, right: 16, top: this.globalInfoModel.statusBarHeight + 20,
+          bottom: this.globalInfoModel.naviIndicatorHeight + 24 })
+      }.layoutWeight(1).width('100%').scrollBar(BarState.Off)
+    }.width('100%').height('100%').backgroundColor($r('sys.color.background_secondary'))
+  }
+
+  @Builder
+  private doctorPhoneMetric(label: string, value: string, color: ResourceColor) {
+    Column({ space: 5 }) {
+      Text(label).fontSize(12).fontColor($r('sys.color.font_secondary'))
+      Text(value).fontSize(26).fontWeight(FontWeight.Bold).fontColor(color)
+    }.layoutWeight(1).padding(14).borderRadius(12)
+      .backgroundColor($r('sys.color.comp_background_primary'))
   }
 
   @Builder
@@ -1159,6 +1232,8 @@ struct MainPage {
         HdsNavigation(this.pathStack) {
           if (this.isWideLayout()) {
             this.wideShell()
+          } else if (this.globalInfoModel.role === '医师') {
+            this.doctorPhonePanel()
           } else {
             this.phoneTabs()
           }

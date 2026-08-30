@@ -236,7 +236,7 @@ The role/layout matrix is fixed by current behavior:
 | Role | Narrow phone layout | MD/LG/XL wide layout |
 |---|---|---|
 | Caregiver (`护工`) | Four HDS tabs | `WideCaregiverWorkspace` |
-| Doctor (`医师`) | WIP placeholder | `WideAdminWorkspace` (shared management-console UI) |
+| Doctor (`医师`) | Read-only doctor summary (health/risk) | `WideAdminWorkspace` (doctor modules + shared shell) |
 | Administrator (`管理`) | WIP placeholder | `WideAdminWorkspace` local operations prototype |
 | Any other string | WIP placeholder | WIP placeholder |
 
@@ -264,15 +264,16 @@ and an on-demand detail pane. Resident and message roots use an open shared canv
 1180vp and above they retain side-by-side master/detail interaction; below 1180vp they use a full-width list followed by
 a full-width detail view whose return action is the native root HDS title-bar back control, not a page-wide return row.
 Wide doctor layouts reuse `WideAdminWorkspace` directly (and `WideDoctorWorkspace` remains only as a compatibility
-facade), so the sidebar, title/overview geometry, typography, colors, responsive spacing, and every module placeholder
-are one shared implementation. Both workspaces constrain the content column after the sidebar so the four overview
+facade), so the sidebar, title/overview geometry, typography, colors, responsive spacing, and doctor module surfaces
+are one shared implementation. Doctor residents, collaboration, risk, health-monitoring, assessment-record, and
+admission views are server-backed/read-only where the role lacks mutation permission. Both workspaces constrain the content column after the sidebar so the four overview
 cards remain inside the available window (the previous administrator root could clip the fourth card on a 2-in-1
 display). The doctor account keeps alert rows read-only because the current backend doctor role has `task:read` but not
 `task:write`/`admin:all`; the shared button appearance is retained and a guarded click explains the read-only state
 without bypassing RBAC. The backend-connected
-`WideDoctorAdmission` component remains in the source for a later, explicitly approved entry point, but is not mounted
-by the current parity shell. Wide administrator layouts mount `WideAdminWorkspace` directly; its operations overview
-reads server records and tenant policy, while the other management modules remain placeholders.
+`WideDoctorAdmission` is mounted from the doctor's “评估与照护计划” module and keeps its server-authoritative scoring,
+screening, draft, and submission gates. Wide administrator layouts mount `WideAdminWorkspace` directly; its operations
+overview reads server records and tenant policy, while non-overview administrator modules remain placeholders.
 
 `HdsNavigation` uses an immersive/adaptive system material title bar, gradient-blur scroll effect, the currently active
 bound Scroller, a back button hidden except for compact caregiver local-detail state, a hidden title bar for the other
@@ -295,7 +296,7 @@ before extending preload.
 | Task expansion | transparent `bindContentCover` | `TabPageView` | internal HDS destination UI |
 | Task/message/profile detail | sheet/local pane | `TabPageView` | internal builders |
 | Doctor management console | shared local workspace branch | `MainPage` | `WideAdminWorkspace` |
-| Doctor admission (retained component) | not currently mounted | `WideDoctorAdmission` | future approved entry point |
+| Doctor admission | local module surface | `WideDoctorAdmission` | doctor quality module |
 | Administrator workspace | local wide workspace branch | `MainPage` | `WideAdminWorkspace` |
 
 There is no `router_map.json`/`route_map.json` in the core product. If notification, card, deep link, dynamic HAR, or
@@ -399,8 +400,8 @@ mapping boundary explicit:
 
 ### 6.6 Doctor admission workflow and state contract
 
-`WideDoctorAdmission` is retained as a backend-connected component but is not mounted by the current parity shell. It is
-not a route or a `NavPathStack` destination. If a future approved entry point mounts it, `AdmissionRepository` loads the
+`WideDoctorAdmission` is a backend-connected local module surface, not a route or a `NavPathStack` destination.
+`AdmissionRepository` loads the
 current server template and free beds, creates/resumes a database draft, saves each step, requests authoritative
 scoring, and submits the completed workflow.
 
@@ -443,7 +444,7 @@ Current production source is under `KangxiaobanAI/products/entry/src/main/ets`.
 | `component/wide/WideCaregiverWorkspace.ets` | responsive top command-bar shell, sliding primary navigation, live message badge, persistent wide feature roots, avatar account actions, local-back cleanup, and safe-area forwarding |
 | `component/wide/WideDoctorWorkspace.ets` | compatibility facade that delegates the visible doctor console to `WideAdminWorkspace`; the former duplicate doctor builders were removed |
 | `component/wide/WideDoctorAdmission.ets` | backend-persisted four-step appendix A/B/C admission workflow, server preview/scoring, screenings, care-plan selection, confirmations, and submission result |
-| `component/wide/WideAdminWorkspace.ets` | server-backed operations overview, tenant policy thresholds, and explicit placeholder management modules |
+| `component/wide/WideAdminWorkspace.ets` | server-backed administrator overview plus doctor resident/collaboration/risk/health/assessment/admission modules; explicit administrator placeholders |
 | `component/wide/WideHomePage.ets` | caregiver on-shift workbench, server task summaries/queue, resident rhythm, and persisted task actions |
 | `component/wide/WideResidentPage.ets` | open-canvas responsive resident master/detail view; wide view uses independent list/detail work surfaces and widths below 1180vp switch between full-width list and detail |
 | `component/wide/WideMessagePage.ets` | open-canvas responsive server conversation master/detail view with persisted replies/read state and unread-count reporting; widths below 1180vp switch between full-width list and detail |
@@ -469,14 +470,14 @@ The largest current files are architectural warning points, not templates for fu
 - `TabPageView.ets`: about 3,447 lines;
 - `WideDoctorWorkspace.ets`: small compatibility facade (the former duplicate doctor shell was removed);
 - `WideDoctorAdmission.ets`: about 1,793 lines;
-- `WideAdminWorkspace.ets`: about 348 lines;
+- `WideAdminWorkspace.ets`: about 724 lines;
 - `AiChatPage.ets`: about 1,552 lines;
 - `WideHomePage.ets`: about 1,420 lines;
 - `WideResidentPage.ets`: about 1,409 lines;
 - `WideMessagePage.ets`: about 1,153 lines;
 - `WideCaregiverWorkspace.ets`: about 452 lines;
 - `ResidentDetailPage.ets`: about 808 lines;
-- `MainPage.ets`: about 773 lines.
+- `MainPage.ets`: about 1,265 lines.
 
 Do not add a new feature root, large dataset, service call, and navigation flow to one of these files in the same change.
 Split by real feature/section ownership while preserving current behavior.
@@ -650,9 +651,9 @@ Treat these as verified open risks, not necessarily part of every unrelated task
 - `HealthExpandPage` creates a `ListScroller`, but the rendered `Scroll()` does not bind that scroller; index positioning
   is ineffective.
 - `WindowUtil` listeners do not have symmetric teardown from Ability lifecycle.
-- The administrator and doctor phone layouts, and non-overview management modules, remain WIP placeholders. The
-  backend-connected admission component is retained but intentionally not mounted until a parity-compatible entry is
-  approved.
+- The administrator phone layout and non-overview administrator modules remain WIP placeholders. The doctor phone
+  layout now provides a read-only health/risk summary; it does not expose caregiver write actions. The doctor admission
+  component is mounted under the doctor quality module, but still requires real-device and service verification.
 - Several optional detail concepts have no server records and intentionally render empty states.
 - Admission drafts persist, but offline conflict resolution and multi-editor locking are not implemented.
 - `MaterialUtil` and the `MATERIAL_LEVEL` storage key are currently unused.
