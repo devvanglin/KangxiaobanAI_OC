@@ -1,0 +1,1488 @@
+[
+  {
+    "id": "ec001",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18001/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec001-api|Up About a minute|0.0.0.0:18001->8080/tcp, [::]:18001->8080/tcp"
+    ],
+    "elapsed_seconds": 66.68
+  },
+  {
+    "id": "ec002",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18002/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec002-web|Up 2 seconds|0.0.0.0:18002->8080/tcp, [::]:18002->8080/tcp",
+      "ec002-api|Up 2 seconds|",
+      "ec002-db|Up 5 seconds|5432/tcp"
+    ],
+    "elapsed_seconds": 6.0
+  },
+  {
+    "id": "ec003",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18003/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec003-web|Up 2 seconds|0.0.0.0:18003->8080/tcp, [::]:18003->8080/tcp",
+      "ec003-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.54
+  },
+  {
+    "id": "ec004",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18004/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec004-web|Up 2 seconds|0.0.0.0:18004->8080/tcp, [::]:18004->8080/tcp",
+      "ec004-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.58
+  },
+  {
+    "id": "ec005",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18005/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec005-web|Up 2 seconds|0.0.0.0:18005->8080/tcp, [::]:18005->8080/tcp",
+      "ec005-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.54
+  },
+  {
+    "id": "ec006",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18006/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec006-web|Up 2 seconds|0.0.0.0:18006->8080/tcp, [::]:18006->8080/tcp",
+      "ec006-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.52
+  },
+  {
+    "id": "ec007",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18007/",
+    "verified_path": "/doc.html",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec007-api|Up About a minute|0.0.0.0:18007->8080/tcp, [::]:18007->8080/tcp"
+    ],
+    "elapsed_seconds": 93.25
+  },
+  {
+    "id": "ec008",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18008/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec008-web|Up 2 seconds|0.0.0.0:18008->8080/tcp, [::]:18008->8080/tcp",
+      "ec008-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.59
+  },
+  {
+    "id": "ec009",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18009/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec009-web|Up 32 seconds|0.0.0.0:18009->8080/tcp, [::]:18009->8080/tcp",
+      "ec009-api|Up 32 seconds|"
+    ],
+    "elapsed_seconds": 33.03
+  },
+  {
+    "id": "ec010",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18010/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec010-web|Up 2 seconds|0.0.0.0:18010->8080/tcp, [::]:18010->8080/tcp",
+      "ec010-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.58
+  },
+  {
+    "id": "ec011",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18011/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec011-web|Up 2 seconds|0.0.0.0:18011->8080/tcp, [::]:18011->8080/tcp",
+      "ec011-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.62
+  },
+  {
+    "id": "ec012",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18012/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec012-web|Up 2 seconds|0.0.0.0:18012->8080/tcp, [::]:18012->8080/tcp",
+      "ec012-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.48
+  },
+  {
+    "id": "ec013",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18013/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec013-web|Up 2 seconds|0.0.0.0:18013->8080/tcp, [::]:18013->8080/tcp",
+      "ec013-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.52
+  },
+  {
+    "id": "ec014",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18014/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec014-web|Up 2 seconds|0.0.0.0:18014->8080/tcp, [::]:18014->8080/tcp",
+      "ec014-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.56
+  },
+  {
+    "id": "ec015",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18015/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec015-web|Up 2 seconds|0.0.0.0:18015->8080/tcp, [::]:18015->8080/tcp",
+      "ec015-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.64
+  },
+  {
+    "id": "ec016",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18016/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec016-web|Up 2 seconds|0.0.0.0:18016->8080/tcp, [::]:18016->8080/tcp",
+      "ec016-api|Up 2 seconds|8080/tcp"
+    ],
+    "elapsed_seconds": 2.82
+  },
+  {
+    "id": "ec017",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18017/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec017-web|Up 2 seconds|0.0.0.0:18017->8080/tcp, [::]:18017->8080/tcp",
+      "ec017-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.45
+  },
+  {
+    "id": "ec018",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18018/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec018-web|Up 2 seconds|0.0.0.0:18018->8080/tcp, [::]:18018->8080/tcp",
+      "ec018-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.52
+  },
+  {
+    "id": "ec019",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18019/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec019-web|Up 2 seconds|0.0.0.0:18019->8080/tcp, [::]:18019->8080/tcp",
+      "ec019-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.52
+  },
+  {
+    "id": "ec020",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18020/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec020-web|Up 2 seconds|0.0.0.0:18020->8080/tcp, [::]:18020->8080/tcp",
+      "ec020-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.52
+  },
+  {
+    "id": "ec021",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18021/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec021-web|Up 2 seconds|0.0.0.0:18021->8080/tcp, [::]:18021->8080/tcp",
+      "ec021-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.66
+  },
+  {
+    "id": "ec022",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18022/",
+    "verified_path": "/login",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec022-api|Up 30 seconds|0.0.0.0:18022->8080/tcp, [::]:18022->8080/tcp"
+    ],
+    "elapsed_seconds": 30.54
+  },
+  {
+    "id": "ec023",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18023/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec023-api|Up 16 seconds|0.0.0.0:18023->8080/tcp, [::]:18023->8080/tcp"
+    ],
+    "verification_note": "manual hot-reload after correcting upstream Flask static directory"
+  },
+  {
+    "id": "ec024",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18024/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec024-web|Up 2 seconds|0.0.0.0:18024->8080/tcp, [::]:18024->8080/tcp",
+      "ec024-api|Up 2 seconds|8080/tcp"
+    ],
+    "elapsed_seconds": 2.7
+  },
+  {
+    "id": "ec025",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18025/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec025-web|Up 2 seconds|0.0.0.0:18025->8080/tcp, [::]:18025->8080/tcp",
+      "ec025-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.62
+  },
+  {
+    "id": "ec026",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18026/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec026-web|Up 2 seconds|0.0.0.0:18026->8080/tcp, [::]:18026->8080/tcp",
+      "ec026-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.55
+  },
+  {
+    "id": "ec027",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18027/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec027-web|Up 2 seconds|0.0.0.0:18027->8080/tcp, [::]:18027->8080/tcp",
+      "ec027-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.59
+  },
+  {
+    "id": "ec028",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18028/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec028-web|Up 2 seconds|0.0.0.0:18028->8080/tcp, [::]:18028->8080/tcp",
+      "ec028-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.58
+  },
+  {
+    "id": "ec029",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18029/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec029-web|Up 2 seconds|0.0.0.0:18029->8080/tcp, [::]:18029->8080/tcp",
+      "ec029-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.59
+  },
+  {
+    "id": "ec030",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18030/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec030-api|Up 20 seconds|0.0.0.0:18030->8080/tcp, [::]:18030->8080/tcp"
+    ],
+    "elapsed_seconds": 21.03
+  },
+  {
+    "id": "ec031",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18031/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec031-web|Up 2 seconds|0.0.0.0:18031->8080/tcp, [::]:18031->8080/tcp",
+      "ec031-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.6
+  },
+  {
+    "id": "ec032",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18032/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec032-web|Up 2 seconds|0.0.0.0:18032->8080/tcp, [::]:18032->8080/tcp",
+      "ec032-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.5
+  },
+  {
+    "id": "ec033",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18033/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec033-web|Up 2 seconds|0.0.0.0:18033->8080/tcp, [::]:18033->8080/tcp",
+      "ec033-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.61
+  },
+  {
+    "id": "ec034",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18034/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec034-web|Up 2 seconds|0.0.0.0:18034->8080/tcp, [::]:18034->8080/tcp",
+      "ec034-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.51
+  },
+  {
+    "id": "ec035",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18035/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec035-web|Up 2 seconds|0.0.0.0:18035->8080/tcp, [::]:18035->8080/tcp",
+      "ec035-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.49
+  },
+  {
+    "id": "ec036",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18036/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec036-web|Up 2 seconds|0.0.0.0:18036->8080/tcp, [::]:18036->8080/tcp",
+      "ec036-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.52
+  },
+  {
+    "id": "ec037",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18037/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec037-web|Up 2 seconds|0.0.0.0:18037->8080/tcp, [::]:18037->8080/tcp",
+      "ec037-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.68
+  },
+  {
+    "id": "ec038",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18038/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec038-web|Up 2 seconds|0.0.0.0:18038->8080/tcp, [::]:18038->8080/tcp"
+    ],
+    "elapsed_seconds": 2.47
+  },
+  {
+    "id": "ec039",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18039/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec039-web|Up 2 seconds|0.0.0.0:18039->8080/tcp, [::]:18039->8080/tcp",
+      "ec039-api|Up 2 seconds|8080/tcp"
+    ],
+    "elapsed_seconds": 2.52
+  },
+  {
+    "id": "ec040",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18040/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec040-api|Up About a minute|0.0.0.0:18040->8080/tcp, [::]:18040->8080/tcp"
+    ],
+    "elapsed_seconds": 69.2
+  },
+  {
+    "id": "ec041",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18041/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec041-web|Up 2 seconds|0.0.0.0:18041->8080/tcp, [::]:18041->8080/tcp",
+      "ec041-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.71
+  },
+  {
+    "id": "ec042",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18042/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec042-web|Up 2 seconds|0.0.0.0:18042->8080/tcp, [::]:18042->8080/tcp",
+      "ec042-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.5
+  },
+  {
+    "id": "ec043",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18043/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec043-web|Up 2 seconds|0.0.0.0:18043->8080/tcp, [::]:18043->8080/tcp",
+      "ec043-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.53
+  },
+  {
+    "id": "ec044",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18044/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec044-web|Up 2 seconds|0.0.0.0:18044->8080/tcp, [::]:18044->8080/tcp",
+      "ec044-api|Up 2 seconds|8080/tcp"
+    ],
+    "elapsed_seconds": 2.56
+  },
+  {
+    "id": "ec045",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18045/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec045-web|Up 2 seconds|0.0.0.0:18045->8080/tcp, [::]:18045->8080/tcp",
+      "ec045-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.61
+  },
+  {
+    "id": "ec046",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18046/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec046-web|Up 2 seconds|0.0.0.0:18046->8080/tcp, [::]:18046->8080/tcp",
+      "ec046-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.67
+  },
+  {
+    "id": "ec047",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18047/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec047-web|Up 2 seconds|0.0.0.0:18047->8080/tcp, [::]:18047->8080/tcp",
+      "ec047-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.59
+  },
+  {
+    "id": "ec048",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18048/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec048-web|Up 2 seconds|0.0.0.0:18048->8080/tcp, [::]:18048->8080/tcp",
+      "ec048-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.57
+  },
+  {
+    "id": "ec049",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18049/",
+    "verified_path": "/login",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec049-api|Up About a minute|0.0.0.0:18049->8080/tcp, [::]:18049->8080/tcp"
+    ],
+    "elapsed_seconds": 70.05
+  },
+  {
+    "id": "ec050",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18050/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec050-web|Up 2 seconds|0.0.0.0:18050->8080/tcp, [::]:18050->8080/tcp",
+      "ec050-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.59
+  },
+  {
+    "id": "ec051",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18051/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec051-web|Up 2 seconds|0.0.0.0:18051->8080/tcp, [::]:18051->8080/tcp",
+      "ec051-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.59
+  },
+  {
+    "id": "ec052",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18052/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec052-web|Up 2 seconds|0.0.0.0:18052->8080/tcp, [::]:18052->8080/tcp",
+      "ec052-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.56
+  },
+  {
+    "id": "ec053",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18053/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec053-web|Up 2 seconds|0.0.0.0:18053->8080/tcp, [::]:18053->8080/tcp",
+      "ec053-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.66
+  },
+  {
+    "id": "ec054",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18054/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec054-api|Up 10 seconds|0.0.0.0:18054->8080/tcp, [::]:18054->8080/tcp"
+    ],
+    "elapsed_seconds": 10.49
+  },
+  {
+    "id": "ec055",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18055/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec055-web|Up 2 seconds|0.0.0.0:18055->8080/tcp, [::]:18055->8080/tcp",
+      "ec055-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.65
+  },
+  {
+    "id": "ec056",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18056/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec056-web|Up 2 seconds|0.0.0.0:18056->8080/tcp, [::]:18056->8080/tcp",
+      "ec056-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.64
+  },
+  {
+    "id": "ec057",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18057/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec057-web|Up 2 seconds|0.0.0.0:18057->8080/tcp, [::]:18057->8080/tcp",
+      "ec057-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.57
+  },
+  {
+    "id": "ec058",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18058/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec058-web|Up 2 seconds|0.0.0.0:18058->8080/tcp, [::]:18058->8080/tcp",
+      "ec058-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.63
+  },
+  {
+    "id": "ec059",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18059/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec059-web|Up 2 seconds|0.0.0.0:18059->8080/tcp, [::]:18059->8080/tcp",
+      "ec059-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.61
+  },
+  {
+    "id": "ec060",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18060/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec060-web|Up 2 seconds|0.0.0.0:18060->8080/tcp, [::]:18060->8080/tcp",
+      "ec060-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.61
+  },
+  {
+    "id": "ec061",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18061/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec061-web|Up 2 seconds|0.0.0.0:18061->8080/tcp, [::]:18061->8080/tcp",
+      "ec061-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.84
+  },
+  {
+    "id": "ec062",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18062/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec062-web|Up 2 seconds|0.0.0.0:18062->8080/tcp, [::]:18062->8080/tcp",
+      "ec062-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.51
+  },
+  {
+    "id": "ec063",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18063/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec063-web|Up 2 seconds|0.0.0.0:18063->8080/tcp, [::]:18063->8080/tcp",
+      "ec063-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.69
+  },
+  {
+    "id": "ec064",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18064/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec064-web|Up 2 seconds|0.0.0.0:18064->8080/tcp, [::]:18064->8080/tcp",
+      "ec064-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.59
+  },
+  {
+    "id": "ec065",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18065/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec065-web|Up 2 seconds|0.0.0.0:18065->8080/tcp, [::]:18065->8080/tcp",
+      "ec065-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.48
+  },
+  {
+    "id": "ec066",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18066/",
+    "verified_path": "/api/orders/all",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec066-api|Up 25 seconds|0.0.0.0:18066->8080/tcp, [::]:18066->8080/tcp"
+    ],
+    "elapsed_seconds": 26.1
+  },
+  {
+    "id": "ec067",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18067/",
+    "verified_path": "/test/demo1",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec067-api|Up 19 seconds|0.0.0.0:18067->8080/tcp, [::]:18067->8080/tcp"
+    ],
+    "elapsed_seconds": 19.65
+  },
+  {
+    "id": "ec068",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18068/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec068-web|Up 2 seconds|0.0.0.0:18068->8080/tcp, [::]:18068->8080/tcp",
+      "ec068-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.59
+  },
+  {
+    "id": "ec069",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18069/",
+    "verified_path": "/springbootu1yrv/config/list",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec069-api|Up 29 seconds|0.0.0.0:18069->8080/tcp, [::]:18069->8080/tcp"
+    ],
+    "elapsed_seconds": 30.78
+  },
+  {
+    "id": "ec070",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18070/",
+    "verified_path": "/doc.html",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec070-api|Up About a minute|0.0.0.0:18070->8080/tcp, [::]:18070->8080/tcp"
+    ],
+    "elapsed_seconds": 91.01
+  },
+  {
+    "id": "ec071",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18071/",
+    "verified_path": "/yanglaoyuanguanli/config/list",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec071-api|Up 25 seconds|0.0.0.0:18071->8080/tcp, [::]:18071->8080/tcp"
+    ],
+    "elapsed_seconds": 26.41
+  },
+  {
+    "id": "ec072",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18072/",
+    "verified_path": "/sqlrjkxxglxt/config/list",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec072-api|Up 27 seconds|0.0.0.0:18072->8080/tcp, [::]:18072->8080/tcp"
+    ],
+    "elapsed_seconds": 27.72
+  },
+  {
+    "id": "ec073",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18073/",
+    "verified_path": "/captcha/getCode",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec073-api|Up 25 seconds|0.0.0.0:18073->8080/tcp, [::]:18073->8080/tcp"
+    ],
+    "elapsed_seconds": 26.18
+  },
+  {
+    "id": "ec074",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18074/",
+    "verified_path": "/springboot35806/config/list",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec074-api|Up 31 seconds|0.0.0.0:18074->8080/tcp, [::]:18074->8080/tcp"
+    ],
+    "elapsed_seconds": 32.16
+  },
+  {
+    "id": "ec075",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18075/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec075-web|Up 2 seconds|0.0.0.0:18075->8080/tcp, [::]:18075->8080/tcp",
+      "ec075-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.51
+  },
+  {
+    "id": "ec076",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18076/",
+    "verified_path": "/springboot1w568/config/list",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec076-api|Up 25 seconds|0.0.0.0:18076->8080/tcp, [::]:18076->8080/tcp"
+    ],
+    "elapsed_seconds": 26.28
+  },
+  {
+    "id": "ec077",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18077/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec077-api|Up About a minute|0.0.0.0:18077->8080/tcp, [::]:18077->8080/tcp"
+    ],
+    "elapsed_seconds": 67.82
+  },
+  {
+    "id": "ec078",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18078/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec078-api|Up 8 seconds|0.0.0.0:18078->8080/tcp, [::]:18078->8080/tcp"
+    ],
+    "elapsed_seconds": 8.41
+  },
+  {
+    "id": "ec079",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18079/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec079-web|Up 2 seconds|0.0.0.0:18079->8080/tcp, [::]:18079->8080/tcp",
+      "ec079-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.54
+  },
+  {
+    "id": "ec080",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18080/",
+    "verified_path": "/api/auth/login",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec080-api|Up About a minute|0.0.0.0:18080->8080/tcp, [::]:18080->8080/tcp"
+    ],
+    "elapsed_seconds": 65.75
+  },
+  {
+    "id": "ec081",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18081/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec081-api|Up 55 seconds|0.0.0.0:18081->8080/tcp, [::]:18081->8080/tcp"
+    ],
+    "elapsed_seconds": 56.38
+  },
+  {
+    "id": "ec082",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18082/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec082-api|Up 42 seconds|0.0.0.0:18082->8080/tcp, [::]:18082->8080/tcp"
+    ],
+    "elapsed_seconds": 43.05
+  },
+  {
+    "id": "ec083",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18083/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec083-api|Up 40 seconds|0.0.0.0:18083->8080/tcp, [::]:18083->8080/tcp"
+    ],
+    "elapsed_seconds": 40.7
+  },
+  {
+    "id": "ec084",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18084/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec084-api|Up About a minute|0.0.0.0:18084->8080/tcp, [::]:18084->8080/tcp"
+    ],
+    "elapsed_seconds": 71.52
+  },
+  {
+    "id": "ec085",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18085/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec085-api|Up About a minute|0.0.0.0:18085->8080/tcp, [::]:18085->8080/tcp"
+    ],
+    "elapsed_seconds": 63.12
+  },
+  {
+    "id": "ec086",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18086/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec086-api|Up 23 seconds|0.0.0.0:18086->8080/tcp, [::]:18086->8080/tcp"
+    ],
+    "elapsed_seconds": 24.51
+  },
+  {
+    "id": "ec087",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18087/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec087-api|Up 23 seconds|0.0.0.0:18087->8080/tcp, [::]:18087->8080/tcp"
+    ],
+    "elapsed_seconds": 24.11
+  },
+  {
+    "id": "ec088",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18088/",
+    "verified_path": "/api/v1/users",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec088-api|Up 17 seconds|0.0.0.0:18088->8080/tcp, [::]:18088->8080/tcp"
+    ],
+    "elapsed_seconds": 17.9
+  },
+  {
+    "id": "ec089",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18089/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec089-api|Up 47 seconds|0.0.0.0:18089->8080/tcp, [::]:18089->8080/tcp"
+    ],
+    "elapsed_seconds": 48.1
+  },
+  {
+    "id": "ec090",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18090/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec090-api|Up 12 seconds|0.0.0.0:18090->8080/tcp, [::]:18090->8080/tcp"
+    ],
+    "elapsed_seconds": 12.58
+  },
+  {
+    "id": "ec091",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18091/",
+    "verified_path": "/test",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec091-api|Up 20 seconds|0.0.0.0:18091->8080/tcp, [::]:18091->8080/tcp",
+      "ec091-embedding|Up 21 seconds|",
+      "ec091-redis|Up 21 seconds|6379/tcp"
+    ],
+    "elapsed_seconds": 21.93
+  },
+  {
+    "id": "ec092",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18092/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec092-api|Up 21 seconds|0.0.0.0:18092->8080/tcp, [::]:18092->8080/tcp"
+    ],
+    "elapsed_seconds": 22.04
+  },
+  {
+    "id": "ec093",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18093/",
+    "verified_path": "/zhihuishequjujiayanglaojiankang/config/list",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec093-api|Up 27 seconds|0.0.0.0:18093->8080/tcp, [::]:18093->8080/tcp"
+    ],
+    "elapsed_seconds": 27.75
+  },
+  {
+    "id": "ec094",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18094/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec094-api|Up 24 seconds|0.0.0.0:18094->8080/tcp, [::]:18094->8080/tcp"
+    ],
+    "elapsed_seconds": 24.58
+  },
+  {
+    "id": "ec095",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18095/",
+    "verified_path": "/api/stats",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec095-api|Up 6 seconds|0.0.0.0:18095->8080/tcp, [::]:18095->8080/tcp"
+    ],
+    "elapsed_seconds": 7.1
+  },
+  {
+    "id": "ec096",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18096/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec096-api|Up 13 seconds|0.0.0.0:18096->8080/tcp, [::]:18096->8080/tcp"
+    ],
+    "elapsed_seconds": 13.6
+  },
+  {
+    "id": "ec097",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18097/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec097-api|Up 28 seconds|0.0.0.0:18097->8080/tcp, [::]:18097->8080/tcp"
+    ],
+    "elapsed_seconds": 28.79
+  },
+  {
+    "id": "ec098",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18098/",
+    "verified_path": "/springboot1816sl21/config/list",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec098-api|Up 27 seconds|0.0.0.0:18098->8080/tcp, [::]:18098->8080/tcp"
+    ],
+    "elapsed_seconds": 27.67
+  },
+  {
+    "id": "ec099",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18099/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec099-api|Up 20 seconds|0.0.0.0:18099->8080/tcp, [::]:18099->8080/tcp"
+    ],
+    "elapsed_seconds": 20.92
+  },
+  {
+    "id": "ec100",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18100/",
+    "verified_path": "/swagger-ui/index.html",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec100-api|Up 25 seconds|0.0.0.0:18100->8080/tcp, [::]:18100->8080/tcp"
+    ],
+    "elapsed_seconds": 26.55
+  },
+  {
+    "id": "ec104",
+    "status": "display-only",
+    "entry_url": "http://127.0.0.1:18104/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec104-api|Up 2 seconds|0.0.0.0:18104->8080/tcp, [::]:18104->8080/tcp"
+    ],
+    "elapsed_seconds": 2.7
+  },
+  {
+    "id": "ec111",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18111/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec111-web|Up 2 seconds|0.0.0.0:18111->8080/tcp, [::]:18111->8080/tcp"
+    ],
+    "elapsed_seconds": 2.58
+  },
+  {
+    "id": "ec119",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18119/",
+    "verified_path": "/doc.html",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec119-api|Up About a minute|0.0.0.0:18119->8080/tcp, [::]:18119->8080/tcp"
+    ],
+    "elapsed_seconds": 78.3
+  },
+  {
+    "id": "ec134",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18134/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec134-api|Up 17 seconds|0.0.0.0:18134->8080/tcp, [::]:18134->8080/tcp"
+    ],
+    "elapsed_seconds": 17.79
+  },
+  {
+    "id": "ec135",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18135/",
+    "verified_path": "/doc.html",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec135-api|Up About a minute|0.0.0.0:18135->8080/tcp, [::]:18135->8080/tcp"
+    ],
+    "elapsed_seconds": 90.88
+  },
+  {
+    "id": "ec137",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18137/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec137-api|Up About a minute|0.0.0.0:18137->8080/tcp, [::]:18137->8080/tcp"
+    ],
+    "elapsed_seconds": 68.0
+  },
+  {
+    "id": "ec144",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18144/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec144-web|Up 2 seconds|0.0.0.0:18144->8080/tcp, [::]:18144->8080/tcp",
+      "ec144-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.49
+  },
+  {
+    "id": "ec154",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18154/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec154-web|Up 22 seconds|0.0.0.0:18154->8080/tcp, [::]:18154->8080/tcp",
+      "ec154-api|Up 22 seconds|"
+    ],
+    "elapsed_seconds": 22.78
+  },
+  {
+    "id": "ec155",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18155/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec155-web|Up 2 seconds|0.0.0.0:18155->8080/tcp, [::]:18155->8080/tcp",
+      "ec155-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.54
+  },
+  {
+    "id": "ec156",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18156/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec156-api|Up About a minute|0.0.0.0:18156->8080/tcp, [::]:18156->8080/tcp"
+    ],
+    "elapsed_seconds": 89.89
+  },
+  {
+    "id": "ec157",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18157/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec157-web|Up 22 seconds|0.0.0.0:18157->8080/tcp, [::]:18157->8080/tcp",
+      "ec157-api|Up 22 seconds|"
+    ],
+    "elapsed_seconds": 22.74
+  },
+  {
+    "id": "ec159",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18159/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec159-web|Up 22 seconds|0.0.0.0:18159->8080/tcp, [::]:18159->8080/tcp",
+      "ec159-api|Up 22 seconds|"
+    ],
+    "elapsed_seconds": 22.68
+  },
+  {
+    "id": "ec161",
+    "status": "display-only",
+    "entry_url": "http://127.0.0.1:18161/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec161-web|Up 2 seconds|0.0.0.0:18161->80/tcp, [::]:18161->80/tcp"
+    ],
+    "elapsed_seconds": 2.62
+  },
+  {
+    "id": "ec162",
+    "status": "display-only",
+    "entry_url": "http://127.0.0.1:18162/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec162-web|Up 2 seconds|0.0.0.0:18162->80/tcp, [::]:18162->80/tcp"
+    ],
+    "elapsed_seconds": 2.59
+  },
+  {
+    "id": "ec163",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18163/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec163-web|Up About a minute|0.0.0.0:18163->8080/tcp, [::]:18163->8080/tcp",
+      "ec163-api|Up About a minute|"
+    ],
+    "elapsed_seconds": 78.1
+  },
+  {
+    "id": "ec164",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18164/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec164-web|Up 2 seconds|0.0.0.0:18164->8080/tcp, [::]:18164->8080/tcp",
+      "ec164-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.52
+  },
+  {
+    "id": "ec165",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18165/",
+    "verified_path": "/",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec165-web|Up 2 seconds|0.0.0.0:18165->8080/tcp, [::]:18165->8080/tcp",
+      "ec165-api|Up 2 seconds|"
+    ],
+    "elapsed_seconds": 2.58
+  },
+  {
+    "id": "ec166",
+    "status": "http-verified",
+    "entry_url": "http://127.0.0.1:18166/",
+    "verified_path": "/docs",
+    "http_status": 200,
+    "http_error": "",
+    "containers": [
+      "ec166-api|Up About a minute|0.0.0.0:18166->8080/tcp, [::]:18166->8080/tcp"
+    ],
+    "elapsed_seconds": 61.14
+  }
+]

@@ -249,7 +249,8 @@ brand-color fill for contrast, while its menu header contains identity text only
 progress, or task metrics. Below 1180vp the AI action reduces its text density while the business content also
 switches to its compact layout. Home, resident, and message roots stay mounted and switch visibility to retain local UI
 state. When the embedded AI conversation history is collapsed, it slides out from the start edge and the title bar
-exposes a compact capsule for expanding history, searching, and creating a conversation.
+exposes a compact capsule for expanding history, searching, and creating a conversation. The collapsed state is
+stored in local preferences, survives navigation away from AI, and is restored after the application relaunches.
 The root `HdsNavigation` owns both the phone title bar and the wide caregiver title bar. Both use HDS
 `IMMERSIVE`/`ADAPTIVE` system material with a bound `GRADIENT_BLUR` scroll effect. The wide caregiver title actions are
 supplied through the HDS title bar `stackBuilder`, while the page title remains native HDS title content. The root title

@@ -1,0 +1,28 @@
+{
+  "captured_at": "2026-08-20T13:30:00+08:00",
+  "host": "192.168.100.104",
+  "ssh_port": 22,
+  "ssh_user": "pve",
+  "os": "Ubuntu 22.04.5 LTS",
+  "kernel": "6.8.0-136-generic",
+  "cpu_cores": 4,
+  "memory_mib": 7874,
+  "swap_mib": 6115,
+  "root_filesystem_gib": 63,
+  "root_free_gib": 42,
+  "docker_server": "29.7.2",
+  "docker_compose": "v5.4.0",
+  "ssh_password_verified": true,
+  "sudo_verified": true,
+  "task_public_key_installed": true,
+  "existing_containers": [
+    {
+      "name": "elderly-mysql",
+      "image": "mysql:8.0",
+      "status_at_capture": "running",
+      "published_port": 13306,
+      "ownership": "pre-existing; preserved pending migration decision"
+    }
+  ],
+  "acceptance_note": "Server reachability and Docker availability do not prove that any candidate project is deployed or login-capable."
+}

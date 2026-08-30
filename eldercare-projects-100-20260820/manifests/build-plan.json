@@ -1,0 +1,5944 @@
+[
+  {
+    "id": "ec001",
+    "primary_full_name": "ityongsheng/springCloudElderlyCareSystem",
+    "assigned_port": 18001,
+    "inventory_strategy": "native-compose",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "star-module-elderly/star-module-elderly-server/src/main/java/cn/start/pp/module/elderly/server/ElderlyServerApplication.java",
+      "module_dir": "star-module-elderly/star-module-elderly-server",
+      "build_root": ".",
+      "module_selector": "star-module-elderly/star-module-elderly-server",
+      "java_version_declared": "17",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "-pl",
+        "star-module-elderly/star-module-elderly-server",
+        "-am",
+        "package"
+      ],
+      "component": "ityongsheng/springCloudElderlyCareSystem",
+      "remote_root": "/opt/eldercare100/sources/ec001"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec001",
+    "sql_files": [
+      {
+        "component": "ityongsheng/springCloudElderlyCareSystem",
+        "remote_root": "/opt/eldercare100/sources/ec001",
+        "path": "sql/sqlserver/ruoyi-vue-pro.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "ityongsheng/springCloudElderlyCareSystem",
+        "remote_root": "/opt/eldercare100/sources/ec001",
+        "path": "sql/mysql/ruoyi-vue-pro.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "ityongsheng/springCloudElderlyCareSystem",
+        "remote_root": "/opt/eldercare100/sources/ec001",
+        "path": "star-module-system/star-module-system-server/src/test/resources/sql/create_tables.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "ityongsheng/springCloudElderlyCareSystem",
+        "remote_root": "/opt/eldercare100/sources/ec001",
+        "path": "star-module-system/star-module-system-server/src/test/resources/sql/clean.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "ityongsheng/springCloudElderlyCareSystem",
+        "remote_root": "/opt/eldercare100/sources/ec001",
+        "path": "star-module-infra/star-module-infra-server/src/test/resources/sql/create_tables.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "ityongsheng/springCloudElderlyCareSystem",
+        "remote_root": "/opt/eldercare100/sources/ec001",
+        "path": "star-module-infra/star-module-infra-server/src/test/resources/sql/clean.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "ityongsheng/springCloudElderlyCareSystem",
+        "remote_root": "/opt/eldercare100/sources/ec001",
+        "path": "star-module-bpm/star-module-bpm-server/src/test/resources/sql/create_tables.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "ityongsheng/springCloudElderlyCareSystem",
+        "remote_root": "/opt/eldercare100/sources/ec001",
+        "path": "star-module-bpm/star-module-bpm-server/src/test/resources/sql/clean.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "-W",
+        "password": "WORD",
+        "source": "README",
+        "component": "ityongsheng/springCloudElderlyCareSystem"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec002",
+    "primary_full_name": "Fatec-ADS-AMS2026/SeniorCare",
+    "assigned_port": 18002,
+    "inventory_strategy": "native-compose",
+    "backend": null,
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "SeniorCareManager-Frontend/SeniorCareManagerFrontend",
+      "framework": "react",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "SeniorCareManager-Frontend/SeniorCareManagerFrontend/dist",
+        "SeniorCareManager-Frontend/SeniorCareManagerFrontend/build"
+      ],
+      "component": "Fatec-ADS-AMS2026/SeniorCare",
+      "remote_root": "/opt/eldercare100/sources/ec002"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec002",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "manual-analysis-required",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec003",
+    "primary_full_name": "sjr666666/ai-elderly-health-assistant",
+    "assigned_port": 18003,
+    "inventory_strategy": "native-compose",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "backend/src/main/java/com/example/backend/BackendApplication.java",
+      "module_dir": "backend",
+      "build_root": "backend",
+      "module_selector": ".",
+      "java_version_declared": "21",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "sjr666666/ai-elderly-health-assistant",
+      "remote_root": "/opt/eldercare100/sources/ec003"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "frontend",
+      "framework": "react",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "frontend/dist",
+        "frontend/build"
+      ],
+      "component": "sjr666666/ai-elderly-health-assistant",
+      "remote_root": "/opt/eldercare100/sources/ec003"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec003",
+    "sql_files": [
+      {
+        "component": "sjr666666/ai-elderly-health-assistant",
+        "remote_root": "/opt/eldercare100/sources/ec003",
+        "path": "backend/src/main/resources/init_weekly_report_table.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "sjr666666/ai-elderly-health-assistant",
+        "remote_root": "/opt/eldercare100/sources/ec003",
+        "path": "backend/src/main/resources/init_guardian_tables.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "sjr666666/ai-elderly-health-assistant",
+        "remote_root": "/opt/eldercare100/sources/ec003",
+        "path": "backend/src/main/resources/init_drug_data.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "sjr666666/ai-elderly-health-assistant",
+        "remote_root": "/opt/eldercare100/sources/ec003",
+        "path": "backend/src/main/resources/init_database.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "sjr666666/ai-elderly-health-assistant",
+        "remote_root": "/opt/eldercare100/sources/ec003",
+        "path": "backend/src/main/resources/db/migration/V4__use_decimal_inventory_quantities.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "sjr666666/ai-elderly-health-assistant",
+        "remote_root": "/opt/eldercare100/sources/ec003",
+        "path": "backend/src/main/resources/db/migration/V2__init_data.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "sjr666666/ai-elderly-health-assistant",
+        "remote_root": "/opt/eldercare100/sources/ec003",
+        "path": "backend/src/main/resources/db/migration/V1__init_schema.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "sjr666666/ai-elderly-health-assistant",
+        "remote_root": "/opt/eldercare100/sources/ec003",
+        "path": "backend/src/main/resources/db/migration/V9__add_rag_feedback_updated_at.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec004",
+    "primary_full_name": "RuiQiong1/yanglao-bishe",
+    "assigned_port": 18004,
+    "inventory_strategy": "native-compose",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "server_code/src/main/java/com/cl/SpringbootSchemaApplication.java",
+      "module_dir": "server_code",
+      "build_root": "server_code",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "RuiQiong1/yanglao-bishe",
+      "remote_root": "/opt/eldercare100/sources/ec004"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "manage_code",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "manage_code/dist",
+        "manage_code/build"
+      ],
+      "component": "RuiQiong1/yanglao-bishe",
+      "remote_root": "/opt/eldercare100/sources/ec004"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec004",
+    "sql_files": [
+      {
+        "component": "RuiQiong1/yanglao-bishe",
+        "remote_root": "/opt/eldercare100/sources/ec004",
+        "path": "server_code/sql/cl170503280.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "name",
+        "password": "word",
+        "source": "README",
+        "component": "RuiQiong1/yanglao-bishe"
+      },
+      {
+        "username": "admin",
+        "password": "admin",
+        "source": "README",
+        "component": "RuiQiong1/yanglao-bishe"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec005",
+    "primary_full_name": "wuzk20257qw/yanglao",
+    "assigned_port": 18005,
+    "inventory_strategy": "native-compose",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "backend/src/main/java/com/example/eldercare/Application.java",
+      "module_dir": "backend",
+      "build_root": "backend",
+      "module_selector": ".",
+      "java_version_declared": "17",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "wuzk20257qw/yanglao",
+      "remote_root": "/opt/eldercare100/sources/ec005"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "frontend",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "frontend/dist",
+        "frontend/build"
+      ],
+      "component": "wuzk20257qw/yanglao",
+      "remote_root": "/opt/eldercare100/sources/ec005"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec005",
+    "sql_files": [
+      {
+        "component": "wuzk20257qw/yanglao",
+        "remote_root": "/opt/eldercare100/sources/ec005",
+        "path": "sql/init_data.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "wuzk20257qw/yanglao",
+        "remote_root": "/opt/eldercare100/sources/ec005",
+        "path": "sql/init.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "name",
+        "password": "word",
+        "source": "README",
+        "component": "wuzk20257qw/yanglao"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec006",
+    "primary_full_name": "chenbenkong/nursing-home-system",
+    "assigned_port": 18006,
+    "inventory_strategy": "native-compose",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "backend/src/main/java/com/nursinghome/NursingHomeApplication.java",
+      "module_dir": "backend",
+      "build_root": "backend",
+      "module_selector": ".",
+      "java_version_declared": "17",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "chenbenkong/nursing-home-system",
+      "remote_root": "/opt/eldercare100/sources/ec006"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "frontend",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "frontend/dist",
+        "frontend/build"
+      ],
+      "component": "chenbenkong/nursing-home-system",
+      "remote_root": "/opt/eldercare100/sources/ec006"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec006",
+    "sql_files": [
+      {
+        "component": "chenbenkong/nursing-home-system",
+        "remote_root": "/opt/eldercare100/sources/ec006",
+        "path": "database/nursing_home_schema.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "chenbenkong/nursing-home-system",
+        "remote_root": "/opt/eldercare100/sources/ec006",
+        "path": "database/nursing_home_test_data_2026.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "admin",
+        "password": "123456",
+        "source": "README",
+        "component": "chenbenkong/nursing-home-system"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec007",
+    "primary_full_name": "lk506667090/kyl-sanatorium",
+    "assigned_port": 18007,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "kyl-sanatorium/kyl-web/src/main/java/com/kyl/KylApplication.java",
+      "module_dir": "kyl-sanatorium/kyl-web",
+      "build_root": "kyl-sanatorium",
+      "module_selector": "kyl-web",
+      "java_version_declared": "11",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "-pl",
+        "kyl-web",
+        "-am",
+        "package"
+      ],
+      "component": "lk506667090/kyl-sanatorium",
+      "remote_root": "/opt/eldercare100/sources/ec007"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec007",
+    "sql_files": [
+      {
+        "component": "lk506667090/kyl-sanatorium",
+        "remote_root": "/opt/eldercare100/sources/ec007",
+        "path": "kyl-sanatorium-sql/kyl_sanatorium_db.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "name",
+        "password": "word",
+        "source": "README",
+        "component": "lk506667090/kyl-sanatorium"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec008",
+    "primary_full_name": "memcacheon/zhiyi-tong",
+    "assigned_port": 18008,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "zzyl-admin/src/main/java/com/zzyl/RuoYiApplication.java",
+      "module_dir": "zzyl-admin",
+      "build_root": ".",
+      "module_selector": "zzyl-admin",
+      "java_version_declared": "11",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "-pl",
+        "zzyl-admin",
+        "-am",
+        "package"
+      ],
+      "component": "memcacheon/zhiyi-tong",
+      "remote_root": "/opt/eldercare100/sources/ec008"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "cp422-vue3",
+      "framework": "vue",
+      "build_script": "build:prod",
+      "package_manager": "auto",
+      "output_candidates": [
+        "cp422-vue3/dist",
+        "cp422-vue3/build"
+      ],
+      "component": "memcacheon/zhiyi-tong",
+      "remote_root": "/opt/eldercare100/sources/ec008"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec008",
+    "sql_files": [
+      {
+        "component": "memcacheon/zhiyi-tong",
+        "remote_root": "/opt/eldercare100/sources/ec008",
+        "path": "sql/ry-zzyl_20240928.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "memcacheon/zhiyi-tong",
+        "remote_root": "/opt/eldercare100/sources/ec008",
+        "path": "sql/ry-zzyl.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "admin",
+        "password": "src",
+        "source": "README",
+        "component": "memcacheon/zhiyi-tong"
+      },
+      {
+        "username": "admin",
+        "password": "admin123",
+        "source": "README",
+        "component": "memcacheon/zhiyi-tong"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec009",
+    "primary_full_name": "2002yy/smart-elderly-care",
+    "assigned_port": 18009,
+    "inventory_strategy": "native-compose",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "后端/mini_program_backend/src/main/java/com/hecs/mini_program_backend/MiniProgramBackendApplication.java",
+      "module_dir": "后端/mini_program_backend",
+      "build_root": "后端/mini_program_backend",
+      "module_selector": ".",
+      "java_version_declared": "17",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "2002yy/smart-elderly-care",
+      "remote_root": "/opt/eldercare100/sources/ec009"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "前端/miniprogram-1/miniprogram-1",
+      "framework": "node",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "前端/miniprogram-1/miniprogram-1/dist",
+        "前端/miniprogram-1/miniprogram-1/build"
+      ],
+      "component": "2002yy/smart-elderly-care",
+      "remote_root": "/opt/eldercare100/sources/ec009"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec009",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec010",
+    "primary_full_name": "huang-zejian04/elderly_service_platform",
+    "assigned_port": 18010,
+    "inventory_strategy": "native-compose",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "back/src/main/java/com/gzist/elderlyserviceplatform/App.java",
+      "module_dir": "back",
+      "build_root": "back",
+      "module_selector": ".",
+      "java_version_declared": "17",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "huang-zejian04/elderly_service_platform",
+      "remote_root": "/opt/eldercare100/sources/ec010"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "front",
+      "framework": "vue",
+      "build_script": "build:beta",
+      "package_manager": "auto",
+      "output_candidates": [
+        "front/dist",
+        "front/build"
+      ],
+      "component": "huang-zejian04/elderly_service_platform",
+      "remote_root": "/opt/eldercare100/sources/ec010"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec010",
+    "sql_files": [
+      {
+        "component": "huang-zejian04/elderly_service_platform",
+        "remote_root": "/opt/eldercare100/sources/ec010",
+        "path": "initdb.d/init.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "NAME",
+        "password": "WORD",
+        "source": "README",
+        "component": "huang-zejian04/elderly_service_platform"
+      },
+      {
+        "username": "NAME",
+        "password": "（QQ",
+        "source": "README",
+        "component": "huang-zejian04/elderly_service_platform"
+      },
+      {
+        "username": "admin",
+        "password": "admin",
+        "source": "README",
+        "component": "huang-zejian04/elderly_service_platform"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec011",
+    "primary_full_name": "itxinfei/zzyl",
+    "assigned_port": 18011,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "zzyl-web/src/main/java/com/zzyl/ZzylApplication.java",
+      "module_dir": "zzyl-web",
+      "build_root": ".",
+      "module_selector": "zzyl-web",
+      "java_version_declared": "11",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "-pl",
+        "zzyl-web",
+        "-am",
+        "package"
+      ],
+      "component": "itxinfei/zzyl",
+      "remote_root": "/opt/eldercare100/sources/ec011"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "zzyl-ui/project-zhyl-admin-vue3-java",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "zzyl-ui/project-zhyl-admin-vue3-java/dist",
+        "zzyl-ui/project-zhyl-admin-vue3-java/build"
+      ],
+      "component": "itxinfei/zzyl",
+      "remote_root": "/opt/eldercare100/sources/ec011"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec011",
+    "sql_files": [
+      {
+        "component": "itxinfei/zzyl",
+        "remote_root": "/opt/eldercare100/sources/ec011",
+        "path": "zzyl-service/src/main/resources/sql/leave.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec012",
+    "primary_full_name": "xbmt/ruchu-care",
+    "assigned_port": 18012,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "rcare/rcare-admin/src/main/java/cc/ruchu/rcare/RcApplication.java",
+      "module_dir": "rcare/rcare-admin",
+      "build_root": "rcare",
+      "module_selector": "rcare-admin",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "-pl",
+        "rcare-admin",
+        "-am",
+        "package"
+      ],
+      "component": "xbmt/ruchu-care",
+      "remote_root": "/opt/eldercare100/sources/ec012"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "rcare-petal-ui",
+      "framework": "vue",
+      "build_script": "build:prod",
+      "package_manager": "auto",
+      "output_candidates": [
+        "rcare-petal-ui/dist",
+        "rcare-petal-ui/build"
+      ],
+      "component": "xbmt/ruchu-care",
+      "remote_root": "/opt/eldercare100/sources/ec012"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec012",
+    "sql_files": [
+      {
+        "component": "xbmt/ruchu-care",
+        "remote_root": "/opt/eldercare100/sources/ec012",
+        "path": "rcare/sql/ry_20220822.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "xbmt/ruchu-care",
+        "remote_root": "/opt/eldercare100/sources/ec012",
+        "path": "sql/rcare_dev.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "xbmt/ruchu-care",
+        "remote_root": "/opt/eldercare100/sources/ec012",
+        "path": "rcare/sql/quartz.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "xbmt/ruchu-care",
+        "remote_root": "/opt/eldercare100/sources/ec012",
+        "path": "rcare/sql/change.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec013",
+    "primary_full_name": "wbb316/Smart-Elderly-Care-Service-Platform",
+    "assigned_port": 18013,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "lcyl-java/lcyl/code/src/main/java/com/lcyl/code/CodeApplication.java",
+      "module_dir": "lcyl-java/lcyl",
+      "build_root": "lcyl-java/lcyl",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "wbb316/Smart-Elderly-Care-Service-Platform",
+      "remote_root": "/opt/eldercare100/sources/ec013"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "lcyl-vue/lcyl",
+      "framework": "vue",
+      "build_script": "build:prod",
+      "package_manager": "auto",
+      "output_candidates": [
+        "lcyl-vue/lcyl/dist",
+        "lcyl-vue/lcyl/build"
+      ],
+      "component": "wbb316/Smart-Elderly-Care-Service-Platform",
+      "remote_root": "/opt/eldercare100/sources/ec013"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec013",
+    "sql_files": [
+      {
+        "component": "wbb316/Smart-Elderly-Care-Service-Platform",
+        "remote_root": "/opt/eldercare100/sources/ec013",
+        "path": "ry-vue-schema.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "wbb316/Smart-Elderly-Care-Service-Platform",
+        "remote_root": "/opt/eldercare100/sources/ec013",
+        "path": "lcyl-java/lcyl/sql/ry_20250522.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "wbb316/Smart-Elderly-Care-Service-Platform",
+        "remote_root": "/opt/eldercare100/sources/ec013",
+        "path": "lcyl-java/lcyl/sql/workflow_tables.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "wbb316/Smart-Elderly-Care-Service-Platform",
+        "remote_root": "/opt/eldercare100/sources/ec013",
+        "path": "lcyl-java/lcyl/sql/code_generator_tables.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "wbb316/Smart-Elderly-Care-Service-Platform",
+        "remote_root": "/opt/eldercare100/sources/ec013",
+        "path": "lcyl-java/lc_room_booking.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "wbb316/Smart-Elderly-Care-Service-Platform",
+        "remote_root": "/opt/eldercare100/sources/ec013",
+        "path": "lcyl-java/lcyl/sql/quartz.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "admin",
+        "password": "src",
+        "source": "README",
+        "component": "wbb316/Smart-Elderly-Care-Service-Platform"
+      },
+      {
+        "username": "admin",
+        "password": "admin123",
+        "source": "README",
+        "component": "wbb316/Smart-Elderly-Care-Service-Platform"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec014",
+    "primary_full_name": "byte-love/nuanyang-eldercare",
+    "assigned_port": 18014,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "nuanyang-admin/src/main/java/com/nuanyang/RuoYiApplication.java",
+      "module_dir": "nuanyang-admin",
+      "build_root": ".",
+      "module_selector": "nuanyang-admin",
+      "java_version_declared": "17",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "-pl",
+        "nuanyang-admin",
+        "-am",
+        "package"
+      ],
+      "component": "byte-love/nuanyang-eldercare",
+      "remote_root": "/opt/eldercare100/sources/ec014"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "nuanyang-ui",
+      "framework": "vue",
+      "build_script": "build:prod",
+      "package_manager": "auto",
+      "output_candidates": [
+        "nuanyang-ui/dist",
+        "nuanyang-ui/build"
+      ],
+      "component": "byte-love/nuanyang-eldercare",
+      "remote_root": "/opt/eldercare100/sources/ec014"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec014",
+    "sql_files": [
+      {
+        "component": "byte-love/nuanyang-eldercare",
+        "remote_root": "/opt/eldercare100/sources/ec014",
+        "path": "sql/zzyl.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "admin",
+        "password": "src",
+        "source": "README",
+        "component": "byte-love/nuanyang-eldercare"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec015",
+    "primary_full_name": "yushuonanyan/elderly-system-",
+    "assigned_port": 18015,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "backend/src/main/java/com/example/Application.java",
+      "module_dir": "backend",
+      "build_root": "backend",
+      "module_selector": ".",
+      "java_version_declared": "21",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "yushuonanyan/elderly-system-",
+      "remote_root": "/opt/eldercare100/sources/ec015"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "frontend",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "frontend/dist",
+        "frontend/build"
+      ],
+      "component": "yushuonanyan/elderly-system-",
+      "remote_root": "/opt/eldercare100/sources/ec015"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec015",
+    "sql_files": [
+      {
+        "component": "yushuonanyan/elderly-system-",
+        "remote_root": "/opt/eldercare100/sources/ec015",
+        "path": "project_db.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "yushuonanyan/elderly-system-",
+        "remote_root": "/opt/eldercare100/sources/ec015",
+        "path": "backend/src/main/resources/db/migration/V1__init.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "yushuonanyan/elderly-system-",
+        "remote_root": "/opt/eldercare100/sources/ec015",
+        "path": "backend/src/main/resources/db/migration/V8__health_alert_resolve.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "yushuonanyan/elderly-system-",
+        "remote_root": "/opt/eldercare100/sources/ec015",
+        "path": "backend/src/main/resources/db/migration/V7__export_request.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "yushuonanyan/elderly-system-",
+        "remote_root": "/opt/eldercare100/sources/ec015",
+        "path": "backend/src/main/resources/db/migration/V6__chat.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "yushuonanyan/elderly-system-",
+        "remote_root": "/opt/eldercare100/sources/ec015",
+        "path": "backend/src/main/resources/db/migration/V5__add_reject_reason.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "yushuonanyan/elderly-system-",
+        "remote_root": "/opt/eldercare100/sources/ec015",
+        "path": "backend/src/main/resources/db/migration/V4__enhance_health_profile.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "yushuonanyan/elderly-system-",
+        "remote_root": "/opt/eldercare100/sources/ec015",
+        "path": "backend/src/main/resources/db/migration/V3__community_post.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "admin",
+        "password": "123456",
+        "source": "README",
+        "component": "yushuonanyan/elderly-system-"
+      },
+      {
+        "username": "root",
+        "password": "123456",
+        "source": "README",
+        "component": "yushuonanyan/elderly-system-"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec016",
+    "primary_full_name": "wangtianrui/OldPeopleHome",
+    "assigned_port": 18016,
+    "inventory_strategy": "spring-plus-node",
+    "backend": null,
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "web/jquery",
+      "framework": "node",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "web/jquery/dist",
+        "web/jquery/build"
+      ],
+      "component": "wangtianrui/OldPeopleHome",
+      "remote_root": "/opt/eldercare100/sources/ec016"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec016",
+    "sql_files": [
+      {
+        "component": "wangtianrui/OldPeopleHome",
+        "remote_root": "/opt/eldercare100/sources/ec016",
+        "path": "server/OldPeopleHome/src/main/sql/add_table.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "wangtianrui/OldPeopleHome",
+        "remote_root": "/opt/eldercare100/sources/ec016",
+        "path": "server/OldPeopleHome/src/main/sql/test.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "root",
+        "password": "root",
+        "source": "README",
+        "component": "wangtianrui/OldPeopleHome"
+      },
+      {
+        "username": "bao",
+        "password": "123",
+        "source": "README",
+        "component": "wangtianrui/OldPeopleHome"
+      },
+      {
+        "username": "admin",
+        "password": "login",
+        "source": "README",
+        "component": "wangtianrui/OldPeopleHome"
+      }
+    ],
+    "plan_status": "manual-analysis-required",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec017",
+    "primary_full_name": "a2131467/ceshi",
+    "assigned_port": 18017,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "ruoyi-admin/src/main/java/com/ruoyi/RuoYiApplication.java",
+      "module_dir": "ruoyi-admin",
+      "build_root": ".",
+      "module_selector": "ruoyi-admin",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "-pl",
+        "ruoyi-admin",
+        "-am",
+        "package"
+      ],
+      "component": "a2131467/ceshi",
+      "remote_root": "/opt/eldercare100/sources/ec017"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "ruoyi-ui",
+      "framework": "vue",
+      "build_script": "build:prod",
+      "package_manager": "auto",
+      "output_candidates": [
+        "ruoyi-ui/dist",
+        "ruoyi-ui/build"
+      ],
+      "component": "a2131467/ceshi",
+      "remote_root": "/opt/eldercare100/sources/ec017"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec017",
+    "sql_files": [
+      {
+        "component": "a2131467/ceshi",
+        "remote_root": "/opt/eldercare100/sources/ec017",
+        "path": "sql/ry_20250417.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "a2131467/ceshi",
+        "remote_root": "/opt/eldercare100/sources/ec017",
+        "path": "sql/keshe2.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "a2131467/ceshi",
+        "remote_root": "/opt/eldercare100/sources/ec017",
+        "path": "sql/keshe1.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "a2131467/ceshi",
+        "remote_root": "/opt/eldercare100/sources/ec017",
+        "path": "sql/ai_chat.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "a2131467/ceshi",
+        "remote_root": "/opt/eldercare100/sources/ec017",
+        "path": "sql/quartz.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "admin",
+        "password": "src",
+        "source": "README",
+        "component": "a2131467/ceshi"
+      },
+      {
+        "username": "admin",
+        "password": "target",
+        "source": "README",
+        "component": "a2131467/ceshi"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec018",
+    "primary_full_name": "fate-friend/elder-care-suite",
+    "assigned_port": 18018,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "care-backend-service/src/main/java/com/SmartCare/Application.java",
+      "module_dir": "care-backend-service",
+      "build_root": "care-backend-service",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "fate-friend/elder-care-suite",
+      "remote_root": "/opt/eldercare100/sources/ec018"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "admin-dashboard-ui",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "admin-dashboard-ui/dist",
+        "admin-dashboard-ui/build"
+      ],
+      "component": "fate-friend/elder-care-suite",
+      "remote_root": "/opt/eldercare100/sources/ec018"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec018",
+    "sql_files": [
+      {
+        "component": "fate-friend/elder-care-suite",
+        "remote_root": "/opt/eldercare100/sources/ec018",
+        "path": "sql-mysql/至孝智慧养老_drawdb导出的sql脚本.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "fate-friend/elder-care-suite",
+        "remote_root": "/opt/eldercare100/sources/ec018",
+        "path": "sql-mysql/care_home29.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "root",
+        "password": "usr",
+        "source": "README",
+        "component": "fate-friend/elder-care-suite"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec019",
+    "primary_full_name": "luoci1213/smart_elderly_care",
+    "assigned_port": 18019,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "elderly-care-system/elderly_care_backend/src/main/java/com/example/elderlycare/ElderlyCareApplication.java",
+      "module_dir": "elderly-care-system/elderly_care_backend",
+      "build_root": "elderly-care-system/elderly_care_backend",
+      "module_selector": ".",
+      "java_version_declared": "8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "luoci1213/smart_elderly_care",
+      "remote_root": "/opt/eldercare100/sources/ec019"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "elderly-care-system/elderly_care_admin",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "elderly-care-system/elderly_care_admin/dist",
+        "elderly-care-system/elderly_care_admin/build"
+      ],
+      "component": "luoci1213/smart_elderly_care",
+      "remote_root": "/opt/eldercare100/sources/ec019"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec019",
+    "sql_files": [
+      {
+        "component": "luoci1213/smart_elderly_care",
+        "remote_root": "/opt/eldercare100/sources/ec019",
+        "path": "elderly-care-system/elderly_care_backend/medication_plan_seed.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "luoci1213/smart_elderly_care",
+        "remote_root": "/opt/eldercare100/sources/ec019",
+        "path": "elderly-care-system/elderly_care_backend/drug_master_seed.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "luoci1213/smart_elderly_care",
+        "remote_root": "/opt/eldercare100/sources/ec019",
+        "path": "elderly-care-system/elderly_care_backend/create_tables_13.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "root",
+        "password": "123456",
+        "source": "README",
+        "component": "luoci1213/smart_elderly_care"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec020",
+    "primary_full_name": "Mratos/nursinghome-vue",
+    "assigned_port": 18020,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "backend/src/main/java/com/rain/NursingHomeApplication.java",
+      "module_dir": "backend",
+      "build_root": "backend",
+      "module_selector": ".",
+      "java_version_declared": "17",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "Mratos/nursinghome-vue",
+      "remote_root": "/opt/eldercare100/sources/ec020"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "frontend",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "frontend/dist",
+        "frontend/build"
+      ],
+      "component": "Mratos/nursinghome-vue",
+      "remote_root": "/opt/eldercare100/sources/ec020"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec020",
+    "sql_files": [
+      {
+        "component": "Mratos/nursinghome-vue",
+        "remote_root": "/opt/eldercare100/sources/ec020",
+        "path": "phase3_admission_init.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "Mratos/nursinghome-vue",
+        "remote_root": "/opt/eldercare100/sources/ec020",
+        "path": "phase1_billing_init.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "Mratos/nursinghome-vue",
+        "remote_root": "/opt/eldercare100/sources/ec020",
+        "path": "sql/sys_elder.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "Mratos/nursinghome-vue",
+        "remote_root": "/opt/eldercare100/sources/ec020",
+        "path": "sql/sys_charge_bill.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "Mratos/nursinghome-vue",
+        "remote_root": "/opt/eldercare100/sources/ec020",
+        "path": "sql/pension.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "Mratos/nursinghome-vue",
+        "remote_root": "/opt/eldercare100/sources/ec020",
+        "path": "phase2_message_link.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "Mratos/nursinghome-vue",
+        "remote_root": "/opt/eldercare100/sources/ec020",
+        "path": "fix_message_table.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "Mratos/nursinghome-vue",
+        "remote_root": "/opt/eldercare100/sources/ec020",
+        "path": "backend/sql/pension.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec021",
+    "primary_full_name": "bysj-code/Nursing-Home-Management-System",
+    "assigned_port": 18021,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "yanglaoyaunguanlixitong/src/main/java/com/yanglaoyaunguanlixitongApplication.java",
+      "module_dir": "yanglaoyaunguanlixitong",
+      "build_root": "yanglaoyaunguanlixitong",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "bysj-code/Nursing-Home-Management-System",
+      "remote_root": "/opt/eldercare100/sources/ec021"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "yanglaoyaunguanlixitong/src/main/resources/admin/admin",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "yanglaoyaunguanlixitong/src/main/resources/admin/admin/dist",
+        "yanglaoyaunguanlixitong/src/main/resources/admin/admin/build"
+      ],
+      "component": "bysj-code/Nursing-Home-Management-System",
+      "remote_root": "/opt/eldercare100/sources/ec021"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec021",
+    "sql_files": [
+      {
+        "component": "bysj-code/Nursing-Home-Management-System",
+        "remote_root": "/opt/eldercare100/sources/ec021",
+        "path": "db.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec022",
+    "primary_full_name": "daudafd/ElderlyCareSystem",
+    "assigned_port": 18022,
+    "inventory_strategy": "python-web",
+    "backend": {
+      "type": "python-django",
+      "dir": ".",
+      "entry": "manage.py",
+      "component": "daudafd/ElderlyCareSystem",
+      "remote_root": "/opt/eldercare100/sources/ec022"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec022",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.3,
+      "memory_limit_mib": 256,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec023",
+    "primary_full_name": "yijie8/digital-elderly-care-system",
+    "assigned_port": 18023,
+    "inventory_strategy": "python-plus-node",
+    "backend": {
+      "type": "python-auto",
+      "dir": "backend",
+      "entry": "auto-detect",
+      "component": "yijie8/digital-elderly-care-system",
+      "remote_root": "/opt/eldercare100/sources/ec023"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "frontend",
+      "framework": "vue",
+      "build_script": "build:custom",
+      "package_manager": "auto",
+      "output_candidates": [
+        "frontend/dist",
+        "frontend/build"
+      ],
+      "component": "yijie8/digital-elderly-care-system",
+      "remote_root": "/opt/eldercare100/sources/ec023"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec023",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.3,
+      "memory_limit_mib": 256,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec024",
+    "primary_full_name": "bysj-code/Community-Elderly-Care-Service-System",
+    "assigned_port": 18024,
+    "inventory_strategy": "spring-plus-node",
+    "backend": null,
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "ssmfr870/src/main/webapp/admin",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "ssmfr870/src/main/webapp/admin/dist",
+        "ssmfr870/src/main/webapp/admin/build"
+      ],
+      "component": "bysj-code/Community-Elderly-Care-Service-System",
+      "remote_root": "/opt/eldercare100/sources/ec024"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec024",
+    "sql_files": [
+      {
+        "component": "bysj-code/Community-Elderly-Care-Service-System",
+        "remote_root": "/opt/eldercare100/sources/ec024",
+        "path": "ssmfr870/src/main/resources/doc/sys_user.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "bysj-code/Community-Elderly-Care-Service-System",
+        "remote_root": "/opt/eldercare100/sources/ec024",
+        "path": "db.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "manual-analysis-required",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec025",
+    "primary_full_name": "zhanghongyu04/smart-nursing-house",
+    "assigned_port": 18025,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "nh-gateway/src/main/java/com/zhiling/gateway/NhGatewayApplication.java",
+      "module_dir": "nh-gateway",
+      "build_root": ".",
+      "module_selector": "nh-gateway",
+      "java_version_declared": "17",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "-pl",
+        "nh-gateway",
+        "-am",
+        "package"
+      ],
+      "component": "zhanghongyu04/smart-nursing-house",
+      "remote_root": "/opt/eldercare100/sources/ec025"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "nh-front",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "nh-front/dist",
+        "nh-front/build"
+      ],
+      "component": "zhanghongyu04/smart-nursing-house",
+      "remote_root": "/opt/eldercare100/sources/ec025"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec025",
+    "sql_files": [
+      {
+        "component": "zhanghongyu04/smart-nursing-house",
+        "remote_root": "/opt/eldercare100/sources/ec025",
+        "path": "sql/nursing-home.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "name",
+        "password": "word",
+        "source": "README",
+        "component": "zhanghongyu04/smart-nursing-house"
+      },
+      {
+        "username": "root",
+        "password": "opt",
+        "source": "README",
+        "component": "zhanghongyu04/smart-nursing-house"
+      },
+      {
+        "username": "administrator",
+        "password": "Global",
+        "source": "README",
+        "component": "zhanghongyu04/smart-nursing-house"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec026",
+    "primary_full_name": "ErenMikasa132/smart_elderly",
+    "assigned_port": 18026,
+    "inventory_strategy": "python-plus-node",
+    "backend": {
+      "type": "python-django",
+      "dir": "Django",
+      "entry": "manage.py",
+      "component": "ErenMikasa132/smart_elderly",
+      "remote_root": "/opt/eldercare100/sources/ec026"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "Vue131",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "Vue131/dist",
+        "Vue131/build"
+      ],
+      "component": "ErenMikasa132/smart_elderly",
+      "remote_root": "/opt/eldercare100/sources/ec026"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec026",
+    "sql_files": [
+      {
+        "component": "ErenMikasa132/smart_elderly",
+        "remote_root": "/opt/eldercare100/sources/ec026",
+        "path": "Django/db/001.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.3,
+      "memory_limit_mib": 256,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec027",
+    "primary_full_name": "ikun2004/-Smart-elderly-care",
+    "assigned_port": 18027,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "zzylai/src/main/java/cn/yangeit/ZZYLAIApplication.java",
+      "module_dir": "zzylai",
+      "build_root": "zzylai",
+      "module_selector": ".",
+      "java_version_declared": "19",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "ikun2004/-Smart-elderly-care",
+      "remote_root": "/opt/eldercare100/sources/ec027"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "zzylai/doc/backend/zzylai-frontend",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "zzylai/doc/backend/zzylai-frontend/dist",
+        "zzylai/doc/backend/zzylai-frontend/build"
+      ],
+      "component": "ikun2004/-Smart-elderly-care",
+      "remote_root": "/opt/eldercare100/sources/ec027"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec027",
+    "sql_files": [
+      {
+        "component": "ikun2004/-Smart-elderly-care",
+        "remote_root": "/opt/eldercare100/sources/ec027",
+        "path": "zzylai/doc/zzylai.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "ikun2004/-Smart-elderly-care",
+        "remote_root": "/opt/eldercare100/sources/ec027",
+        "path": "zzylai/doc/new.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "ikun2004/-Smart-elderly-care",
+        "remote_root": "/opt/eldercare100/sources/ec027",
+        "path": "zzylai/doc/device.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "password",
+        "password": "word",
+        "source": "README",
+        "component": "ikun2004/-Smart-elderly-care"
+      },
+      {
+        "username": "admin",
+        "password": "elder",
+        "source": "README",
+        "component": "ikun2004/-Smart-elderly-care"
+      },
+      {
+        "username": "admin",
+        "password": "user",
+        "source": "README",
+        "component": "ikun2004/-Smart-elderly-care"
+      },
+      {
+        "username": "admin",
+        "password": "roomTypes",
+        "source": "README",
+        "component": "ikun2004/-Smart-elderly-care"
+      },
+      {
+        "username": "admin",
+        "password": "project",
+        "source": "README",
+        "component": "ikun2004/-Smart-elderly-care"
+      },
+      {
+        "username": "admin",
+        "password": "reservation",
+        "source": "README",
+        "component": "ikun2004/-Smart-elderly-care"
+      },
+      {
+        "username": "admin",
+        "password": "orders",
+        "source": "README",
+        "component": "ikun2004/-Smart-elderly-care"
+      },
+      {
+        "username": "admin",
+        "password": "device",
+        "source": "README",
+        "component": "ikun2004/-Smart-elderly-care"
+      },
+      {
+        "username": "admin",
+        "password": "devicedata",
+        "source": "README",
+        "component": "ikun2004/-Smart-elderly-care"
+      },
+      {
+        "username": "admin",
+        "password": "healthAssessment",
+        "source": "README",
+        "component": "ikun2004/-Smart-elderly-care"
+      },
+      {
+        "username": "admin",
+        "password": "upload",
+        "source": "README",
+        "component": "ikun2004/-Smart-elderly-care"
+      },
+      {
+        "username": "admin",
+        "password": "home",
+        "source": "README",
+        "component": "ikun2004/-Smart-elderly-care"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec028",
+    "primary_full_name": "bysj-code/Nursing-home-system",
+    "assigned_port": 18028,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "yanglaoyuangxitong/src/main/java/com/yanglaoyuangxitongApplication.java",
+      "module_dir": "yanglaoyuangxitong",
+      "build_root": "yanglaoyuangxitong",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "bysj-code/Nursing-home-system",
+      "remote_root": "/opt/eldercare100/sources/ec028"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "yanglaoyuangxitong/src/main/resources/admin/admin",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "yanglaoyuangxitong/src/main/resources/admin/admin/dist",
+        "yanglaoyuangxitong/src/main/resources/admin/admin/build"
+      ],
+      "component": "bysj-code/Nursing-home-system",
+      "remote_root": "/opt/eldercare100/sources/ec028"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec028",
+    "sql_files": [
+      {
+        "component": "bysj-code/Nursing-home-system",
+        "remote_root": "/opt/eldercare100/sources/ec028",
+        "path": "db.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec029",
+    "primary_full_name": "lzwazb/yanglao",
+    "assigned_port": 18029,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "activity-server/src/main/java/com/activityserver/ActivityApplication.java",
+      "module_dir": "activity-server",
+      "build_root": ".",
+      "module_selector": "activity-server",
+      "java_version_declared": "17",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "-pl",
+        "activity-server",
+        "-am",
+        "package"
+      ],
+      "component": "lzwazb/yanglao",
+      "remote_root": "/opt/eldercare100/sources/ec029"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "yanglao-project",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "yanglao-project/dist",
+        "yanglao-project/build"
+      ],
+      "component": "lzwazb/yanglao",
+      "remote_root": "/opt/eldercare100/sources/ec029"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec029",
+    "sql_files": [
+      {
+        "component": "lzwazb/yanglao",
+        "remote_root": "/opt/eldercare100/sources/ec029",
+        "path": "sql/yanglao.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec030",
+    "primary_full_name": "255856/elderly_care_system",
+    "assigned_port": 18030,
+    "inventory_strategy": "python-web",
+    "backend": {
+      "type": "python-auto",
+      "dir": ".",
+      "entry": "auto-detect",
+      "component": "255856/elderly_care_system",
+      "remote_root": "/opt/eldercare100/sources/ec030"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec030",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.3,
+      "memory_limit_mib": 256,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "admin",
+        "password": "staff",
+        "source": "README",
+        "component": "255856/elderly_care_system"
+      },
+      {
+        "username": "admin",
+        "password": "admin123",
+        "source": "README",
+        "component": "255856/elderly_care_system"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec031",
+    "primary_full_name": "liubaijiangde-bot/26-wkyl-elderly-care",
+    "assigned_port": 18031,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "backend/wkyl-cp423/wkyl-admin/src/main/java/com/wkyl/RuoYiApplication.java",
+      "module_dir": "backend/wkyl-cp423/wkyl-admin",
+      "build_root": "backend/wkyl-cp423",
+      "module_selector": "wkyl-admin",
+      "java_version_declared": "11",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "-pl",
+        "wkyl-admin",
+        "-am",
+        "package"
+      ],
+      "component": "liubaijiangde-bot/26-wkyl-elderly-care",
+      "remote_root": "/opt/eldercare100/sources/ec031"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "backend/wkyl-cp423/wkyl-ui",
+      "framework": "vue",
+      "build_script": "build:prod",
+      "package_manager": "auto",
+      "output_candidates": [
+        "backend/wkyl-cp423/wkyl-ui/dist",
+        "backend/wkyl-cp423/wkyl-ui/build"
+      ],
+      "component": "liubaijiangde-bot/26-wkyl-elderly-care",
+      "remote_root": "/opt/eldercare100/sources/ec031"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec031",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "admin",
+        "password": "src",
+        "source": "README",
+        "component": "liubaijiangde-bot/26-wkyl-elderly-care"
+      },
+      {
+        "username": "admin",
+        "password": "admin123",
+        "source": "README",
+        "component": "liubaijiangde-bot/26-wkyl-elderly-care"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec032",
+    "primary_full_name": "geeeeeeeek/python_yanglao",
+    "assigned_port": 18032,
+    "inventory_strategy": "python-plus-node",
+    "backend": {
+      "type": "python-django",
+      "dir": "server",
+      "entry": "manage.py",
+      "component": "geeeeeeeek/python_yanglao",
+      "remote_root": "/opt/eldercare100/sources/ec032"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "web",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "web/dist",
+        "web/build"
+      ],
+      "component": "geeeeeeeek/python_yanglao",
+      "remote_root": "/opt/eldercare100/sources/ec032"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec032",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.3,
+      "memory_limit_mib": 256,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "name",
+        "password": "word",
+        "source": "README",
+        "component": "geeeeeeeek/python_yanglao"
+      },
+      {
+        "username": "admin",
+        "password": "thing",
+        "source": "README",
+        "component": "geeeeeeeek/python_yanglao"
+      },
+      {
+        "username": "admin",
+        "password": "notice",
+        "source": "README",
+        "component": "geeeeeeeek/python_yanglao"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec033",
+    "primary_full_name": "keli-dog/Nursing-Home-Management-System-Finally",
+    "assigned_port": 18033,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "项目源码/server/src/main/java/com/ew/gerocomium/GerocomiumApplication.java",
+      "module_dir": "项目源码/server",
+      "build_root": "项目源码/server",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "keli-dog/Nursing-Home-Management-System-Finally",
+      "remote_root": "/opt/eldercare100/sources/ec033"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "项目源码/client",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "项目源码/client/dist",
+        "项目源码/client/build"
+      ],
+      "component": "keli-dog/Nursing-Home-Management-System-Finally",
+      "remote_root": "/opt/eldercare100/sources/ec033"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec033",
+    "sql_files": [
+      {
+        "component": "keli-dog/Nursing-Home-Management-System-Finally",
+        "remote_root": "/opt/eldercare100/sources/ec033",
+        "path": "数据库脚本/db_gerocomium.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec034",
+    "primary_full_name": "gaosc2001/elderly-medical-care-system",
+    "assigned_port": 18034,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "backend/src/main/java/com/example/eldercare/ElderCareApplication.java",
+      "module_dir": "backend",
+      "build_root": "backend",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "gaosc2001/elderly-medical-care-system",
+      "remote_root": "/opt/eldercare100/sources/ec034"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "frontend",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "frontend/dist",
+        "frontend/build"
+      ],
+      "component": "gaosc2001/elderly-medical-care-system",
+      "remote_root": "/opt/eldercare100/sources/ec034"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec034",
+    "sql_files": [
+      {
+        "component": "gaosc2001/elderly-medical-care-system",
+        "remote_root": "/opt/eldercare100/sources/ec034",
+        "path": "sql/init.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "admin",
+        "password": "admin123",
+        "source": "README",
+        "component": "gaosc2001/elderly-medical-care-system"
+      },
+      {
+        "username": "admin",
+        "password": "dashboard",
+        "source": "README",
+        "component": "gaosc2001/elderly-medical-care-system"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec035",
+    "primary_full_name": "zongjixiaoai66/CommunityElderlyCareServiceSystem",
+    "assigned_port": 18035,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "back/src/main/java/com/SpringbootSchemaApplication.java",
+      "module_dir": "back",
+      "build_root": "back",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "zongjixiaoai66/CommunityElderlyCareServiceSystem",
+      "remote_root": "/opt/eldercare100/sources/ec035"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "front",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "front/dist",
+        "front/build"
+      ],
+      "component": "zongjixiaoai66/CommunityElderlyCareServiceSystem",
+      "remote_root": "/opt/eldercare100/sources/ec035"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec035",
+    "sql_files": [
+      {
+        "component": "zongjixiaoai66/CommunityElderlyCareServiceSystem",
+        "remote_root": "/opt/eldercare100/sources/ec035",
+        "path": "T253.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec036",
+    "primary_full_name": "XiaoHu22213/Neusoft-Elderly-Care-Center",
+    "assigned_port": 18036,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "carecenterJava/6.13/6.13/src/main/java/com/neuedu/App.java",
+      "module_dir": "carecenterJava/6.13/6.13",
+      "build_root": "carecenterJava/6.13/6.13",
+      "module_selector": ".",
+      "java_version_declared": "8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "XiaoHu22213/Neusoft-Elderly-Care-Center",
+      "remote_root": "/opt/eldercare100/sources/ec036"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "yandavue3",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "yandavue3/dist",
+        "yandavue3/build"
+      ],
+      "component": "XiaoHu22213/Neusoft-Elderly-Care-Center",
+      "remote_root": "/opt/eldercare100/sources/ec036"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec036",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec037",
+    "primary_full_name": "small-bears/beadhouse",
+    "assigned_port": 18037,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/com/shanzhu/tourism/BackendApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "small-bears/beadhouse",
+      "remote_root": "/opt/eldercare100/sources/ec037"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "vue/tourism-admin-frontend",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "vue/tourism-admin-frontend/dist",
+        "vue/tourism-admin-frontend/build"
+      ],
+      "component": "small-bears/beadhouse",
+      "remote_root": "/opt/eldercare100/sources/ec037"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec037",
+    "sql_files": [
+      {
+        "component": "small-bears/beadhouse",
+        "remote_root": "/opt/eldercare100/sources/ec037",
+        "path": "doc/db_tourism.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "small-bears/beadhouse",
+        "remote_root": "/opt/eldercare100/sources/ec037",
+        "path": "db_tourism.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec038",
+    "primary_full_name": "F-xd/ElderGuardian",
+    "assigned_port": 18038,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "ElderGuardianCore/src/main/java/com/example/elderguardiancore/ElderGuardianCoreApplication.java",
+      "module_dir": "ElderGuardianCore",
+      "build_root": "ElderGuardianCore",
+      "module_selector": ".",
+      "java_version_declared": "21",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "F-xd/ElderGuardian",
+      "remote_root": "/opt/eldercare100/sources/ec038"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "ElderGuardianConsole",
+      "framework": "react",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "ElderGuardianConsole/dist",
+        "ElderGuardianConsole/build"
+      ],
+      "component": "F-xd/ElderGuardian",
+      "remote_root": "/opt/eldercare100/sources/ec038"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec038",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec039",
+    "primary_full_name": "YuLin-Coder/No791yanglaoyuanlaorenjiangkang",
+    "assigned_port": 18039,
+    "inventory_strategy": "spring-plus-node",
+    "backend": null,
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "src/main/webapp/admin",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "src/main/webapp/admin/dist",
+        "src/main/webapp/admin/build"
+      ],
+      "component": "YuLin-Coder/No791yanglaoyuanlaorenjiangkang",
+      "remote_root": "/opt/eldercare100/sources/ec039"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec039",
+    "sql_files": [
+      {
+        "component": "YuLin-Coder/No791yanglaoyuanlaorenjiangkang",
+        "remote_root": "/opt/eldercare100/sources/ec039",
+        "path": "src/main/resources/doc/sys_user.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "manual-analysis-required",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec040",
+    "primary_full_name": "tuowei_1/zzyl",
+    "assigned_port": 18040,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "zzyl-admin/src/main/java/com/zzyl/RuoYiApplication.java",
+      "module_dir": "zzyl-admin",
+      "build_root": ".",
+      "module_selector": "zzyl-admin",
+      "java_version_declared": "11",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "-pl",
+        "zzyl-admin",
+        "-am",
+        "package"
+      ],
+      "component": "tuowei_1/zzyl",
+      "remote_root": "/opt/eldercare100/sources/ec040"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec040",
+    "sql_files": [
+      {
+        "component": "tuowei_1/zzyl",
+        "remote_root": "/opt/eldercare100/sources/ec040",
+        "path": "sql/ry_20250417.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "tuowei_1/zzyl",
+        "remote_root": "/opt/eldercare100/sources/ec040",
+        "path": "sql/quartz.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "admin",
+        "password": "admin123",
+        "source": "README",
+        "component": "tuowei_1/zzyl"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec041",
+    "primary_full_name": "hefuhai001/community-elder-system",
+    "assigned_port": 18041,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "elder-api/src/main/java/com/example/elderapi/ElderApiApplication.java",
+      "module_dir": "elder-api",
+      "build_root": "elder-api",
+      "module_selector": ".",
+      "java_version_declared": "17",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "hefuhai001/community-elder-system",
+      "remote_root": "/opt/eldercare100/sources/ec041"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "elder-back",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "elder-back/dist",
+        "elder-back/build"
+      ],
+      "component": "hefuhai001/community-elder-system",
+      "remote_root": "/opt/eldercare100/sources/ec041"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec041",
+    "sql_files": [
+      {
+        "component": "hefuhai001/community-elder-system",
+        "remote_root": "/opt/eldercare100/sources/ec041",
+        "path": "mysql/db_elder.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "hefuhai001/community-elder-system",
+        "remote_root": "/opt/eldercare100/sources/ec041",
+        "path": "mysql/db_.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec042",
+    "primary_full_name": "PrescottClub/Nursing-home-management-system",
+    "assigned_port": 18042,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "backend/src/main/java/com/ew/gerocomium/GerocomiumApplication.java",
+      "module_dir": "backend",
+      "build_root": "backend",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "PrescottClub/Nursing-home-management-system",
+      "remote_root": "/opt/eldercare100/sources/ec042"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "frontend",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "frontend/dist",
+        "frontend/build"
+      ],
+      "component": "PrescottClub/Nursing-home-management-system",
+      "remote_root": "/opt/eldercare100/sources/ec042"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec042",
+    "sql_files": [
+      {
+        "component": "PrescottClub/Nursing-home-management-system",
+        "remote_root": "/opt/eldercare100/sources/ec042",
+        "path": "database/db_gerocomium.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "admin",
+        "password": "123456",
+        "source": "README",
+        "component": "PrescottClub/Nursing-home-management-system"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec043",
+    "primary_full_name": "zhaoruiqing123/flask_elderly_care",
+    "assigned_port": 18043,
+    "inventory_strategy": "python-plus-node",
+    "backend": {
+      "type": "python-auto",
+      "dir": "backend",
+      "entry": "auto-detect",
+      "component": "zhaoruiqing123/flask_elderly_care",
+      "remote_root": "/opt/eldercare100/sources/ec043"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "frontend",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "frontend/dist",
+        "frontend/build"
+      ],
+      "component": "zhaoruiqing123/flask_elderly_care",
+      "remote_root": "/opt/eldercare100/sources/ec043"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec043",
+    "sql_files": [
+      {
+        "component": "zhaoruiqing123/flask_elderly_care",
+        "remote_root": "/opt/eldercare100/sources/ec043",
+        "path": "elderly_care.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.3,
+      "memory_limit_mib": 256,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "admin",
+        "password": "123456",
+        "source": "README",
+        "component": "zhaoruiqing123/flask_elderly_care"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec044",
+    "primary_full_name": "Llabe/ssm-jsp-002_elderly-health-monitoring",
+    "assigned_port": 18044,
+    "inventory_strategy": "spring-plus-node",
+    "backend": null,
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "yanglaoyuanlaorenjiangkang/src/main/webapp/admin",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "yanglaoyuanlaorenjiangkang/src/main/webapp/admin/dist",
+        "yanglaoyuanlaorenjiangkang/src/main/webapp/admin/build"
+      ],
+      "component": "Llabe/ssm-jsp-002_elderly-health-monitoring",
+      "remote_root": "/opt/eldercare100/sources/ec044"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec044",
+    "sql_files": [
+      {
+        "component": "Llabe/ssm-jsp-002_elderly-health-monitoring",
+        "remote_root": "/opt/eldercare100/sources/ec044",
+        "path": "yanglaoyuanlaorenjiangkang/src/main/resources/doc/sys_user.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "admin",
+        "password": "dist",
+        "source": "README",
+        "component": "Llabe/ssm-jsp-002_elderly-health-monitoring"
+      },
+      {
+        "username": "admin",
+        "password": "admin",
+        "source": "README",
+        "component": "Llabe/ssm-jsp-002_elderly-health-monitoring"
+      }
+    ],
+    "plan_status": "manual-analysis-required",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec045",
+    "primary_full_name": "austinbf/elderlyCarePlatform",
+    "assigned_port": 18045,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/com/SpringbootSchemaApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "austinbf/elderlyCarePlatform",
+      "remote_root": "/opt/eldercare100/sources/ec045"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "src/main/resources/admin/admin",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "src/main/resources/admin/admin/dist",
+        "src/main/resources/admin/admin/build"
+      ],
+      "component": "austinbf/elderlyCarePlatform",
+      "remote_root": "/opt/eldercare100/sources/ec045"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec045",
+    "sql_files": [
+      {
+        "component": "austinbf/elderlyCarePlatform",
+        "remote_root": "/opt/eldercare100/sources/ec045",
+        "path": "db/use.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "austinbf/elderlyCarePlatform",
+        "remote_root": "/opt/eldercare100/sources/ec045",
+        "path": "db/springbootvoa46e9f.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec046",
+    "primary_full_name": "YwusDayDayup/Elderly_Health_Planform",
+    "assigned_port": 18046,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "backend/src/main/java/com/example/Application.java",
+      "module_dir": "backend",
+      "build_root": "backend",
+      "module_selector": ".",
+      "java_version_declared": "21",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "YwusDayDayup/Elderly_Health_Planform",
+      "remote_root": "/opt/eldercare100/sources/ec046"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "frontend",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "frontend/dist",
+        "frontend/build"
+      ],
+      "component": "YwusDayDayup/Elderly_Health_Planform",
+      "remote_root": "/opt/eldercare100/sources/ec046"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec046",
+    "sql_files": [
+      {
+        "component": "YwusDayDayup/Elderly_Health_Planform",
+        "remote_root": "/opt/eldercare100/sources/ec046",
+        "path": "backend/src/main/resources/db/migration/V1__init.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "YwusDayDayup/Elderly_Health_Planform",
+        "remote_root": "/opt/eldercare100/sources/ec046",
+        "path": "backend/src/main/resources/db/migration/V3__community_post.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "YwusDayDayup/Elderly_Health_Planform",
+        "remote_root": "/opt/eldercare100/sources/ec046",
+        "path": "backend/src/main/resources/db/migration/V2__care_domain.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "root",
+        "password": "你的密码",
+        "source": "README",
+        "component": "YwusDayDayup/Elderly_Health_Planform"
+      },
+      {
+        "username": "ADMIN",
+        "password": "ELDER",
+        "source": "README",
+        "component": "YwusDayDayup/Elderly_Health_Planform"
+      },
+      {
+        "username": "admin",
+        "password": "user",
+        "source": "README",
+        "component": "YwusDayDayup/Elderly_Health_Planform"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec047",
+    "primary_full_name": "YYYanZZZ/Elderly-Care-Center-Management-System",
+    "assigned_port": 18047,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "back/demo2/Gateway/src/main/java/com/neuedu/gateway/GatewayMainApplication.java",
+      "module_dir": "back/demo2/Gateway",
+      "build_root": "back/demo2",
+      "module_selector": "Gateway",
+      "java_version_declared": "17",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "-pl",
+        "Gateway",
+        "-am",
+        "package"
+      ],
+      "component": "YYYanZZZ/Elderly-Care-Center-Management-System",
+      "remote_root": "/opt/eldercare100/sources/ec047"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "front",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "front/dist",
+        "front/build"
+      ],
+      "component": "YYYanZZZ/Elderly-Care-Center-Management-System",
+      "remote_root": "/opt/eldercare100/sources/ec047"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec047",
+    "sql_files": [
+      {
+        "component": "YYYanZZZ/Elderly-Care-Center-Management-System",
+        "remote_root": "/opt/eldercare100/sources/ec047",
+        "path": "back/SQL/abs.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "YYYanZZZ/Elderly-Care-Center-Management-System",
+        "remote_root": "/opt/eldercare100/sources/ec047",
+        "path": "back/SQL/abs-3.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "YYYanZZZ/Elderly-Care-Center-Management-System",
+        "remote_root": "/opt/eldercare100/sources/ec047",
+        "path": "back/SQL/abs-2.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec048",
+    "primary_full_name": "suibian1023/Nursing-Home-Management-System",
+    "assigned_port": 18048,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "server/src/main/java/com/neuedu/yyzx/YyzxApplication.java",
+      "module_dir": "server",
+      "build_root": "server",
+      "module_selector": ".",
+      "java_version_declared": "17",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "suibian1023/Nursing-Home-Management-System",
+      "remote_root": "/opt/eldercare100/sources/ec048"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "web",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "web/dist",
+        "web/build"
+      ],
+      "component": "suibian1023/Nursing-Home-Management-System",
+      "remote_root": "/opt/eldercare100/sources/ec048"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec048",
+    "sql_files": [
+      {
+        "component": "suibian1023/Nursing-Home-Management-System",
+        "remote_root": "/opt/eldercare100/sources/ec048",
+        "path": "server/src/main/resources/schema.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "suibian1023/Nursing-Home-Management-System",
+        "remote_root": "/opt/eldercare100/sources/ec048",
+        "path": "server/src/main/resources/yyzx.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "suibian1023/Nursing-Home-Management-System",
+        "remote_root": "/opt/eldercare100/sources/ec048",
+        "path": "server/src/main/resources/update_food_image_url.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "suibian1023/Nursing-Home-Management-System",
+        "remote_root": "/opt/eldercare100/sources/ec048",
+        "path": "server/src/main/resources/customer_data.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "suibian1023/Nursing-Home-Management-System",
+        "remote_root": "/opt/eldercare100/sources/ec048",
+        "path": "server/src/main/resources/migration_add_staff_name.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "name",
+        "password": "word",
+        "source": "README",
+        "component": "suibian1023/Nursing-Home-Management-System"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec049",
+    "primary_full_name": "JavaGraduationProject/CommunityElderlyCareComprehensiveServicePlatform",
+    "assigned_port": 18049,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/cn/stylefeng/guns/GunsApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "JavaGraduationProject/CommunityElderlyCareComprehensiveServicePlatform",
+      "remote_root": "/opt/eldercare100/sources/ec049"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec049",
+    "sql_files": [
+      {
+        "component": "JavaGraduationProject/CommunityElderlyCareComprehensiveServicePlatform",
+        "remote_root": "/opt/eldercare100/sources/ec049",
+        "path": "src/test/sql/test.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "admin",
+        "password": "111111",
+        "source": "README",
+        "component": "JavaGraduationProject/CommunityElderlyCareComprehensiveServicePlatform"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec050",
+    "primary_full_name": "zongjixiaoai66/NursingHomeManagementSystem2",
+    "assigned_port": 18050,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "back/src/main/java/com/SpringbootSchemaApplication.java",
+      "module_dir": "back",
+      "build_root": "back",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "zongjixiaoai66/NursingHomeManagementSystem2",
+      "remote_root": "/opt/eldercare100/sources/ec050"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "front",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "front/dist",
+        "front/build"
+      ],
+      "component": "zongjixiaoai66/NursingHomeManagementSystem2",
+      "remote_root": "/opt/eldercare100/sources/ec050"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec050",
+    "sql_files": [
+      {
+        "component": "zongjixiaoai66/NursingHomeManagementSystem2",
+        "remote_root": "/opt/eldercare100/sources/ec050",
+        "path": "T334.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec051",
+    "primary_full_name": "sun-anzhi/smart-elderly-care-system",
+    "assigned_port": 18051,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "server_code/src/main/java/com/cl/SpringbootSchemaApplication.java",
+      "module_dir": "server_code",
+      "build_root": "server_code",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "sun-anzhi/smart-elderly-care-system",
+      "remote_root": "/opt/eldercare100/sources/ec051"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "manage_code",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "manage_code/dist",
+        "manage_code/build"
+      ],
+      "component": "sun-anzhi/smart-elderly-care-system",
+      "remote_root": "/opt/eldercare100/sources/ec051"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec051",
+    "sql_files": [
+      {
+        "component": "sun-anzhi/smart-elderly-care-system",
+        "remote_root": "/opt/eldercare100/sources/ec051",
+        "path": "server_code/sql/cl31218852.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec052",
+    "primary_full_name": "javacode443/Nursing-Home-Management-System",
+    "assigned_port": 18052,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "server_code/src/main/java/com/cl/SpringbootSchemaApplication.java",
+      "module_dir": "server_code",
+      "build_root": "server_code",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "javacode443/Nursing-Home-Management-System",
+      "remote_root": "/opt/eldercare100/sources/ec052"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "manage_code",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "manage_code/dist",
+        "manage_code/build"
+      ],
+      "component": "javacode443/Nursing-Home-Management-System",
+      "remote_root": "/opt/eldercare100/sources/ec052"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec052",
+    "sql_files": [
+      {
+        "component": "javacode443/Nursing-Home-Management-System",
+        "remote_root": "/opt/eldercare100/sources/ec052",
+        "path": "server_code/sql/cl3183959.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec053",
+    "primary_full_name": "jasonlin233-cell/No002NursingHomeManagement",
+    "assigned_port": 18053,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/com/yanglaoyuanguanliApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "jasonlin233-cell/No002NursingHomeManagement",
+      "remote_root": "/opt/eldercare100/sources/ec053"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "classes/artifacts/yanglaoyuanguanli_war_exploded/WEB-INF/classes/admin/admin",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "classes/artifacts/yanglaoyuanguanli_war_exploded/WEB-INF/classes/admin/admin/dist",
+        "classes/artifacts/yanglaoyuanguanli_war_exploded/WEB-INF/classes/admin/admin/build"
+      ],
+      "component": "jasonlin233-cell/No002NursingHomeManagement",
+      "remote_root": "/opt/eldercare100/sources/ec053"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec053",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec054",
+    "primary_full_name": "Longjiaxi/ElderCareSystem",
+    "assigned_port": 18054,
+    "inventory_strategy": "python-web",
+    "backend": {
+      "type": "python-auto",
+      "dir": ".",
+      "entry": "auto-detect",
+      "component": "Longjiaxi/ElderCareSystem",
+      "remote_root": "/opt/eldercare100/sources/ec054"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec054",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.3,
+      "memory_limit_mib": 256,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec055",
+    "primary_full_name": "zongjixiaoai66/NursingHomeManagementSystem",
+    "assigned_port": 18055,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "back/src/main/java/com/yanglaoyuanguanliApplication.java",
+      "module_dir": "back",
+      "build_root": "back",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "zongjixiaoai66/NursingHomeManagementSystem",
+      "remote_root": "/opt/eldercare100/sources/ec055"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "front",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "front/dist",
+        "front/build"
+      ],
+      "component": "zongjixiaoai66/NursingHomeManagementSystem",
+      "remote_root": "/opt/eldercare100/sources/ec055"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec055",
+    "sql_files": [
+      {
+        "component": "zongjixiaoai66/NursingHomeManagementSystem",
+        "remote_root": "/opt/eldercare100/sources/ec055",
+        "path": "T323.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec056",
+    "primary_full_name": "zongjixiaoai66/ElderlyCareMonitoringPlatform",
+    "assigned_port": 18056,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "back/src/main/java/com/shehuizhihuiyanglaojianhuApplication.java",
+      "module_dir": "back",
+      "build_root": "back",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "zongjixiaoai66/ElderlyCareMonitoringPlatform",
+      "remote_root": "/opt/eldercare100/sources/ec056"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "front",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "front/dist",
+        "front/build"
+      ],
+      "component": "zongjixiaoai66/ElderlyCareMonitoringPlatform",
+      "remote_root": "/opt/eldercare100/sources/ec056"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec056",
+    "sql_files": [
+      {
+        "component": "zongjixiaoai66/ElderlyCareMonitoringPlatform",
+        "remote_root": "/opt/eldercare100/sources/ec056",
+        "path": "T163.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec057",
+    "primary_full_name": "zongjixiaoai66/CommunityElderlyCareServicePlatform",
+    "assigned_port": 18057,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "back/src/main/java/com/sheuquyanglaofuwuApplication.java",
+      "module_dir": "back",
+      "build_root": "back",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "zongjixiaoai66/CommunityElderlyCareServicePlatform",
+      "remote_root": "/opt/eldercare100/sources/ec057"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "front",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "front/dist",
+        "front/build"
+      ],
+      "component": "zongjixiaoai66/CommunityElderlyCareServicePlatform",
+      "remote_root": "/opt/eldercare100/sources/ec057"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec057",
+    "sql_files": [
+      {
+        "component": "zongjixiaoai66/CommunityElderlyCareServicePlatform",
+        "remote_root": "/opt/eldercare100/sources/ec057",
+        "path": "T190.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec058",
+    "primary_full_name": "Jilaoda/nursing-home",
+    "assigned_port": 18058,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "springboot/src/main/java/com/SpringbootSchemaApplication.java",
+      "module_dir": "springboot",
+      "build_root": "springboot",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "Jilaoda/nursing-home",
+      "remote_root": "/opt/eldercare100/sources/ec058"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "vue/admin",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "vue/admin/dist",
+        "vue/admin/build"
+      ],
+      "component": "Jilaoda/nursing-home",
+      "remote_root": "/opt/eldercare100/sources/ec058"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec058",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "admin",
+        "password": "123456",
+        "source": "README",
+        "component": "Jilaoda/nursing-home"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec059",
+    "primary_full_name": "wwqking/Community-Elderly-Care-Service-Platform",
+    "assigned_port": 18059,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/com/sheuquyanglaofuwuApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "wwqking/Community-Elderly-Care-Service-Platform",
+      "remote_root": "/opt/eldercare100/sources/ec059"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "src/main/resources/admin/admin",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "src/main/resources/admin/admin/dist",
+        "src/main/resources/admin/admin/build"
+      ],
+      "component": "wwqking/Community-Elderly-Care-Service-Platform",
+      "remote_root": "/opt/eldercare100/sources/ec059"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec059",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "admin",
+        "password": "admin",
+        "source": "README",
+        "component": "wwqking/Community-Elderly-Care-Service-Platform"
+      },
+      {
+        "username": "a1",
+        "password": "123456",
+        "source": "README",
+        "component": "wwqking/Community-Elderly-Care-Service-Platform"
+      },
+      {
+        "username": "admin",
+        "password": "dist",
+        "source": "README",
+        "component": "wwqking/Community-Elderly-Care-Service-Platform"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec060",
+    "primary_full_name": "wwqking/Smart-elderly-care-monitoring-management",
+    "assigned_port": 18060,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/com/shehuizhihuiyanglaojianhuApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "wwqking/Smart-elderly-care-monitoring-management",
+      "remote_root": "/opt/eldercare100/sources/ec060"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "src/main/resources/admin/admin",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "src/main/resources/admin/admin/dist",
+        "src/main/resources/admin/admin/build"
+      ],
+      "component": "wwqking/Smart-elderly-care-monitoring-management",
+      "remote_root": "/opt/eldercare100/sources/ec060"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec060",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "admin",
+        "password": "admin",
+        "source": "README",
+        "component": "wwqking/Smart-elderly-care-monitoring-management"
+      },
+      {
+        "username": "admin",
+        "password": "dist",
+        "source": "README",
+        "component": "wwqking/Smart-elderly-care-monitoring-management"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec061",
+    "primary_full_name": "chen-xiaoyang1/smart_pension",
+    "assigned_port": 18061,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "smarthomecare后端/src/main/java/com/example/smarthomecare/SmarthomecareApplication.java",
+      "module_dir": "smarthomecare后端",
+      "build_root": "smarthomecare后端",
+      "module_selector": ".",
+      "java_version_declared": "17",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "chen-xiaoyang1/smart_pension",
+      "remote_root": "/opt/eldercare100/sources/ec061"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "前端",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "前端/dist",
+        "前端/build"
+      ],
+      "component": "chen-xiaoyang1/smart_pension",
+      "remote_root": "/opt/eldercare100/sources/ec061"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec061",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec062",
+    "primary_full_name": "small-bears/beadhouses",
+    "assigned_port": 18062,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/com/shanzhu/tourism/BackendApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "small-bears/beadhouses",
+      "remote_root": "/opt/eldercare100/sources/ec062"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "vue/tourism-admin-frontend",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "vue/tourism-admin-frontend/dist",
+        "vue/tourism-admin-frontend/build"
+      ],
+      "component": "small-bears/beadhouses",
+      "remote_root": "/opt/eldercare100/sources/ec062"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec062",
+    "sql_files": [
+      {
+        "component": "small-bears/beadhouses",
+        "remote_root": "/opt/eldercare100/sources/ec062",
+        "path": "doc/db_tourism.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "small-bears/beadhouses",
+        "remote_root": "/opt/eldercare100/sources/ec062",
+        "path": "db_tourism.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec063",
+    "primary_full_name": "javacode443/Community-Smart-Healthcare-and-Elderly-Care-System",
+    "assigned_port": 18063,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "server_code/src/main/java/com/cl/SpringbootSchemaApplication.java",
+      "module_dir": "server_code",
+      "build_root": "server_code",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "javacode443/Community-Smart-Healthcare-and-Elderly-Care-System",
+      "remote_root": "/opt/eldercare100/sources/ec063"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "manage_code",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "manage_code/dist",
+        "manage_code/build"
+      ],
+      "component": "javacode443/Community-Smart-Healthcare-and-Elderly-Care-System",
+      "remote_root": "/opt/eldercare100/sources/ec063"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec063",
+    "sql_files": [
+      {
+        "component": "javacode443/Community-Smart-Healthcare-and-Elderly-Care-System",
+        "remote_root": "/opt/eldercare100/sources/ec063",
+        "path": "server_code/sql/cl88544221.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec064",
+    "primary_full_name": "small-bears/yanglaoyuan",
+    "assigned_port": 18064,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/com/shanzhu/tourism/BackendApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "small-bears/yanglaoyuan",
+      "remote_root": "/opt/eldercare100/sources/ec064"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "vue/tourism-admin-frontend",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "vue/tourism-admin-frontend/dist",
+        "vue/tourism-admin-frontend/build"
+      ],
+      "component": "small-bears/yanglaoyuan",
+      "remote_root": "/opt/eldercare100/sources/ec064"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec064",
+    "sql_files": [
+      {
+        "component": "small-bears/yanglaoyuan",
+        "remote_root": "/opt/eldercare100/sources/ec064",
+        "path": "doc/db_tourism.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "small-bears/yanglaoyuan",
+        "remote_root": "/opt/eldercare100/sources/ec064",
+        "path": "db_tourism.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec065",
+    "primary_full_name": "baizhi958216/Nursing-Home-Management-System",
+    "assigned_port": 18065,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "server/src/main/java/com/ew/gerocomium/GerocomiumApplication.java",
+      "module_dir": "server",
+      "build_root": "server",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "baizhi958216/Nursing-Home-Management-System",
+      "remote_root": "/opt/eldercare100/sources/ec065"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": ".",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "dist",
+        "build"
+      ],
+      "component": "baizhi958216/Nursing-Home-Management-System",
+      "remote_root": "/opt/eldercare100/sources/ec065"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec065",
+    "sql_files": [
+      {
+        "component": "baizhi958216/Nursing-Home-Management-System",
+        "remote_root": "/opt/eldercare100/sources/ec065",
+        "path": "server/db_gerocomium.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec066",
+    "primary_full_name": "super611/yanglao-system",
+    "assigned_port": 18066,
+    "inventory_strategy": "native-compose",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "order-management/src/main/java/com/yanglao/orders/OrderApplication.java",
+      "module_dir": "order-management",
+      "build_root": ".",
+      "module_selector": "order-management",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "-pl",
+        "order-management",
+        "-am",
+        "package"
+      ],
+      "component": "super611/yanglao-system",
+      "remote_root": "/opt/eldercare100/sources/ec066"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec066",
+    "sql_files": [
+      {
+        "component": "super611/yanglao-system",
+        "remote_root": "/opt/eldercare100/sources/ec066",
+        "path": "user-management/docker/schema/schema.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "super611/yanglao-system",
+        "remote_root": "/opt/eldercare100/sources/ec066",
+        "path": "room-management/docker/schema/schema.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "super611/yanglao-system",
+        "remote_root": "/opt/eldercare100/sources/ec066",
+        "path": "order-management/docker/schema/schema.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec067",
+    "primary_full_name": "AAwonderful/Nursing-home-SpringBoot",
+    "assigned_port": 18067,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/com/lijie/bs_healthy/BsHealthyApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "AAwonderful/Nursing-home-SpringBoot",
+      "remote_root": "/opt/eldercare100/sources/ec067"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec067",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec068",
+    "primary_full_name": "rai-end/Smart-Elderly-Care-System",
+    "assigned_port": 18068,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "health-monitor/src/main/java/com/example/healthmonitor/HealthMonitorApplication.java",
+      "module_dir": "health-monitor",
+      "build_root": "health-monitor",
+      "module_selector": ".",
+      "java_version_declared": "17",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "rai-end/Smart-Elderly-Care-System",
+      "remote_root": "/opt/eldercare100/sources/ec068"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "elderly-monitor",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "elderly-monitor/dist",
+        "elderly-monitor/build"
+      ],
+      "component": "rai-end/Smart-Elderly-Care-System",
+      "remote_root": "/opt/eldercare100/sources/ec068"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec068",
+    "sql_files": [
+      {
+        "component": "rai-end/Smart-Elderly-Care-System",
+        "remote_root": "/opt/eldercare100/sources/ec068",
+        "path": "health_monitor.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec069",
+    "primary_full_name": "nature924/No100Smart-Elderly-Care-Center-Management-System",
+    "assigned_port": 18069,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/com/SpringbootSchemaApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "nature924/No100Smart-Elderly-Care-Center-Management-System",
+      "remote_root": "/opt/eldercare100/sources/ec069"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec069",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec070",
+    "primary_full_name": "snow_zx/zzyl",
+    "assigned_port": 18070,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "zzyl-web/src/main/java/com/zzyl/ZzylApplication.java",
+      "module_dir": "zzyl-web",
+      "build_root": ".",
+      "module_selector": "zzyl-web",
+      "java_version_declared": "11",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "-pl",
+        "zzyl-web",
+        "-am",
+        "package"
+      ],
+      "component": "snow_zx/zzyl",
+      "remote_root": "/opt/eldercare100/sources/ec070"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec070",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec071",
+    "primary_full_name": "nature924/No22Nursing-Home-Management-System",
+    "assigned_port": 18071,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/com/yanglaoyuanguanliApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "nature924/No22Nursing-Home-Management-System",
+      "remote_root": "/opt/eldercare100/sources/ec071"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec071",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec072",
+    "primary_full_name": "nature924/No233Community-Elderly-Health-Information-Management-System",
+    "assigned_port": 18072,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/com/sqlrjkxxglxtApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "nature924/No233Community-Elderly-Health-Information-Management-System",
+      "remote_root": "/opt/eldercare100/sources/ec072"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec072",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec073",
+    "primary_full_name": "nature924/No214Nursing-Home-Information-Management-System",
+    "assigned_port": 18073,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/com/sm/GraduationApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "nature924/No214Nursing-Home-Information-Management-System",
+      "remote_root": "/opt/eldercare100/sources/ec073"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec073",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec074",
+    "primary_full_name": "nature924/No72Nursing-Home-Management-System",
+    "assigned_port": 18074,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/com/SpringbootSchemaApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "nature924/No72Nursing-Home-Management-System",
+      "remote_root": "/opt/eldercare100/sources/ec074"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec074",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec075",
+    "primary_full_name": "b912232471-droid/Smart-Senior-Care-Cente",
+    "assigned_port": 18075,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "sys-project/src/main/java/cn/magic/SysProjectApplication.java",
+      "module_dir": "sys-project",
+      "build_root": "sys-project",
+      "module_selector": ".",
+      "java_version_declared": "17",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "b912232471-droid/Smart-Senior-Care-Cente",
+      "remote_root": "/opt/eldercare100/sources/ec075"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "pc-project",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "pc-project/dist",
+        "pc-project/build"
+      ],
+      "component": "b912232471-droid/Smart-Senior-Care-Cente",
+      "remote_root": "/opt/eldercare100/sources/ec075"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec075",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec076",
+    "primary_full_name": "nature924/No96Nursing-Home-Management-System",
+    "assigned_port": 18076,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/com/SpringbootSchemaApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "nature924/No96Nursing-Home-Management-System",
+      "remote_root": "/opt/eldercare100/sources/ec076"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec076",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec077",
+    "primary_full_name": "SimpleGraduationProjects/CommunityElderlyCareComprehensiveServicePlatform",
+    "assigned_port": 18077,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/cn/stylefeng/guns/GunsApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "SimpleGraduationProjects/CommunityElderlyCareComprehensiveServicePlatform",
+      "remote_root": "/opt/eldercare100/sources/ec077"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec077",
+    "sql_files": [
+      {
+        "component": "SimpleGraduationProjects/CommunityElderlyCareComprehensiveServicePlatform",
+        "remote_root": "/opt/eldercare100/sources/ec077",
+        "path": "src/test/sql/test.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "admin",
+        "password": "111111",
+        "source": "README",
+        "component": "SimpleGraduationProjects/CommunityElderlyCareComprehensiveServicePlatform"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec078",
+    "primary_full_name": "lewandowski-jan/nursing-home-manager",
+    "assigned_port": 18078,
+    "inventory_strategy": "python-web",
+    "backend": {
+      "type": "python-django",
+      "dir": "webapp",
+      "entry": "manage.py",
+      "component": "lewandowski-jan/nursing-home-manager",
+      "remote_root": "/opt/eldercare100/sources/ec078"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec078",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.3,
+      "memory_limit_mib": 256,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec079",
+    "primary_full_name": "Winkiioj/-smart-medical-elderly-admin",
+    "assigned_port": 18079,
+    "inventory_strategy": "spring-plus-node",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "backend/src/main/java/com/swjtu/smec/Application.java",
+      "module_dir": "backend",
+      "build_root": "backend",
+      "module_selector": ".",
+      "java_version_declared": "17",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "Winkiioj/-smart-medical-elderly-admin",
+      "remote_root": "/opt/eldercare100/sources/ec079"
+    },
+    "backend_alternatives": [],
+    "frontend": {
+      "type": "node-static",
+      "dir": "frontend",
+      "framework": "vue",
+      "build_script": "build",
+      "package_manager": "auto",
+      "output_candidates": [
+        "frontend/dist",
+        "frontend/build"
+      ],
+      "component": "Winkiioj/-smart-medical-elderly-admin",
+      "remote_root": "/opt/eldercare100/sources/ec079"
+    },
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec079",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec080",
+    "primary_full_name": "wanghao234/eldercare-system",
+    "assigned_port": 18080,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/com/wanghao/eldercare/eldercaresystem/EldercareSystemApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "17",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "wanghao234/eldercare-system",
+      "remote_root": "/opt/eldercare100/sources/ec080"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec080",
+    "sql_files": [
+      {
+        "component": "wanghao234/eldercare-system",
+        "remote_root": "/opt/eldercare100/sources/ec080",
+        "path": "src/main/resources/db/init-rbac.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "wanghao234/eldercare-system",
+        "remote_root": "/opt/eldercare100/sources/ec080",
+        "path": "src/main/resources/db/init-auth.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "wanghao234/eldercare-system",
+        "remote_root": "/opt/eldercare100/sources/ec080",
+        "path": "src/test/resources/schema.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "wanghao234/eldercare-system",
+        "remote_root": "/opt/eldercare100/sources/ec080",
+        "path": "src/main/resources/db/flowable-act-table-comments.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "wanghao234/eldercare-system",
+        "remote_root": "/opt/eldercare100/sources/ec080",
+        "path": "src/main/resources/db/digital-twin.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "wanghao234/eldercare-system",
+        "remote_root": "/opt/eldercare100/sources/ec080",
+        "path": "src/main/resources/db/create-staff-shift-schedule.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "wanghao234/eldercare-system",
+        "remote_root": "/opt/eldercare100/sources/ec080",
+        "path": "src/main/resources/db/create-care-plan-tasks.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "wanghao234/eldercare-system",
+        "remote_root": "/opt/eldercare100/sources/ec080",
+        "path": "src/main/resources/db/care-team-assignment.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [
+      {
+        "username": "password",
+        "password": "server:",
+        "source": "README",
+        "component": "wanghao234/eldercare-system"
+      },
+      {
+        "username": "admin",
+        "password": "users",
+        "source": "README",
+        "component": "wanghao234/eldercare-system"
+      }
+    ],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec081",
+    "primary_full_name": "lizheznr/zhihuiyanglaoshequpingtai",
+    "assigned_port": 18081,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "ruoyi-admin/src/main/java/com/ruoyi/RuoYiApplication.java",
+      "module_dir": "ruoyi-admin",
+      "build_root": ".",
+      "module_selector": "ruoyi-admin",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "-pl",
+        "ruoyi-admin",
+        "-am",
+        "package"
+      ],
+      "component": "lizheznr/zhihuiyanglaoshequpingtai",
+      "remote_root": "/opt/eldercare100/sources/ec081"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec081",
+    "sql_files": [
+      {
+        "component": "lizheznr/zhihuiyanglaoshequpingtai",
+        "remote_root": "/opt/eldercare100/sources/ec081",
+        "path": "sql/ry_20200803.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "lizheznr/zhihuiyanglaoshequpingtai",
+        "remote_root": "/opt/eldercare100/sources/ec081",
+        "path": "sql/quartz.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec082",
+    "primary_full_name": "ErrorNotFoundzyf/Smart-Nursing-Home",
+    "assigned_port": 18082,
+    "inventory_strategy": "python-web",
+    "backend": {
+      "type": "python-auto",
+      "dir": "web_backend",
+      "entry": "auto-detect",
+      "component": "ErrorNotFoundzyf/Smart-Nursing-Home",
+      "remote_root": "/opt/eldercare100/sources/ec082"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec082",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.3,
+      "memory_limit_mib": 256,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec083",
+    "primary_full_name": "adpanru/smart-elderly-care",
+    "assigned_port": 18083,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "smart_ec/src/main/java/com/kuang/HelloworldApplication.java",
+      "module_dir": "smart_ec",
+      "build_root": "smart_ec",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "adpanru/smart-elderly-care",
+      "remote_root": "/opt/eldercare100/sources/ec083"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec083",
+    "sql_files": [
+      {
+        "component": "adpanru/smart-elderly-care",
+        "remote_root": "/opt/eldercare100/sources/ec083",
+        "path": "数据库文档/yijia.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec084",
+    "primary_full_name": "YuLin-Coder/No115CommunityElderlyCareComprehensive",
+    "assigned_port": 18084,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/cn/stylefeng/guns/GunsApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "YuLin-Coder/No115CommunityElderlyCareComprehensive",
+      "remote_root": "/opt/eldercare100/sources/ec084"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec084",
+    "sql_files": [
+      {
+        "component": "YuLin-Coder/No115CommunityElderlyCareComprehensive",
+        "remote_root": "/opt/eldercare100/sources/ec084",
+        "path": "src/test/sql/test.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec085",
+    "primary_full_name": "nature924/No.413Nursing-Home-Management-System",
+    "assigned_port": 18085,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "项目源码/Springboot-Vue-BeadHouse-System/BeadHouse-back/src/main/java/com/cow/horse/BackendApplication.java",
+      "module_dir": "项目源码/Springboot-Vue-BeadHouse-System/BeadHouse-back",
+      "build_root": "项目源码/Springboot-Vue-BeadHouse-System/BeadHouse-back",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "nature924/No.413Nursing-Home-Management-System",
+      "remote_root": "/opt/eldercare100/sources/ec085"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec085",
+    "sql_files": [
+      {
+        "component": "nature924/No.413Nursing-Home-Management-System",
+        "remote_root": "/opt/eldercare100/sources/ec085",
+        "path": "项目源码/Springboot-Vue-BeadHouse-System/数据库/备份.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "nature924/No.413Nursing-Home-Management-System",
+        "remote_root": "/opt/eldercare100/sources/ec085",
+        "path": "项目源码/Springboot-Vue-BeadHouse-System/数据库/db_beadhouse.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec086",
+    "primary_full_name": "YPYT1/Nursing-home-health-management",
+    "assigned_port": 18086,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/com/sm/GraduationApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "YPYT1/Nursing-home-health-management",
+      "remote_root": "/opt/eldercare100/sources/ec086"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec086",
+    "sql_files": [
+      {
+        "component": "YPYT1/Nursing-home-health-management",
+        "remote_root": "/opt/eldercare100/sources/ec086",
+        "path": "ifmanage_design_wzq.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec087",
+    "primary_full_name": "xiaoxiaocxyer/nursinghome",
+    "assigned_port": 18087,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/com/sm/Application.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "xiaoxiaocxyer/nursinghome",
+      "remote_root": "/opt/eldercare100/sources/ec087"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec087",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec088",
+    "primary_full_name": "HtmLuc/SeniorCare-System",
+    "assigned_port": 18088,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/com/htmluc/SeniorCare_System/SeniorCareSystemApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "25",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "HtmLuc/SeniorCare-System",
+      "remote_root": "/opt/eldercare100/sources/ec088"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec088",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec089",
+    "primary_full_name": "jasper-huu/Elderly-care-management",
+    "assigned_port": 18089,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "zzyl-admin/src/main/java/com/zzyl/RuoYiApplication.java",
+      "module_dir": "zzyl-admin",
+      "build_root": ".",
+      "module_selector": "zzyl-admin",
+      "java_version_declared": "11",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "-pl",
+        "zzyl-admin",
+        "-am",
+        "package"
+      ],
+      "component": "jasper-huu/Elderly-care-management",
+      "remote_root": "/opt/eldercare100/sources/ec089"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec089",
+    "sql_files": [
+      {
+        "component": "jasper-huu/Elderly-care-management",
+        "remote_root": "/opt/eldercare100/sources/ec089",
+        "path": "sql/ry_20240629.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "jasper-huu/Elderly-care-management",
+        "remote_root": "/opt/eldercare100/sources/ec089",
+        "path": "sql/zzyl_20241007.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "jasper-huu/Elderly-care-management",
+        "remote_root": "/opt/eldercare100/sources/ec089",
+        "path": "sql/quartz.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec090",
+    "primary_full_name": "tranthanhnhu/senior_care",
+    "assigned_port": 18090,
+    "inventory_strategy": "python-web",
+    "backend": {
+      "type": "python-auto",
+      "dir": ".",
+      "entry": "auto-detect",
+      "component": "tranthanhnhu/senior_care",
+      "remote_root": "/opt/eldercare100/sources/ec090"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec090",
+    "sql_files": [
+      {
+        "component": "tranthanhnhu/senior_care",
+        "remote_root": "/opt/eldercare100/sources/ec090",
+        "path": "supabase/schema.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.3,
+      "memory_limit_mib": 256,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec091",
+    "primary_full_name": "zhaofuchen99/eldercare-system",
+    "assigned_port": 18091,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/com/zfc/eldercare/EldercareSystemApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "25",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "zhaofuchen99/eldercare-system",
+      "remote_root": "/opt/eldercare100/sources/ec091"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec091",
+    "sql_files": [
+      {
+        "component": "zhaofuchen99/eldercare-system",
+        "remote_root": "/opt/eldercare100/sources/ec091",
+        "path": "sql/init.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "zhaofuchen99/eldercare-system",
+        "remote_root": "/opt/eldercare100/sources/ec091",
+        "path": "sql/ai-module.sql",
+        "engine": "mysql"
+      },
+      {
+        "component": "zhaofuchen99/eldercare-system",
+        "remote_root": "/opt/eldercare100/sources/ec091",
+        "path": "sql/give-test-points.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec092",
+    "primary_full_name": "yasharth1231/SeniorCare",
+    "assigned_port": 18092,
+    "inventory_strategy": "python-web",
+    "backend": {
+      "type": "python-auto",
+      "dir": ".",
+      "entry": "auto-detect",
+      "component": "yasharth1231/SeniorCare",
+      "remote_root": "/opt/eldercare100/sources/ec092"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec092",
+    "sql_files": [
+      {
+        "component": "yasharth1231/SeniorCare",
+        "remote_root": "/opt/eldercare100/sources/ec092",
+        "path": "schema.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.3,
+      "memory_limit_mib": 256,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec093",
+    "primary_full_name": "HadesTYT/zhihuiyanglao",
+    "assigned_port": 18093,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/com/zhihuishequjujiayanglaojiankangApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "HadesTYT/zhihuiyanglao",
+      "remote_root": "/opt/eldercare100/sources/ec093"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec093",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec094",
+    "primary_full_name": "1wri/NursingHomeSystem",
+    "assigned_port": 18094,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "info-manage-main/src/main/java/com/sm/GraduationApplication.java",
+      "module_dir": "info-manage-main",
+      "build_root": "info-manage-main",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "1wri/NursingHomeSystem",
+      "remote_root": "/opt/eldercare100/sources/ec094"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec094",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec095",
+    "primary_full_name": "Johan535/Smart-Community-Elderly-Care-Mini-Program",
+    "assigned_port": 18095,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "backend/src/main/java/com/community/elderly/SmartElderlyApplication.java",
+      "module_dir": "backend",
+      "build_root": "backend",
+      "module_selector": ".",
+      "java_version_declared": "21",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "Johan535/Smart-Community-Elderly-Care-Mini-Program",
+      "remote_root": "/opt/eldercare100/sources/ec095"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec095",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec096",
+    "primary_full_name": "Anusha2530/CareNest-Elderly-Care-Management-System",
+    "assigned_port": 18096,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "carenest/src/main/java/com/carenest/CarenestApplication.java",
+      "module_dir": "carenest",
+      "build_root": ".",
+      "module_selector": "carenest",
+      "java_version_declared": "21",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "-pl",
+        "carenest",
+        "-am",
+        "package"
+      ],
+      "component": "Anusha2530/CareNest-Elderly-Care-Management-System",
+      "remote_root": "/opt/eldercare100/sources/ec096"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec096",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec097",
+    "primary_full_name": "LQ-500/yikang-companion",
+    "assigned_port": 18097,
+    "inventory_strategy": "python-web",
+    "backend": {
+      "type": "python-auto",
+      "dir": "颐康伴后端",
+      "entry": "auto-detect",
+      "component": "LQ-500/yikang-companion",
+      "remote_root": "/opt/eldercare100/sources/ec097"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec097",
+    "sql_files": [
+      {
+        "component": "LQ-500/yikang-companion",
+        "remote_root": "/opt/eldercare100/sources/ec097",
+        "path": "颐康伴前端/文档图片堆放处/新前后连接文档/一键部署数据库.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.3,
+      "memory_limit_mib": 256,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec098",
+    "primary_full_name": "Dddddduo/smart-community-elderly-care-backend",
+    "assigned_port": 18098,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/com/SpringbootSchemaApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "Dddddduo/smart-community-elderly-care-backend",
+      "remote_root": "/opt/eldercare100/sources/ec098"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec098",
+    "sql_files": [
+      {
+        "component": "Dddddduo/smart-community-elderly-care-backend",
+        "remote_root": "/opt/eldercare100/sources/ec098",
+        "path": "db/springboot1816sl21.sql",
+        "engine": "mysql"
+      }
+    ],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec099",
+    "primary_full_name": "mohaos/e-guarded-backend",
+    "assigned_port": 18099,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/com/ling/ap/ApApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "11",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "mohaos/e-guarded-backend",
+      "remote_root": "/opt/eldercare100/sources/ec099"
+    },
+    "backend_alternatives": [
+      {
+        "type": "java-spring",
+        "application_main": "src/main/java/com/ling/ap/ApApplication.java",
+        "module_dir": ".",
+        "build_root": ".",
+        "module_selector": ".",
+        "java_version_declared": "11",
+        "maven_command": [
+          "mvn",
+          "-B",
+          "-ntp",
+          "-DskipTests",
+          "-Dmaven.test.skip=true",
+          "package"
+        ],
+        "component": "mohaos/e-shouhu-UI",
+        "remote_root": "/opt/eldercare100/sources/ec099"
+      }
+    ],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec099",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  },
+  {
+    "id": "ec100",
+    "primary_full_name": "Chen01020304/elderly-care-backend",
+    "assigned_port": 18100,
+    "inventory_strategy": "spring-web",
+    "backend": {
+      "type": "java-spring",
+      "application_main": "src/main/java/com/zhihui/elderly/ElderlyApplication.java",
+      "module_dir": ".",
+      "build_root": ".",
+      "module_selector": ".",
+      "java_version_declared": "1.8",
+      "maven_command": [
+        "mvn",
+        "-B",
+        "-ntp",
+        "-DskipTests",
+        "-Dmaven.test.skip=true",
+        "package"
+      ],
+      "component": "Chen01020304/elderly-care-backend",
+      "remote_root": "/opt/eldercare100/sources/ec100"
+    },
+    "backend_alternatives": [],
+    "frontend": null,
+    "frontend_alternatives": [],
+    "database_engine": "mysql",
+    "database_name": "ec100",
+    "sql_files": [],
+    "resource_plan": {
+      "cpu_limit": 0.5,
+      "memory_limit_mib": 512,
+      "concurrency_policy": "on-demand; stop least-recently-used project before exceeding 6 GiB aggregate"
+    },
+    "credential_candidates": [],
+    "plan_status": "ready",
+    "build_status": "not-tested",
+    "runtime_status": "not-tested",
+    "login_status": "not-tested"
+  }
+]

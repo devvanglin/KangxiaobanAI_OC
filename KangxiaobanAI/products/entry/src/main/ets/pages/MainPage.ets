@@ -53,6 +53,7 @@ import { TAB_PAGE_CONFIGS, TabPageConfig } from '../model/TabPageModel';
 import Logger from '../util/Logger';
 import { BreakpointUtil } from '../util/BreakpointSystem';
 import { WindowUtil } from '../util/WindowUtil';
+import { PreferenceManager } from '../util/PreferenceManager';
 import AuthStore from '../network/AuthStore';
 import { BusinessStore } from '../network/BusinessStore';
 import { Schedule, WsEvent } from '../network/Dto';
@@ -62,6 +63,7 @@ const TAG: string = '[MainPage]';
 const CAREGIVER_FULL_WORKSPACE_MIN_WIDTH: number = 1180;
 const CAREGIVER_TEXT_NAVIGATION_MIN_WIDTH: number = 680;
 const WIDE_TITLE_BAR_HEIGHT: number = 56;
+const CAREGIVER_AI_HISTORY_COLLAPSED_KEY: string = 'caregiver_ai_history_collapsed';
 
 interface WideNavItem {
   label: ResourceStr;
@@ -140,6 +142,7 @@ struct MainPage {
   private wideMessageChatScroller: Scroller = new Scroller();
   private wideAiChatScroller: ListScroller = new ListScroller();
   private businessWsClient: WsClient = new WsClient();
+  private preferenceManager: PreferenceManager = PreferenceManager.getInstance();
 
   aboutToAppear(): void {
     if (AuthStore.getToken().length === 0) {
@@ -150,6 +153,10 @@ struct MainPage {
       }
       return;
     }
+    this.aiHistoryCollapsed = this.preferenceManager.getValue<boolean>(
+      CAREGIVER_AI_HISTORY_COLLAPSED_KEY,
+      JSON.stringify(false)
+    ) ?? false;
     BusinessStore.getShared().load();
     this.businessWsClient.connect((payload: string): void => {
       this.handleBusinessEvent(payload);
@@ -433,19 +440,16 @@ struct MainPage {
   }
 
   private openAiChat(): void {
-    this.aiHistoryCollapsed = false;
-    // Re-open the embedded history pane when a new AI workspace is shown.
-    this.aiHistoryOpenRequestToken += 1;
     this.isAiChatShow = true;
   }
 
   private closeAiChat(): void {
     this.isAiChatShow = false;
-    this.aiHistoryCollapsed = false;
   }
 
   private updateAiHistoryCollapsed(collapsed: boolean): void {
     this.aiHistoryCollapsed = collapsed;
+    this.preferenceManager.setValue<boolean>(CAREGIVER_AI_HISTORY_COLLAPSED_KEY, collapsed);
   }
 
   private requestAiHistoryOpen(): void {
@@ -1201,6 +1205,7 @@ struct MainPage {
           caregiverWideImmersive: false,
           embeddedCaregiverWide: true,
           embeddedListScroller: this.wideAiChatScroller,
+          historyCollapsed: this.aiHistoryCollapsed,
           historyOpenRequestToken: this.aiHistoryOpenRequestToken,
           historySearchRequestToken: this.aiHistorySearchRequestToken,
           newConversationRequestToken: this.aiNewConversationRequestToken,

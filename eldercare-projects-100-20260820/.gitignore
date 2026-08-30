@@ -1,0 +1,11 @@
+*.secret
+*.key
+*.pem
+.env
+remote-password.txt
+tools/eldercare_deploy_*
+candidate-repos/
+candidate-repos-raw/
+repos/
+logs/private/
+manifests/private/

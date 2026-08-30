@@ -5,9 +5,11 @@
 **/.idea/
 **/.appanalyzer/
 **/.test/
+**/__pycache__/
 
 *.tsbuildinfo
 *.tsbuildinfo.linter
+*.py[cod]
 *.log
 
 # Local verification artifacts.
@@ -23,6 +25,7 @@ MusicHome/**/oh-package-lock.json5
 
 # Secrets / credentials - never commit
 elderly-care-repos/.ghtoken
+elderly-care-repos/repos/
 eldercare-projects-100-20260820/private/ACCESS-CREDENTIALS.md
 
 # Deploy / server scripts that may embed credentials

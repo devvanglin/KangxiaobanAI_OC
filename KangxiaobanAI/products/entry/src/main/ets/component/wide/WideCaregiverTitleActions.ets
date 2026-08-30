@@ -304,7 +304,9 @@ export struct WideCaregiverTitleActions {
         .justifyContent(FlexAlign.Start)
         .alignItems(VerticalAlign.Center)
         .zIndex(3)
-        .hitTestBehavior(this.aiHistoryCollapsed ? HitTestMode.Default : HitTestMode.None)
+        // This row spans the title bar for alignment. Keep its buttons active
+        // while allowing taps elsewhere to reach the navigation underneath.
+        .hitTestBehavior(this.aiHistoryCollapsed ? HitTestMode.Transparent : HitTestMode.None)
       }
     }
     .width('100%')

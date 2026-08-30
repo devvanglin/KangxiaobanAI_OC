@@ -88,6 +88,7 @@ export struct AiChatPage {
   @Param caregiverWideImmersive: boolean = false;
   @Param embeddedCaregiverWide: boolean = false;
   @Param @Require embeddedListScroller: ListScroller;
+  @Param historyCollapsed: boolean = false;
   @Param historyOpenRequestToken: number = 0;
   @Param historySearchRequestToken: number = 0;
   @Param newConversationRequestToken: number = 0;
@@ -131,6 +132,14 @@ export struct AiChatPage {
     if (this.messages.length > 0) {
       this.scheduleScrollToBottom(300);
     }
+  }
+
+  @Monitor('historyCollapsed')
+  onHistoryCollapsedParamChange(): void {
+    if (!this.isEmbeddedWideHistory() || this.embeddedHistoryCollapsed === this.historyCollapsed) {
+      return;
+    }
+    this.embeddedHistoryCollapsed = this.historyCollapsed;
   }
 
   private cloneMessage(message: ChatMessage): ChatMessage {
@@ -600,6 +609,7 @@ export struct AiChatPage {
 
   aboutToAppear(): void {
     this.componentVisible = true;
+    this.embeddedHistoryCollapsed = this.isEmbeddedWideHistory() ? this.historyCollapsed : false;
     this.lastHistoryOpenRequestToken = this.historyOpenRequestToken;
     this.lastHistorySearchRequestToken = this.historySearchRequestToken;
     this.lastNewConversationRequestToken = this.newConversationRequestToken;
@@ -1677,6 +1687,9 @@ export struct AiChatPage {
           .fontSize(this.isEmbeddedWideHistory() ? $r('sys.float.Body_M') : $r('sys.float.Body_S'))
           .fontColor($r('sys.color.font_tertiary'))
           .width('100%')
+          // Keep the footer note on the same fixed measure as the embedded
+          // composer so the history-pane animation cannot reflow its line.
+          .constraintSize({ maxWidth: this.isEmbeddedWideHistory() ? 760 : this.expandMaxWidth() })
           .textAlign(TextAlign.Center)
           .translate({ y: this.isEmbeddedWideHistory() ? 4 : 0 })
       }

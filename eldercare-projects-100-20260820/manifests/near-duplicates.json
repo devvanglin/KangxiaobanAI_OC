@@ -1,0 +1,20 @@
+[
+  {
+    "left_id": "ec059",
+    "left": "wwqking/Community-Elderly-Care-Service-Platform",
+    "right_id": "ec067",
+    "right": "shuangyulin/springboot187_yanglao",
+    "path_jaccard": 0.8222,
+    "left_paths": 167,
+    "right_paths": 161
+  },
+  {
+    "left_id": "ec035",
+    "left": "zongjixiaoai66/CommunityElderlyCareServiceSystem",
+    "right_id": "ec047",
+    "right": "shuangyulin/springboot253_yanglaofuwu",
+    "path_jaccard": 0.7219,
+    "left_paths": 583,
+    "right_paths": 519
+  }
+]

@@ -1,0 +1,25 @@
+[Unit]
+Description=Eldercare 153 overnight clone, build, runtime and login acceptance
+After=network-online.target docker.service eldercare153-portal.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=node2
+Group=node2
+WorkingDirectory=/opt/eldercare100
+Environment=HOME=/opt/eldercare100/private/home
+Environment=ELDERCARE_PUBLIC_HOST=127.0.0.1
+ExecStart=/usr/bin/python3 -u /opt/eldercare100/tools/overnight_pipeline.py
+Restart=on-failure
+RestartSec=30
+TimeoutStartSec=infinity
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/eldercare100
+
+[Install]
+WantedBy=multi-user.target
