@@ -92,6 +92,17 @@ export struct WideResidentPage {
   @Local selectedTab: ResidentDetailTab = 'overview';
   @Local hoveredResidentId: string = '';
   @Local compactDetailVisible: boolean = false;
+  // Keep the resident surface on one local snapshot so split builders redraw
+  // together when the shared store commits the asynchronous response.
+  @Local residentDataReady: boolean = false;
+  @Local residentLoadError: string = '';
+  @Local residentEldersSnapshot: Elder[] = [];
+  @Local residentDataVersion: number = 0;
+
+  @Monitor('businessStore.eldersLoaded', 'businessStore.coreVersion', 'businessStore.loaded', 'businessStore.error')
+  onResidentBusinessDataChange(): void {
+    this.syncResidentSnapshot();
+  }
 
   @Monitor('backRequestToken')
   onBackRequestTokenChange(): void {
@@ -137,8 +148,24 @@ export struct WideResidentPage {
   }
 
   aboutToAppear(): void {
-    this.businessStore.load();
+    this.syncResidentSnapshot();
+    void this.awaitResidentLoad();
     this.reportVisibleScrollerOwner();
+  }
+
+  private async awaitResidentLoad(): Promise<void> {
+    try {
+      await this.businessStore.load();
+    } finally {
+      this.syncResidentSnapshot();
+    }
+  }
+
+  private syncResidentSnapshot(): void {
+    this.residentDataReady = this.businessStore.eldersLoaded;
+    this.residentLoadError = this.businessStore.error;
+    this.residentEldersSnapshot = this.businessStore.elders.slice();
+    this.residentDataVersion += 1;
   }
 
   private reportVisibleScrollerOwner(): void {
@@ -172,7 +199,7 @@ export struct WideResidentPage {
   }
 
   private allResidents(): ResidentData[] {
-    return this.businessStore.elders.map((elder: Elder): ResidentData => {
+    return this.residentEldersSnapshot.map((elder: Elder): ResidentData => {
       const bed: Bed | undefined = this.businessStore.beds.find((item: Bed) => item.id === elder.bed_id);
       const room: Room | undefined = bed ?
         this.businessStore.rooms.find((item: Room) => item.id === bed.room_id) : undefined;
@@ -614,8 +641,8 @@ export struct WideResidentPage {
               SymbolGlyph($r('sys.symbol.magnifyingglass'))
                 .fontSize(24)
                 .fontColor([$r('sys.color.font_tertiary')])
-              Text(this.businessStore.eldersLoaded ?
-                (this.businessStore.error.length > 0 ? '长者数据加载失败' : '暂无长者数据') : '正在加载长者数据')
+              Text(this.residentDataReady ?
+                (this.residentLoadError.length > 0 ? '长者数据加载失败' : '暂无长者数据') : '正在加载长者数据')
                 .fontSize($r('sys.float.Body_M'))
                 .fontColor($r('sys.color.font_secondary'))
             }
@@ -771,7 +798,7 @@ export struct WideResidentPage {
   @Builder
   private emptyResidentDetail() {
     Column({ space: 10 }) {
-      if (this.businessStore.loading && !this.businessStore.eldersLoaded) {
+      if (!this.residentDataReady) {
         LoadingProgress()
           .width(36)
           .height(36)
@@ -779,7 +806,7 @@ export struct WideResidentPage {
           .fontSize($r('sys.float.Body_M'))
           .fontColor($r('sys.color.font_secondary'))
       } else {
-        Text(this.businessStore.error.length > 0 ? '长者数据加载失败' : '暂无长者数据')
+        Text(this.residentLoadError.length > 0 ? '长者数据加载失败' : '暂无长者数据')
           .fontSize($r('sys.float.Body_M'))
           .fontColor($r('sys.color.font_secondary'))
       }

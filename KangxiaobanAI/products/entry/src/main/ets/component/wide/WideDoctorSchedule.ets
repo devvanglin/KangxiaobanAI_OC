@@ -349,7 +349,7 @@ export struct WideDoctorSchedule {
               .fontColor($r('app.color.doctor_workspace_focus'))
           }
         }
-        .height(32).padding({ left: 10, right: 10 }).backgroundColor(Color.Transparent)
+        .height(32).padding({ left: 10, right: 10 }).borderRadius(16).backgroundColor(Color.Transparent)
         .accessibilityText(this.calendarExpanded ? '收起日历' : '展开日历')
         .onClick(() => this.toggleCalendar())
       }.width('100%')
