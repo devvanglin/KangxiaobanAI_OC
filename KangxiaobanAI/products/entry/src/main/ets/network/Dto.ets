@@ -378,6 +378,55 @@ export interface OperationPolicy {
   medication_time_periods: MedicationTimePeriod[];
 }
 
+export interface SystemCPUStat {
+  cores: number;
+  usage_percent: number;
+  user_percent: number;
+  system_percent: number;
+  idle_percent: number;
+  available: boolean;
+}
+
+export interface SystemMemoryStat {
+  total_bytes: number;
+  used_bytes: number;
+  free_bytes: number;
+  used_percent: number;
+  process_bytes: number;
+  process_percent: number;
+  available: boolean;
+}
+
+export interface SystemDiskStat {
+  mount: string;
+  filesystem: string;
+  total_bytes: number;
+  used_bytes: number;
+  free_bytes: number;
+  used_percent: number;
+}
+
+export interface SystemServerInfo {
+  hostname: string;
+  ip: string;
+  os: string;
+  arch: string;
+  pid: number;
+  go_version: string;
+  started_at: string;
+  uptime_seconds: number;
+  uptime_text: string;
+  goroutines: number;
+}
+
+export interface SystemMonitorSnapshot {
+  collected_at: string;
+  cpu: SystemCPUStat;
+  memory: SystemMemoryStat;
+  server: SystemServerInfo;
+  disks: SystemDiskStat[];
+}
+
 export interface MedicationTimePeriod {
   code: string;
   label: string;

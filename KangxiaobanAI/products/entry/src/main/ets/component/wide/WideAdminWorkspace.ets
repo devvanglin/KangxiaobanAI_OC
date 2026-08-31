@@ -3,6 +3,7 @@ import ApiClient from '../../network/ApiClient';
 import { BusinessStore } from '../../network/BusinessStore';
 import { Alert, Assessment, Bed, CareTask, Elder, HealthRecord, Room, Schedule } from '../../network/Dto';
 import { WideDoctorAdmission } from './WideDoctorAdmission';
+import { WideServerMonitor } from './WideServerMonitor';
 
 interface AdminNavItem {
   id: string;
@@ -79,7 +80,7 @@ export struct WideAdminWorkspace {
       ];
     }
     return [
-      { id: 'overview', label: '运营总览', symbol: $r('sys.symbol.square_grid_2x2') },
+      { id: 'overview', label: '服务器监控', symbol: $r('sys.symbol.square_grid_2x2') },
       { id: 'residents', label: '长者与床位', symbol: $r('sys.symbol.person_2_fill') },
       { id: 'staff', label: '人员与排班', symbol: $r('sys.symbol.person_crop_circle_fill') },
       { id: 'quality', label: '养护质量', symbol: $r('sys.symbol.checkmark_shield_fill') },
@@ -223,16 +224,16 @@ export struct WideAdminWorkspace {
 
   private title(): string {
     return this.navItemsForRole().find((item: AdminNavItem) => item.id === this.selectedNavId)?.label ??
-      (this.isDoctor ? '临床工作台' : '运营总览');
+      (this.isDoctor ? '临床工作台' : '服务器监控');
   }
 
   private workspaceTitle(): string {
-    return this.isDoctor ? '医师工作台' : '机构运营总览';
+    return this.isDoctor ? '医师工作台' : '服务器监控';
   }
 
   private workspaceSubtitle(): string {
     return this.isDoctor ? '围绕长者健康评估、风险复核与护理计划协作开展今日工作' :
-      '围绕长者安全、人员配置与养护质量组织今日运营';
+      '查看当前后端主机、进程与磁盘资源状态';
   }
 
   private doctorElderName(elderId: number): string {
@@ -517,7 +518,7 @@ export struct WideAdminWorkspace {
         .fontColor($r('app.color.doctor_workspace_text_primary'))
       Text(this.isDoctor ? '该医师工作模块尚未开放服务器业务接口。' : '该模块尚未开放服务器业务接口。')
         .fontSize(12).fontColor($r('app.color.doctor_workspace_text_secondary'))
-      Button(this.isDoctor ? '返回医师工作台' : '返回运营总览').height(40).borderRadius(12).fontSize(12)
+      Button(this.isDoctor ? '返回医师工作台' : '返回服务器监控').height(40).borderRadius(12).fontSize(12)
         .fontColor($r('app.color.doctor_workspace_background'))
         .backgroundColor($r('app.color.doctor_workspace_text_primary'))
         .onClick(() => this.selectedNavId = 'overview')
@@ -737,7 +738,15 @@ export struct WideAdminWorkspace {
   private workspaceContent() {
     Column() {
       if (this.selectedNavId === 'overview') {
-        this.dashboard()
+        if (this.isDoctor) {
+          this.dashboard()
+        } else {
+          WideServerMonitor({
+            statusBarHeight: this.statusBarHeight,
+            naviIndicatorHeight: this.naviIndicatorHeight,
+            compactWidth: this.compactWidth
+          })
+        }
       } else if (this.isDoctor) {
         this.doctorModuleView()
       } else {
