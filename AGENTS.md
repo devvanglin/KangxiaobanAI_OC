@@ -236,7 +236,7 @@ The role/layout matrix is fixed by current behavior:
 | Role | Narrow phone layout | MD/LG/XL wide layout |
 |---|---|---|
 | Caregiver (`护工`) | Four HDS tabs | `WideCaregiverWorkspace` |
-| Doctor (`医师`) | Read-only doctor summary (health/risk) | `WideAdminWorkspace` (doctor modules + shared shell) |
+| Doctor (`医师`) | Read-only doctor summary (health/risk) | doctor-owned wide shell with workbench, residents, and AI |
 | Administrator (`管理`) | WIP placeholder | `WideAdminWorkspace` local operations prototype |
 | Any other string | WIP placeholder | WIP placeholder |
 
@@ -263,20 +263,25 @@ The home root is an on-shift workbench with shift status, advisory AI priorities
 and an on-demand detail pane. Resident and message roots use an open shared canvas with independent work surfaces: at
 1180vp and above they retain side-by-side master/detail interaction; below 1180vp they use a full-width list followed by
 a full-width detail view whose return action is the native root HDS title-bar back control, not a page-wide return row.
-Wide doctor layouts reuse `WideAdminWorkspace` directly (and `WideDoctorWorkspace` remains only as a compatibility
-facade), so the sidebar, title/overview geometry, typography, colors, responsive spacing, and doctor module surfaces
-are one shared implementation. Doctor residents, collaboration, risk, health-monitoring, assessment-record, and
-admission views are server-backed/read-only where the role lacks mutation permission. Both workspaces constrain the content column after the sidebar so the four overview
+Wide doctor layouts use the shared management title shell and `WideAdminWorkspace` only for the workbench
+(`WideDoctorWorkspace` remains only as a compatibility facade). The doctor navigation is intentionally limited to
+workbench, residents, and AI; collaboration, assessment, risk, and monitoring entries are removed from the doctor UI.
+The doctor
+"长者" and "康小伴 AI" navigation targets are mounted by `MainPage` with role-owned `WideDoctorResidentPage` and
+`WideDoctorAiPage` components. Their initial interaction and responsive behavior match the caregiver experience, but
+their component code, Scrollers, and local presentation state are intentionally independent so the two roles can evolve
+separately. The doctor resident surface remains server-backed/read-only where the role lacks mutation permission,
+including its compact master/detail native HDS back behavior. Both workspaces constrain the content column after the sidebar so the four overview
 cards remain inside the available window (the previous administrator root could clip the fourth card on a 2-in-1
 display). The doctor account keeps alert rows read-only because the current backend doctor role has `task:read` but not
 `task:write`/`admin:all`; the shared button appearance is retained and a guarded click explains the read-only state
 without bypassing RBAC. The backend-connected
-`WideDoctorAdmission` is mounted from the doctor's “评估与照护计划” module and keeps its server-authoritative scoring,
-screening, draft, and submission gates. Wide administrator layouts mount `WideAdminWorkspace` directly; its operations
-overview reads server records and tenant policy, while non-overview administrator modules remain placeholders.
+`WideDoctorAdmission` remains available for a future approved entry point but is not exposed by the current doctor
+navigation. Wide administrator layouts mount `WideAdminWorkspace` directly; its operations overview reads server
+records and tenant policy, while non-overview administrator modules remain placeholders.
 
 `HdsNavigation` uses an immersive/adaptive system material title bar, gradient-blur scroll effect, the currently active
-bound Scroller, a back button hidden except for compact caregiver local-detail state, a hidden title bar for the other
+bound Scroller, a back button hidden except for compact caregiver or doctor-resident local-detail state, a hidden title bar for the other
 wide role workspaces, and system-safe-area expansion. `HdsTabs` overlaps content,
 floats above the navigation indicator, and preloads all four tab items. `MainPage` owns the full-screen window state while
 it is visible; root local covers such as AI and resident detail inherit that state rather than toggling the window independently. Measure startup/memory
@@ -296,6 +301,8 @@ before extending preload.
 | Task expansion | transparent `bindContentCover` | `TabPageView` | internal HDS destination UI |
 | Task/message/profile detail | sheet/local pane | `TabPageView` | internal builders |
 | Doctor management console | shared local workspace branch | `MainPage` | `WideAdminWorkspace` |
+| Doctor resident workspace | doctor-owned local workspace branch | `MainPage` | `WideDoctorResidentPage` |
+| Doctor AI workspace | doctor-owned local workspace branch | `MainPage` | `WideDoctorAiPage` |
 | Doctor admission | local module surface | `WideDoctorAdmission` | doctor quality module |
 | Administrator workspace | local wide workspace branch | `MainPage` | `WideAdminWorkspace` |
 
@@ -438,15 +445,17 @@ Current production source is under `KangxiaobanAI/products/entry/src/main/ets`.
 | `pages/MainPage.ets` | root HDS navigation, responsive role workspace selection, window-immersive ownership, AI and resident-detail overlays, local destinations |
 | `component/TabPageView.ets` | phone tab feature roots backed by `BusinessStore`, sheets/covers, task updates, and resident-detail open events |
 | `pages/AiChatPage.ets` | persisted AI conversations/messages, database starter prompts, feedback/copy/edit UI, and shell immersive state |
+| `pages/WideDoctorAiPage.ets` | doctor-owned wide AI conversation UI with independent presentation state and the authenticated AI data boundary |
 | `pages/ResidentDetailPage.ets` | resident detail sections derived from server-loaded business records |
 | `pages/HealthExpandPage.ets` | expanded health list and resident index UI |
 | `pages/MineDetailPage.ets` | about/general settings and Preferences-backed toggle values |
 | `component/wide/WideCaregiverWorkspace.ets` | responsive top command-bar shell, sliding primary navigation, live message badge, persistent wide feature roots, avatar account actions, local-back cleanup, and safe-area forwarding |
 | `component/wide/WideDoctorWorkspace.ets` | compatibility facade that delegates the visible doctor console to `WideAdminWorkspace`; the former duplicate doctor builders were removed |
 | `component/wide/WideDoctorAdmission.ets` | backend-persisted four-step appendix A/B/C admission workflow, server preview/scoring, screenings, care-plan selection, confirmations, and submission result |
-| `component/wide/WideAdminWorkspace.ets` | server-backed administrator overview plus doctor resident/collaboration/risk/health/assessment/admission modules; explicit administrator placeholders |
+| `component/wide/WideAdminWorkspace.ets` | server-backed administrator overview plus the doctor workbench; the removed doctor collaboration/assessment/risk/monitoring entries are out of visible navigation |
 | `component/wide/WideHomePage.ets` | caregiver on-shift workbench, server task summaries/queue, resident rhythm, and persisted task actions |
 | `component/wide/WideResidentPage.ets` | open-canvas responsive resident master/detail view; wide view uses independent list/detail work surfaces and widths below 1180vp switch between full-width list and detail |
+| `component/wide/WideDoctorResidentPage.ets` | doctor-owned resident master/detail view with independent local state, Scrollers, compact navigation, and read-only server records |
 | `component/wide/WideMessagePage.ets` | open-canvas responsive server conversation master/detail view with persisted replies/read state and unread-count reporting; widths below 1180vp switch between full-width list and detail |
 | `component/wide/WideSlidingCapsule.ets` | reusable animated segmented selection control with hover/focus, symbols, inline/corner badges, and optional badge colors |
 | `component/ResidentSummaryCard.ets` | resident summary/details builder and vital status presentation |

@@ -1,0 +1,2415 @@
+/*
+ * Copyright (c) 2026 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import {
+  AppStorageV2,
+  ColorMetrics,
+  KeyboardAvoidMode,
+  LengthMetrics
+} from '@kit.ArkUI';
+import { BusinessError, pasteboard } from '@kit.BasicServicesKit';
+import {
+  ActionBarButton,
+  ActionBarStyle,
+  HdsActionBar,
+  HdsNavDestination,
+  HdsNavDestinationTitleMode,
+  IconStyleMode,
+  hdsMaterial,
+  ScrollEffectType,
+  TitleBarContentOptions,
+  TitleBarStyleOptions
+} from '@kit.UIDesignKit';
+import { GlobalInfoModel } from '../model/GlobalInfoModel';
+import { StorageKey } from '../common/CommonConstants';
+import { BreakpointUtil } from '../util/BreakpointSystem';
+import { AI_BRAND_NAME, AiTitleLabel } from '../component/AiTitleLabel';
+import { WideSlidingCapsule, WideSlidingCapsuleItem } from '../component/wide/WideSlidingCapsule';
+import ApiClient from '../network/ApiClient';
+import AuthStore from '../network/AuthStore';
+import {
+  AiConversation,
+  AiConversationCreateRequest,
+  AiConversationDeleteResponse,
+  AiConversationExchangeResponse,
+  AiConversationListResponse,
+  AiConversationMessage,
+  AiConversationMessageListResponse,
+  AiConversationSendRequest,
+  AiPromptSuggestion,
+  AiPromptSuggestionListResponse,
+  LoginUser
+} from '../network/Dto';
+
+const CONTENT_TOP_OFFSET: number = 56;
+
+type ChatRole = 'ai' | 'user';
+type ChatFeedback = 'none' | 'up' | 'down';
+
+interface RichSegment {
+  text: string;
+  bold: boolean;
+}
+
+interface ChatMessage {
+  id: string;
+  role: ChatRole;
+  content: string;
+  feedback?: ChatFeedback;
+}
+
+interface ChatSession {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  updatedAt: number;
+}
+
+interface AiInformationFeedItem {
+  id: string;
+  title: string;
+  prompt: string;
+}
+
+// Doctor-owned AI surface; it intentionally does not render the caregiver page component.
+@ComponentV2
+export struct WideDoctorAiPage {
+  @Param doctorWideImmersive: boolean = false;
+  @Param embeddedDoctorWide: boolean = false;
+  @Param @Require embeddedListScroller: ListScroller;
+  @Param historyCollapsed: boolean = false;
+  @Param historyOpenRequestToken: number = 0;
+  @Param historySearchRequestToken: number = 0;
+  @Param newConversationRequestToken: number = 0;
+  @Event onClose: () => void = () => {};
+  @Event onHistoryCollapsedChange: (collapsed: boolean) => void = (_collapsed: boolean) => {};
+  @Local globalInfoModel: GlobalInfoModel =
+    AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO) ?? new GlobalInfoModel();
+  @Local sessions: ChatSession[] = [];
+  @Local activeSessionId: string = '';
+  @Local messages: ChatMessage[] = [];
+  @Local inputText: string = '';
+  @Local keyboardOffset: number = 0;
+  @Local isGenerating: boolean = false;
+  @Local historyDrawerOpen: boolean = false;
+  @Local embeddedHistoryCollapsed: boolean = false;
+  @Local historySearchVisible: boolean = false;
+  @Local historySearchText: string = '';
+  @Local embeddedAssistantMode: number = 0;
+  @Local isHistoryLoading: boolean = false;
+  @Local promptSuggestionRows: AiInformationFeedItem[][] = [
+    new Array<AiInformationFeedItem>(),
+    new Array<AiInformationFeedItem>(),
+    new Array<AiInformationFeedItem>()
+  ];
+  private historyScroller: Scroller = new Scroller();
+  private focusController = this.getUIContext().getFocusController();
+  private previousKeyboardAvoidMode: KeyboardAvoidMode = KeyboardAvoidMode.OFFSET;
+  private aiRequestVersion: number = 0;
+  private sessionLoadVersion: number = 0;
+  private conversationLoadVersion: number = 0;
+  private promptLoadVersion: number = 0;
+  private componentVisible: boolean = false;
+  private scrollTimer: number = -1;
+  private lastHistoryOpenRequestToken: number = 0;
+  private lastHistorySearchRequestToken: number = 0;
+  private lastNewConversationRequestToken: number = 0;
+
+  @Monitor('globalInfoModel.keyboardHeight')
+  onKeyboardHeightChange(): void {
+    this.keyboardOffset = this.globalInfoModel.keyboardHeight;
+    if (this.messages.length > 0) {
+      this.scheduleScrollToBottom(300);
+    }
+  }
+
+  @Monitor('historyCollapsed')
+  onHistoryCollapsedParamChange(): void {
+    if (!this.isEmbeddedWideHistory() || this.embeddedHistoryCollapsed === this.historyCollapsed) {
+      return;
+    }
+    this.embeddedHistoryCollapsed = this.historyCollapsed;
+  }
+
+  private cloneMessage(message: ChatMessage): ChatMessage {
+    return {
+      id: message.id,
+      role: message.role,
+      content: message.content,
+      feedback: message.feedback
+    };
+  }
+
+  private cloneMessages(messages: ChatMessage[]): ChatMessage[] {
+    const result: ChatMessage[] = [];
+    for (let i: number = 0; i < messages.length; i++) {
+      result.push(this.cloneMessage(messages[i]));
+    }
+    return result;
+  }
+
+  private findSession(sessionId: string): ChatSession | undefined {
+    for (let i: number = 0; i < this.sessions.length; i++) {
+      if (this.sessions[i].id === sessionId) {
+        return this.sessions[i];
+      }
+    }
+    return undefined;
+  }
+
+  private buildSessionTitle(text: string): string {
+    const normalized: string = text.replace(/\n/g, ' ').trim();
+    if (normalized.length === 0) {
+      return AI_BRAND_NAME;
+    }
+    return normalized.length > 18 ? `${normalized.substring(0, 18)}…` : normalized;
+  }
+
+  private serverTime(value?: string | null, fallback: string = ''): number {
+    const source: string = value ?? fallback;
+    const parsed: number = Date.parse(source);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  private sessionFromServer(conversation: AiConversation): ChatSession {
+    const id: string = `${conversation.id}`;
+    const existing: ChatSession | undefined = this.findSession(id);
+    return {
+      id: id,
+      title: conversation.title,
+      messages: existing ? this.cloneMessages(existing.messages) : [],
+      updatedAt: this.serverTime(conversation.last_message_at, conversation.updated_at)
+    };
+  }
+
+  private messageFromServer(message: AiConversationMessage): ChatMessage {
+    return {
+      id: `${message.id}`,
+      role: message.role === 'assistant' ? 'ai' : 'user',
+      content: message.content,
+      feedback: 'none'
+    };
+  }
+
+  private messagesFromServer(messages: AiConversationMessage[]): ChatMessage[] {
+    const result: ChatMessage[] = [];
+    for (let index: number = 0; index < messages.length; index++) {
+      result.push(this.messageFromServer(messages[index]));
+    }
+    return result;
+  }
+
+  private syncActiveSession(messages: ChatMessage[] = this.messages, refreshActivity: boolean = true): void {
+    const activeId: string = this.activeSessionId;
+    if (activeId.length === 0) {
+      return;
+    }
+    const current: ChatSession | undefined = this.findSession(activeId);
+    if (!current) {
+      this.activeSessionId = '';
+      return;
+    }
+    const updated: ChatSession = {
+      id: current.id,
+      title: current.title,
+      messages: this.cloneMessages(messages),
+      updatedAt: refreshActivity ? Date.now() : current.updatedAt
+    };
+    if (!refreshActivity) {
+      this.sessions = this.sessions.map((session: ChatSession): ChatSession =>
+        session.id === activeId ? updated : session);
+      return;
+    }
+    const remaining: ChatSession[] = [];
+    for (let i: number = 0; i < this.sessions.length; i++) {
+      if (this.sessions[i].id !== activeId) {
+        remaining.push(this.sessions[i]);
+      }
+    }
+    this.sessions = [updated, ...remaining];
+  }
+
+  private async loadSessionMessages(sessionId: string, closeDrawer: boolean = false): Promise<void> {
+    const conversationId: number = Number(sessionId);
+    if (conversationId <= 0) {
+      return;
+    }
+    const loadVersion: number = ++this.sessionLoadVersion;
+    this.activeSessionId = sessionId;
+    this.messages = [];
+    this.inputText = '';
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
+    try {
+      const response = await ApiClient.get<AiConversationMessageListResponse>(
+        `/ai/conversations/${conversationId}/messages`);
+      if (!this.componentVisible || loadVersion !== this.sessionLoadVersion ||
+        sessionId !== this.activeSessionId || response.code !== 0 || !response.data) {
+        if (response.code !== 0) {
+          this.showToast(response.msg || '对话记录加载失败');
+        }
+        return;
+      }
+      this.messages = this.messagesFromServer(response.data.list ?? []);
+      this.syncActiveSession(this.messages, false);
+      if (this.messages.length > 0) {
+        this.scheduleScrollToBottom(120);
+      }
+    } catch (_error) {
+      if (loadVersion === this.sessionLoadVersion) {
+        this.showToast('无法连接服务器，对话记录加载失败');
+      }
+    }
+    if (closeDrawer) {
+      this.closeHistoryDrawer();
+    }
+  }
+
+  private async loadConversations(): Promise<void> {
+    const loadVersion: number = ++this.conversationLoadVersion;
+    this.isHistoryLoading = true;
+    try {
+      const response = await ApiClient.get<AiConversationListResponse>('/ai/conversations');
+      if (!this.componentVisible || loadVersion !== this.conversationLoadVersion) {
+        return;
+      }
+      if (response.code !== 0 || !response.data) {
+        this.showToast(response.msg || '会话列表加载失败');
+        return;
+      }
+      const next: ChatSession[] = [];
+      const serverSessions: AiConversation[] = response.data.list ?? [];
+      for (let index: number = 0; index < serverSessions.length; index++) {
+        next.push(this.sessionFromServer(serverSessions[index]));
+      }
+      this.sessions = next;
+      const active: ChatSession | undefined = this.findSession(this.activeSessionId);
+      if (active) {
+        await this.loadSessionMessages(active.id);
+      } else if (next.length > 0) {
+        await this.loadSessionMessages(next[0].id);
+      } else {
+        this.activeSessionId = '';
+        this.messages = [];
+      }
+    } catch (_error) {
+      this.showToast('无法连接服务器，会话列表加载失败');
+    } finally {
+      this.isHistoryLoading = false;
+    }
+  }
+
+  private async createServerConversation(title: string): Promise<ChatSession | undefined> {
+    this.conversationLoadVersion++;
+    const request: AiConversationCreateRequest = { title: title };
+    const response = await ApiClient.post<AiConversation>('/ai/conversations', request);
+    if (!this.componentVisible) {
+      return undefined;
+    }
+    if (response.code !== 0 || !response.data) {
+      this.showToast(response.msg || '新建对话失败');
+      return undefined;
+    }
+    const session: ChatSession = this.sessionFromServer(response.data);
+    this.sessions = [session, ...this.sessions];
+    this.activeSessionId = session.id;
+    return session;
+  }
+
+  private cancelPendingWork(): void {
+    this.aiRequestVersion++;
+    this.sessionLoadVersion++;
+    if (this.scrollTimer >= 0) {
+      clearTimeout(this.scrollTimer);
+      this.scrollTimer = -1;
+    }
+    this.isGenerating = false;
+  }
+
+  private openHistoryDrawer(): void {
+    this.focusController.clearFocus();
+    this.getUIContext().animateTo({ duration: 260, curve: Curve.Friction }, () => {
+      this.historyDrawerOpen = true;
+    });
+  }
+
+  private closeHistoryDrawer(): void {
+    this.getUIContext().animateTo({ duration: 220, curve: Curve.EaseIn }, () => {
+      this.historyDrawerOpen = false;
+    });
+  }
+
+  private async startNewConversation(): Promise<void> {
+    const wasGenerating: boolean = this.isGenerating;
+    this.cancelPendingWork();
+    if (wasGenerating) {
+      this.showToast('已停止当前回复');
+    }
+    this.focusController.clearFocus();
+    this.messages = [];
+    this.inputText = '';
+    this.historySearchText = '';
+    this.historySearchVisible = false;
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
+    this.closeHistoryDrawer();
+    try {
+      const session: ChatSession | undefined = await this.createServerConversation('新对话');
+      if (!session) {
+        this.activeSessionId = '';
+      }
+    } catch (_error) {
+      this.activeSessionId = '';
+      this.showToast('无法连接服务器，新建对话失败');
+    }
+  }
+
+  private async selectSession(sessionId: string): Promise<void> {
+    if (sessionId === this.activeSessionId) {
+      this.closeHistoryDrawer();
+      return;
+    }
+    const wasGenerating: boolean = this.isGenerating;
+    this.cancelPendingWork();
+    if (wasGenerating) {
+      this.showToast('已停止当前回复');
+    }
+    this.focusController.clearFocus();
+    const session: ChatSession | undefined = this.findSession(sessionId);
+    if (!session) {
+      this.closeHistoryDrawer();
+      return;
+    }
+    await this.loadSessionMessages(session.id, true);
+  }
+
+  private async deleteSession(sessionId: string): Promise<void> {
+    const conversationId: number = Number(sessionId);
+    if (conversationId <= 0) {
+      return;
+    }
+    this.conversationLoadVersion++;
+    try {
+      const response = await ApiClient.delete<AiConversationDeleteResponse>(`/ai/conversations/${conversationId}`);
+      if (response.code !== 0 || !response.data || !response.data.deleted) {
+        this.showToast(response.msg || '删除对话失败');
+        return;
+      }
+      const wasActive: boolean = this.activeSessionId === sessionId;
+      this.sessions = this.sessions.filter((session: ChatSession): boolean => session.id !== sessionId);
+      if (wasActive) {
+        this.cancelPendingWork();
+        this.activeSessionId = '';
+        this.messages = [];
+        if (this.sessions.length > 0) {
+          await this.loadSessionMessages(this.sessions[0].id);
+        }
+      }
+      this.showToast('对话已删除');
+    } catch (_error) {
+      this.showToast('无法连接服务器，删除对话失败');
+    }
+  }
+
+  private closeChatPage(): void {
+    this.closeHistoryDrawer();
+    this.onClose();
+  }
+
+  private historyDrawerWidth(): number {
+    if (this.isWideLayout()) {
+      return 280;
+    }
+    if (this.globalInfoModel.deviceWidth <= 0) {
+      return 240;
+    }
+    return Math.min(272, Math.max(232, this.globalInfoModel.deviceWidth * 0.64));
+  }
+
+  private isWideLayout(): boolean {
+    return BreakpointUtil.usesWideWorkspace(
+      this.globalInfoModel.deviceWidth,
+      this.globalInfoModel.widthBreakpoint
+    );
+  }
+
+  private doctorWideTitleBarOffset(): number {
+    return this.globalInfoModel.statusBarHeight + CONTENT_TOP_OFFSET;
+  }
+
+  private usesWideImmersiveInset(): boolean {
+    return this.doctorWideImmersive;
+  }
+
+  private isEmbeddedWideHistory(): boolean {
+    return this.embeddedDoctorWide && this.isWideLayout();
+  }
+
+  private embeddedHistoryPaneWidth(): number {
+    if (this.globalInfoModel.deviceWidth <= 0) {
+      return 356;
+    }
+    return Math.min(380, Math.max(280, (this.globalInfoModel.deviceWidth - 68) * 0.26));
+  }
+
+  private setEmbeddedHistoryCollapsed(collapsed: boolean): void {
+    if (!this.isEmbeddedWideHistory()) {
+      return;
+    }
+    if (this.embeddedHistoryCollapsed === collapsed) {
+      return;
+    }
+    this.focusController.clearFocus();
+    this.getUIContext().animateTo({ duration: 280, curve: Curve.Friction }, () => {
+      this.embeddedHistoryCollapsed = collapsed;
+      if (collapsed) {
+        this.historySearchVisible = false;
+        this.historySearchText = '';
+      }
+      this.onHistoryCollapsedChange(collapsed);
+    });
+  }
+
+  private toggleEmbeddedHistory(): void {
+    this.setEmbeddedHistoryCollapsed(!this.embeddedHistoryCollapsed);
+  }
+
+  private expandEmbeddedHistory(): void {
+    this.setEmbeddedHistoryCollapsed(false);
+  }
+
+  private focusHistorySearch(): void {
+    try {
+      this.focusController.requestFocus('ai-history-search');
+    } catch (_error) {
+      // Search remains available for touch input when focus is unavailable.
+    }
+  }
+
+  private toggleHistorySearch(): void {
+    if (this.historySearchVisible) {
+      this.historySearchVisible = false;
+      this.historySearchText = '';
+      this.focusController.clearFocus();
+      return;
+    }
+    this.historySearchVisible = true;
+    this.expandEmbeddedHistory();
+    setTimeout(() => {
+      if (this.componentVisible && !this.embeddedHistoryCollapsed && this.historySearchVisible) {
+        this.focusHistorySearch();
+      }
+    }, 220);
+  }
+
+  @Monitor('historyOpenRequestToken')
+  onHistoryOpenRequest(): void {
+    if (!this.isEmbeddedWideHistory()) {
+      return;
+    }
+    if (this.historyOpenRequestToken <= this.lastHistoryOpenRequestToken) {
+      return;
+    }
+    this.lastHistoryOpenRequestToken = this.historyOpenRequestToken;
+    this.historySearchVisible = false;
+    this.historySearchText = '';
+    this.expandEmbeddedHistory();
+  }
+
+  @Monitor('historySearchRequestToken')
+  onHistorySearchRequest(): void {
+    if (!this.isEmbeddedWideHistory()) {
+      return;
+    }
+    if (this.historySearchRequestToken <= this.lastHistorySearchRequestToken) {
+      return;
+    }
+    this.lastHistorySearchRequestToken = this.historySearchRequestToken;
+    this.historySearchVisible = true;
+    this.expandEmbeddedHistory();
+    setTimeout(() => {
+      if (this.componentVisible && !this.embeddedHistoryCollapsed) {
+        this.focusHistorySearch();
+      }
+    }, 320);
+  }
+
+  @Monitor('newConversationRequestToken')
+  onNewConversationRequest(): void {
+    if (!this.isEmbeddedWideHistory()) {
+      return;
+    }
+    if (this.newConversationRequestToken <= this.lastNewConversationRequestToken) {
+      return;
+    }
+    this.lastNewConversationRequestToken = this.newConversationRequestToken;
+    this.startNewConversation();
+  }
+
+  private embeddedSuggestionWidth(title: string): number {
+    return Math.min(560, Math.max(300, title.length * 19 + 44));
+  }
+
+  private embeddedSuggestions(): AiInformationFeedItem[] {
+    return this.embeddedAssistantMode === 0 ? this.promptSuggestionRows[0] : this.promptSuggestionRows[2];
+  }
+
+  private async loadPromptSuggestions(): Promise<void> {
+    const requestVersion: number = ++this.promptLoadVersion;
+    try {
+      const response = await ApiClient.get<AiPromptSuggestionListResponse>('/ai/suggestions');
+      if (requestVersion !== this.promptLoadVersion || !this.componentVisible ||
+        response.code !== 0 || !response.data) {
+        return;
+      }
+      const rows: AiInformationFeedItem[][] = [
+        new Array<AiInformationFeedItem>(),
+        new Array<AiInformationFeedItem>(),
+        new Array<AiInformationFeedItem>()
+      ];
+      for (let index: number = 0; index < response.data.list.length; index++) {
+        const suggestion: AiPromptSuggestion = response.data.list[index];
+        if (suggestion.group_index < 0 || suggestion.group_index >= rows.length ||
+          suggestion.title.trim().length === 0 || suggestion.prompt.trim().length === 0) {
+          continue;
+        }
+        rows[suggestion.group_index].push({
+          id: suggestion.code,
+          title: suggestion.title,
+          prompt: suggestion.prompt
+        });
+      }
+      this.promptSuggestionRows = rows;
+    } catch (_error) {
+      if (requestVersion === this.promptLoadVersion && this.componentVisible) {
+        this.promptSuggestionRows = [
+          new Array<AiInformationFeedItem>(),
+          new Array<AiInformationFeedItem>(),
+          new Array<AiInformationFeedItem>()
+        ];
+      }
+    }
+  }
+
+  private embeddedModeItems(): WideSlidingCapsuleItem[] {
+    return [
+      { title: '对话', index: 0 },
+      { title: '工作', index: 1 }
+    ];
+  }
+
+  aboutToAppear(): void {
+    this.componentVisible = true;
+    this.embeddedHistoryCollapsed = this.isEmbeddedWideHistory() ? this.historyCollapsed : false;
+    this.lastHistoryOpenRequestToken = this.historyOpenRequestToken;
+    this.lastHistorySearchRequestToken = this.historySearchRequestToken;
+    this.lastNewConversationRequestToken = this.newConversationRequestToken;
+    this.previousKeyboardAvoidMode = this.getUIContext().getKeyboardAvoidMode();
+    this.loadConversations();
+    this.loadPromptSuggestions();
+  }
+
+  aboutToDisappear(): void {
+    this.componentVisible = false;
+    this.conversationLoadVersion++;
+    this.promptLoadVersion++;
+    this.getUIContext().setKeyboardAvoidMode(this.previousKeyboardAvoidMode);
+    this.cancelPendingWork();
+  }
+
+  private titleBarTitleText(): string {
+    const activeSession: ChatSession | undefined = this.findSession(this.activeSessionId);
+    return activeSession?.title ?? AI_BRAND_NAME;
+  }
+
+  @Builder
+  private titleBarTitleBuilder() {
+    Row() {
+      AiTitleLabel({ text: this.titleBarTitleText(), compact: true })
+        .width('100%')
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ left: 64, right: 112 })
+    .alignItems(VerticalAlign.Center)
+    .hitTestBehavior(HitTestMode.Transparent)
+  }
+
+  private titleBarContent(): TitleBarContentOptions {
+    return {
+      stackBuilder: (): void => this.titleBarTitleBuilder(),
+      backIcon: {
+        label: '打开菜单',
+        icon: $r('sys.symbol.line_3_horizontal'),
+        type: IconStyleMode.SMALL,
+        isEnabled: true,
+        action: () => {
+          this.openHistoryDrawer();
+        }
+      },
+      menu: {
+        value: [
+          {
+            content: {
+              label: '新建对话',
+              icon: $r('sys.symbol.square_and_pencil'),
+              type: IconStyleMode.SMALL,
+              isEnabled: true,
+              action: () => {
+                this.startNewConversation();
+              }
+            }
+          },
+          {
+            content: {
+              label: '关闭',
+              icon: $r('sys.symbol.xmark'),
+              type: IconStyleMode.SMALL,
+              isEnabled: true,
+              action: () => {
+                this.closeChatPage();
+              }
+            }
+          }
+        ]
+      }
+    };
+  }
+
+  private doctorWideTitleBarContent(): TitleBarContentOptions {
+    return {
+      title: {
+        mainTitle: this.wideTitleBarTitleText()
+      },
+      menu: {
+        value: [
+          {
+            content: {
+              label: '新建对话',
+              icon: $r('sys.symbol.square_and_pencil'),
+              type: IconStyleMode.SMALL,
+              isEnabled: true,
+              action: () => {
+                this.startNewConversation();
+              }
+            }
+          },
+          {
+            content: {
+              label: '关闭',
+              icon: $r('sys.symbol.xmark'),
+              type: IconStyleMode.SMALL,
+              isEnabled: true,
+              action: () => {
+                this.closeChatPage();
+              }
+            }
+          }
+        ]
+      }
+    };
+  }
+
+  private titleBarStyle(): TitleBarStyleOptions {
+    return {
+      systemMaterialEffect: {
+        materialType: hdsMaterial.MaterialType.IMMERSIVE,
+        materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+      },
+      scrollEffectOpts: {
+        enableScrollEffect: true,
+        scrollEffectType: ScrollEffectType.GRADIENT_BLUR
+      },
+      originalStyle: {
+        contentStyle: {
+          backIconStyle: {
+            backgroundColor: Color.Transparent,
+            iconColor: $r('sys.color.icon_primary')
+          },
+          menuStyle: {
+            backgroundColor: Color.Transparent,
+            iconColor: $r('sys.color.icon_primary')
+          }
+        }
+      },
+      scrollEffectStyle: {
+        contentStyle: {
+          backIconStyle: {
+            backgroundColor: Color.Transparent,
+            iconColor: $r('sys.color.icon_primary')
+          },
+          menuStyle: {
+            backgroundColor: Color.Transparent,
+            iconColor: $r('sys.color.icon_primary')
+          }
+        }
+      }
+    };
+  }
+
+  private pagePadding(): number {
+    if (this.isWideLayout()) {
+      return 24;
+    }
+    return 16;
+  }
+
+  private expandMaxWidth(): number {
+    const widthBreakpoint: WidthBreakpoint = this.globalInfoModel.widthBreakpoint;
+    if (widthBreakpoint === WidthBreakpoint.WIDTH_LG || widthBreakpoint === WidthBreakpoint.WIDTH_XL) {
+      return 1040;
+    }
+    if (widthBreakpoint === WidthBreakpoint.WIDTH_MD) {
+      return 920;
+    }
+    return 9999;
+  }
+
+  private userTextBeforeMessage(messageId: string): string {
+    let targetIndex: number = -1;
+    for (let i: number = 0; i < this.messages.length; i++) {
+      if (this.messages[i].id === messageId) {
+        targetIndex = i;
+        break;
+      }
+    }
+    for (let i: number = targetIndex - 1; i >= 0; i--) {
+      if (this.messages[i].role === 'user') {
+        return this.messages[i].content;
+      }
+    }
+    return '';
+  }
+
+  private parseBold(text: string): RichSegment[] {
+    const segments: RichSegment[] = [];
+    let current: string = '';
+    let isBold: boolean = false;
+    let i: number = 0;
+    while (i < text.length) {
+      if (i + 1 < text.length && text[i] === '*' && text[i + 1] === '*') {
+        if (current.length > 0) {
+          segments.push({ text: current, bold: isBold });
+        }
+        current = '';
+        isBold = !isBold;
+        i += 2;
+      } else {
+        current += text[i];
+        i++;
+      }
+    }
+    if (current.length > 0 || segments.length === 0) {
+      segments.push({ text: current, bold: isBold });
+    }
+    return segments;
+  }
+
+  private scrollToBottom(): void {
+    if (this.messages.length === 0) {
+      return;
+    }
+    if (this.messages.length <= 2) {
+      this.embeddedListScroller.scrollToIndex(0, true, ScrollAlign.START);
+      return;
+    }
+    const targetIndex: number = this.isGenerating ? this.messages.length : this.messages.length - 1;
+    this.embeddedListScroller.scrollToIndex(targetIndex, true, ScrollAlign.END);
+  }
+
+  private scheduleScrollToBottom(delay: number = 80): void {
+    if (this.scrollTimer >= 0) {
+      clearTimeout(this.scrollTimer);
+    }
+    this.scrollTimer = setTimeout(() => {
+      this.scrollToBottom();
+      this.scrollTimer = -1;
+    }, delay);
+  }
+
+  private async sendMessage(): Promise<void> {
+    const text: string = this.inputText.trim();
+    if (text.length === 0 || this.isGenerating) {
+      return;
+    }
+    if (this.messages.length === 0) {
+      this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
+    }
+    if (this.activeSessionId.length === 0) {
+      try {
+        const session: ChatSession | undefined = await this.createServerConversation(this.buildSessionTitle(text));
+        if (!session) {
+          return;
+        }
+      } catch (_error) {
+        this.showToast('无法连接服务器，新建对话失败');
+        return;
+      }
+    }
+    if (!this.componentVisible) {
+      return;
+    }
+    this.inputText = '';
+    this.isGenerating = true;
+    const optimisticMessage: ChatMessage = { id: `pending-${Date.now()}`, role: 'user', content: text };
+    this.messages = [...this.messages, optimisticMessage];
+    this.scheduleScrollToBottom(80);
+    const requestVersion: number = ++this.aiRequestVersion;
+    try {
+      const conversationId: number = Number(this.activeSessionId);
+      const request: AiConversationSendRequest = { content: text };
+      const response = await ApiClient.post<AiConversationExchangeResponse>(
+        `/ai/conversations/${conversationId}/messages`, request);
+      if (requestVersion !== this.aiRequestVersion) {
+        return;
+      }
+      if (response.code !== 0 || !response.data || response.data.answer.trim().length === 0) {
+        throw new Error(response.msg || 'AI 服务暂不可用');
+      }
+      const exchange: AiConversationExchangeResponse = response.data;
+      this.messages = [...this.messages.filter((item: ChatMessage): boolean => item.id !== optimisticMessage.id),
+        this.messageFromServer(exchange.user_message), this.messageFromServer(exchange.assistant_message)];
+      const updatedSession: ChatSession = this.sessionFromServer(exchange.conversation);
+      updatedSession.messages = this.cloneMessages(this.messages);
+      this.sessions = [updatedSession, ...this.sessions.filter((item: ChatSession): boolean =>
+        item.id !== updatedSession.id)];
+      this.isGenerating = false;
+      this.scheduleScrollToBottom(100);
+    } catch (_error) {
+      if (requestVersion === this.aiRequestVersion) {
+        this.messages = this.messages.filter((item: ChatMessage): boolean => item.id !== optimisticMessage.id);
+        this.syncActiveSession(this.messages, false);
+        this.isGenerating = false;
+        this.showToast('AI 服务暂不可用，请稍后重试');
+      }
+    }
+  }
+
+  private async regenerateMessage(message: ChatMessage): Promise<void> {
+    if (this.isGenerating) {
+      return;
+    }
+    const text: string = this.userTextBeforeMessage(message.id);
+    if (text.length === 0) {
+      return;
+    }
+    this.isGenerating = true;
+    this.showToast('正在重新提问');
+    const requestVersion: number = ++this.aiRequestVersion;
+    try {
+      const conversationId: number = Number(this.activeSessionId);
+      const request: AiConversationSendRequest = { content: text };
+      const response = await ApiClient.post<AiConversationExchangeResponse>(
+        `/ai/conversations/${conversationId}/messages`, request);
+      if (requestVersion !== this.aiRequestVersion) {
+        return;
+      }
+      if (response.code !== 0 || !response.data) {
+        throw new Error(response.msg || 'AI 服务暂不可用');
+      }
+      const exchange: AiConversationExchangeResponse = response.data;
+      const replacement: ChatMessage = this.messageFromServer(exchange.assistant_message);
+      this.messages = [...this.messages, this.messageFromServer(exchange.user_message), replacement];
+      const updatedSession: ChatSession = this.sessionFromServer(exchange.conversation);
+      updatedSession.messages = this.cloneMessages(this.messages);
+      this.sessions = [updatedSession, ...this.sessions.filter((item: ChatSession): boolean =>
+        item.id !== updatedSession.id)];
+      this.isGenerating = false;
+      this.scheduleScrollToBottom(100);
+    } catch (_error) {
+      if (requestVersion === this.aiRequestVersion) {
+        this.isGenerating = false;
+        this.showToast('AI 服务暂不可用，请稍后重试');
+      }
+    }
+  }
+
+  private setFeedback(message: ChatMessage, feedback: ChatFeedback): void {
+    const nextFeedback: ChatFeedback = message.feedback === feedback ? 'none' : feedback;
+    this.messages = this.messages.map((item: ChatMessage): ChatMessage => {
+      if (item.id !== message.id) {
+        return item;
+      }
+      return {
+        id: item.id,
+        role: item.role,
+        content: item.content,
+        feedback: nextFeedback
+      };
+    });
+    this.syncActiveSession();
+    this.showToast(nextFeedback === 'up' ? '感谢你的认可' : nextFeedback === 'down' ? '已记录反馈' : '已取消反馈');
+  }
+
+  private showToast(message: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message: message });
+    } catch (error) {
+    }
+  }
+
+  private copyText(text: string): void {
+    try {
+      const data: pasteboard.PasteData = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, text);
+      pasteboard.getSystemPasteboard().setData(data).then(() => {
+        this.showToast('已复制');
+      }).catch((error: BusinessError) => {
+        this.showToast('复制失败');
+      });
+    } catch (error) {
+      this.showToast('复制失败');
+    }
+  }
+
+  private editMessage(message: ChatMessage): void {
+    this.inputText = message.content;
+    this.showToast('已放回输入框');
+  }
+
+  private colorMetric(color: ResourceColor): ColorMetrics | undefined {
+    try {
+      return ColorMetrics.resourceColor(color);
+    } catch (error) {
+      return undefined;
+    }
+  }
+
+  private actionButton(
+    icon: Resource,
+    label: string,
+    action: () => void,
+    selected: boolean = false
+  ): ActionBarButton {
+    return new ActionBarButton({
+      width: LengthMetrics.vp(36),
+      baseIcon: icon,
+      iconSize: LengthMetrics.vp(18),
+      iconFillColor: this.colorMetric(selected ? $r('app.color.brand_blue') : $r('sys.color.icon_secondary')),
+      backgroundColor: this.colorMetric(Color.Transparent),
+      shadowStyle: { radius: 0, color: Color.Transparent, offsetX: 0, offsetY: 0 },
+      hoverTips: label,
+      accessibilityText: label,
+      onClick: action
+    });
+  }
+
+  private aiActionButtons(message: ChatMessage): ActionBarButton[] {
+    return [
+      this.actionButton($r('sys.symbol.square_on_square_fill'), '复制', () => {
+        this.copyText(message.content);
+      }),
+      this.actionButton($r('sys.symbol.arrow_clockwise'), '重新提问', () => {
+        this.regenerateMessage(message);
+      }),
+      this.actionButton(
+        message.feedback === 'up' ? $r('sys.symbol.hand_thumbsup_fill') : $r('sys.symbol.hand_thumbsup'),
+        '有帮助',
+        () => {
+          this.setFeedback(message, 'up');
+        },
+        message.feedback === 'up'
+      ),
+      this.actionButton(
+        message.feedback === 'down' ? $r('sys.symbol.hand_thumbsdown_fill') : $r('sys.symbol.hand_thumbsdown'),
+        '没帮助',
+        () => {
+          this.setFeedback(message, 'down');
+        },
+        message.feedback === 'down'
+      ),
+      this.actionButton($r('sys.symbol.share'), '分享', () => {
+        this.showToast('分享能力接入中');
+      })
+    ];
+  }
+
+  private aiActionBarStyle(): ActionBarStyle {
+    return new ActionBarStyle({
+      height: LengthMetrics.vp(40),
+      backgroundColor: this.colorMetric(Color.Transparent),
+      innerSpace: LengthMetrics.vp(0),
+      startSpace: LengthMetrics.vp(0),
+      endSpace: LengthMetrics.vp(0)
+    });
+  }
+
+  @Builder
+  private richParagraph(line: string) {
+    Text() {
+      ForEach(this.parseBold(line), (segment: RichSegment, index: number) => {
+        Span(segment.text)
+          .fontSize($r('sys.float.Body_L'))
+          .fontColor($r('sys.color.font_primary'))
+          .fontWeight(segment.bold ? FontWeight.Bold : FontWeight.Regular)
+      }, (segment: RichSegment, index: number) => `${index}-${segment.text}`)
+    }
+    .width('100%')
+    .lineHeight(28)
+  }
+
+  @Builder
+  private richBullet(line: string) {
+    Row({ space: 10 }) {
+      Row()
+        .width(6)
+        .height(6)
+        .borderRadius(3)
+        .backgroundColor($r('app.color.brand_blue'))
+        .margin({ top: 10 })
+      Text() {
+        ForEach(this.parseBold(line.substring(2)), (segment: RichSegment, index: number) => {
+          Span(segment.text)
+            .fontSize($r('sys.float.Body_L'))
+            .fontColor($r('sys.color.font_primary'))
+            .fontWeight(segment.bold ? FontWeight.Bold : FontWeight.Regular)
+        }, (segment: RichSegment, index: number) => `${index}-${segment.text}`)
+      }
+      .layoutWeight(1)
+      .lineHeight(28)
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Top)
+  }
+
+  @Builder
+  private aiContent(content: string) {
+    Column({ space: 10 }) {
+      ForEach(content.split('\n'), (line: string, index: number) => {
+        if (line.startsWith('• ')) {
+          this.richBullet(line)
+        } else if (line.trim().length === 0) {
+          Row().width('100%').height(4)
+        } else {
+          this.richParagraph(line)
+        }
+      }, (line: string, index: number) => `${index}-${line}`)
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private userActionButton(symbol: Resource, label: string, action: () => void) {
+    Button({ type: ButtonType.Circle, stateEffect: true }) {
+      SymbolGlyph(symbol)
+        .fontSize(17)
+        .fontColor([$r('sys.color.icon_tertiary')])
+    }
+    .buttonStyle(ButtonStyleMode.TEXTUAL)
+    .width(36)
+    .height(36)
+    .accessibilityText(label)
+    .onClick(action)
+  }
+
+  @Builder
+  private userMessageItem(message: ChatMessage) {
+    Column({ space: 2 }) {
+      Row() {
+        Blank()
+        Text(message.content)
+          .fontSize($r('sys.float.Body_L'))
+          .fontColor($r('sys.color.font_primary'))
+          .lineHeight(26)
+          .textAlign(message.content.length <= 2 ? TextAlign.Center : TextAlign.Start)
+          .constraintSize({ minWidth: 44, minHeight: 44, maxWidth: '78%' })
+          .padding({ left: 14, right: 14, top: 9, bottom: 9 })
+          .backgroundColor(0xFFEAF1FF)
+          .borderRadius(22)
+      }
+      .width('100%')
+
+      Row({ space: 0 }) {
+        Blank()
+        this.userActionButton($r('sys.symbol.square_on_square_fill'), '复制', () => {
+          this.copyText(message.content);
+        })
+        this.userActionButton($r('sys.symbol.pencil_line'), '编辑', () => {
+          this.editMessage(message);
+        })
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .padding({ left: this.pagePadding(), right: this.pagePadding() })
+    .margin({ bottom: 14 })
+  }
+
+  @Builder
+  private aiMessageItem(message: ChatMessage) {
+    Column({ space: 12 }) {
+      this.aiContent(message.content)
+
+      Row() {
+        HdsActionBar({
+          startButtons: this.aiActionButtons(message),
+          actionBarStyle: this.aiActionBarStyle()
+        })
+      }
+      .width('100%')
+      .height(40)
+      .justifyContent(FlexAlign.Start)
+    }
+    .width('100%')
+    .padding({ left: this.pagePadding(), right: this.pagePadding() })
+    .margin({ bottom: 20 })
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private generatingItem() {
+    Row({ space: 10 }) {
+      LoadingProgress()
+        .width(20)
+        .height(20)
+        .color($r('app.color.brand_blue'))
+      Text('康小伴正在回复…')
+        .fontSize($r('sys.float.Body_M'))
+        .fontColor($r('sys.color.font_secondary'))
+    }
+    .width('100%')
+    .padding({ left: this.pagePadding(), right: this.pagePadding(), top: 8, bottom: 24 })
+  }
+
+  private usePromptShortcut(prompt: string): void {
+    this.inputText = prompt;
+  }
+
+  private emptyGreetingText(hour: number = new Date().getHours()): string {
+    let greeting: string = '上午好';
+    if (hour >= 14) {
+      greeting = '下午好';
+    } else if (hour >= 12) {
+      greeting = '中午好';
+    }
+    const user: LoginUser | null = AuthStore.getUser();
+    const displayName: string = user?.real_name || user?.username || '当前用户';
+    return `${greeting}，${displayName}`;
+  }
+
+  private informationFeedCategory(title: string): string {
+    const separatorIndex: number = title.indexOf('：');
+    return separatorIndex > 0 ? title.substring(0, separatorIndex) : '建议';
+  }
+
+  private informationFeedContent(title: string): string {
+    const separatorIndex: number = title.indexOf('：');
+    return separatorIndex > 0 ? title.substring(separatorIndex + 1) : title;
+  }
+
+  @Builder
+  private informationFeedItem(item: AiInformationFeedItem) {
+    Button({ type: ButtonType.Capsule, stateEffect: true }) {
+      Text(item.title)
+        .fontSize($r('sys.float.Body_S'))
+        .fontColor($r('sys.color.font_primary'))
+        .maxLines(1)
+    }
+    .buttonStyle(ButtonStyleMode.NORMAL)
+    .height(40)
+    .padding({ left: 14, right: 14 })
+    .backgroundColor($r('app.color.ai_feed_background'))
+    .borderRadius(12)
+    .onClick(() => {
+      this.usePromptShortcut(item.prompt);
+    })
+  }
+
+  @Builder
+  private informationFeedRow(items: AiInformationFeedItem[]) {
+    Scroll() {
+      Row({ space: 8 }) {
+        ForEach(items, (item: AiInformationFeedItem) => {
+          this.informationFeedItem(item)
+        }, (item: AiInformationFeedItem) => item.id)
+      }
+      .padding({ left: this.pagePadding(), right: this.pagePadding() })
+    }
+    .width('100%')
+    .height(40)
+    .scrollable(ScrollDirection.Horizontal)
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.Spring)
+  }
+
+  @Builder
+  private emptyInformationHero() {
+    Column({ space: 20 }) {
+      Column({ space: 4 }) {
+        Text(this.emptyGreetingText())
+          .fontSize($r('sys.float.Title_M'))
+          .fontColor($r('sys.color.font_primary'))
+          .fontWeight(FontWeight.Medium)
+          .width('100%')
+          .maxLines(1)
+          .ellipsisMode(EllipsisMode.END)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+        Text('让我们开始当前的工作吧')
+          .fontSize($r('sys.float.Body_L'))
+          .fontColor($r('sys.color.font_secondary'))
+          .fontWeight(FontWeight.Regular)
+          .width('100%')
+          .maxLines(1)
+          .ellipsisMode(EllipsisMode.END)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .width('100%')
+      .padding({ left: this.pagePadding(), right: this.pagePadding() })
+      .alignItems(HorizontalAlign.Start)
+
+      Column({ space: 8 }) {
+        this.informationFeedRow(this.promptSuggestionRows[0])
+        this.informationFeedRow(this.promptSuggestionRows[1])
+        this.informationFeedRow(this.promptSuggestionRows[2])
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .constraintSize({ maxWidth: this.expandMaxWidth() })
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private wideInformationFeedItem(item: AiInformationFeedItem) {
+    Button({ stateEffect: true }) {
+      Column({ space: 3 }) {
+        Text(this.informationFeedCategory(item.title))
+          .fontSize($r('sys.float.Caption_S'))
+          .fontColor($r('sys.color.font_secondary'))
+          .fontWeight(FontWeight.Medium)
+          .width('100%')
+          .maxLines(1)
+
+        Text(this.informationFeedContent(item.title))
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_primary'))
+          .width('100%')
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+    }
+    .buttonStyle(ButtonStyleMode.NORMAL)
+    .layoutWeight(1)
+    .height(66)
+    .padding({ left: 14, right: 14, top: 9, bottom: 9 })
+    .borderRadius(14)
+    .backgroundColor($r('app.color.ai_feed_background'))
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .focusable(true)
+    .focusOnTouch(true)
+    .onClick(() => {
+      this.usePromptShortcut(item.prompt);
+    })
+  }
+
+  @Builder
+  private wideInformationFeedRow(items: AiInformationFeedItem[]) {
+    Row({ space: 12 }) {
+      ForEach(items, (item: AiInformationFeedItem) => {
+        this.wideInformationFeedItem(item)
+      }, (item: AiInformationFeedItem) => item.id)
+    }
+    .width('100%')
+  }
+
+  @Builder
+  private embeddedModeSwitcher() {
+    WideSlidingCapsule({
+      items: this.embeddedModeItems(),
+      selectedIndex: this.embeddedAssistantMode,
+      itemWidth: 168,
+      onSelect: (index: number) => {
+        this.embeddedAssistantMode = index;
+      }
+    })
+    .width(360)
+  }
+
+  @Builder
+  private embeddedSuggestionItem(item: AiInformationFeedItem) {
+    Button({ type: ButtonType.Capsule, stateEffect: true }) {
+      Text(item.title)
+        .fontSize($r('sys.float.Body_S'))
+        .fontColor($r('sys.color.font_primary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .buttonStyle(ButtonStyleMode.NORMAL)
+    .width(this.embeddedSuggestionWidth(item.title))
+    .height(46)
+    .padding({ left: 18, right: 18 })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .borderRadius(23)
+    .focusable(true)
+    .focusOnTouch(true)
+    .onClick(() => {
+      this.usePromptShortcut(item.prompt);
+    })
+  }
+
+  @Builder
+  private embeddedAssistantStart() {
+    Column({ space: 28 }) {
+      Text('有什么我能帮你的吗？')
+        .fontSize($r('sys.float.Title_L'))
+        .fontColor($r('sys.color.font_primary'))
+        .fontWeight(FontWeight.Bold)
+        .textAlign(TextAlign.Center)
+        .width('100%')
+
+      this.embeddedModeSwitcher()
+
+      Column({ space: 12 }) {
+        Text('为你推荐')
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_tertiary'))
+          .width('100%')
+
+        Column({ space: 10 }) {
+          ForEach(this.embeddedSuggestions(), (item: AiInformationFeedItem) => {
+            this.embeddedSuggestionItem(item)
+          }, (item: AiInformationFeedItem) => `embedded-${item.id}`)
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+    }
+    .width('100%')
+    .constraintSize({ maxWidth: 720 })
+    .alignItems(HorizontalAlign.Center)
+  }
+
+  @Builder
+  private embeddedComposerTool(symbol: Resource, label: string) {
+    Row({ space: 5 }) {
+      SymbolGlyph(symbol)
+        .fontSize(18)
+        .fontColor([$r('sys.color.icon_primary')])
+      Text(label)
+        .fontSize($r('sys.float.Body_S'))
+        .fontColor($r('sys.color.font_primary'))
+    }
+    .height(34)
+    .padding({ left: 6, right: 6 })
+    .borderRadius(8)
+    .onClick(() => {
+      this.showToast(`${label}功能接入中`);
+    })
+  }
+
+  @Builder
+  private embeddedComposer() {
+    Column({ space: 8 }) {
+      TextArea({ text: this.inputText, placeholder: '发消息或按住空格说话...' })
+        .enterKeyType(EnterKeyType.NEW_LINE)
+        .fontSize($r('sys.float.Body_L'))
+        .fontColor($r('sys.color.font_primary'))
+        .lineHeight(24)
+        .placeholderFont({ size: $r('sys.float.Body_L') })
+        .placeholderColor($r('sys.color.font_tertiary'))
+        .backgroundColor(Color.Transparent)
+        .padding({ left: 8, right: 8, top: 8, bottom: 4 })
+        .minLines(1)
+        .maxLines(4, { overflowMode: MaxLinesMode.SCROLL })
+        .textOverflow(TextOverflow.Clip)
+        .barState(BarState.Off)
+        .width('100%')
+        .onChange((value: string) => {
+          this.inputText = value;
+        })
+
+      Row({ space: 12 }) {
+        Scroll() {
+          Row({ space: 4 }) {
+            Button({ type: ButtonType.Circle, stateEffect: true }) {
+              SymbolGlyph($r('sys.symbol.plus'))
+                .fontSize(21)
+                .fontColor([$r('sys.color.icon_primary')])
+            }
+            .buttonStyle(ButtonStyleMode.TEXTUAL)
+            .width(36)
+            .height(36)
+            .accessibilityText('更多工具')
+
+            Divider()
+              .vertical(true)
+              .height(22)
+              .strokeWidth(0.5)
+              .color($r('sys.color.comp_divider'))
+
+            this.embeddedComposerTool($r('sys.symbol.message_on_message_fill'), '对话')
+            this.embeddedComposerTool($r('sys.symbol.paintpalette'), '图像生成')
+            this.embeddedComposerTool($r('sys.symbol.doc_text'), 'PPT 生成')
+            this.embeddedComposerTool($r('sys.symbol.pencil_line'), '帮我写作')
+            this.embeddedComposerTool($r('sys.symbol.square_on_square_fill'), '视频生成')
+            this.embeddedComposerTool($r('sys.symbol.waveform_path_ecg_square'), '录音转写')
+            this.embeddedComposerTool($r('sys.symbol.checkmark_circle_fill'), '解题答疑')
+            this.embeddedComposerTool($r('sys.symbol.square_grid_2x2'), '更多')
+          }
+          .height(42)
+          .alignItems(VerticalAlign.Center)
+        }
+        .layoutWeight(1)
+        .height(42)
+        .scrollable(ScrollDirection.Horizontal)
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
+        .align(Alignment.Start)
+        .clip(true)
+
+        Row({ space: 8 }) {
+          Text('康小伴·快速')
+            .fontSize($r('sys.float.Body_S'))
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+          Button({ type: ButtonType.Circle, stateEffect: true }) {
+            SymbolGlyph($r('sys.symbol.arrow_up'))
+              .fontSize(19)
+              .fontColor([$r('app.color.text_on_brand')])
+          }
+          .buttonStyle(ButtonStyleMode.NORMAL)
+          .width(40)
+          .height(40)
+          .backgroundColor(this.inputText.trim().length > 0 && !this.isGenerating ?
+            $r('app.color.brand_blue') : 0xFFB7C8F8)
+          .enabled(this.inputText.trim().length > 0 && !this.isGenerating)
+          .accessibilityText('发送')
+          .onClick(() => {
+            this.sendMessage();
+          })
+        }
+        .constraintSize({ minWidth: 168 })
+        .height(42)
+        .justifyContent(FlexAlign.End)
+        .alignItems(VerticalAlign.Center)
+      }
+      .width('100%')
+      .height(42)
+      .alignItems(VerticalAlign.Center)
+    }
+    .width('100%')
+    .constraintSize({ maxWidth: 760 })
+    .padding({ left: 18, right: 16, top: 12, bottom: 10 })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(28)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .shadow({ radius: 14, color: 'rgba(0,0,0,0.08)', offsetY: 4 })
+  }
+
+  @Builder
+  private wideEmptyInformationHero() {
+    Column({ space: 26 }) {
+      Column({ space: 6 }) {
+        Text(this.emptyGreetingText())
+          .fontSize($r('sys.float.Title_L'))
+          .fontColor($r('sys.color.font_primary'))
+          .fontWeight(FontWeight.Bold)
+          .width('100%')
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+        Text('让我们开始当前的工作吧')
+          .fontSize($r('sys.float.Body_L'))
+          .fontColor($r('sys.color.font_secondary'))
+          .width('100%')
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+
+      Column({ space: 12 }) {
+        Text('快捷开始')
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor($r('sys.color.font_secondary'))
+          .fontWeight(FontWeight.Medium)
+          .width('100%')
+
+        this.wideInformationFeedRow(this.promptSuggestionRows[0])
+        this.wideInformationFeedRow(this.promptSuggestionRows[1])
+        this.wideInformationFeedRow(this.promptSuggestionRows[2])
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+    }
+    .width('100%')
+    .constraintSize({ maxWidth: this.expandMaxWidth() })
+    .padding({ left: 36, right: 36 })
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private wideEmptyConversationPage(transparentBackground: boolean = false) {
+    Column() {
+      if (transparentBackground && this.embeddedDoctorWide) {
+        this.embeddedAssistantStart()
+      } else {
+        this.wideEmptyInformationHero()
+      }
+
+      Blank()
+        .layoutWeight(1)
+
+      this.inputArea(true, transparentBackground)
+    }
+    .width('100%')
+    .height('100%')
+    .padding({
+      top: this.usesWideImmersiveInset() ? this.doctorWideTitleBarOffset() + 34 :
+        (this.isEmbeddedWideHistory() ? this.embeddedPaneTopOffset() + 34 : 34)
+    })
+    .alignItems(HorizontalAlign.Center)
+  }
+
+  @Builder
+  private emptyConversationPage() {
+    Column() {
+      Blank()
+        .layoutWeight(4)
+
+      this.emptyInformationHero()
+
+      Blank()
+        .layoutWeight(5)
+
+      this.inputArea(true)
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ top: this.isWideLayout() ? 20 : this.globalInfoModel.statusBarHeight + CONTENT_TOP_OFFSET })
+    .alignItems(HorizontalAlign.Center)
+  }
+  @Builder
+  private composer() {
+    Row({ space: 4 }) {
+      TextArea({ text: this.inputText, placeholder: '给 康小伴 发送消息' })
+        .enterKeyType(EnterKeyType.NEW_LINE)
+        .fontSize($r('sys.float.Body_L'))
+        .fontColor($r('sys.color.font_primary'))
+        .lineHeight(24)
+        .placeholderFont({ size: $r('sys.float.Body_L') })
+        .placeholderColor($r('sys.color.font_tertiary'))
+        .backgroundColor(Color.Transparent)
+        .padding({ left: 8, right: 4, top: 8, bottom: 8 })
+        .minLines(1)
+        .maxLines(4, { overflowMode: MaxLinesMode.SCROLL })
+        .textOverflow(TextOverflow.Clip)
+        .barState(BarState.Off)
+        .layoutWeight(1)
+        .onChange((value: string) => {
+          this.inputText = value;
+        })
+
+      Button({ type: ButtonType.Circle, stateEffect: true }) {
+        SymbolGlyph($r('sys.symbol.paperclip'))
+          .fontSize(19)
+          .fontColor([$r('sys.color.icon_primary')])
+      }
+      .buttonStyle(ButtonStyleMode.TEXTUAL)
+      .width(40)
+      .height(40)
+      .accessibilityText('添加附件')
+      .onClick(() => {
+        this.showToast('附件能力接入中');
+      })
+
+      Button({ type: ButtonType.Circle, stateEffect: true }) {
+        SymbolGlyph($r('sys.symbol.arrow_up'))
+          .fontSize(19)
+          .fontColor([$r('app.color.text_on_brand')])
+      }
+      .buttonStyle(ButtonStyleMode.NORMAL)
+      .width(40)
+      .height(40)
+      .backgroundColor(this.inputText.trim().length > 0 && !this.isGenerating ?
+        $r('app.color.brand_blue') : 0xFFB7C8F8)
+      .enabled(this.inputText.trim().length > 0 && !this.isGenerating)
+      .opacity(this.inputText.trim().length > 0 && !this.isGenerating ? 1 : 0.72)
+      .accessibilityText('发送')
+      .onClick(() => {
+        this.sendMessage();
+      })
+    }
+    .width('100%')
+    .constraintSize({ minHeight: 56, maxWidth: this.expandMaxWidth() })
+    .padding({ left: 10, right: 6, top: 8, bottom: 8 })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(28)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .shadow({
+      radius: 12,
+      color: 'rgba(0,0,0,0.06)',
+      offsetX: 0,
+      offsetY: 4
+    })
+    .alignItems(VerticalAlign.Bottom)
+    .animation({ duration: 180, curve: Curve.EaseOut })
+  }
+
+  private inputBottomMargin(): number {
+    if (this.keyboardOffset > 0) {
+      return 8;
+    }
+    if (this.embeddedDoctorWide && this.isWideLayout()) {
+      return Math.max(0, this.globalInfoModel.naviIndicatorHeight - 28);
+    }
+    return this.isWideLayout() ? Math.max(12, this.globalInfoModel.naviIndicatorHeight) :
+      this.globalInfoModel.naviIndicatorHeight;
+  }
+
+  @Builder
+  private inputArea(showDisclaimer: boolean, transparentBackground: boolean = false) {
+    Column({ space: this.isEmbeddedWideHistory() ? 1 : 6 }) {
+      if (transparentBackground && this.embeddedDoctorWide) {
+        this.embeddedComposer()
+      } else {
+        this.composer()
+      }
+      if (showDisclaimer && this.keyboardOffset === 0) {
+        Text('内容由 AI 生成，请仔细甄别')
+          .fontSize(this.isEmbeddedWideHistory() ? $r('sys.float.Body_M') : $r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_tertiary'))
+          .width('100%')
+          // Keep the footer note on the same fixed measure as the embedded
+          // composer so the history-pane animation cannot reflow its line.
+          .constraintSize({ maxWidth: this.isEmbeddedWideHistory() ? 760 : this.expandMaxWidth() })
+          .textAlign(TextAlign.Center)
+          .translate({ y: this.isEmbeddedWideHistory() ? 4 : 0 })
+      }
+    }
+    .width('100%')
+    .padding({
+      left: this.isWideLayout() ? 28 : this.pagePadding(),
+      right: this.isWideLayout() ? 28 : this.pagePadding(),
+      top: 8,
+      bottom: this.keyboardOffset > 0 || this.isEmbeddedWideHistory() ? 0 : 2
+    })
+    .margin({ bottom: this.inputBottomMargin() })
+    .backgroundColor(transparentBackground ? Color.Transparent : $r('sys.color.background_primary'))
+    .alignItems(HorizontalAlign.Center)
+  }
+
+  @Builder
+  private newConversationButton() {
+    Row() {
+      if (this.isEmbeddedWideHistory()) {
+        Row() {
+          Blank()
+            .width(64)
+
+          Row({ space: 8 }) {
+            SymbolGlyph($r('sys.symbol.plus_circle'))
+              .fontSize(21)
+              .fontColor([$r('sys.color.icon_primary')])
+            Text('新对话')
+              .fontSize($r('sys.float.Body_S'))
+              .fontColor($r('sys.color.font_primary'))
+              .fontWeight(FontWeight.Medium)
+          }
+          .layoutWeight(1)
+          .justifyContent(FlexAlign.Center)
+          .alignItems(VerticalAlign.Center)
+
+          Text('Ctrl + J')
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('sys.color.font_tertiary'))
+            .maxLines(1)
+            .width(64)
+            .textAlign(TextAlign.End)
+        }
+        .width('100%')
+        .height('100%')
+        .alignItems(VerticalAlign.Center)
+      } else {
+        Text('新对话')
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_primary'))
+          .fontWeight(FontWeight.Medium)
+      }
+    }
+    .width('100%')
+    .height(this.isEmbeddedWideHistory() ? 52 : 42)
+    .padding({ left: this.isEmbeddedWideHistory() ? 18 : 0, right: this.isEmbeddedWideHistory() ? 18 : 0 })
+    .justifyContent(this.isEmbeddedWideHistory() ? FlexAlign.Start : FlexAlign.Center)
+    .alignItems(VerticalAlign.Center)
+    .borderRadius(this.isEmbeddedWideHistory() ? 26 : 21)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .backgroundColor(this.isEmbeddedWideHistory() ?
+      $r('sys.color.comp_background_secondary') : $r('sys.color.comp_background_primary'))
+    .shadow({ radius: 8, color: 'rgba(0,0,0,0.06)', offsetY: 2 })
+    .focusable(true)
+    .focusOnTouch(true)
+    .keyboardShortcut('J', [ModifierKey.CTRL], () => {
+      this.startNewConversation();
+    })
+    .onClick(() => {
+      this.startNewConversation();
+    })
+  }
+
+  private sessionGroupLabel(updatedAt: number): string {
+    const now: Date = new Date();
+    const target: Date = new Date(updatedAt);
+    const todayStart: number = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const targetStart: number = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime();
+    const dayDiff: number = Math.floor((todayStart - targetStart) / (24 * 60 * 60 * 1000));
+    if (dayDiff <= 0) {
+      return '今天';
+    }
+    if (dayDiff === 1) {
+      return '昨天';
+    }
+    if (dayDiff <= 7) {
+      return '7 天内';
+    }
+    if (dayDiff <= 30) {
+      return '30 天内';
+    }
+    return '更早';
+  }
+
+  private filteredHistorySessions(): ChatSession[] {
+    if (!this.isEmbeddedWideHistory()) {
+      return this.sessions;
+    }
+    const query: string = this.historySearchText.trim().toLowerCase();
+    if (query.length === 0) {
+      return this.sessions;
+    }
+    const matches: ChatSession[] = [];
+    for (let i: number = 0; i < this.sessions.length; i++) {
+      const session: ChatSession = this.sessions[i];
+      if (session.title.toLowerCase().includes(query)) {
+        matches.push(session);
+        continue;
+      }
+      let contentMatches: boolean = false;
+      for (let j: number = 0; j < session.messages.length; j++) {
+        if (session.messages[j].content.toLowerCase().includes(query)) {
+          contentMatches = true;
+          break;
+        }
+      }
+      if (contentMatches) {
+        matches.push(session);
+      }
+    }
+    return matches;
+  }
+
+  private shouldShowSessionGroup(sessions: ChatSession[], index: number): boolean {
+    if (index <= 0 || index >= sessions.length) {
+      return true;
+    }
+    return this.sessionGroupLabel(sessions[index - 1].updatedAt) !==
+      this.sessionGroupLabel(sessions[index].updatedAt);
+  }
+
+  @Builder
+  private sessionGroupTitle(label: string) {
+    Text(label)
+      .fontSize($r('sys.float.Caption_S'))
+      .fontColor($r('sys.color.font_tertiary'))
+      .width('100%')
+      .padding({ left: this.isEmbeddedWideHistory() ? 14 : 8, top: 14, bottom: 6 })
+  }
+
+  @Builder
+  private embeddedHistorySearch() {
+    Search({ value: this.historySearchText, placeholder: '搜索对话记录' })
+      .id('ai-history-search')
+      .width('100%')
+      .height(40)
+      .fontColor($r('sys.color.font_primary'))
+      .placeholderColor($r('sys.color.font_tertiary'))
+      .backgroundColor($r('sys.color.comp_background_secondary'))
+      .borderRadius(20)
+      .focusBox({
+        margin: LengthMetrics.vp(1),
+        strokeWidth: LengthMetrics.vp(2),
+        strokeColor: ColorMetrics.numeric(0xFF1D63ED)
+      })
+      .onChange((value: string) => {
+        this.historySearchText = value;
+        this.historyScroller.scrollEdge(Edge.Top);
+      })
+  }
+
+  @Builder
+  private embeddedHistoryActionButton(symbol: Resource, label: string, action: () => void) {
+    Button({ type: ButtonType.Circle, stateEffect: true }) {
+      SymbolGlyph(symbol)
+        .fontSize(19)
+        .fontColor([$r('sys.color.icon_primary')])
+    }
+    .buttonStyle(ButtonStyleMode.NORMAL)
+    .width(36)
+    .height(36)
+    .padding(0)
+    .backgroundColor(Color.Transparent)
+    .accessibilityText(label)
+    .focusable(true)
+    .focusOnTouch(true)
+    .onClick(action)
+  }
+
+  @Builder
+  private historySessionItem(session: ChatSession) {
+    Row({ space: 8 }) {
+      Text(session.title)
+        .fontSize($r('sys.float.Body_S'))
+        .fontColor(session.id === this.activeSessionId ?
+          $r('app.color.brand_blue') : $r('sys.color.font_primary'))
+        .fontWeight(session.id === this.activeSessionId ? FontWeight.Medium : FontWeight.Regular)
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .layoutWeight(1)
+        .height('100%')
+        .onClick(() => {
+          this.selectSession(session.id);
+        })
+      Button({ type: ButtonType.Circle, stateEffect: true }) {
+        SymbolGlyph($r('sys.symbol.trash'))
+          .fontSize(16)
+          .fontColor([$r('sys.color.icon_secondary')])
+      }
+      .buttonStyle(ButtonStyleMode.NORMAL)
+      .width(32)
+      .height(32)
+      .backgroundColor(Color.Transparent)
+      .accessibilityText('删除对话')
+      .onClick(() => {
+        this.deleteSession(session.id);
+      })
+    }
+    .width('100%')
+    .height(this.isEmbeddedWideHistory() ? 48 : 40)
+    .padding({ left: this.isEmbeddedWideHistory() ? 14 : 10, right: this.isEmbeddedWideHistory() ? 14 : 10 })
+    .alignItems(VerticalAlign.Center)
+    .borderRadius(this.isEmbeddedWideHistory() ? 14 : 9)
+    .backgroundColor(session.id === this.activeSessionId ?
+      $r('sys.color.comp_background_tertiary') : Color.Transparent)
+    .focusable(true)
+    .focusOnTouch(true)
+  }
+
+  @Builder
+  private emptyHistory() {
+    Column({ space: 8 }) {
+      if (this.isHistoryLoading) {
+        LoadingProgress()
+          .width(26)
+          .height(26)
+        Text('正在加载服务器会话')
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_secondary'))
+      } else {
+        SymbolGlyph($r('sys.symbol.AI_message'))
+          .fontSize(30)
+          .fontColor([$r('sys.color.icon_tertiary')])
+        Text(this.isEmbeddedWideHistory() && this.historySearchText.trim().length > 0 ?
+          '未找到相关对话' : '暂无对话记录')
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_secondary'))
+      }
+    }
+    .width('100%')
+    .padding({ top: 28 })
+  }
+
+  @Builder
+  private historyItems(sessions: ChatSession[]) {
+    Column({ space: 1 }) {
+      if (sessions.length === 0) {
+        this.emptyHistory()
+      } else {
+        ForEach(sessions, (session: ChatSession, index: number) => {
+          if (this.shouldShowSessionGroup(sessions, index)) {
+            this.sessionGroupTitle(this.sessionGroupLabel(session.updatedAt))
+          }
+          this.historySessionItem(session)
+        }, (session: ChatSession) => `${session.id}-${session.updatedAt}`)
+      }
+    }
+    .width('100%')
+  }
+
+  @Builder
+  private historyDrawer() {
+    if (this.usesWideImmersiveInset() && this.isWideLayout()) {
+      Scroll(this.historyScroller) {
+        Column({ space: 10 }) {
+          Row() {
+            Text('对话记录')
+              .fontSize($r('sys.float.Title_S'))
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+          }
+          .width('100%')
+          .height(42)
+          .padding({ left: 4, right: 4 })
+          .alignItems(VerticalAlign.Center)
+
+          this.newConversationButton()
+          this.historyItems(this.filteredHistorySessions())
+        }
+        .width('100%')
+        .padding({
+          left: 14,
+          right: 14,
+          top: this.doctorWideTitleBarOffset() + 10
+        })
+      }
+      .width('100%')
+      .height('100%')
+      .contentEndOffset(Math.max(18, this.globalInfoModel.naviIndicatorHeight + 8))
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
+      .align(Alignment.Top)
+      .backgroundColor($r('sys.color.background_secondary'))
+    } else {
+      Column({ space: 10 }) {
+        if (this.isWideLayout()) {
+          Row() {
+            Text('对话记录')
+              .fontSize($r('sys.float.Title_S'))
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+          }
+          .width('100%')
+          .height(68)
+          .padding({ left: 4, right: 4 })
+          .alignItems(VerticalAlign.Center)
+        }
+
+        this.newConversationButton()
+
+        Scroll() {
+          this.historyItems(this.filteredHistorySessions())
+        }
+        .layoutWeight(1)
+        .align(Alignment.Top)
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
+        .width('100%')
+      }
+      .width('100%')
+      .height('100%')
+      .padding({
+        left: 14,
+        right: 14,
+        top: this.isWideLayout() ? this.globalInfoModel.statusBarHeight :
+          this.globalInfoModel.statusBarHeight + 10,
+        bottom: this.isWideLayout() ? Math.max(18, this.globalInfoModel.naviIndicatorHeight + 8) :
+          this.globalInfoModel.naviIndicatorHeight + 8
+      })
+      .backgroundColor($r('sys.color.background_secondary'))
+      .shadow(this.isWideLayout() ? { radius: 0, color: Color.Transparent, offsetX: 0 } :
+        { radius: 18, color: 'rgba(0,0,0,0.12)', offsetX: 3 })
+    }
+  }
+
+  @Builder
+  private drawerMask() {
+    Row()
+      .width('100%')
+      .height('100%')
+      .backgroundColor('rgba(0,0,0,0.28)')
+      .zIndex(10)
+      .transition(TransitionEffect.OPACITY.animation({ duration: 220, curve: Curve.EaseInOut }))
+      .onClick(() => {
+        this.closeHistoryDrawer();
+      })
+  }
+
+  @Builder
+  private messageList() {
+    List({ space: 0, scroller: this.embeddedListScroller }) {
+      ForEach(this.messages, (message: ChatMessage, index: number) => {
+        ListItem() {
+          Row() {
+            Column() {
+              if (message.role === 'ai') {
+                this.aiMessageItem(message)
+              } else {
+                this.userMessageItem(message)
+              }
+            }
+            .width('100%')
+            .constraintSize({ maxWidth: this.expandMaxWidth() })
+          }
+          .width('100%')
+          .justifyContent(FlexAlign.Center)
+        }
+        .padding({
+          top: index === 0 ? (this.usesWideImmersiveInset() ? this.doctorWideTitleBarOffset() + 8 :
+            (this.isEmbeddedWideHistory() ? this.embeddedPaneTopOffset() : 0)) : 0
+        })
+      }, (message: ChatMessage) => `${message.id}-${message.feedback ?? 'none'}`)
+
+      if (this.isGenerating) {
+        ListItem() {
+          Row() {
+            Column() {
+              this.generatingItem()
+            }
+            .width('100%')
+            .constraintSize({ maxWidth: this.expandMaxWidth() })
+          }
+          .width('100%')
+          .justifyContent(FlexAlign.Center)
+        }
+        .padding({
+          top: this.messages.length === 0 ? (this.usesWideImmersiveInset() ?
+            this.doctorWideTitleBarOffset() + 8 :
+            (this.isEmbeddedWideHistory() ? this.embeddedPaneTopOffset() : 0)) : 0
+        })
+      }
+    }
+    .width('100%')
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.Spring)
+    .contentStartOffset(this.usesWideImmersiveInset() ? 0 : 8)
+    .contentEndOffset(8)
+    .margin({
+      top: this.usesWideImmersiveInset() || this.isEmbeddedWideHistory() ? 0 :
+        (this.isWideLayout() ? 16 : this.globalInfoModel.statusBarHeight + CONTENT_TOP_OFFSET)
+    })
+    .clip(true)
+    .layoutWeight(1)
+  }
+
+  @Builder
+  private pageContent() {
+    Column() {
+      if (this.messages.length === 0) {
+        this.emptyConversationPage()
+      } else {
+        this.messageList()
+        this.inputArea(true)
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('sys.color.background_primary'))
+  }
+
+  @Builder
+  private wideHeaderIcon(symbol: Resource, label: string, action: () => void) {
+    Button({ type: ButtonType.Circle, stateEffect: true }) {
+      SymbolGlyph(symbol)
+        .fontSize(19)
+        .fontColor([$r('sys.color.icon_primary')])
+    }
+    .buttonStyle(ButtonStyleMode.NORMAL)
+    .width(40)
+    .height(40)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .accessibilityText(label)
+    .onClick(action)
+  }
+
+  private wideTitleBarTitleText(): string {
+    const activeSession: ChatSession | undefined = this.findSession(this.activeSessionId);
+    return activeSession?.title ?? AI_BRAND_NAME;
+  }
+
+  @Builder
+  private wideTitleBar() {
+    Row({ space: 10 }) {
+      Text(this.wideTitleBarTitleText())
+        .fontSize($r('sys.float.Title_S'))
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      .layoutWeight(1)
+
+      this.wideHeaderIcon($r('sys.symbol.square_and_pencil'), '新建对话', () => {
+        this.startNewConversation();
+      })
+
+      this.wideHeaderIcon($r('sys.symbol.xmark'), '关闭', () => {
+        this.closeChatPage();
+      })
+    }
+    .width('100%')
+    .height(68 + this.globalInfoModel.statusBarHeight)
+    .padding({ left: 24, right: 24, top: this.globalInfoModel.statusBarHeight })
+    .alignItems(VerticalAlign.Center)
+    .backgroundColor($r('sys.color.background_primary'))
+    .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
+  }
+
+  @Builder
+  private wideConversationContent(transparentBackground: boolean = false) {
+    Column() {
+      if (this.messages.length === 0) {
+        this.wideEmptyConversationPage(transparentBackground)
+      } else {
+        this.messageList()
+        this.inputArea(true, transparentBackground)
+      }
+    }
+    .width('100%')
+    .layoutWeight(1)
+    .backgroundColor(transparentBackground ? Color.Transparent : $r('sys.color.background_primary'))
+  }
+
+  @Builder
+  private wideLayout(showLocalTitleBar: boolean) {
+    Row({ space: 0 }) {
+      Column() {
+        this.historyDrawer()
+      }
+      .width(this.historyDrawerWidth())
+      .height('100%')
+      .backgroundColor($r('sys.color.background_secondary'))
+
+      Divider()
+        .vertical(true)
+        .height('100%')
+        .strokeWidth(0.5)
+        .color($r('sys.color.comp_divider'))
+
+      Column() {
+        if (showLocalTitleBar) {
+          this.wideTitleBar()
+        }
+        this.wideConversationContent()
+      }
+      .layoutWeight(1)
+      .height('100%')
+      .backgroundColor($r('sys.color.background_primary'))
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('sys.color.background_secondary'))
+  }
+
+  private embeddedPaneTopOffset(): number {
+    return this.doctorWideTitleBarOffset() + 20;
+  }
+
+  @Builder
+  private embeddedHistoryPane() {
+    Column() {
+      Row()
+        .width('100%')
+        .height(this.embeddedPaneTopOffset())
+
+      Column({ space: 12 }) {
+        Row({ space: 4 }) {
+          Text('对话记录')
+            .fontSize($r('sys.float.Title_S'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+
+          this.embeddedHistoryActionButton($r('sys.symbol.message_badge_plus_fill'), '新建对话', () => {
+            this.startNewConversation();
+          })
+
+          this.embeddedHistoryActionButton(
+            this.historySearchVisible ? $r('sys.symbol.xmark') : $r('sys.symbol.magnifyingglass'),
+            this.historySearchVisible ? '关闭搜索' : '搜索对话记录',
+            () => {
+              this.toggleHistorySearch();
+            })
+
+          this.embeddedHistoryActionButton($r('sys.symbol.close_sidebar'), '收起会话栏', () => {
+            this.toggleEmbeddedHistory();
+          })
+        }
+        .width('100%')
+        .height(44)
+        .padding({ left: 14, right: 14 })
+        .alignItems(VerticalAlign.Center)
+
+        if (this.historySearchVisible) {
+          this.embeddedHistorySearch()
+        }
+
+        Scroll(this.historyScroller) {
+          this.historyItems(this.filteredHistorySessions())
+        }
+        .layoutWeight(1)
+        .width('100%')
+        .contentEndOffset(8)
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
+        .align(Alignment.TopStart)
+        .clip(true)
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .padding({ left: 14, right: 14, top: 10, bottom: 14 })
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+      .borderRadius(20)
+      .shadow({ radius: 10, color: 'rgba(0,0,0,0.06)', offsetY: 2 })
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ bottom: 15 })
+    .backgroundColor($r('sys.color.background_secondary'))
+  }
+
+  @Builder
+  private embeddedChatPane() {
+    Column() {
+      this.wideConversationContent(true)
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('sys.color.background_secondary'))
+  }
+
+  @Builder
+  private embeddedMessageStyleWideLayout() {
+    Stack({ alignContent: Alignment.TopStart }) {
+      Column() {
+        this.embeddedChatPane()
+      }
+      .width('100%')
+      .height('100%')
+      .padding({
+        left: this.embeddedHistoryCollapsed ? 0 : this.embeddedHistoryPaneWidth() + 20
+      })
+      .zIndex(1)
+
+      // Keep the history pane mounted so the slide-out animation is independent
+      // from the chat pane's width reflow.
+      Column() {
+        this.embeddedHistoryPane()
+      }
+      .width(this.embeddedHistoryPaneWidth())
+      .height('100%')
+      .zIndex(2)
+      .translate({
+        x: this.embeddedHistoryCollapsed ? -(this.embeddedHistoryPaneWidth() + 32) : 0,
+        y: 0
+      })
+      .animation({ duration: 280, curve: Curve.Friction })
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ left: 24, right: 24, bottom: 24 })
+    .backgroundColor($r('sys.color.background_secondary'))
+    .clip(false)
+  }
+
+  @Builder
+  private doctorWideImmersiveLayout() {
+    HdsNavDestination() {
+      this.wideLayout(false)
+    }
+    .width('100%')
+    .height('100%')
+    .hideBackButton(true)
+    .titleMode(HdsNavDestinationTitleMode.MINI)
+    .titleBar({
+      padding: {
+        start: LengthMetrics.vp(this.historyDrawerWidth() + 24),
+        end: LengthMetrics.vp(24)
+      },
+      avoidLayoutSafeArea: true,
+      enableComponentSafeArea: false,
+      style: this.titleBarStyle(),
+      content: this.doctorWideTitleBarContent()
+    })
+    .bindToScrollable([this.historyScroller, this.embeddedListScroller])
+    .backgroundColor($r('sys.color.background_primary'))
+    .ignoreLayoutSafeArea(
+      [LayoutSafeAreaType.SYSTEM],
+      [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM]
+    )
+  }
+
+  @Builder
+  private phoneLayout() {
+    SideBarContainer(SideBarContainerType.Overlay) {
+      this.historyDrawer()
+
+      Stack() {
+        HdsNavDestination() {
+          this.pageContent()
+        }
+        .width('100%')
+        .height('100%')
+        .backgroundColor($r('sys.color.background_primary'))
+        .hideBackButton(false)
+        .titleMode(HdsNavDestinationTitleMode.MINI)
+        .titleBar({
+          avoidLayoutSafeArea: true,
+          enableComponentSafeArea: false,
+          style: this.titleBarStyle(),
+          content: this.titleBarContent()
+        })
+        .bindToScrollable([this.embeddedListScroller])
+
+        if (this.historyDrawerOpen) {
+          this.drawerMask()
+        }
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('sys.color.background_primary'))
+    }
+    .showSideBar(this.historyDrawerOpen)
+    .onChange((value: boolean) => {
+      this.historyDrawerOpen = value;
+    })
+    .showControlButton(false)
+    .autoHide(false)
+    .sideBarPosition(SideBarPosition.Start)
+    .sideBarWidth(this.historyDrawerWidth())
+    .minSideBarWidth(this.historyDrawerWidth())
+    .maxSideBarWidth(this.historyDrawerWidth())
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('sys.color.background_primary'))
+  }
+
+  build() {
+    if (this.embeddedDoctorWide && this.isWideLayout()) {
+      this.embeddedMessageStyleWideLayout()
+    } else if (this.doctorWideImmersive && this.isWideLayout()) {
+      this.doctorWideImmersiveLayout()
+    } else {
+      Stack() {
+        if (this.isWideLayout()) {
+          this.wideLayout(true)
+        } else {
+          this.phoneLayout()
+        }
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('sys.color.background_primary'))
+      .ignoreLayoutSafeArea(
+        [LayoutSafeAreaType.SYSTEM],
+        [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM]
+      )
+    }
+  }
+}

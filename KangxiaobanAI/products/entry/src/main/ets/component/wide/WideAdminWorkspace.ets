@@ -1,7 +1,7 @@
 import { KeyCode } from '@kit.InputKit';
 import ApiClient from '../../network/ApiClient';
 import { BusinessStore } from '../../network/BusinessStore';
-import { Alert, Assessment, Bed, CareTask, Elder, HealthRecord, Room, Schedule } from '../../network/Dto';
+import { Alert, Bed, CareTask, Elder, HealthRecord, Room, Schedule } from '../../network/Dto';
 import { WideDoctorAdmission } from './WideDoctorAdmission';
 import { WideServerMonitor } from './WideServerMonitor';
 import { WideRoleManagement } from './WideRoleManagement';
@@ -9,6 +9,8 @@ import { WideUserManagement } from './WideUserManagement';
 import { WideBedManagement } from './WideBedManagement';
 import { WideModelManagement } from './WideModelManagement';
 import { WideDeviceManagement } from './WideDeviceManagement';
+import { WideDoctorCharts } from './WideDoctorCharts';
+import { WideDoctorSchedule } from './WideDoctorSchedule';
 
 interface AdminNavItem {
   id: string;
@@ -34,6 +36,14 @@ interface AdminEvent {
   time: string;
   status: string;
   tone: string;
+}
+
+interface DoctorQuickFunction {
+  id: string;
+  label: string;
+  symbol: Resource;
+  tone: string;
+  target: string;
 }
 
 interface AdminOccupancy {
@@ -66,6 +76,7 @@ export struct WideAdminWorkspace {
   @Event onOpenAbout: () => void = () => {};
   @Event onOpenGeneral: () => void = () => {};
   @Event onLogout: () => void = () => {};
+  @Event onManagementNavSelect: (index: number) => void = (_index: number) => {};
   @Local selectedNavId: string = 'overview';
   @Local isSidebarCollapsed: boolean = false;
   @Local selectedPeriod: number = 0;
@@ -77,11 +88,7 @@ export struct WideAdminWorkspace {
       return [
         { id: 'overview', label: '临床工作台', symbol: $r('sys.symbol.square_grid_2x2') },
         { id: 'residents', label: '长者档案', symbol: $r('sys.symbol.person_2_fill') },
-        { id: 'staff', label: '护理协作', symbol: $r('sys.symbol.person_crop_circle_fill') },
-        { id: 'quality', label: '评估与照护计划', symbol: $r('sys.symbol.checkmark_shield_fill') },
-        { id: 'risk', label: '风险复核', symbol: $r('sys.symbol.exclamationmark_triangle_fill') },
-        { id: 'assets', label: '健康监测', symbol: $r('sys.symbol.waveform_path_ecg_square') },
-        { id: 'reports', label: '评估记录', symbol: $r('sys.symbol.checkmark_shield_fill') }
+        { id: 'ai', label: '康小伴 AI', symbol: $r('sys.symbol.AI_model') }
       ];
     }
     return [
@@ -97,7 +104,7 @@ export struct WideAdminWorkspace {
   @Monitor('managementNavIndex')
   onManagementNavIndexChange(): void {
     const ids: string[] = this.isDoctor ?
-      ['overview', 'residents', 'staff', 'quality', 'risk', 'assets', 'reports'] :
+      ['overview', 'residents', 'ai'] :
       ['overview', 'roles', 'users', 'quality', 'risk', 'assets'];
     if (this.managementNavIndex >= 0 && this.managementNavIndex < ids.length) {
       this.selectedNavId = ids[this.managementNavIndex];
@@ -132,17 +139,16 @@ export struct WideAdminWorkspace {
       const focusElders: number = this.businessStore.elders.filter((elder) =>
         openAlerts.some((alert: Alert) => alert.elder_id === elder.id)).length;
       const activeElders = this.businessStore.elders.filter((item) => item.status === 2);
-      const pendingAssessments: number = activeElders.filter((elder) =>
-        !this.businessStore.assessments.some((assessment) => assessment.elder_id === elder.id)).length;
+      const remainingBeds: number = this.businessStore.beds.filter((item: Bed) => item.status === 'free').length;
       return [
-        { label: '重点关注长者', value: focusElders.toString(), note: `${openAlerts.length} 条待复核风险`,
+        { label: '在住老人', value: activeElders.length.toString(), note: `当前在院 ${activeElders.length} 位`,
           symbol: $r('sys.symbol.person_2_fill'), tone: 'focus' },
-        { label: '待复核风险', value: openAlerts.length.toString(), note: `${emergencyAlerts} 项紧急风险`,
+        { label: '剩余床位', value: remainingBeds.toString(), note: `共 ${this.businessStore.beds.length} 张床位`,
+          symbol: $r('sys.symbol.bed_double_fill'), tone: 'success' },
+        { label: '重点关注', value: focusElders.toString(), note: '存在未闭环风险的老人',
+          symbol: $r('sys.symbol.person_2_fill'), tone: 'focus' },
+        { label: '预警', value: openAlerts.length.toString(), note: `${emergencyAlerts} 项紧急预警`,
           symbol: $r('sys.symbol.exclamationmark_triangle_fill'), tone: 'danger' },
-        { label: '待评估长者', value: pendingAssessments.toString(), note: '当前在院且暂无评估记录',
-          symbol: $r('sys.symbol.checkmark_shield_fill'), tone: 'warning' },
-        { label: '护理执行进度', value: `${completion}%`, note: `${doneTasks}/${totalTasks} 项护理任务已完成`,
-          symbol: $r('sys.symbol.checkmark_circle_fill'), tone: 'success' }
       ];
     }
     return [
@@ -239,8 +245,26 @@ export struct WideAdminWorkspace {
   }
 
   private workspaceSubtitle(): string {
-    return this.isDoctor ? '围绕长者健康评估、风险复核与护理计划协作开展今日工作' :
+    return this.isDoctor ? '围绕长者档案与康小伴 AI 开展今日工作' :
       '查看当前后端主机、进程与磁盘资源状态';
+  }
+
+  private doctorQuickFunctions(): DoctorQuickFunction[] {
+    return [
+      { id: 'admission', label: '入住/退住管理', symbol: $r('sys.symbol.person_badge_plus'), tone: 'focus', target: 'quality' },
+      { id: 'beds', label: '床位预览', symbol: $r('sys.symbol.bed_double_fill'), tone: 'success', target: 'residents' },
+      { id: 'tasks', label: '护理任务', symbol: $r('sys.symbol.checkmark_circle_fill'), tone: 'warning', target: 'staff' },
+      { id: 'alerts', label: '告警处理', symbol: $r('sys.symbol.exclamationmark_triangle_fill'), tone: 'danger', target: 'risk' }
+    ];
+  }
+
+  private openDoctorQuickFunction(item: DoctorQuickFunction): void {
+    const ids: string[] = ['overview', 'residents', 'ai', 'quality', 'staff', 'risk'];
+    const index: number = ids.indexOf(item.target);
+    this.selectedNavId = item.target;
+    if (index >= 0) {
+      this.onManagementNavSelect(index);
+    }
   }
 
   private doctorElderName(elderId: number): string {
@@ -355,7 +379,7 @@ export struct WideAdminWorkspace {
 
   @Builder
   private metricCard(metric: AdminMetric) {
-    Column({ space: 12 }) {
+    Column({ space: this.isDoctor ? 8 : 12 }) {
       if (!this.isDoctor) {
         Row() {
           Stack({ alignContent: Alignment.Center }) {
@@ -372,7 +396,7 @@ export struct WideAdminWorkspace {
         .fontColor($r('app.color.doctor_workspace_text_primary')).width('100%')
       Text(metric.note).fontSize(10).fontColor(this.toneColor(metric.tone)).width('100%')
     }
-    .width('100%').height(176).padding(16).borderRadius(16)
+    .width('100%').height(this.isDoctor ? 124 : 176).padding(16).borderRadius(16)
     .backgroundColor($r('app.color.doctor_workspace_surface'))
     .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
     .alignItems(HorizontalAlign.Start)
@@ -442,6 +466,52 @@ export struct WideAdminWorkspace {
   }
 
   @Builder
+  private doctorQuickFunctionButton(item: DoctorQuickFunction) {
+    Button({ type: ButtonType.Normal, stateEffect: true }) {
+      Row({ space: 8 }) {
+        SymbolGlyph(item.symbol).fontSize(18).fontColor([this.toneColor(item.tone)])
+        Text(item.label).fontSize(12).fontColor($r('app.color.doctor_workspace_text_primary'))
+          .maxLines(1)
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Start)
+      .alignItems(VerticalAlign.Center)
+    }
+    .width('100%')
+    .height(52)
+    .padding({ left: 14, right: 10 })
+    .borderRadius(12)
+    .backgroundColor($r('app.color.doctor_workspace_surface_hover'))
+    .accessibilityText(item.label)
+    .onClick(() => this.openDoctorQuickFunction(item))
+  }
+
+  @Builder
+  private commonFunctionsPanel() {
+    Column({ space: 14 }) {
+      Row() {
+        Text('常用功能').fontSize(16).fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.doctor_workspace_text_primary'))
+        Blank()
+        Text('快速进入').fontSize(10).fontColor($r('app.color.doctor_workspace_text_tertiary'))
+      }.width('100%')
+      GridRow({ columns: 12, gutter: { x: 10, y: 10 } }) {
+        ForEach(this.doctorQuickFunctions(), (item: DoctorQuickFunction) => {
+          GridCol({ span: 6 }) {
+            this.doctorQuickFunctionButton(item)
+          }
+        }, (item: DoctorQuickFunction) => item.id)
+      }.width('100%')
+    }
+    .width('100%')
+    .padding(18)
+    .borderRadius(16)
+    .backgroundColor($r('app.color.doctor_workspace_surface'))
+    .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
   private progressRow(label: string, used: number, total: number, percent: number) {
     Column({ space: 7 }) {
       Row() {
@@ -478,34 +548,68 @@ export struct WideAdminWorkspace {
               .backgroundColor($r('app.color.doctor_workspace_surface'))
           }.width('100%').alignItems(VerticalAlign.Center)
         }
+        if (this.businessStore.error.length > 0) {
+          Row({ space: 8 }) {
+            SymbolGlyph($r('sys.symbol.info_circle')).fontSize(15)
+              .fontColor([$r('app.color.doctor_workspace_warning')])
+            Text('部分数据暂未同步，正在自动重试').fontSize(11)
+              .fontColor($r('app.color.doctor_workspace_text_secondary'))
+          }.width('100%').padding({ left: 14, right: 14, top: 10, bottom: 10 })
+            .borderRadius(10)
+            .backgroundColor($r('app.color.doctor_workspace_surface_hover'))
+            .accessibilityText('部分数据暂未同步，正在自动重试')
+        }
         GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
           ForEach(this.metrics(), (metric: AdminMetric) => {
             GridCol({ span: this.compactWidth ? 6 : 3 }) { this.metricCard(metric) }
           }, (metric: AdminMetric) => metric.label)
         }.width('100%')
         GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
-          GridCol({ span: this.compactWidth ? 12 : 5 }) { this.occupancyPanel() }
+          GridCol({ span: this.compactWidth ? 12 : 5 }) {
+            if (this.isDoctor) {
+              Column({ space: 16 }) {
+                this.commonFunctionsPanel()
+                WideDoctorSchedule({
+                  elders: this.businessStore.elders,
+                  beds: this.businessStore.beds,
+                  rooms: this.businessStore.rooms,
+                  tasks: this.businessStore.tasks,
+                  schedules: this.businessStore.schedules,
+                  loading: this.businessStore.loading,
+                  compactWidth: this.compactWidth
+                })
+              }.width('100%').alignItems(HorizontalAlign.Start)
+            } else {
+              this.occupancyPanel()
+            }
+          }
           GridCol({ span: this.compactWidth ? 12 : 7 }) {
-            Column() {
-              Row() {
-                Text(this.isDoctor ? '今日风险复核' : '今日运营关注').fontSize(16).fontWeight(FontWeight.Bold)
-                  .fontColor($r('app.color.doctor_workspace_text_primary'))
-                Blank()
-                Text(`${this.events().length} 项`).fontSize(10).fontColor($r('app.color.doctor_workspace_text_tertiary'))
-              }.width('100%').height(52).padding({ left: 16, right: 16 })
-              if (this.events().length === 0) {
-                Text(this.businessStore.loading ? (this.isDoctor ? '正在加载风险记录' : '正在加载告警数据') :
-                  (this.isDoctor ? '暂无待复核风险事件' : '暂无运营关注事项'))
-                  .width('100%')
-                  .padding({ top: 56, bottom: 56 })
-                  .fontSize(11)
-                  .fontColor($r('app.color.doctor_workspace_text_tertiary'))
-                  .textAlign(TextAlign.Center)
-              } else {
-                ForEach(this.events(), (item: AdminEvent) => this.eventRow(item), (item: AdminEvent) => item.id)
-              }
-            }.width('100%').borderRadius(16).backgroundColor($r('app.color.doctor_workspace_surface'))
-              .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
+            if (this.isDoctor) {
+              WideDoctorCharts({
+                elders: this.businessStore.elders,
+                compactWidth: this.compactWidth
+              })
+            } else {
+              Column() {
+                Row() {
+                  Text('今日运营关注').fontSize(16).fontWeight(FontWeight.Bold)
+                    .fontColor($r('app.color.doctor_workspace_text_primary'))
+                  Blank()
+                  Text(`${this.events().length} 项`).fontSize(10).fontColor($r('app.color.doctor_workspace_text_tertiary'))
+                }.width('100%').height(52).padding({ left: 16, right: 16 })
+                if (this.events().length === 0) {
+                  Text(this.businessStore.loading ? '正在加载告警数据' : '暂无运营关注事项')
+                    .width('100%')
+                    .padding({ top: 56, bottom: 56 })
+                    .fontSize(11)
+                    .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+                    .textAlign(TextAlign.Center)
+                } else {
+                  ForEach(this.events(), (item: AdminEvent) => this.eventRow(item), (item: AdminEvent) => item.id)
+                }
+              }.width('100%').borderRadius(16).backgroundColor($r('app.color.doctor_workspace_surface'))
+                .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
+            }
           }
         }.width('100%')
       }
@@ -530,44 +634,6 @@ export struct WideAdminWorkspace {
         .backgroundColor($r('app.color.doctor_workspace_text_primary'))
         .onClick(() => this.selectedNavId = 'overview')
     }.width('100%').height('100%').justifyContent(FlexAlign.Center).alignItems(HorizontalAlign.Center)
-  }
-
-  @Builder
-  private doctorResidentModule() {
-    Scroll(this.managementScroller) {
-      Column({ space: 12 }) {
-        this.moduleHeader('长者档案', '查看在院长者的基本资料、照护等级和床位信息')
-        if (this.businessStore.elders.length === 0) {
-          this.moduleEmpty('暂无长者档案')
-        } else {
-          ForEach(this.businessStore.elders, (elder: Elder) => {
-            Row({ space: 12 }) {
-              Text(elder.name.slice(0, 1))
-                .width(42).height(42).borderRadius(21)
-                .fontSize(17).fontColor(Color.White).textAlign(TextAlign.Center)
-                .backgroundColor($r('app.color.doctor_workspace_accent'))
-              Column({ space: 4 }) {
-                Text(elder.name).fontSize(14).fontWeight(FontWeight.Medium)
-                  .fontColor($r('app.color.doctor_workspace_text_primary'))
-                Text(`${elder.gender === 'M' ? '男' : '女'} · ${elder.status === 2 ? '在院' : '非在院'} · 照护等级 ${elder.care_level}`)
-                  .fontSize(10).fontColor($r('app.color.doctor_workspace_text_secondary'))
-              }.alignItems(HorizontalAlign.Start).layoutWeight(1)
-              Text(elder.bed?.bed_no ?? '未分配床位')
-                .fontSize(10).fontColor($r('app.color.doctor_workspace_text_tertiary'))
-            }
-            .width('100%').padding(14).borderRadius(12)
-            .backgroundColor($r('app.color.doctor_workspace_surface'))
-            .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
-          }, (elder: Elder) => `doctor-elder-${elder.id}`)
-        }
-      }
-      .width('100%').constraintSize({ maxWidth: 1088 })
-      .padding({ left: this.compactWidth ? 20 : 28, right: this.compactWidth ? 20 : 28,
-        top: this.contentTopPadding(), bottom: 36 + this.naviIndicatorHeight })
-      .alignItems(HorizontalAlign.Start)
-    }
-    .width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
-      .align(Alignment.TopStart)
   }
 
   @Builder
@@ -666,41 +732,6 @@ export struct WideAdminWorkspace {
   }
 
   @Builder
-  private doctorReportsModule() {
-    Scroll(this.managementScroller) {
-      Column({ space: 12 }) {
-        this.moduleHeader('评估记录', '查看已保存的服务端评估结果和护理执行进度')
-        if (this.businessStore.assessments.length === 0) {
-          this.moduleEmpty('暂无评估记录')
-        } else {
-          ForEach(this.businessStore.assessments, (assessment: Assessment) => {
-            Row({ space: 10 }) {
-              Column({ space: 4 }) {
-                Text(this.businessStore.elders.find((item: Elder) => item.id === assessment.elder_id)?.name ?? '未知长者')
-                  .fontSize(13).fontWeight(FontWeight.Medium)
-                  .fontColor($r('app.color.doctor_workspace_text_primary'))
-                Text(assessment.assessment_type || '护理评估')
-                  .fontSize(10).fontColor($r('app.color.doctor_workspace_text_secondary'))
-              }.alignItems(HorizontalAlign.Start).layoutWeight(1)
-              Text(assessment.score === undefined ? '未评分' : `${assessment.score} 分`)
-                .fontSize(12).fontColor($r('app.color.doctor_workspace_focus'))
-            }
-            .width('100%').padding(13).borderRadius(12)
-            .backgroundColor($r('app.color.doctor_workspace_surface'))
-            .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
-          }, (assessment: Assessment) => `doctor-assessment-${assessment.id}`)
-        }
-      }
-      .width('100%').constraintSize({ maxWidth: 1088 })
-      .padding({ left: this.compactWidth ? 20 : 28, right: this.compactWidth ? 20 : 28,
-        top: this.statusBarHeight + 28, bottom: 36 + this.naviIndicatorHeight })
-      .alignItems(HorizontalAlign.Start)
-    }
-    .width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
-      .align(Alignment.TopStart)
-  }
-
-  @Builder
   private moduleHeader(title: string, subtitle: string) {
     Column({ space: 5 }) {
       Text(title).fontSize(24).fontWeight(FontWeight.Bold)
@@ -718,9 +749,7 @@ export struct WideAdminWorkspace {
 
   @Builder
   private doctorModuleView() {
-    if (this.selectedNavId === 'residents') {
-      this.doctorResidentModule()
-    } else if (this.selectedNavId === 'staff') {
+    if (this.selectedNavId === 'staff') {
       this.doctorCollaborationModule()
     } else if (this.selectedNavId === 'quality') {
       WideDoctorAdmission({
@@ -734,8 +763,6 @@ export struct WideAdminWorkspace {
       this.doctorRiskModule()
     } else if (this.selectedNavId === 'assets') {
       this.doctorHealthModule()
-    } else if (this.selectedNavId === 'reports') {
-      this.doctorReportsModule()
     } else {
       this.modulePlaceholder()
     }

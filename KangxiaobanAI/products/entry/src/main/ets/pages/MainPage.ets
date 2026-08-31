@@ -37,9 +37,11 @@ import {
   CaregiverMaterialScrollerOwner,
   WideCaregiverWorkspace
 } from '../component/wide/WideCaregiverWorkspace';
+import { WideDoctorResidentPage } from '../component/wide/WideDoctorResidentPage';
 import { WideCaregiverTitleActions } from '../component/wide/WideCaregiverTitleActions';
 import { WideAdminWorkspace } from '../component/wide/WideAdminWorkspace';
 import { WideDoctorTitleActions } from '../component/wide/WideDoctorTitleActions';
+import { WideDoctorAiPage } from './WideDoctorAiPage';
 import { AI_BRAND_NAME } from '../component/AiTitleLabel';
 import { AiChatPage } from '../pages/AiChatPage';
 import { MineDetailPage } from '../pages/MineDetailPage';
@@ -60,9 +62,11 @@ import { WsClient } from '../network/WsClient';
 
 const TAG: string = '[MainPage]';
 const CAREGIVER_FULL_WORKSPACE_MIN_WIDTH: number = 1180;
+const DOCTOR_FULL_WORKSPACE_MIN_WIDTH: number = 1180;
 const CAREGIVER_TEXT_NAVIGATION_MIN_WIDTH: number = 680;
 const WIDE_TITLE_BAR_HEIGHT: number = 56;
 const CAREGIVER_AI_HISTORY_COLLAPSED_KEY: string = 'caregiver_ai_history_collapsed';
+const DOCTOR_AI_HISTORY_COLLAPSED_KEY: string = 'doctor_ai_history_collapsed';
 
 interface WideNavItem {
   label: ResourceStr;
@@ -76,6 +80,8 @@ interface WideNavGroup {
   label: string;
   items: WideNavItem[];
 }
+
+type DoctorResidentScrollerOwner = 'residentMaster' | 'residentDetail';
 
 @Entry
 @ComponentV2
@@ -133,17 +139,24 @@ struct MainPage {
   @Local caregiverUnreadMessageCount: number = 0;
   @Local caregiverMaterialScrollerOwner: CaregiverMaterialScrollerOwner = 'residentDetail';
   @Local managementNavIndex: number = 0;
+  @Local doctorResidentDetailVisible: boolean = false;
+  @Local doctorResidentBackRequestToken: number = 0;
+  @Local doctorResidentScrollerOwner: DoctorResidentScrollerOwner = 'residentDetail';
+  @Local doctorAiHistoryCollapsed: boolean = false;
   @Local doctorCurrentTime: string = '--:--';
   @Local businessStore: BusinessStore = BusinessStore.getShared();
   private wideHomeScroller: Scroller = new Scroller();
   private wideHomeTaskDetailScroller: Scroller = new Scroller();
   private wideResidentMasterScroller: Scroller = new Scroller();
   private wideResidentDetailScroller: Scroller = new Scroller();
+  private wideDoctorResidentMasterScroller: Scroller = new Scroller();
+  private wideDoctorResidentDetailScroller: Scroller = new Scroller();
   private wideMessageListScroller: Scroller = new Scroller();
   private wideMessageChatScroller: Scroller = new Scroller();
   private wideManagementScroller: Scroller = new Scroller();
   private doctorClockTimerId: number = -1;
   private wideAiChatScroller: ListScroller = new ListScroller();
+  private wideDoctorAiChatScroller: ListScroller = new ListScroller();
   private businessWsClient: WsClient = new WsClient();
   private preferenceManager: PreferenceManager = PreferenceManager.getInstance();
 
@@ -158,6 +171,10 @@ struct MainPage {
     }
     this.aiHistoryCollapsed = this.preferenceManager.getValue<boolean>(
       CAREGIVER_AI_HISTORY_COLLAPSED_KEY,
+      JSON.stringify(false)
+    ) ?? false;
+    this.doctorAiHistoryCollapsed = this.preferenceManager.getValue<boolean>(
+      DOCTOR_AI_HISTORY_COLLAPSED_KEY,
       JSON.stringify(false)
     ) ?? false;
     BusinessStore.getShared().load();
@@ -271,6 +288,37 @@ struct MainPage {
     return this.isWideLayout() && (this.globalInfoModel.role === '医师' || this.globalInfoModel.role === '管理');
   }
 
+  private isDoctorResidentWorkspace(): boolean {
+    return this.isManagementWideWorkspace() && this.globalInfoModel.role === '医师' && this.managementNavIndex === 1;
+  }
+
+  private isDoctorAiWorkspace(): boolean {
+    return this.isManagementWideWorkspace() && this.globalInfoModel.role === '医师' && this.managementNavIndex === 2;
+  }
+
+  private showDoctorResidentBackButton(): boolean {
+    return this.isDoctorResidentWorkspace() && this.useCompactDoctorWorkspace() &&
+      this.doctorResidentDetailVisible && this.pathStack.size() === 0;
+  }
+
+  private useCompactDoctorWorkspace(): boolean {
+    return BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint) ||
+      (this.globalInfoModel.deviceWidth > 0 &&
+        this.globalInfoModel.deviceWidth < DOCTOR_FULL_WORKSPACE_MIN_WIDTH);
+  }
+
+  private wideDoctorTopBarHeight(): number {
+    return WIDE_TITLE_BAR_HEIGHT + this.globalInfoModel.statusBarHeight;
+  }
+
+  private updateManagementNav(index: number): void {
+    if (this.managementNavIndex === 1 && index !== 1) {
+      this.doctorResidentDetailVisible = false;
+      this.doctorResidentScrollerOwner = 'residentDetail';
+    }
+    this.managementNavIndex = index;
+  }
+
   @Builder
   private wideDoctorTitleActions() {
     WideDoctorTitleActions({
@@ -278,7 +326,7 @@ struct MainPage {
       isDoctor: this.globalInfoModel.role === '医师',
       compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
       onSelect: (index: number) => {
-        this.managementNavIndex = index;
+        this.updateManagementNav(index);
       },
       onOpenAbout: () => this.pathStack.pushPath({ name: 'AboutPage' }),
       onOpenGeneral: () => this.pathStack.pushPath({ name: 'GeneralSettingsPage' }),
@@ -332,6 +380,22 @@ struct MainPage {
       };
     }
     if (this.isManagementWideWorkspace()) {
+      const content: TitleBarContentOptions = {
+        title: { mainTitle: this.globalInfoModel.role === '医师' ? this.doctorCurrentTime : '管理端' },
+        menu: { value: [] },
+        stackBuilder: (): void => this.wideDoctorTitleActions()
+      };
+      if (this.showDoctorResidentBackButton()) {
+        content.backIcon = {
+          label: '返回长者列表',
+          icon: $r('sys.symbol.chevron_left'),
+          type: IconStyleMode.SMALL,
+          isEnabled: true,
+          action: (): void => {
+            this.doctorResidentBackRequestToken += 1;
+          }
+        };
+      }
       return {
         padding: {
           start: LengthMetrics.vp(16),
@@ -339,11 +403,7 @@ struct MainPage {
         },
         avoidLayoutSafeArea: true,
         enableComponentSafeArea: false,
-        content: {
-          title: { mainTitle: this.globalInfoModel.role === '医师' ? this.doctorCurrentTime : '管理端' },
-          menu: { value: [] },
-          stackBuilder: (): void => this.wideDoctorTitleActions()
-        },
+        content: content,
         style: this.immersiveTitleBarStyle()
       };
     }
@@ -388,6 +448,17 @@ struct MainPage {
         return this.caregiverHasLocalBackLayer ?
           [this.wideMessageChatScroller] : [this.wideMessageListScroller];
       }
+    }
+    if (this.isDoctorResidentWorkspace()) {
+      if (!this.useCompactDoctorWorkspace()) {
+        return [this.doctorResidentScrollerOwner === 'residentMaster' ?
+          this.wideDoctorResidentMasterScroller : this.wideDoctorResidentDetailScroller];
+      }
+      return this.doctorResidentDetailVisible ?
+        [this.wideDoctorResidentDetailScroller] : [this.wideDoctorResidentMasterScroller];
+    }
+    if (this.isDoctorAiWorkspace()) {
+      return [this.wideDoctorAiChatScroller];
     }
     if (this.isManagementWideWorkspace()) {
       return [this.wideManagementScroller];
@@ -584,6 +655,11 @@ struct MainPage {
     this.preferenceManager.setValue<boolean>(CAREGIVER_AI_HISTORY_COLLAPSED_KEY, collapsed);
   }
 
+  private updateDoctorAiHistoryCollapsed(collapsed: boolean): void {
+    this.doctorAiHistoryCollapsed = collapsed;
+    this.preferenceManager.setValue<boolean>(DOCTOR_AI_HISTORY_COLLAPSED_KEY, collapsed);
+  }
+
   private requestAiHistoryOpen(): void {
     this.aiHistoryOpenRequestToken += 1;
   }
@@ -634,6 +710,10 @@ struct MainPage {
     }
     if (this.isResidentDetailShow) {
       this.closeResidentDetail();
+      return true;
+    }
+    if (this.showDoctorResidentBackButton()) {
+      this.doctorResidentBackRequestToken += 1;
       return true;
     }
     if (this.isCaregiverWideWorkspace() && this.pathStack.size() === 0 && this.caregiverHasLocalBackLayer) {
@@ -1180,28 +1260,62 @@ struct MainPage {
   @Builder
   private wideShell() {
     if (this.globalInfoModel.role === '管理' || this.globalInfoModel.role === '医师') {
-      // One component tree is used for both roles so geometry, typography,
-      // colors, navigation and placeholder states cannot drift. The doctor
-      // role remains read-only for the administrator-only alert mutation;
-      // the backend remains the final authorization boundary.
-      WideAdminWorkspace({
-        statusBarHeight: this.globalInfoModel.statusBarHeight,
-        naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
-        compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
-        managementScroller: this.wideManagementScroller,
-        managementNavIndex: this.managementNavIndex,
-        canHandleAlerts: this.globalInfoModel.role === '管理',
-        isDoctor: this.globalInfoModel.role === '医师',
-        onOpenAbout: () => {
-          this.pathStack.pushPath({ name: 'AboutPage' });
-        },
-        onOpenGeneral: () => {
-          this.pathStack.pushPath({ name: 'GeneralSettingsPage' });
-        },
-        onLogout: () => {
-          this.handleLogout();
-        }
-      })
+      if (this.isDoctorResidentWorkspace()) {
+        WideDoctorResidentPage({
+          compactWidth: this.useCompactDoctorWorkspace(),
+          topBarHeight: this.wideDoctorTopBarHeight(),
+          masterScroller: this.wideDoctorResidentMasterScroller,
+          detailScroller: this.wideDoctorResidentDetailScroller,
+          naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
+          backRequestToken: this.doctorResidentBackRequestToken,
+          onLocalDetailVisibilityChange: (visible: boolean) => {
+            this.doctorResidentDetailVisible = visible;
+          },
+          onMasterScrollerActive: () => {
+            this.doctorResidentScrollerOwner = 'residentMaster';
+          },
+          onDetailScrollerActive: () => {
+            this.doctorResidentScrollerOwner = 'residentDetail';
+          }
+        })
+      } else if (this.isDoctorAiWorkspace()) {
+        WideDoctorAiPage({
+          doctorWideImmersive: false,
+          embeddedDoctorWide: true,
+          embeddedListScroller: this.wideDoctorAiChatScroller,
+          historyCollapsed: this.doctorAiHistoryCollapsed,
+          onHistoryCollapsedChange: (collapsed: boolean) => {
+            this.updateDoctorAiHistoryCollapsed(collapsed);
+          },
+          onClose: () => {
+            this.updateManagementNav(0);
+          }
+        })
+      } else {
+        // The shared management tree keeps doctor and administrator modules
+        // aligned while server permissions remain the authorization boundary.
+        WideAdminWorkspace({
+          statusBarHeight: this.globalInfoModel.statusBarHeight,
+          naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
+          compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
+          managementScroller: this.wideManagementScroller,
+          managementNavIndex: this.managementNavIndex,
+          onManagementNavSelect: (index: number) => {
+            this.updateManagementNav(index);
+          },
+          canHandleAlerts: this.globalInfoModel.role === '管理',
+          isDoctor: this.globalInfoModel.role === '医师',
+          onOpenAbout: () => {
+            this.pathStack.pushPath({ name: 'AboutPage' });
+          },
+          onOpenGeneral: () => {
+            this.pathStack.pushPath({ name: 'GeneralSettingsPage' });
+          },
+          onLogout: () => {
+            this.handleLogout();
+          }
+        })
+      }
     } else {
       Stack({ alignContent: Alignment.TopStart }) {
         WideCaregiverWorkspace({

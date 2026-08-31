@@ -30,7 +30,22 @@ function toRequestMethod(method: HttpMethod): http.RequestMethod {
  * 自动携带 Authorization: Bearer <token>；code==401 时清除本地会话。
  */
 export class ApiClient {
-  private static request<T>(method: HttpMethod, path: string, body?: Object): Promise<ApiResp<T>> {
+  private static readonly MAX_NETWORK_RETRIES: number = 2;
+  private static readonly RETRY_DELAYS_MS: number[] = [250, 750];
+
+  private static shouldRetry(method: HttpMethod, path: string): boolean {
+    // GET is safe to repeat. Login has no business-side mutation, so it also
+    // gets the same short transport retry window. Never repeat writes here.
+    return method === 'GET' || (method === 'POST' && path === '/auth/login');
+  }
+
+  private static wait(delayMs: number): Promise<void> {
+    return new Promise<void>((resolve: () => void) => {
+      setTimeout(() => resolve(), delayMs);
+    });
+  }
+
+  private static requestOnce<T>(method: HttpMethod, path: string, body?: Object): Promise<ApiResp<T>> {
     const httpRequest = http.createHttp();
     const header: Record<string, string> = { 'Content-Type': 'application/json' };
     const token: string = AuthStore.getToken();
@@ -59,6 +74,9 @@ export class ApiClient {
         }
         try {
           const resp = JSON.parse(data.result as string) as ApiResp<T>;
+          if (resp.code >= 500) {
+            throw new Error(`服务器暂时不可用(${resp.code})`);
+          }
           if (resp.code === 401) {
             AuthStore.clear();
           }
@@ -68,6 +86,22 @@ export class ApiClient {
         }
       });
     });
+  }
+
+  private static async request<T>(method: HttpMethod, path: string, body?: Object): Promise<ApiResp<T>> {
+    const retryable: boolean = ApiClient.shouldRetry(method, path);
+    let retryIndex: number = 0;
+    while (true) {
+      try {
+        return await ApiClient.requestOnce<T>(method, path, body);
+      } catch (error) {
+        if (!retryable || retryIndex >= ApiClient.MAX_NETWORK_RETRIES) {
+          throw new Error(error instanceof Error ? error.message : '网络请求失败');
+        }
+        await ApiClient.wait(ApiClient.RETRY_DELAYS_MS[retryIndex]);
+        retryIndex += 1;
+      }
+    }
   }
 
   public static get<T>(path: string): Promise<ApiResp<T>> {

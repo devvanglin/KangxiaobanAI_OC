@@ -24,11 +24,7 @@ export struct WideDoctorTitleActions {
     return [
       { title: '工作台', symbol: $r('sys.symbol.square_grid_2x2'), index: 0 },
       { title: '长者', symbol: $r('sys.symbol.person_2_fill'), index: 1 },
-      { title: '协作', symbol: $r('sys.symbol.person_crop_circle_fill'), index: 2 },
-      { title: '评估', symbol: $r('sys.symbol.checkmark_shield_fill'), index: 3 },
-      { title: '风险', symbol: $r('sys.symbol.exclamationmark_triangle_fill'), index: 4 },
-      { title: '监测', symbol: $r('sys.symbol.waveform_path_ecg_square'), index: 5 },
-      { title: '记录', symbol: $r('sys.symbol.doc_text'), index: 6 }
+      { title: '康小伴 AI', symbol: $r('sys.symbol.AI_model'), index: 2 }
     ];
   }
 
@@ -76,7 +72,7 @@ export struct WideDoctorTitleActions {
       WideSlidingCapsule({
         items: this.navigationItems(),
         selectedIndex: this.selectedIndex,
-        itemWidth: this.compactWidth ? 46 : 88,
+        itemWidth: this.compactWidth ? 46 : (this.isDoctor ? 104 : 88),
         iconOnly: this.compactWidth,
         deferSelectionUntilAnimation: true,
         onSelect: (index: number) => this.onSelect(index)
