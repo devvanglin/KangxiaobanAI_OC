@@ -1,4 +1,4 @@
-import { Elder } from '../../network/Dto';
+import { Elder, HealthRecord } from '../../network/Dto';
 
 interface CareLevelSegment {
   label: string;
@@ -12,6 +12,12 @@ interface AgeRangeValue {
   female: number;
 }
 
+interface MoodSegment {
+  label: string;
+  value: number;
+  color: string;
+}
+
 interface CanvasSize {
   width: number;
   height: number;
@@ -22,20 +28,24 @@ const MALE_COLOR: string = '#3678F6';
 const FEMALE_COLOR: string = '#E9689A';
 const CHART_MUTED_COLOR: string = '#8A919D';
 const CHART_GRID_COLOR: string = '#E6E9EE';
+const MOOD_COLORS: string[] = ['#36A3FF', '#FF9F43', '#E9689A'];
 
 @ComponentV2
 export struct WideDoctorCharts {
   @Param @Require elders: Elder[];
+  @Param healthRecords: HealthRecord[] = [];
   @Param dataVersion: number = 0;
   @Param compactWidth: boolean = false;
   private pieContext: CanvasRenderingContext2D = new CanvasRenderingContext2D(new RenderingContextSettings(true));
   private ageContext: CanvasRenderingContext2D = new CanvasRenderingContext2D(new RenderingContextSettings(true));
+  private moodContext: CanvasRenderingContext2D = new CanvasRenderingContext2D(new RenderingContextSettings(true));
 
   @Monitor('elders')
   onEldersChange(): void {
     setTimeout((): void => {
       this.drawCareLevelPie();
       this.drawAgeBars();
+      this.drawMoodPie();
     }, 0);
   }
 
@@ -44,6 +54,7 @@ export struct WideDoctorCharts {
     setTimeout((): void => {
       this.drawCareLevelPie();
       this.drawAgeBars();
+      this.drawMoodPie();
     }, 0);
   }
 
@@ -161,15 +172,20 @@ export struct WideDoctorCharts {
       maxValue = Math.max(maxValue, values[index].male + values[index].female);
     }
     maxValue = Math.max(maxValue, 1);
-    const left: number = 34;
-    const right: number = 12;
-    const top: number = 10;
-    const bottom: number = 30;
+    const left: number = Math.max(56, size.width * 0.065);
+    const right: number = Math.max(24, size.width * 0.03);
+    const top: number = 24;
+    const bottom: number = 62;
     const plotWidth: number = Math.max(1, size.width - left - right);
     const plotHeight: number = Math.max(1, size.height - top - bottom);
     context.strokeStyle = CHART_GRID_COLOR;
     context.lineWidth = 1;
-    context.font = '10px sans-serif';
+    // Canvas text uses its own pixel coordinate space, so keep the labels
+    // visibly readable instead of relying on system Text scaling.
+    const chartFontSize: number = this.compactWidth ?
+      Math.max(16, Math.min(22, size.width / 45)) :
+      Math.max(24, Math.min(34, size.width / 42));
+    context.font = `${chartFontSize}px sans-serif`;
     context.fillStyle = CHART_MUTED_COLOR;
     context.textAlign = 'right';
     context.textBaseline = 'middle';
@@ -180,10 +196,10 @@ export struct WideDoctorCharts {
       context.lineTo(size.width - right, y);
       context.stroke();
       const label: number = Math.round(maxValue * (4 - line) / 4);
-      context.fillText(label.toString(), left - 6, y);
+      context.fillText(label.toString(), left - 10, y);
     }
     const groupWidth: number = plotWidth / values.length;
-    const barWidth: number = Math.min(18, groupWidth * 0.24);
+    const barWidth: number = Math.max(8, Math.min(52, groupWidth * 0.32));
     context.textAlign = 'center';
     context.textBaseline = 'alphabetic';
     for (let index: number = 0; index < values.length; index++) {
@@ -195,8 +211,70 @@ export struct WideDoctorCharts {
       context.fillStyle = FEMALE_COLOR;
       context.fillRect(centerX + 2, top + plotHeight - femaleHeight, barWidth, femaleHeight);
       context.fillStyle = CHART_MUTED_COLOR;
-      context.fillText(values[index].label, centerX, size.height - 8);
+      context.fillText(values[index].label, centerX, size.height - Math.max(16, bottom * 0.35));
+      if (values[index].male > 0) {
+        context.fillStyle = MALE_COLOR;
+        context.fillText(values[index].male.toString(), centerX - barWidth * 0.5,
+          top + plotHeight - maleHeight - 8);
+      }
+      if (values[index].female > 0) {
+        context.fillStyle = FEMALE_COLOR;
+        context.fillText(values[index].female.toString(), centerX + barWidth * 0.5,
+          top + plotHeight - femaleHeight - 8);
+      }
     }
+  }
+
+  private moodData(): MoodSegment[] {
+    const values: MoodSegment[] = [
+      { label: '平稳', value: 0, color: MOOD_COLORS[0] },
+      { label: '需关注', value: 0, color: MOOD_COLORS[1] },
+      { label: '暂无记录', value: 0, color: MOOD_COLORS[2] }
+    ];
+    for (let index: number = 0; index < this.chartElders().length; index++) {
+      const elderId: number = this.chartElders()[index].id;
+      const records: HealthRecord[] = this.healthRecords
+        .filter((item: HealthRecord) => item.elder_id === elderId)
+        .sort((left: HealthRecord, right: HealthRecord): number =>
+          right.record_time.localeCompare(left.record_time));
+      if (records.length === 0) {
+        values[2].value += 1;
+      } else if (records[0].is_abnormal || records[0].risk_level === 'high' || records[0].risk_level === 'danger') {
+        values[1].value += 1;
+      } else {
+        values[0].value += 1;
+      }
+    }
+    return values;
+  }
+
+  private drawMoodPie(): void {
+    const context: CanvasRenderingContext2D = this.moodContext;
+    const size = this.contextSize(context);
+    if (size.width <= 0 || size.height <= 0) return;
+    context.clearRect(0, 0, size.width, size.height);
+    const values: MoodSegment[] = this.moodData();
+    const total: number = values.reduce((sum: number, item: MoodSegment) => sum + item.value, 0);
+    const radius: number = Math.min(size.width, size.height) * 0.36;
+    const centerX: number = size.width * 0.5;
+    const centerY: number = size.height * 0.5;
+    if (total === 0) return;
+    let startAngle: number = -Math.PI / 2;
+    for (let index: number = 0; index < values.length; index++) {
+      if (values[index].value === 0) continue;
+      const endAngle: number = startAngle + values[index].value / total * Math.PI * 2;
+      context.beginPath();
+      context.moveTo(centerX, centerY);
+      context.arc(centerX, centerY, radius, startAngle, endAngle);
+      context.closePath();
+      context.fillStyle = values[index].color;
+      context.fill();
+      startAngle = endAngle;
+    }
+    context.beginPath();
+    context.arc(centerX, centerY, radius * 0.56, 0, Math.PI * 2);
+    context.fillStyle = '#FFFFFF';
+    context.fill();
   }
 
   private maleTotal(): number {
@@ -218,7 +296,8 @@ export struct WideDoctorCharts {
   private chartLegendDot(color: string, label: string, value: number) {
     Row({ space: 6 }) {
       Row().width(8).height(8).borderRadius(4).backgroundColor(color)
-      Text(`${label} ${value}`).fontSize(10).fontColor($r('app.color.doctor_workspace_text_secondary'))
+      Text(`${label} ${value}`).fontSize(this.compactWidth ? 13 : 15)
+        .fontColor($r('app.color.doctor_workspace_text_secondary'))
     }
   }
 
@@ -226,10 +305,10 @@ export struct WideDoctorCharts {
   private careLevelChart() {
     Column({ space: 8 }) {
       Row() {
-        Text('老人护理等级分布').fontSize(14).fontWeight(FontWeight.Medium)
+        Text('老人护理等级分布').fontSize(this.compactWidth ? 17 : 20).fontWeight(FontWeight.Medium)
           .fontColor($r('app.color.doctor_workspace_text_primary'))
         Blank()
-        Text(`${this.chartElders().length} 位`).fontSize(10)
+        Text(`${this.chartElders().length} 位`).fontSize(this.compactWidth ? 13 : 15)
           .fontColor($r('app.color.doctor_workspace_text_tertiary'))
       }.width('100%')
       Row({ space: 16 }) {
@@ -250,7 +329,7 @@ export struct WideDoctorCharts {
   private ageChart() {
     Column({ space: 8 }) {
       Row() {
-        Text('老人年龄分布').fontSize(14).fontWeight(FontWeight.Medium)
+        Text('老人年龄分布').fontSize(this.compactWidth ? 17 : 20).fontWeight(FontWeight.Medium)
           .fontColor($r('app.color.doctor_workspace_text_primary'))
         Blank()
         Row({ space: 12 }) {
@@ -262,22 +341,75 @@ export struct WideDoctorCharts {
       }.width('100%')
       Canvas(this.ageContext)
         .width('100%')
-        .height(184)
+        .layoutWeight(this.compactWidth ? 0 : 1)
+        .height(this.compactWidth ? 184 : 'auto')
+        .onAreaChange((_oldValue: Area, _newValue: Area) => this.drawAgeBars())
         .onReady(() => this.drawAgeBars())
+    }.width('100%').height(this.compactWidth ? 220 : '100%').padding(18).borderRadius(16)
+      .backgroundColor($r('app.color.doctor_workspace_surface'))
+      .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
+      .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private moodChart() {
+    Column({ space: 8 }) {
+      Row() {
+        Text('长者心情分布').fontSize(this.compactWidth ? 17 : 20).fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.doctor_workspace_text_primary'))
+        Blank()
+        Text(`${this.chartElders().length} 位`).fontSize(this.compactWidth ? 13 : 15)
+          .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+      }.width('100%')
+      Row({ space: 16 }) {
+        Canvas(this.moodContext)
+          .width(this.compactWidth ? 150 : 172)
+          .height(172)
+          .onReady(() => this.drawMoodPie())
+        Column({ space: 8 }) {
+          ForEach(this.moodData(), (item: MoodSegment) => {
+            this.chartLegendDot(item.color, item.label, item.value)
+          }, (item: MoodSegment) => `${item.label}-${this.dataVersion}`)
+        }.alignItems(HorizontalAlign.Start)
+      }.width('100%').alignItems(VerticalAlign.Center)
     }.width('100%').alignItems(HorizontalAlign.Start)
   }
 
-  build() {
-    Column({ space: 18 }) {
-      this.careLevelChart()
-      Divider().strokeWidth(0.5).color($r('app.color.doctor_workspace_border_soft'))
-      this.ageChart()
+  @Builder
+  private careAndMoodCard() {
+    Row({ space: 24 }) {
+      Column() {
+        this.careLevelChart()
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+      Column() {
+        this.moodChart()
+      }
+      .layoutWeight(1)
+      .padding({ left: this.compactWidth ? 0 : 24 })
+      .border({ width: { left: this.compactWidth ? 0 : 0.5 }, color: { left: $r('app.color.doctor_workspace_border_soft') } })
+      .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
+    .height(this.compactWidth ? 300 : 250)
     .padding(18)
     .borderRadius(16)
     .backgroundColor($r('app.color.doctor_workspace_surface'))
     .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
+    .alignItems(VerticalAlign.Top)
+  }
+
+  build() {
+    Column({ space: 18 }) {
+      this.careAndMoodCard()
+      Column() {
+        this.ageChart()
+      }
+      .layoutWeight(this.compactWidth ? 0 : 1)
+    }
+    .width('100%')
+    .height(this.compactWidth ? 'auto' : '100%')
     .alignItems(HorizontalAlign.Start)
   }
 }

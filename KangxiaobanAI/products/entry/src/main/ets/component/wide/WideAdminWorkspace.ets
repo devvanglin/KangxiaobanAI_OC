@@ -89,6 +89,9 @@ export struct WideAdminWorkspace {
   @Local metricSnapshot: AdminMetric[] = [];
   @Local metricSnapshotVersion: number = 0;
   @Local chartEldersSnapshot: Elder[] = [];
+  @Local chartHealthSnapshot: HealthRecord[] = [];
+  @Local dashboardHeight: number = 0;
+  @Local metricsHeight: number = 0;
 
   private navItemsForRole(): AdminNavItem[] {
     if (this.isDoctor) {
@@ -202,6 +205,7 @@ export struct WideAdminWorkspace {
     // shared store directly from a nested Canvas builder can miss the first
     // V2 invalidation when the store commits its snapshot off-screen.
     this.chartEldersSnapshot = this.coreLoadReady ? this.businessStore.elders.slice() : [];
+    this.chartHealthSnapshot = this.coreLoadReady ? this.businessStore.healthRecords.slice() : [];
     this.metricSnapshot = this.metrics();
   }
 
@@ -212,6 +216,9 @@ export struct WideAdminWorkspace {
         GridCol({ span: this.compactWidth ? 6 : 3 }) { this.metricCard(metric) }
       }, (metric: AdminMetric) => `${metric.label}-${coreReady ? 'ready' : 'loading'}-${this.metricSnapshotVersion}`)
     }.width('100%')
+      .onAreaChange((_oldValue: Area, newValue: Area) => {
+        this.updateMetricsHeight(newValue.height);
+      })
   }
 
   private events(): AdminEvent[] {
@@ -277,6 +284,41 @@ export struct WideAdminWorkspace {
     return WIDE_TITLE_BAR_HEIGHT + this.statusBarHeight + 20;
   }
 
+  private lengthValue(value: Length): number {
+    if (typeof value === 'number') {
+      return value;
+    }
+    if (typeof value === 'string') {
+      return parseFloat(value);
+    }
+    return 0;
+  }
+
+  private lowerRowHeight(): number {
+    if (this.dashboardHeight <= 0 || this.metricsHeight <= 0) {
+      return 500;
+    }
+    const bottomInset: number = 36 + this.naviIndicatorHeight;
+    const errorInset: number = this.businessStore.error.length > 0 ? 48 : 0;
+    const measured: number = this.dashboardHeight - this.contentTopPadding() -
+      this.metricsHeight - 20 - bottomInset - errorInset;
+    return Math.max(320, measured);
+  }
+
+  private updateDashboardHeight(value: Length): void {
+    const next: number = this.lengthValue(value);
+    if (next > 0 && Math.abs(next - this.dashboardHeight) > 0.5) {
+      this.dashboardHeight = next;
+    }
+  }
+
+  private updateMetricsHeight(value: Length): void {
+    const next: number = this.lengthValue(value);
+    if (next > 0 && Math.abs(next - this.metricsHeight) > 0.5) {
+      this.metricsHeight = next;
+    }
+  }
+
   private toneColor(tone: string): ResourceColor {
     if (tone === 'danger') return $r('app.color.doctor_workspace_danger');
     if (tone === 'warning') return $r('app.color.doctor_workspace_warning');
@@ -309,7 +351,9 @@ export struct WideAdminWorkspace {
       { id: 'admission', label: '入住/退住管理', symbol: $r('sys.symbol.person_badge_plus'), tone: 'focus', target: 'quality' },
       { id: 'beds', label: '床位预览', symbol: $r('sys.symbol.bed_double_fill'), tone: 'success', target: 'residents' },
       { id: 'tasks', label: '护理任务', symbol: $r('sys.symbol.checkmark_circle_fill'), tone: 'warning', target: 'staff' },
-      { id: 'alerts', label: '告警处理', symbol: $r('sys.symbol.exclamationmark_triangle_fill'), tone: 'danger', target: 'risk' }
+      { id: 'alerts', label: '告警处理', symbol: $r('sys.symbol.exclamationmark_triangle_fill'), tone: 'danger', target: 'risk' },
+      { id: 'assessment', label: '健康评估', symbol: $r('sys.symbol.heart_fill'), tone: 'focus', target: 'quality' },
+      { id: 'billing', label: '账单管理', symbol: $r('sys.symbol.doc_text'), tone: 'success', target: 'residents' }
     ];
   }
 
@@ -467,9 +511,9 @@ export struct WideAdminWorkspace {
       Text(metric.label).fontSize(12).fontColor($r('app.color.doctor_workspace_text_secondary')).width('100%')
       Text(metric.value).fontSize(28).fontWeight(FontWeight.Bold)
         .fontColor($r('app.color.doctor_workspace_text_primary')).width('100%')
-      Text(metric.note).fontSize(10).fontColor(this.toneColor(metric.tone)).width('100%')
+      Text(metric.note).fontSize(13).fontColor(this.toneColor(metric.tone)).width('100%')
     }
-    .width('100%').height(this.isDoctor ? 124 : 176).padding(16).borderRadius(16)
+    .width('100%').height(this.isDoctor ? 108 : 176).padding(this.isDoctor ? 14 : 16).borderRadius(16)
     .backgroundColor($r('app.color.doctor_workspace_surface'))
     .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
     .alignItems(HorizontalAlign.Start)
@@ -542,8 +586,8 @@ export struct WideAdminWorkspace {
   private doctorQuickFunctionButton(item: DoctorQuickFunction) {
     Button({ type: ButtonType.Normal, stateEffect: true }) {
       Row({ space: 8 }) {
-        SymbolGlyph(item.symbol).fontSize(18).fontColor([this.toneColor(item.tone)])
-        Text(item.label).fontSize(12).fontColor($r('app.color.doctor_workspace_text_primary'))
+        SymbolGlyph(item.symbol).fontSize(20).fontColor([this.toneColor(item.tone)])
+        Text(item.label).fontSize(14).fontColor($r('app.color.doctor_workspace_text_primary'))
           .maxLines(1)
       }
       .width('100%')
@@ -563,7 +607,7 @@ export struct WideAdminWorkspace {
   private commonFunctionsPanel() {
     Column({ space: 14 }) {
       Row() {
-        Text('常用功能').fontSize(16).fontWeight(FontWeight.Bold)
+        Text('常用功能').fontSize(18).fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.doctor_workspace_text_primary'))
         Blank()
         Text('快速进入').fontSize(10).fontColor($r('app.color.doctor_workspace_text_tertiary'))
@@ -578,6 +622,7 @@ export struct WideAdminWorkspace {
     }
     .width('100%')
     .padding(18)
+    .constraintSize({ minHeight: this.compactWidth ? 0 : 250 })
     .borderRadius(16)
     .backgroundColor($r('app.color.doctor_workspace_surface'))
     .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
@@ -603,7 +648,8 @@ export struct WideAdminWorkspace {
 
   @Builder
   private dashboard() {
-    Scroll(this.managementScroller) {
+    Stack() {
+      Scroll(this.managementScroller) {
       Column({ space: 20 }) {
         if (!this.isDoctor) {
           Row() {
@@ -647,18 +693,22 @@ export struct WideAdminWorkspace {
                   loading: this.isDataLoading(),
                   compactWidth: this.compactWidth
                 })
-              }.width('100%').alignItems(HorizontalAlign.Start)
+                .layoutWeight(1)
+              }.width('100%').height(this.compactWidth ? 'auto' : '100%')
+                .alignItems(HorizontalAlign.Start)
             } else {
               this.occupancyPanel()
             }
-          }
+          }.height(this.compactWidth ? 'auto' : '100%')
           GridCol({ span: this.compactWidth ? 12 : 7 }) {
             if (this.isDoctor) {
               WideDoctorCharts({
                 elders: this.chartEldersSnapshot,
+                healthRecords: this.chartHealthSnapshot,
                 dataVersion: this.metricSnapshotVersion,
                 compactWidth: this.compactWidth
               })
+              .height(this.compactWidth ? 'auto' : '100%')
             } else {
               Column() {
                 Row() {
@@ -680,13 +730,28 @@ export struct WideAdminWorkspace {
               }.width('100%').borderRadius(16).backgroundColor($r('app.color.doctor_workspace_surface'))
                 .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
             }
-          }
-        }.width('100%')
+          }.height(this.compactWidth ? 'auto' : '100%')
+        }
+        .width('100%')
+        // The compact layout stacks the two columns and must keep intrinsic
+        // heights.  Only the wide layout receives the measured remainder.
+        .height(this.compactWidth ? 'auto' : this.lowerRowHeight())
+        .constraintSize({ minHeight: this.compactWidth ? 0 : this.lowerRowHeight() })
       }
       .width('100%').padding({ left: this.compactWidth ? 20 : 28, right: this.compactWidth ? 20 : 28,
         top: this.contentTopPadding(), bottom: 36 + this.naviIndicatorHeight }).alignItems(HorizontalAlign.Start)
-    }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
+    }
+    .width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
       .align(Alignment.TopStart)
+    }
+    .width('100%').height('100%')
+    .backgroundColor($r('app.color.doctor_workspace_background'))
+    // Measure the viewport wrapper, not the Scroll content. Measuring the
+    // content creates a feedback loop and leaves the bottom of the workbench
+    // unused when the cards are sized from their own intrinsic height.
+    .onAreaChange((_oldValue: Area, newValue: Area) => {
+      this.updateDashboardHeight(newValue.height);
+    })
   }
 
   @Builder

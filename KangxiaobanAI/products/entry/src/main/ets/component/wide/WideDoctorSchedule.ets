@@ -287,7 +287,7 @@ export struct WideDoctorSchedule {
       Row({ space: 4 }) {
         Text('').width(26)
         ForEach(['日', '一', '二', '三', '四', '五', '六'], (day: string) => {
-          Text(day).layoutWeight(1).fontSize(10).fontColor($r('sys.color.font_tertiary')).textAlign(TextAlign.Center)
+          Text(day).layoutWeight(1).fontSize(13).fontColor($r('sys.color.font_tertiary')).textAlign(TextAlign.Center)
         }, (day: string) => day)
       }.width('100%')
       Column() {
@@ -299,17 +299,17 @@ export struct WideDoctorSchedule {
   @Builder
   private scheduleRow(item: DoctorScheduleItem, isLast: boolean) {
     Row({ space: 10 }) {
-      Text(item.time).fontSize(11).fontWeight(FontWeight.Medium)
+      Text(item.time).fontSize(14).fontWeight(FontWeight.Medium)
         .fontColor(this.toneColor(item.tone)).width(this.compactWidth ? 48 : 58)
       Column({ space: 3 }) {
         Row({ space: 6 }) {
-          Text(item.elder).fontSize(12).fontWeight(FontWeight.Medium)
+          Text(item.elder).fontSize(15).fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary')).maxLines(1)
-          Text(item.title).fontSize(10).fontColor($r('sys.color.font_secondary')).maxLines(1)
+          Text(item.title).fontSize(13).fontColor($r('sys.color.font_secondary')).maxLines(1)
         }.width('100%').alignItems(VerticalAlign.Center)
-        Text(item.location).fontSize(10).fontColor($r('sys.color.font_tertiary')).maxLines(1)
+        Text(item.location).fontSize(13).fontColor($r('sys.color.font_tertiary')).maxLines(1)
       }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-      Text(item.status).fontSize(10).fontColor(this.toneColor(item.tone))
+      Text(item.status).fontSize(13).fontColor(this.toneColor(item.tone))
     }
     .width('100%').height(54).padding({ left: 2, right: 2 })
     .border({ width: { bottom: isLast ? 0 : 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
@@ -335,24 +335,9 @@ export struct WideDoctorSchedule {
     }.width('100%')
   }
 
-  build() {
+  @Builder
+  private scheduleContent() {
     Column({ space: 12 }) {
-      Row() {
-        Text('日常总览').fontSize(16).fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
-        Blank()
-        Button({ type: ButtonType.Normal, stateEffect: true }) {
-          Row({ space: 5 }) {
-            SymbolGlyph($r('sys.symbol.calendar_fill')).fontSize(14)
-              .fontColor([$r('app.color.doctor_workspace_focus')])
-            Text(this.calendarExpanded ? '收起日历' : '展开日历').fontSize(11)
-              .fontColor($r('app.color.doctor_workspace_focus'))
-          }
-        }
-        .height(32).padding({ left: 10, right: 10 }).borderRadius(16).backgroundColor(Color.Transparent)
-        .accessibilityText(this.calendarExpanded ? '收起日历' : '展开日历')
-        .onClick(() => this.toggleCalendar())
-      }.width('100%')
       if (!this.calendarExpanded) {
         Scroll() {
           Row({ space: 4 }) {
@@ -366,14 +351,14 @@ export struct WideDoctorSchedule {
         this.expandedCalendar()
       }
       Row() {
-        Text(`${this.selectedDateLabel()} 安排`).fontSize(11).fontColor($r('sys.color.font_secondary'))
+        Text(`${this.selectedDateLabel()} 安排`).fontSize(14).fontColor($r('sys.color.font_secondary'))
         Blank()
         if (this.items().length > 0) {
-          Text('按时间排序').fontSize(10).fontColor($r('sys.color.font_tertiary'))
+          Text('按时间排序').fontSize(12).fontColor($r('sys.color.font_tertiary'))
         }
       }.width('100%')
       if (this.items().length === 0) {
-        Text(this.summaryText()).width('100%').height(58).fontSize(11)
+        Text(this.summaryText()).width('100%').height(58).fontSize(14)
           .fontColor($r('sys.color.font_tertiary')).textAlign(TextAlign.Center)
       } else {
         Column() {
@@ -383,7 +368,41 @@ export struct WideDoctorSchedule {
       }
     }
     .width('100%')
-    .constraintSize({ minHeight: this.compactWidth ? 0 : (this.calendarExpanded ? 420 : 0) })
+  }
+
+  build() {
+    Column({ space: 12 }) {
+      Row() {
+        Text('日常总览').fontSize(19).fontWeight(FontWeight.Bold)
+          .fontColor($r('sys.color.font_primary'))
+        Blank()
+        Button({ type: ButtonType.Normal, stateEffect: true }) {
+          Row({ space: 5 }) {
+            SymbolGlyph($r('sys.symbol.calendar_fill')).fontSize(14)
+              .fontColor([$r('app.color.doctor_workspace_focus')])
+            Text(this.calendarExpanded ? '收起日历' : '展开日历').fontSize(13)
+              .fontColor($r('app.color.doctor_workspace_focus'))
+          }
+        }
+        .height(32).padding({ left: 10, right: 10 }).borderRadius(16).backgroundColor(Color.Transparent)
+        .accessibilityText(this.calendarExpanded ? '收起日历' : '展开日历')
+        .onClick(() => this.toggleCalendar())
+      }.width('100%')
+      if (this.compactWidth) {
+        this.scheduleContent()
+      } else {
+        // The expanded month can be taller than the remaining dashboard
+        // viewport. Keep the card fixed and scroll only its content area so
+        // the sibling age chart remains aligned and no rows escape the card.
+        Scroll() {
+          this.scheduleContent()
+        }
+        .width('100%').layoutWeight(1)
+        .scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
+      }
+    }
+    .width('100%')
+    .height(this.compactWidth ? 'auto' : '100%')
     .padding(18)
     .borderRadius(16)
     .backgroundColor($r('app.color.doctor_workspace_surface'))
