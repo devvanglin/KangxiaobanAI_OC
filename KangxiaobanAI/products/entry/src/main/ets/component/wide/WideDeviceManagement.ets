@@ -20,6 +20,18 @@ export struct WideDeviceManagement {
   aboutToAppear(): void { this.businessStore.load(); }
 
   private productName(product: string): string { return product === 'fall_radar' ? '毫米波跌倒雷达' : product === 'breath_radar' ? '毫米波呼吸雷达' : product === 'camera' ? '摄像头' : product || '未知设备'; }
+  private productSymbol(product: string): Resource {
+    return product === 'camera' ? $r('sys.symbol.camera_fill') :
+      product === 'fall_radar' || product === 'breath_radar' ? $r('sys.symbol.dot_radiowaves_left_and_right') :
+      $r('sys.symbol.device_2');
+  }
+
+  private productTint(product: string): Resource {
+    return product === 'camera' ? $r('app.color.brand_blue') :
+      product === 'fall_radar' || product === 'breath_radar' ? $r('app.color.doctor_workspace_accent') :
+      $r('sys.color.icon_secondary');
+  }
+
   private async createDevice(): Promise<void> {
     const target: Room | undefined = this.businessStore.rooms.find((item: Room) => item.room_no === this.room);
     const request: DeviceCreateRequest = { device_id: this.deviceId.trim(), product: this.deviceType === '摄像头' ? 'camera' : 'fall_radar', room: this.room, building: target?.building ?? '' };
@@ -33,7 +45,26 @@ export struct WideDeviceManagement {
       Column({ space: 12 }) {
         Text('添加设备').fontSize(20).fontWeight(FontWeight.Medium)
         TextInput({ placeholder: '设备编号', text: $$this.deviceId }).height(42)
-        Row({ space: 8 }) { Button('毫米波').layoutWeight(1).height(36).fontColor(this.deviceType === '毫米波雷达' ? Color.White : $r('sys.color.font_secondary')).backgroundColor(this.deviceType === '毫米波雷达' ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary')).onClick(() => this.deviceType = '毫米波雷达'); Button('摄像头').layoutWeight(1).height(36).fontColor(this.deviceType === '摄像头' ? Color.White : $r('sys.color.font_secondary')).backgroundColor(this.deviceType === '摄像头' ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary')).onClick(() => this.deviceType = '摄像头') }.width('100%')
+        Row({ space: 8 }) {
+          Button({ type: ButtonType.Normal, stateEffect: true }) {
+            Row({ space: 6 }) {
+              SymbolGlyph($r('sys.symbol.dot_radiowaves_left_and_right')).fontSize(16)
+                .fontColor([this.deviceType === '毫米波雷达' ? Color.White : $r('sys.color.icon_secondary')])
+              Text('毫米波').fontSize(13)
+                .fontColor(this.deviceType === '毫米波雷达' ? Color.White : $r('sys.color.font_secondary'))
+            }
+          }.layoutWeight(1).height(36).backgroundColor(this.deviceType === '毫米波雷达' ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
+            .accessibilityText('选择毫米波雷达').onClick(() => this.deviceType = '毫米波雷达')
+          Button({ type: ButtonType.Normal, stateEffect: true }) {
+            Row({ space: 6 }) {
+              SymbolGlyph($r('sys.symbol.camera_fill')).fontSize(16)
+                .fontColor([this.deviceType === '摄像头' ? Color.White : $r('sys.color.icon_secondary')])
+              Text('摄像头').fontSize(13)
+                .fontColor(this.deviceType === '摄像头' ? Color.White : $r('sys.color.font_secondary'))
+            }
+          }.layoutWeight(1).height(36).backgroundColor(this.deviceType === '摄像头' ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
+            .accessibilityText('选择摄像头').onClick(() => this.deviceType = '摄像头')
+        }.width('100%')
         TextInput({ placeholder: '绑定房间号，例如 101', text: $$this.room }).height(42)
         Row({ space: 10 }) { Button('取消').layoutWeight(1).height(40).onClick(() => this.showCreate = false); Button('保存').layoutWeight(1).height(40).fontColor(Color.White).backgroundColor($r('app.color.brand_blue')).onClick(() => this.createDevice()) }.width('100%')
       }.width(this.compactWidth ? '90%' : 440).padding(24).backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
@@ -45,7 +76,22 @@ export struct WideDeviceManagement {
       Scroll(this.managementScroller) { Column({ space: 16 }) {
         Row() { Column({ space: 4 }) { Text('设备管理').fontSize(this.compactWidth ? 24 : 28).fontWeight(FontWeight.Bold); Text('添加毫米波设备或摄像头，并绑定到房间').fontSize(11).fontColor($r('sys.color.font_secondary')) }.alignItems(HorizontalAlign.Start).layoutWeight(1); Button('添加设备').height(36).fontSize(12).fontColor(Color.White).backgroundColor($r('app.color.brand_blue')).onClick(() => this.showCreate = true) }.width('100%')
         if (this.error.length > 0) Text(this.error).fontSize(12).fontColor($r('app.color.doctor_workspace_danger'))
-        ForEach(this.businessStore.devices, (device: IotDevice) => { Row({ space: 14 }) { Column({ space: 4 }) { Text(this.productName(device.product)).fontSize(14).fontWeight(FontWeight.Medium); Text(device.device_id).fontSize(11).fontColor($r('sys.color.font_secondary')) }.layoutWeight(1).alignItems(HorizontalAlign.Start); Text(device.building ? `${device.building} · ${device.room}` : '未绑定房间').fontSize(12).fontColor($r('sys.color.font_secondary')); Text(device.online === 1 ? '在线' : '离线').fontSize(12).fontColor(device.online === 1 ? $r('app.color.doctor_workspace_success') : $r('sys.color.font_tertiary')) }.width('100%').height(58).padding({ left: 14, right: 14 }).backgroundColor($r('sys.color.comp_background_primary')).borderRadius(8).border({ width: 0.5, color: $r('sys.color.comp_divider') }) }, (device: IotDevice) => `device-${device.id}`)
+        ForEach(this.businessStore.devices, (device: IotDevice) => {
+          Row({ space: 14 }) {
+            SymbolGlyph(this.productSymbol(device.product)).fontSize(22).fontColor([this.productTint(device.product)])
+              .accessibilityText(this.productName(device.product))
+            Column({ space: 4 }) {
+              Text(this.productName(device.product)).fontSize(14).fontWeight(FontWeight.Medium)
+              Text(device.device_id).fontSize(11).fontColor($r('sys.color.font_secondary'))
+            }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+            Text(device.building ? `${device.building} · ${device.room}` : '未绑定房间').fontSize(12)
+              .fontColor($r('sys.color.font_secondary'))
+            Text(device.online === 1 ? '在线' : '离线').fontSize(12)
+              .fontColor(device.online === 1 ? $r('app.color.doctor_workspace_success') : $r('sys.color.font_tertiary'))
+          }.width('100%').height(58).padding({ left: 14, right: 14 })
+            .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(8)
+            .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+        }, (device: IotDevice) => `device-${device.id}`)
       }.width('100%').padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28, top: 56 + this.statusBarHeight, bottom: 24 + this.naviIndicatorHeight }) }.width('100%').height('100%').scrollBar(BarState.Off)
       if (this.showCreate) Row() { this.createDialog() }.width('100%').height('100%').backgroundColor('#66000000').justifyContent(FlexAlign.Center)
     }.width('100%').height('100%')

@@ -85,12 +85,12 @@ export struct WideAdminWorkspace {
       ];
     }
     return [
-      { id: 'overview', label: '服务器监控', symbol: $r('sys.symbol.square_grid_2x2') },
-      { id: 'roles', label: '角色管理', symbol: $r('sys.symbol.person_2_fill') },
-      { id: 'users', label: '用户管理', symbol: $r('sys.symbol.person_crop_circle_fill') },
-      { id: 'quality', label: '床位', symbol: $r('sys.symbol.checkmark_shield_fill') },
-      { id: 'risk', label: '大模型', symbol: $r('sys.symbol.exclamationmark_triangle_fill') },
-      { id: 'assets', label: '设备', symbol: $r('sys.symbol.archivebox_fill') }
+      { id: 'overview', label: '服务器监控', symbol: $r('sys.symbol.desktop_fill') },
+      { id: 'roles', label: '角色管理', symbol: $r('sys.symbol.key_shield_badge_person_crop_circle_fill') },
+      { id: 'users', label: '用户', symbol: $r('sys.symbol.person_crop_circle_fill') },
+      { id: 'quality', label: '床位', symbol: $r('sys.symbol.bed_double_fill') },
+      { id: 'risk', label: '大模型', symbol: $r('sys.symbol.AI_model') },
+      { id: 'assets', label: '设备', symbol: $r('sys.symbol.beacon_tower_fill') }
     ];
   }
 

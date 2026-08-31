@@ -13,12 +13,12 @@ export struct WideDoctorTitleActions {
   private navigationItems(): WideSlidingCapsuleItem[] {
     if (!this.isDoctor) {
       return [
-        { title: '服务器', symbol: $r('sys.symbol.square_grid_2x2'), index: 0 },
-        { title: '角色', symbol: $r('sys.symbol.person_2_fill'), index: 1 },
-        { title: '用户管理', symbol: $r('sys.symbol.person_crop_circle_fill'), index: 2 },
-        { title: '床位', symbol: $r('sys.symbol.checkmark_shield_fill'), index: 3 },
-        { title: '大模型', symbol: $r('sys.symbol.exclamationmark_triangle_fill'), index: 4 },
-        { title: '设备', symbol: $r('sys.symbol.archivebox_fill'), index: 5 }
+        { title: '服务器', symbol: $r('sys.symbol.desktop_fill'), index: 0 },
+        { title: '角色', symbol: $r('sys.symbol.key_shield_badge_person_crop_circle_fill'), index: 1 },
+        { title: '用户', symbol: $r('sys.symbol.person_crop_circle_fill'), index: 2 },
+        { title: '床位', symbol: $r('sys.symbol.bed_double_fill'), index: 3 },
+        { title: '大模型', symbol: $r('sys.symbol.AI_model'), index: 4 },
+        { title: '设备', symbol: $r('sys.symbol.beacon_tower_fill'), index: 5 }
       ];
     }
     return [
