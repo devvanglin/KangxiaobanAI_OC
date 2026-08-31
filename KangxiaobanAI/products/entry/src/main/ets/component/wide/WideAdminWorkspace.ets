@@ -744,7 +744,8 @@ export struct WideAdminWorkspace {
           WideServerMonitor({
             statusBarHeight: this.statusBarHeight,
             naviIndicatorHeight: this.naviIndicatorHeight,
-            compactWidth: this.compactWidth
+            compactWidth: this.compactWidth,
+            managementScroller: this.managementScroller
           })
         }
       } else if (this.isDoctor) {

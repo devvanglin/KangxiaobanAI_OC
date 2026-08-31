@@ -14,16 +14,16 @@ struct ServerMetricRow {
   @Param note: string = '';
 
   build() {
-    Row({ space: 12 }) {
+    Row({ space: 10 }) {
       Column({ space: 2 }) {
         Text(this.label).fontSize(13).fontColor($r('sys.color.font_primary'))
         if (this.note.length > 0) {
           Text(this.note).fontSize(10).fontColor($r('sys.color.font_secondary'))
         }
       }.alignItems(HorizontalAlign.Start).layoutWeight(1)
-      Text(this.value).fontSize(13).fontColor($r('sys.color.font_primary'))
+      Text(this.value).fontSize(12).fontColor($r('sys.color.font_primary'))
         .textAlign(TextAlign.End).maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
-    }.width('100%').height(58).padding({ left: 0, right: 0, top: 8, bottom: 8 })
+    }.width('100%').height(42).padding({ left: 0, right: 0, top: 4, bottom: 4 })
       .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
   }
 }
@@ -49,6 +49,7 @@ export struct WideServerMonitor {
   @Param statusBarHeight: number = 0;
   @Param naviIndicatorHeight: number = 0;
   @Param compactWidth: boolean = false;
+  @Param managementScroller: Scroller = new Scroller();
   @Local cpuCores: number = 0;
   @Local cpuUsage: number = 0;
   @Local cpuUser: number = 0;
@@ -186,14 +187,11 @@ export struct WideServerMonitor {
   }
 
   @Builder
-  private sectionTitle(title: string, subtitle: string = '') {
+  private sectionTitle(title: string) {
     Row({ space: 8 }) {
       Column({ space: 2 }) {
         Text(title).fontSize(16).fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.font_primary'))
-        if (subtitle.length > 0) {
-          Text(subtitle).fontSize(10).fontColor($r('sys.color.font_secondary'))
-        }
       }.alignItems(HorizontalAlign.Start)
       Blank()
     }.width('100%').alignItems(VerticalAlign.Center)
@@ -201,89 +199,89 @@ export struct WideServerMonitor {
 
   @Builder
   private cpuCard() {
-    Column({ space: 10 }) {
-      this.sectionTitle('CPU', '后端主机实时资源')
+    Column({ space: 8 }) {
+      this.sectionTitle('CPU')
       Column({ space: 3 }) {
-        Text(this.cpuState(this.currentCpu())).fontSize(30).fontWeight(FontWeight.Bold)
+        Text(this.cpuState(this.currentCpu())).fontSize(26).fontWeight(FontWeight.Bold)
           .fontColor(this.currentCpu().available ? $r('app.color.brand_blue') : $r('sys.color.font_tertiary'))
         Text(this.currentCpu().available ? `${this.currentCpu().cores} 个逻辑核心 · 用户 ${this.percent(this.currentCpu().user_percent)} · 系统 ${this.percent(this.currentCpu().system_percent)}` :
           '当前运行环境未提供主机 CPU 采样')
-          .fontSize(10).fontColor($r('sys.color.font_secondary'))
+          .fontSize(9).fontColor($r('sys.color.font_secondary'))
       }.alignItems(HorizontalAlign.Start).width('100%')
       Progress({ value: this.currentCpu().available ? this.currentCpu().usage_percent : 0, total: 100, type: ProgressType.Linear })
-        .width('100%').height(7).color($r('app.color.brand_blue'))
+        .width('100%').height(5).color($r('app.color.brand_blue'))
         .backgroundColor($r('sys.color.comp_background_secondary'))
       Column() {
         ServerMetricRow({ label: '用户使用率', value: this.currentCpu().available ? this.percent(this.currentCpu().user_percent) : '--' })
         ServerMetricRow({ label: '系统使用率', value: this.currentCpu().available ? this.percent(this.currentCpu().system_percent) : '--' })
         ServerMetricRow({ label: '当前空闲率', value: this.currentCpu().available ? this.percent(this.currentCpu().idle_percent) : '--' })
       }.width('100%')
-    }.width('100%').padding(18).borderRadius(16)
+    }.width('100%').padding(14).borderRadius(14)
       .backgroundColor($r('sys.color.comp_background_primary'))
       .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   @Builder
   private memoryCard() {
-    Column({ space: 10 }) {
-      this.sectionTitle('内存', '主机与 Go 进程占用')
+    Column({ space: 8 }) {
+      this.sectionTitle('内存')
       Column({ space: 3 }) {
-        Text(this.memoryState(this.currentMemory())).fontSize(30).fontWeight(FontWeight.Bold)
+        Text(this.memoryState(this.currentMemory())).fontSize(26).fontWeight(FontWeight.Bold)
           .fontColor(this.currentMemory().available ? $r('app.color.brand_blue') : $r('sys.color.font_tertiary'))
         Text(this.currentMemory().available ? `已用 ${this.bytes(this.currentMemory().used_bytes)} · 剩余 ${this.bytes(this.currentMemory().free_bytes)}` :
           `Go 进程 ${this.bytes(this.currentMemory().process_bytes)}`)
-          .fontSize(10).fontColor($r('sys.color.font_secondary'))
+          .fontSize(9).fontColor($r('sys.color.font_secondary'))
       }.alignItems(HorizontalAlign.Start).width('100%')
       Progress({ value: this.currentMemory().available ? this.currentMemory().used_percent : 0, total: 100, type: ProgressType.Linear })
-        .width('100%').height(7).color($r('app.color.brand_blue'))
+        .width('100%').height(5).color($r('app.color.brand_blue'))
         .backgroundColor($r('sys.color.comp_background_secondary'))
       Column() {
         ServerMetricRow({ label: '总内存', value: this.bytes(this.currentMemory().total_bytes) })
         ServerMetricRow({ label: '已用内存', value: this.bytes(this.currentMemory().used_bytes) })
         ServerMetricRow({ label: 'Go 进程内存', value: this.bytes(this.currentMemory().process_bytes), note: this.currentMemory().available ? this.percent(this.currentMemory().process_percent) : '' })
       }.width('100%')
-    }.width('100%').padding(18).borderRadius(16)
+    }.width('100%').padding(14).borderRadius(14)
       .backgroundColor($r('sys.color.comp_background_primary'))
       .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   @Builder
   private serverInfoCard() {
-    Column({ space: 10 }) {
-      this.sectionTitle('服务器信息', '当前后端进程所在主机')
+    Column({ space: 8 }) {
+      this.sectionTitle('服务器信息')
       Column() {
         ServerMetricRow({ label: '服务器名称', value: this.currentServer().hostname })
         ServerMetricRow({ label: '服务器 IP', value: this.currentServer().ip })
         ServerMetricRow({ label: '操作系统', value: `${this.currentServer().os} · ${this.currentServer().arch}` })
         ServerMetricRow({ label: '进程 ID', value: this.currentServer().pid > 0 ? this.currentServer().pid.toString() : '--' })
       }.width('100%')
-    }.width('100%').padding(18).borderRadius(16)
+    }.width('100%').padding(14).borderRadius(14)
       .backgroundColor($r('sys.color.comp_background_primary'))
       .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   @Builder
   private runtimeCard() {
-    Column({ space: 10 }) {
-      this.sectionTitle('Go 运行时信息', '服务进程状态')
+    Column({ space: 8 }) {
+      this.sectionTitle('Go 运行时信息')
       Column() {
         ServerMetricRow({ label: 'Go 版本', value: this.currentServer().go_version })
         ServerMetricRow({ label: '启动时间', value: this.formatTime(this.currentServer().started_at) })
         ServerMetricRow({ label: '运行时长', value: this.currentServer().uptime_text })
         ServerMetricRow({ label: 'Goroutine 数', value: this.currentServer().goroutines.toString() })
       }.width('100%')
-    }.width('100%').padding(18).borderRadius(16)
+    }.width('100%').padding(14).borderRadius(14)
       .backgroundColor($r('sys.color.comp_background_primary'))
       .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   @Builder
   private diskCard() {
-    Column({ space: 10 }) {
-      this.sectionTitle('磁盘状态', '可见挂载点')
+    Column({ space: 8 }) {
+      this.sectionTitle('磁盘状态')
       if (this.disks.length === 0) {
-        Text('当前运行环境未提供磁盘统计').fontSize(11).fontColor($r('sys.color.font_secondary'))
-          .width('100%').padding({ top: 20, bottom: 20 })
+          Text('当前运行环境未提供磁盘统计').fontSize(11).fontColor($r('sys.color.font_secondary'))
+          .width('100%').padding({ top: 10, bottom: 10 })
       } else {
         List() {
           ForEach(this.disks, (disk: SystemDiskStat) => {
@@ -293,35 +291,23 @@ export struct WideServerMonitor {
                 note: `可用 ${this.bytes(disk.free_bytes)} · ${disk.filesystem}` })
             }
           }, (disk: SystemDiskStat) => disk.mount)
-        }.width('100%').height(Math.min(280, this.disks.length * 58)).scrollBar(BarState.Off)
+        }.width('100%').height(Math.min(220, this.disks.length * 42)).scrollBar(BarState.Off)
       }
-    }.width('100%').padding(18).borderRadius(16)
+    }.width('100%').padding(14).borderRadius(14)
       .backgroundColor($r('sys.color.comp_background_primary'))
       .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   build() {
-    Scroll() {
-      Column({ space: 16 }) {
-        Row() {
-          Blank().layoutWeight(1)
-          Column({ space: 4 }) {
-            Button(this.loading ? '读取中…' : '刷新')
-              .height(36).fontSize(12).borderRadius(12)
-              .fontColor($r('sys.color.interactive_active'))
-              .backgroundColor($r('sys.color.comp_background_primary'))
-              .enabled(!this.loading)
-              .accessibilityText('刷新服务器监控')
-              .onClick(() => this.loadMonitor())
-            Text(`更新于 ${this.lastUpdated}`).fontSize(9).fontColor($r('sys.color.font_tertiary'))
-          }.alignItems(HorizontalAlign.End)
-        }.width('100%').alignItems(VerticalAlign.Center)
+    Scroll(this.managementScroller) {
+      Column({ space: 10 }) {
+        Blank().height(4)
         if (this.error.length > 0) {
           Text(this.error).fontSize(11).fontColor($r('app.color.doctor_workspace_danger'))
             .width('100%').padding(12).borderRadius(10)
             .backgroundColor($r('app.color.doctor_workspace_accent_soft'))
         }
-        GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
+        GridRow({ columns: 12, gutter: { x: 12, y: 12 } }) {
           GridCol({ span: this.compactWidth ? 12 : 6 }) { this.cpuCard() }
           GridCol({ span: this.compactWidth ? 12 : 6 }) { this.memoryCard() }
           GridCol({ span: this.compactWidth ? 12 : 6 }) { this.serverInfoCard() }
@@ -330,8 +316,8 @@ export struct WideServerMonitor {
         }.width('100%')
       }
       .width('100%')
-      .padding({ left: this.compactWidth ? 20 : 28, right: this.compactWidth ? 20 : 28,
-        top: 56 + this.statusBarHeight + 20, bottom: 36 + this.naviIndicatorHeight })
+      .padding({ left: this.compactWidth ? 14 : 20, right: this.compactWidth ? 14 : 20,
+        top: 58, bottom: 16 + this.naviIndicatorHeight })
       .alignItems(HorizontalAlign.Start)
     }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
   }
