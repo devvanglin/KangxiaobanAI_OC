@@ -287,6 +287,14 @@ func (s *IotService) ListDevicesScoped(ctx context.Context, page, size int, allo
 	return items, total, err
 }
 
+func (s *IotService) CreateDevice(ctx context.Context, device *model.IotDevice) error {
+	return s.db.WithContext(ctx).Create(device).Error
+}
+
+func (s *IotService) DeleteDevice(ctx context.Context, id uint) error {
+	return s.db.WithContext(ctx).Delete(&model.IotDevice{}, id).Error
+}
+
 func (s *IotService) GetAlert(ctx context.Context, id uint) (*model.Alert, error) {
 	var a model.Alert
 	if err := s.db.WithContext(ctx).First(&a, id).Error; err != nil {

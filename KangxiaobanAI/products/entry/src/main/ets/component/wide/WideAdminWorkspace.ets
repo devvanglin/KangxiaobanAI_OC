@@ -6,6 +6,9 @@ import { WideDoctorAdmission } from './WideDoctorAdmission';
 import { WideServerMonitor } from './WideServerMonitor';
 import { WideRoleManagement } from './WideRoleManagement';
 import { WideUserManagement } from './WideUserManagement';
+import { WideBedManagement } from './WideBedManagement';
+import { WideModelManagement } from './WideModelManagement';
+import { WideDeviceManagement } from './WideDeviceManagement';
 
 interface AdminNavItem {
   id: string;
@@ -85,10 +88,9 @@ export struct WideAdminWorkspace {
       { id: 'overview', label: '服务器监控', symbol: $r('sys.symbol.square_grid_2x2') },
       { id: 'roles', label: '角色管理', symbol: $r('sys.symbol.person_2_fill') },
       { id: 'users', label: '用户管理', symbol: $r('sys.symbol.person_crop_circle_fill') },
-      { id: 'quality', label: '养护质量', symbol: $r('sys.symbol.checkmark_shield_fill') },
-      { id: 'risk', label: '风险事件', symbol: $r('sys.symbol.exclamationmark_triangle_fill') },
-      { id: 'assets', label: '设备与物资', symbol: $r('sys.symbol.archivebox_fill') },
-      { id: 'reports', label: '运营报表', symbol: $r('sys.symbol.waveform_path_ecg_square') }
+      { id: 'quality', label: '床位', symbol: $r('sys.symbol.checkmark_shield_fill') },
+      { id: 'risk', label: '大模型', symbol: $r('sys.symbol.exclamationmark_triangle_fill') },
+      { id: 'assets', label: '设备', symbol: $r('sys.symbol.archivebox_fill') }
     ];
   }
 
@@ -96,9 +98,10 @@ export struct WideAdminWorkspace {
   onManagementNavIndexChange(): void {
     const ids: string[] = this.isDoctor ?
       ['overview', 'residents', 'staff', 'quality', 'risk', 'assets', 'reports'] :
-      ['overview', 'roles', 'users', 'quality', 'risk', 'assets', 'reports'];
+      ['overview', 'roles', 'users', 'quality', 'risk', 'assets'];
     if (this.managementNavIndex >= 0 && this.managementNavIndex < ids.length) {
       this.selectedNavId = ids[this.managementNavIndex];
+      setTimeout((): void => { this.managementScroller.scrollEdge(Edge.Top); }, 0);
     }
   }
 
@@ -763,6 +766,26 @@ export struct WideAdminWorkspace {
           compactWidth: this.compactWidth,
           statusBarHeight: this.statusBarHeight,
           naviIndicatorHeight: this.naviIndicatorHeight
+        })
+      } else if (!this.isDoctor && this.selectedNavId === 'quality') {
+        WideBedManagement({
+          compactWidth: this.compactWidth,
+          statusBarHeight: this.statusBarHeight,
+          naviIndicatorHeight: this.naviIndicatorHeight,
+          managementScroller: this.managementScroller
+        })
+      } else if (!this.isDoctor && this.selectedNavId === 'risk') {
+        WideModelManagement({
+          compactWidth: this.compactWidth,
+          statusBarHeight: this.statusBarHeight,
+          naviIndicatorHeight: this.naviIndicatorHeight
+        })
+      } else if (!this.isDoctor && this.selectedNavId === 'assets') {
+        WideDeviceManagement({
+          compactWidth: this.compactWidth,
+          statusBarHeight: this.statusBarHeight,
+          naviIndicatorHeight: this.naviIndicatorHeight,
+          managementScroller: this.managementScroller
         })
       } else if (this.isDoctor) {
         this.doctorModuleView()

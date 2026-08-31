@@ -8,6 +8,7 @@ import (
 
 	"kangxiaoban-service/internal/iot"
 	"kangxiaoban-service/internal/middleware"
+	"kangxiaoban-service/internal/model"
 	"kangxiaoban-service/internal/service"
 )
 
@@ -15,6 +16,36 @@ import (
 type IotHandler struct {
 	svc    *iot.IotService
 	family *service.FamilyService
+}
+
+type deviceCreateReq struct {
+	DeviceID string `json:"device_id" binding:"required"`
+	Product  string `json:"product" binding:"required"`
+	Building string `json:"building"`
+	Room     string `json:"room"`
+}
+
+func (h *IotHandler) CreateDevice(c *gin.Context) {
+	var req deviceCreateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Fail(c, 400, 400, "设备编号和设备类型必填")
+		return
+	}
+	device := &model.IotDevice{DeviceID: req.DeviceID, Product: req.Product, Building: req.Building, Room: req.Room, Protocol: "MQTT", Online: 0}
+	if err := h.svc.CreateDevice(c.Request.Context(), device); err != nil {
+		Fail(c, 409, 409, "设备编号已存在或创建失败")
+		return
+	}
+	OK(c, device)
+}
+
+func (h *IotHandler) DeleteDevice(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err := h.svc.DeleteDevice(c.Request.Context(), uint(id)); err != nil {
+		Fail(c, 500, 500, "删除设备失败")
+		return
+	}
+	OK(c, gin.H{"deleted": true})
 }
 
 func NewIotHandler(svc *iot.IotService, family *service.FamilyService) *IotHandler {

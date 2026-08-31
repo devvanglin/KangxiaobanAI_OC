@@ -144,6 +144,8 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 
 		// 物联网：设备/告警读写
 		authed.GET("/iot/devices", perm("alert:read"), iotHandler.ListDevices)
+		authed.POST("/iot/devices", perm("admin:all"), iotHandler.CreateDevice)
+		authed.DELETE("/iot/devices/:id", perm("admin:all"), iotHandler.DeleteDevice)
 		authed.GET("/alerts", perm("alert:read"), iotHandler.ListAlerts)
 		authed.GET("/alerts/:id/actions", perm("alert:read"), iotHandler.ListAlertActions)
 		authed.POST("/alerts/:id/actions", perm("task:write"), iotHandler.CreateAlertAction)
