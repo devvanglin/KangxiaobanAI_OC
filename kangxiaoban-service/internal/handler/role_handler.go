@@ -20,6 +20,9 @@ func (h *RoleHandler) List(c *gin.Context) {
 	if keyword := c.Query("keyword"); keyword != "" {
 		query = query.Where("name LIKE ? OR code LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
 	}
+	if status := c.Query("status"); status == "0" || status == "1" {
+		query = query.Where("status = ?", status)
+	}
 	var total int64
 	if err := query.Count(&total).Error; err != nil { Fail(c, http.StatusInternalServerError, 500, "查询角色失败"); return }
 	var roles []model.Role

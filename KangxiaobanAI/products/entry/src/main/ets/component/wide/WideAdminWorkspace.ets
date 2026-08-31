@@ -5,6 +5,7 @@ import { Alert, Assessment, Bed, CareTask, Elder, HealthRecord, Room, Schedule }
 import { WideDoctorAdmission } from './WideDoctorAdmission';
 import { WideServerMonitor } from './WideServerMonitor';
 import { WideRoleManagement } from './WideRoleManagement';
+import { WideUserManagement } from './WideUserManagement';
 
 interface AdminNavItem {
   id: string;
@@ -83,7 +84,7 @@ export struct WideAdminWorkspace {
     return [
       { id: 'overview', label: '服务器监控', symbol: $r('sys.symbol.square_grid_2x2') },
       { id: 'roles', label: '角色管理', symbol: $r('sys.symbol.person_2_fill') },
-      { id: 'staff', label: '人员与排班', symbol: $r('sys.symbol.person_crop_circle_fill') },
+      { id: 'users', label: '用户管理', symbol: $r('sys.symbol.person_crop_circle_fill') },
       { id: 'quality', label: '养护质量', symbol: $r('sys.symbol.checkmark_shield_fill') },
       { id: 'risk', label: '风险事件', symbol: $r('sys.symbol.exclamationmark_triangle_fill') },
       { id: 'assets', label: '设备与物资', symbol: $r('sys.symbol.archivebox_fill') },
@@ -95,7 +96,7 @@ export struct WideAdminWorkspace {
   onManagementNavIndexChange(): void {
     const ids: string[] = this.isDoctor ?
       ['overview', 'residents', 'staff', 'quality', 'risk', 'assets', 'reports'] :
-      ['overview', 'roles', 'staff', 'quality', 'risk', 'assets', 'reports'];
+      ['overview', 'roles', 'users', 'quality', 'risk', 'assets', 'reports'];
     if (this.managementNavIndex >= 0 && this.managementNavIndex < ids.length) {
       this.selectedNavId = ids[this.managementNavIndex];
     }
@@ -753,6 +754,12 @@ export struct WideAdminWorkspace {
         }
       } else if (!this.isDoctor && this.selectedNavId === 'roles') {
         WideRoleManagement({
+          compactWidth: this.compactWidth,
+          statusBarHeight: this.statusBarHeight,
+          naviIndicatorHeight: this.naviIndicatorHeight
+        })
+      } else if (!this.isDoctor && this.selectedNavId === 'users') {
+        WideUserManagement({
           compactWidth: this.compactWidth,
           statusBarHeight: this.statusBarHeight,
           naviIndicatorHeight: this.naviIndicatorHeight

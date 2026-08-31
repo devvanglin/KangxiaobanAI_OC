@@ -59,6 +59,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	messageHandler := handler.NewMessageHandler(messageSvc, familySvc, hub, userRepo)
 	systemHandler := handler.NewSystemHandler()
 	roleHandler := handler.NewRoleHandler(db)
+	userHandler := handler.NewUserHandler(db)
 
 	// 访问校验封装
 	perm := func(code string) gin.HandlerFunc { return middleware.RequirePermission(userRepo, code) }
@@ -86,6 +87,9 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		authed.PUT("/roles/:id", perm("admin:all"), roleHandler.Update)
 		authed.DELETE("/roles/:id", perm("admin:all"), roleHandler.Delete)
 		authed.PATCH("/roles/:id/status", perm("admin:all"), roleHandler.SetStatus)
+		authed.GET("/users", perm("admin:all"), userHandler.List)
+		authed.POST("/users", perm("admin:all"), userHandler.Create)
+		authed.PATCH("/users/:id/status", perm("admin:all"), userHandler.SetStatus)
 
 		// 长者档案（读）
 		elders := authed.Group("/elders", perm("elder:read"))
