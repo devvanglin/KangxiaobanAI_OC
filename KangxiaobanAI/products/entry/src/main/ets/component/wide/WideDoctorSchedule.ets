@@ -64,6 +64,13 @@ export struct WideDoctorSchedule {
     }
   }
 
+  private selectMonthDate(key: string): void {
+    this.getUIContext().animateTo({ duration: 220, curve: Curve.EaseInOut }, () => {
+      this.selectDate(key);
+      this.calendarExpanded = false;
+    });
+  }
+
   private dayKey(value: string): string {
     const parsed: Date = new Date(value.replace('T', ' '));
     if (Number.isNaN(parsed.getTime())) {
@@ -265,7 +272,7 @@ export struct WideDoctorSchedule {
     .borderRadius(10)
     .backgroundColor(Color.Transparent)
     .accessibilityText(day.isPlaceholder === true ? '空日期' : `${day.month}${day.day}日${day.weekday}`)
-    .onClick(() => { if (day.isPlaceholder !== true) this.selectDate(day.key); })
+    .onClick(() => { if (day.isPlaceholder !== true) this.selectMonthDate(day.key); })
   }
 
   @Builder
@@ -279,11 +286,6 @@ export struct WideDoctorSchedule {
   @Builder
   private monthView() {
     Column({ space: 8 }) {
-      Row() {
-        Text(this.calendarMonthLabel()).fontSize(12).fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-        Blank()
-      }.width('100%')
       Row({ space: 4 }) {
         Text('').width(26)
         ForEach(['日', '一', '二', '三', '四', '五', '六'], (day: string) => {
@@ -317,6 +319,20 @@ export struct WideDoctorSchedule {
   }
 
   @Builder
+  private scheduleRows() {
+    if (this.items().length === 0) {
+      Text(this.summaryText()).width('100%').height(58).fontSize(14)
+        .fontColor($r('sys.color.font_tertiary')).textAlign(TextAlign.Center)
+    } else {
+      Column() {
+        ForEach(this.items(), (item: DoctorScheduleItem, index: number) =>
+          this.scheduleRow(item, index === this.items().length - 1),
+          (item: DoctorScheduleItem) => item.id)
+      }.width('100%')
+    }
+  }
+
+  @Builder
   private expandedCalendar() {
     Column({ space: 10 }) {
       Row({ space: 8 }) {
@@ -342,7 +358,8 @@ export struct WideDoctorSchedule {
         Scroll() {
           Row({ space: 4 }) {
             ForEach(this.calendarDays(), (day: CalendarDay) => this.calendarDay(day), (day: CalendarDay) => day.key)
-          }.width('100%').justifyContent(FlexAlign.SpaceAround)
+          }.width('100%').constraintSize({ minWidth: this.compactWidth ? 360 : 472 })
+            .justifyContent(FlexAlign.SpaceAround)
         }
         .width('100%').height(70)
         .scrollable(ScrollDirection.Horizontal).scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
@@ -357,17 +374,17 @@ export struct WideDoctorSchedule {
           Text('按时间排序').fontSize(12).fontColor($r('sys.color.font_tertiary'))
         }
       }.width('100%')
-      if (this.items().length === 0) {
-        Text(this.summaryText()).width('100%').height(58).fontSize(14)
-          .fontColor($r('sys.color.font_tertiary')).textAlign(TextAlign.Center)
+      if (this.compactWidth) {
+        this.scheduleRows()
       } else {
-        Column() {
-          ForEach(this.items(), (item: DoctorScheduleItem, index: number) => this.scheduleRow(item, index === this.items().length - 1),
-            (item: DoctorScheduleItem) => item.id)
-        }.width('100%')
+        Scroll() {
+          this.scheduleRows()
+        }
+        .width('100%').layoutWeight(1)
+        .scrollable(ScrollDirection.Vertical).scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
       }
     }
-    .width('100%')
+    .width('100%').layoutWeight(this.compactWidth ? 0 : 1)
   }
 
   build() {
@@ -388,18 +405,7 @@ export struct WideDoctorSchedule {
         .accessibilityText(this.calendarExpanded ? '收起日历' : '展开日历')
         .onClick(() => this.toggleCalendar())
       }.width('100%')
-      if (this.compactWidth) {
-        this.scheduleContent()
-      } else {
-        // The expanded month can be taller than the remaining dashboard
-        // viewport. Keep the card fixed and scroll only its content area so
-        // the sibling age chart remains aligned and no rows escape the card.
-        Scroll() {
-          this.scheduleContent()
-        }
-        .width('100%').layoutWeight(1)
-        .scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
-      }
+      this.scheduleContent()
     }
     .width('100%')
     .height(this.compactWidth ? 'auto' : '100%')
