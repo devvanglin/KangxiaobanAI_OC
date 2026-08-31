@@ -55,8 +55,8 @@ export struct WideAdminWorkspace {
   // read-only without forking the UI.
   @Param canHandleAlerts: boolean = true;
   @Param isDoctor: boolean = false;
-  @Param doctorScroller: Scroller = new Scroller();
-  @Param doctorNavIndex: number = 0;
+  @Param managementScroller: Scroller = new Scroller();
+  @Param managementNavIndex: number = 0;
   @Event onOpenAbout: () => void = () => {};
   @Event onOpenGeneral: () => void = () => {};
   @Event onLogout: () => void = () => {};
@@ -89,19 +89,16 @@ export struct WideAdminWorkspace {
     ];
   }
 
-  @Monitor('doctorNavIndex')
-  onDoctorNavIndexChange(): void {
-    if (!this.isDoctor) {
-      return;
-    }
+  @Monitor('managementNavIndex')
+  onManagementNavIndexChange(): void {
     const ids: string[] = ['overview', 'residents', 'staff', 'quality', 'risk', 'assets', 'reports'];
-    if (this.doctorNavIndex >= 0 && this.doctorNavIndex < ids.length) {
-      this.selectedNavId = ids[this.doctorNavIndex];
+    if (this.managementNavIndex >= 0 && this.managementNavIndex < ids.length) {
+      this.selectedNavId = ids[this.managementNavIndex];
     }
   }
 
   aboutToAppear(): void {
-    this.onDoctorNavIndexChange();
+    this.onManagementNavIndexChange();
     this.businessStore.load();
   }
 
@@ -208,7 +205,7 @@ export struct WideAdminWorkspace {
   }
 
   private contentTopPadding(): number {
-    return this.isDoctor ? WIDE_TITLE_BAR_HEIGHT + this.statusBarHeight + 20 : this.statusBarHeight + 28;
+    return WIDE_TITLE_BAR_HEIGHT + this.statusBarHeight + 20;
   }
 
   private toneColor(tone: string): ResourceColor {
@@ -455,7 +452,7 @@ export struct WideAdminWorkspace {
 
   @Builder
   private dashboard() {
-    Scroll(this.doctorScroller) {
+    Scroll(this.managementScroller) {
       Column({ space: 20 }) {
         if (!this.isDoctor) {
           Row() {
@@ -529,7 +526,7 @@ export struct WideAdminWorkspace {
 
   @Builder
   private doctorResidentModule() {
-    Scroll(this.doctorScroller) {
+    Scroll(this.managementScroller) {
       Column({ space: 12 }) {
         this.moduleHeader('长者档案', '查看在院长者的基本资料、照护等级和床位信息')
         if (this.businessStore.elders.length === 0) {
@@ -567,7 +564,7 @@ export struct WideAdminWorkspace {
 
   @Builder
   private doctorRiskModule() {
-    Scroll(this.doctorScroller) {
+    Scroll(this.managementScroller) {
       Column({ space: 12 }) {
         this.moduleHeader('风险复核', '查看服务端生成的风险事件；医师端不直接关闭或处置告警')
         if (this.events().length === 0) {
@@ -587,7 +584,7 @@ export struct WideAdminWorkspace {
 
   @Builder
   private doctorHealthModule() {
-    Scroll(this.doctorScroller) {
+    Scroll(this.managementScroller) {
       Column({ space: 12 }) {
         this.moduleHeader('健康监测', '查看服务器已记录的体征与设备状态，不在医师端直接录入')
         if (this.businessStore.healthRecords.length === 0) {
@@ -622,7 +619,7 @@ export struct WideAdminWorkspace {
 
   @Builder
   private doctorCollaborationModule() {
-    Scroll(this.doctorScroller) {
+    Scroll(this.managementScroller) {
       Column({ space: 12 }) {
         this.moduleHeader('护理协作', '查看护理任务与执行进度，复核由服务端记录的护理结果')
         if (this.businessStore.tasks.length === 0) {
@@ -662,7 +659,7 @@ export struct WideAdminWorkspace {
 
   @Builder
   private doctorReportsModule() {
-    Scroll(this.doctorScroller) {
+    Scroll(this.managementScroller) {
       Column({ space: 12 }) {
         this.moduleHeader('评估记录', '查看已保存的服务端评估结果和护理执行进度')
         if (this.businessStore.assessments.length === 0) {
@@ -754,15 +751,6 @@ export struct WideAdminWorkspace {
   }
 
   build() {
-    if (this.isDoctor) {
-      this.workspaceContent()
-    } else {
-      Row() {
-        this.sidebar()
-        this.workspaceContent()
-      }
-      .width('100%').height('100%')
-      .backgroundColor($r('app.color.doctor_workspace_background'))
-    }
+    this.workspaceContent()
   }
 }

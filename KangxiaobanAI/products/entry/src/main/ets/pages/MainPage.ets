@@ -132,7 +132,7 @@ struct MainPage {
   @Local caregiverBackRequestToken: number = 0;
   @Local caregiverUnreadMessageCount: number = 0;
   @Local caregiverMaterialScrollerOwner: CaregiverMaterialScrollerOwner = 'residentDetail';
-  @Local doctorNavIndex: number = 0;
+  @Local managementNavIndex: number = 0;
   @Local doctorCurrentTime: string = '--:--';
   @Local businessStore: BusinessStore = BusinessStore.getShared();
   private wideHomeScroller: Scroller = new Scroller();
@@ -141,7 +141,7 @@ struct MainPage {
   private wideResidentDetailScroller: Scroller = new Scroller();
   private wideMessageListScroller: Scroller = new Scroller();
   private wideMessageChatScroller: Scroller = new Scroller();
-  private wideDoctorScroller: Scroller = new Scroller();
+  private wideManagementScroller: Scroller = new Scroller();
   private doctorClockTimerId: number = -1;
   private wideAiChatScroller: ListScroller = new ListScroller();
   private businessWsClient: WsClient = new WsClient();
@@ -267,17 +267,18 @@ struct MainPage {
     return WIDE_TITLE_BAR_HEIGHT + this.globalInfoModel.statusBarHeight;
   }
 
-  private isDoctorWideWorkspace(): boolean {
-    return this.isWideLayout() && this.globalInfoModel.role === '医师';
+  private isManagementWideWorkspace(): boolean {
+    return this.isWideLayout() && (this.globalInfoModel.role === '医师' || this.globalInfoModel.role === '管理');
   }
 
   @Builder
   private wideDoctorTitleActions() {
     WideDoctorTitleActions({
-      selectedIndex: this.doctorNavIndex,
+      selectedIndex: this.managementNavIndex,
+      isDoctor: this.globalInfoModel.role === '医师',
       compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
       onSelect: (index: number) => {
-        this.doctorNavIndex = index;
+        this.managementNavIndex = index;
       },
       onOpenAbout: () => this.pathStack.pushPath({ name: 'AboutPage' }),
       onOpenGeneral: () => this.pathStack.pushPath({ name: 'GeneralSettingsPage' }),
@@ -330,7 +331,7 @@ struct MainPage {
         style: this.immersiveTitleBarStyle()
       };
     }
-    if (this.isDoctorWideWorkspace()) {
+    if (this.isManagementWideWorkspace()) {
       return {
         padding: {
           start: LengthMetrics.vp(16),
@@ -339,7 +340,7 @@ struct MainPage {
         avoidLayoutSafeArea: true,
         enableComponentSafeArea: false,
         content: {
-          title: { mainTitle: this.doctorCurrentTime },
+          title: { mainTitle: this.globalInfoModel.role === '医师' ? this.doctorCurrentTime : '管理端' },
           menu: { value: [] },
           stackBuilder: (): void => this.wideDoctorTitleActions()
         },
@@ -388,8 +389,8 @@ struct MainPage {
           [this.wideMessageChatScroller] : [this.wideMessageListScroller];
       }
     }
-    if (this.isDoctorWideWorkspace()) {
-      return [this.wideDoctorScroller];
+    if (this.isManagementWideWorkspace()) {
+      return [this.wideManagementScroller];
     }
     return [];
   }
@@ -1187,8 +1188,8 @@ struct MainPage {
         statusBarHeight: this.globalInfoModel.statusBarHeight,
         naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
         compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
-        doctorScroller: this.wideDoctorScroller,
-        doctorNavIndex: this.doctorNavIndex,
+        managementScroller: this.wideManagementScroller,
+        managementNavIndex: this.managementNavIndex,
         canHandleAlerts: this.globalInfoModel.role === '管理',
         isDoctor: this.globalInfoModel.role === '医师',
         onOpenAbout: () => {
@@ -1312,7 +1313,7 @@ struct MainPage {
         .titleBar(this.navigationTitleBarOptions())
         .bindToScrollable(this.navigationScrollers())
         .hideBackButton(!this.showCaregiverLocalBackButton())
-        .hideTitleBar(this.isWideLayout() && !this.isCaregiverWideWorkspace() && !this.isDoctorWideWorkspace(), true)
+        .hideTitleBar(this.isWideLayout() && !this.isCaregiverWideWorkspace() && !this.isManagementWideWorkspace(), true)
         .titleMode(HdsNavigationTitleMode.MINI)
         .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
         .width('100%')
