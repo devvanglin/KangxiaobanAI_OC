@@ -133,6 +133,7 @@ struct MainPage {
   @Local caregiverUnreadMessageCount: number = 0;
   @Local caregiverMaterialScrollerOwner: CaregiverMaterialScrollerOwner = 'residentDetail';
   @Local doctorNavIndex: number = 0;
+  @Local doctorCurrentTime: string = '--:--';
   @Local businessStore: BusinessStore = BusinessStore.getShared();
   private wideHomeScroller: Scroller = new Scroller();
   private wideHomeTaskDetailScroller: Scroller = new Scroller();
@@ -141,6 +142,7 @@ struct MainPage {
   private wideMessageListScroller: Scroller = new Scroller();
   private wideMessageChatScroller: Scroller = new Scroller();
   private wideDoctorScroller: Scroller = new Scroller();
+  private doctorClockTimerId: number = -1;
   private wideAiChatScroller: ListScroller = new ListScroller();
   private businessWsClient: WsClient = new WsClient();
   private preferenceManager: PreferenceManager = PreferenceManager.getInstance();
@@ -159,6 +161,7 @@ struct MainPage {
       JSON.stringify(false)
     ) ?? false;
     BusinessStore.getShared().load();
+    this.refreshDoctorClock();
     this.businessWsClient.connect((payload: string): void => {
       this.handleBusinessEvent(payload);
     });
@@ -167,8 +170,32 @@ struct MainPage {
 
   aboutToDisappear(): void {
     this.businessWsClient.close();
+    this.stopDoctorClock();
     this.caregiverHasLocalBackLayer = false;
     WindowUtil.setImmersiveMode(false);
+  }
+
+  private formatCurrentTime(): string {
+    const now: Date = new Date();
+    return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+  }
+
+  private refreshDoctorClock(): void {
+    this.doctorCurrentTime = this.formatCurrentTime();
+    if (this.doctorClockTimerId !== -1) {
+      clearTimeout(this.doctorClockTimerId);
+    }
+    this.doctorClockTimerId = setTimeout(() => {
+      this.doctorClockTimerId = -1;
+      this.refreshDoctorClock();
+    }, 1000);
+  }
+
+  private stopDoctorClock(): void {
+    if (this.doctorClockTimerId !== -1) {
+      clearTimeout(this.doctorClockTimerId);
+      this.doctorClockTimerId = -1;
+    }
   }
 
   private handleBusinessEvent(payload: string): void {
@@ -312,7 +339,7 @@ struct MainPage {
         avoidLayoutSafeArea: true,
         enableComponentSafeArea: false,
         content: {
-          title: { mainTitle: '医师工作台' },
+          title: { mainTitle: this.doctorCurrentTime },
           menu: { value: [] },
           stackBuilder: (): void => this.wideDoctorTitleActions()
         },

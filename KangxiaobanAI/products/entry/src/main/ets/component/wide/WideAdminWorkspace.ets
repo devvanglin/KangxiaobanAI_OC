@@ -351,15 +351,17 @@ export struct WideAdminWorkspace {
   @Builder
   private metricCard(metric: AdminMetric) {
     Column({ space: 12 }) {
-      Row() {
-        Stack({ alignContent: Alignment.Center }) {
-          Row().width(38).height(38).borderRadius(12).backgroundColor($r('app.color.doctor_workspace_surface_hover'))
-          SymbolGlyph(metric.symbol).fontSize(20).fontColor([this.toneColor(metric.tone)])
-        }
-        Blank()
-        Text(this.isDoctor ? '健康与照护数据' : '服务器数据').fontSize(9)
-          .fontColor($r('app.color.doctor_workspace_text_tertiary'))
-      }.width('100%')
+      if (!this.isDoctor) {
+        Row() {
+          Stack({ alignContent: Alignment.Center }) {
+            Row().width(38).height(38).borderRadius(12).backgroundColor($r('app.color.doctor_workspace_surface_hover'))
+            SymbolGlyph(metric.symbol).fontSize(20).fontColor([this.toneColor(metric.tone)])
+          }
+          Blank()
+          Text('服务器数据').fontSize(9)
+            .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+        }.width('100%')
+      }
       Text(metric.label).fontSize(12).fontColor($r('app.color.doctor_workspace_text_secondary')).width('100%')
       Text(metric.value).fontSize(28).fontWeight(FontWeight.Bold)
         .fontColor($r('app.color.doctor_workspace_text_primary')).width('100%')
@@ -455,20 +457,22 @@ export struct WideAdminWorkspace {
   private dashboard() {
     Scroll(this.doctorScroller) {
       Column({ space: 20 }) {
-        Row() {
-          Column({ space: 5 }) {
-            Text(this.workspaceTitle()).fontSize(this.compactWidth ? 26 : 30).fontWeight(FontWeight.Bold)
-              .fontColor($r('app.color.doctor_workspace_text_primary'))
-            Text(this.workspaceSubtitle()).fontSize(11)
+        if (!this.isDoctor) {
+          Row() {
+            Column({ space: 5 }) {
+              Text(this.workspaceTitle()).fontSize(this.compactWidth ? 26 : 30).fontWeight(FontWeight.Bold)
+                .fontColor($r('app.color.doctor_workspace_text_primary'))
+              Text(this.workspaceSubtitle()).fontSize(11)
+                .fontColor($r('app.color.doctor_workspace_text_secondary'))
+            }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+            Text('实时数据')
+              .fontSize(10)
               .fontColor($r('app.color.doctor_workspace_text_secondary'))
-          }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-          Text(this.isDoctor ? '实时健康数据' : '实时数据')
-            .fontSize(10)
-            .fontColor($r('app.color.doctor_workspace_text_secondary'))
-            .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-            .borderRadius(10)
-            .backgroundColor($r('app.color.doctor_workspace_surface'))
-        }.width('100%').alignItems(VerticalAlign.Center)
+              .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+              .borderRadius(10)
+              .backgroundColor($r('app.color.doctor_workspace_surface'))
+          }.width('100%').alignItems(VerticalAlign.Center)
+        }
         GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
           ForEach(this.metrics(), (metric: AdminMetric) => {
             GridCol({ span: this.compactWidth ? 6 : 3 }) { this.metricCard(metric) }
@@ -503,6 +507,7 @@ export struct WideAdminWorkspace {
       .width('100%').padding({ left: this.compactWidth ? 20 : 28, right: this.compactWidth ? 20 : 28,
         top: this.contentTopPadding(), bottom: 36 + this.naviIndicatorHeight }).alignItems(HorizontalAlign.Start)
     }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
+      .align(Alignment.TopStart)
   }
 
   @Builder
@@ -557,6 +562,7 @@ export struct WideAdminWorkspace {
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
+      .align(Alignment.TopStart)
   }
 
   @Builder
@@ -576,6 +582,7 @@ export struct WideAdminWorkspace {
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
+      .align(Alignment.TopStart)
   }
 
   @Builder
@@ -610,6 +617,7 @@ export struct WideAdminWorkspace {
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
+      .align(Alignment.TopStart)
   }
 
   @Builder
@@ -649,6 +657,7 @@ export struct WideAdminWorkspace {
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
+      .align(Alignment.TopStart)
   }
 
   @Builder
@@ -683,6 +692,7 @@ export struct WideAdminWorkspace {
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
+      .align(Alignment.TopStart)
   }
 
   @Builder
