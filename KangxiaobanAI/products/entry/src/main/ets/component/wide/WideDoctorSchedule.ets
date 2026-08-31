@@ -374,17 +374,20 @@ export struct WideDoctorSchedule {
           Text('按时间排序').fontSize(12).fontColor($r('sys.color.font_tertiary'))
         }
       }.width('100%')
-      if (this.compactWidth) {
+      if (this.compactWidth || this.calendarExpanded) {
         this.scheduleRows()
       } else {
         Scroll() {
           this.scheduleRows()
         }
         .width('100%').layoutWeight(1)
+        // Keep short schedules anchored to the top of the card instead of
+        // letting the Scroll center content when its viewport has spare room.
         .scrollable(ScrollDirection.Vertical).scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
+        .align(Alignment.Top)
       }
     }
-    .width('100%').layoutWeight(this.compactWidth ? 0 : 1)
+    .width('100%').layoutWeight(this.compactWidth || this.calendarExpanded ? 0 : 1)
   }
 
   build() {
@@ -405,7 +408,18 @@ export struct WideDoctorSchedule {
         .accessibilityText(this.calendarExpanded ? '收起日历' : '展开日历')
         .onClick(() => this.toggleCalendar())
       }.width('100%')
-      this.scheduleContent()
+      if (this.compactWidth || !this.calendarExpanded) {
+        this.scheduleContent()
+      } else {
+        // A full month is taller than the fixed dashboard card. Scroll the
+        // expanded calendar and its schedule as one top-aligned surface.
+        Scroll() {
+          this.scheduleContent()
+        }
+        .width('100%').layoutWeight(1)
+        .scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
+        .align(Alignment.Top)
+      }
     }
     .width('100%')
     .height(this.compactWidth ? 'auto' : '100%')
