@@ -1,10 +1,12 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -91,7 +93,16 @@ func main() {
 	}
 
 	log.Printf("Kangxiaoban 后端服务启动: http://0.0.0.0:%s (db=%s)", cfg.Server.Port, cfg.Database.Driver)
-	if err := r.Run(":" + cfg.Server.Port); err != nil {
+	server := &http.Server{
+		Addr:              ":" + cfg.Server.Port,
+		Handler:           r,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       35 * time.Second,
+		WriteTimeout:      35 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20,
+	}
+	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatalf("服务启动失败: %v", err)
 	}
 }

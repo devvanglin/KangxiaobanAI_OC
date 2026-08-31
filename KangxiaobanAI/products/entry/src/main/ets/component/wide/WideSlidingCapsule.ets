@@ -260,7 +260,10 @@ export struct WideSlidingCapsule {
       Row({ space: 4 }) {
         ForEach(this.items, (item: WideSlidingCapsuleItem) => {
           this.capsuleItem(item)
-        }, (item: WideSlidingCapsuleItem) => item.index.toString())
+        // Badge values are often derived from an async server snapshot. Include
+        // the rendered badge in the key so a reused capsule item cannot retain
+        // its initial count when the parent supplies a new items array.
+        }, (item: WideSlidingCapsuleItem) => `${item.index}-${item.title}-${item.badgeText ?? ''}`)
       }
     }
     .width(this.fillWidth ? '100%' : this.containerWidth())

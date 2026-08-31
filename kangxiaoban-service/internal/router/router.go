@@ -1,7 +1,9 @@
 package router
 
 import (
+	"context"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -36,9 +38,29 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	r.Use(gin.LoggerWithConfig(gin.LoggerConfig{SkipPaths: []string{"/api/v1/ws"}}))
 	r.Use(gin.Recovery())
 	r.Use(middleware.CORS())
+	// Cancel context-aware REST work when the database is locked or an upstream
+	// dependency stops responding. WebSocket is excluded because it intentionally
+	// remains open.
+	r.Use(middleware.RequestTimeout(30 * time.Second))
 
 	r.GET("/api/v1/healthz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+	// Readiness is intentionally unauthenticated so deployment probes and the
+	// native client can distinguish a live process from a usable database.
+	r.GET("/api/v1/health/ready", func(c *gin.Context) {
+		sqlDB, err := db.DB()
+		if err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "not_ready", "database": "unavailable"})
+			return
+		}
+		pingCtx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+		defer cancel()
+		if err := sqlDB.PingContext(pingCtx); err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "not_ready", "database": "unavailable"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "ready", "database": "ok"})
 	})
 
 	authHandler := handler.NewAuthHandler(authSvc)

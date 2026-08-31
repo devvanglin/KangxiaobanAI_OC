@@ -82,6 +82,13 @@ export struct WideAdminWorkspace {
   @Local selectedPeriod: number = 0;
   @Local hoveredId: string = '';
   @Local businessStore: BusinessStore = BusinessStore.getShared();
+  // The store is shared across mounted roots. Keep a component-owned signal
+  // so the first workbench render is invalidated when the initial snapshot
+  // completes, even when this component appeared after the request started.
+  @Local coreLoadReady: boolean = false;
+  @Local metricSnapshot: AdminMetric[] = [];
+  @Local metricSnapshotVersion: number = 0;
+  @Local chartEldersSnapshot: Elder[] = [];
 
   private navItemsForRole(): AdminNavItem[] {
     if (this.isDoctor) {
@@ -112,9 +119,27 @@ export struct WideAdminWorkspace {
     }
   }
 
+  @Monitor('businessStore.coreVersion', 'businessStore.loaded')
+  onBusinessDataChange(): void {
+    this.coreLoadReady = this.businessStore.loaded;
+    this.refreshMetricSnapshot();
+  }
+
+  private async awaitCoreLoad(): Promise<void> {
+    await this.businessStore.load();
+    this.coreLoadReady = this.businessStore.loaded;
+    this.refreshMetricSnapshot();
+  }
+
   aboutToAppear(): void {
     this.onManagementNavIndexChange();
-    this.businessStore.load();
+    this.coreLoadReady = this.businessStore.loaded;
+    this.refreshMetricSnapshot();
+    void this.awaitCoreLoad();
+  }
+
+  private isDataLoading(): boolean {
+    return !this.coreLoadReady && !this.businessStore.loaded;
   }
 
   private currentDateValue(): string {
@@ -124,26 +149,34 @@ export struct WideAdminWorkspace {
   }
 
   private metrics(): AdminMetric[] {
-    const totalBeds: number = this.businessStore.beds.length;
-    const occupiedBeds: number = this.businessStore.beds.filter((item: Bed) => item.status === 'occupied').length;
+    // Keep this computed node tied to the component-owned completion signal.
+    // The shared store can finish before a nested builder has registered its
+    // field reads; the scalar guarantees a fresh metric calculation.
+    const beds: Bed[] = this.coreLoadReady ? this.businessStore.beds : [];
+    const elders: Elder[] = this.coreLoadReady ? this.businessStore.elders : [];
+    const tasks: CareTask[] = this.coreLoadReady ? this.businessStore.tasks : [];
+    const alerts: Alert[] = this.coreLoadReady ? this.businessStore.alerts : [];
+    const schedules: Schedule[] = this.coreLoadReady ? this.businessStore.schedules : [];
+    const totalBeds: number = beds.length;
+    const occupiedBeds: number = beds.filter((item: Bed) => item.status === 'occupied').length;
     const occupancy: number = totalBeds > 0 ? Math.round(occupiedBeds / totalBeds * 1000) / 10 : 0;
-    const todaySchedules: number = this.businessStore.schedules.filter((item: Schedule) =>
+    const todaySchedules: number = schedules.filter((item: Schedule) =>
       item.work_date === this.currentDateValue()).length;
-    const totalTasks: number = this.businessStore.tasks.length;
-    const doneTasks: number = this.businessStore.tasks.filter((item) => item.status === 'done').length;
+    const totalTasks: number = tasks.length;
+    const doneTasks: number = tasks.filter((item) => item.status === 'done').length;
     const completion: number = totalTasks > 0 ? Math.round(doneTasks / totalTasks * 1000) / 10 : 0;
-    const openAlerts: Alert[] = this.businessStore.alerts.filter((item: Alert) =>
+    const openAlerts: Alert[] = alerts.filter((item: Alert) =>
       item.status !== 'handled' && item.status !== 'closed');
     const emergencyAlerts: number = openAlerts.filter((item: Alert) => item.level === 'emergency').length;
     if (this.isDoctor) {
-      const focusElders: number = this.businessStore.elders.filter((elder) =>
+      const focusElders: number = elders.filter((elder) =>
         openAlerts.some((alert: Alert) => alert.elder_id === elder.id)).length;
-      const activeElders = this.businessStore.elders.filter((item) => item.status === 2);
-      const remainingBeds: number = this.businessStore.beds.filter((item: Bed) => item.status === 'free').length;
+      const activeElders = elders.filter((item) => item.status === 2);
+      const remainingBeds: number = beds.filter((item: Bed) => item.status === 'free').length;
       return [
         { label: '在住老人', value: activeElders.length.toString(), note: `当前在院 ${activeElders.length} 位`,
           symbol: $r('sys.symbol.person_2_fill'), tone: 'focus' },
-        { label: '剩余床位', value: remainingBeds.toString(), note: `共 ${this.businessStore.beds.length} 张床位`,
+        { label: '剩余床位', value: remainingBeds.toString(), note: `共 ${beds.length} 张床位`,
           symbol: $r('sys.symbol.bed_double_fill'), tone: 'success' },
         { label: '重点关注', value: focusElders.toString(), note: '存在未闭环风险的老人',
           symbol: $r('sys.symbol.person_2_fill'), tone: 'focus' },
@@ -152,7 +185,7 @@ export struct WideAdminWorkspace {
       ];
     }
     return [
-      { label: '在院长者', value: this.businessStore.elders.filter((item) => item.status === 2).length.toString(),
+      { label: '在院长者', value: elders.filter((item) => item.status === 2).length.toString(),
         note: `床位使用率 ${occupancy}%`, symbol: $r('sys.symbol.person_2_fill'), tone: 'focus' },
       { label: '今日排班', value: todaySchedules.toString(), note: '来自服务器排班记录',
         symbol: $r('sys.symbol.person_crop_circle_fill'), tone: 'warning' },
@@ -163,8 +196,27 @@ export struct WideAdminWorkspace {
     ];
   }
 
+  private refreshMetricSnapshot(): void {
+    this.metricSnapshotVersion += 1;
+    // Pass a component-owned array to the imperative chart. Reading the
+    // shared store directly from a nested Canvas builder can miss the first
+    // V2 invalidation when the store commits its snapshot off-screen.
+    this.chartEldersSnapshot = this.coreLoadReady ? this.businessStore.elders.slice() : [];
+    this.metricSnapshot = this.metrics();
+  }
+
+  @Builder
+  private metricsGrid(coreReady: boolean) {
+    GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
+      ForEach(this.metricSnapshot, (metric: AdminMetric) => {
+        GridCol({ span: this.compactWidth ? 6 : 3 }) { this.metricCard(metric) }
+      }, (metric: AdminMetric) => `${metric.label}-${coreReady ? 'ready' : 'loading'}-${this.metricSnapshotVersion}`)
+    }.width('100%')
+  }
+
   private events(): AdminEvent[] {
-    return this.businessStore.alerts.map((item: Alert): AdminEvent => ({
+    const alerts: Alert[] = this.coreLoadReady ? this.businessStore.alerts : [];
+    return alerts.map((item: Alert): AdminEvent => ({
       id: `alert-${item.id}`,
       alertId: item.id,
       title: item.type || '风险告警',
@@ -179,6 +231,9 @@ export struct WideAdminWorkspace {
 
   private occupancyRows(): AdminOccupancy[] {
     const rows: AdminOccupancy[] = [];
+    if (!this.coreLoadReady) {
+      return rows;
+    }
     for (let index: number = 0; index < this.businessStore.rooms.length; index++) {
       const room: Room = this.businessStore.rooms[index];
       const beds: Bed[] = this.businessStore.beds.filter((item: Bed) => item.room_id === room.id);
@@ -278,6 +333,24 @@ export struct WideAdminWorkspace {
     }
   }
 
+  private navIndex(itemId: string): number {
+    const items: AdminNavItem[] = this.navItemsForRole();
+    for (let index: number = 0; index < items.length; index++) {
+      if (items[index].id === itemId) {
+        return index;
+      }
+    }
+    return -1;
+  }
+
+  private selectNavItem(item: AdminNavItem): void {
+    this.selectedNavId = item.id;
+    const index: number = this.navIndex(item.id);
+    if (index >= 0) {
+      this.onManagementNavSelect(index);
+    }
+  }
+
   @Builder
   private navItem(item: AdminNavItem) {
     Row({ space: 12 }) {
@@ -314,8 +387,8 @@ export struct WideAdminWorkspace {
     .focusable(true)
     .accessibilityText(item.label)
     .onHover((hover: boolean) => this.hoveredId = hover ? item.id : '')
-    .onKeyEvent((event: KeyEvent) => this.activate(event, () => this.selectedNavId = item.id))
-    .onClick(() => this.selectedNavId = item.id)
+    .onKeyEvent((event: KeyEvent) => this.activate(event, () => this.selectNavItem(item)))
+    .onClick(() => this.selectNavItem(item))
   }
 
   @Builder
@@ -446,7 +519,7 @@ export struct WideAdminWorkspace {
           .fontColor($r('app.color.doctor_workspace_text_tertiary'))
       }.width('100%')
       if (this.occupancyRows().length === 0) {
-        Text(this.businessStore.loading ? (this.isDoctor ? '正在加载长者入住数据' : '正在加载床位数据') :
+        Text(this.isDataLoading() ? (this.isDoctor ? '正在加载长者入住数据' : '正在加载床位数据') :
           (this.isDoctor ? '暂无长者入住数据' : '暂无床位数据'))
           .width('100%')
           .padding({ top: 48, bottom: 48 })
@@ -552,18 +625,14 @@ export struct WideAdminWorkspace {
           Row({ space: 8 }) {
             SymbolGlyph($r('sys.symbol.info_circle')).fontSize(15)
               .fontColor([$r('app.color.doctor_workspace_warning')])
-            Text('部分数据暂未同步，正在自动重试').fontSize(11)
+            Text('部分数据暂未同步，请检查网络后重试').fontSize(11)
               .fontColor($r('app.color.doctor_workspace_text_secondary'))
           }.width('100%').padding({ left: 14, right: 14, top: 10, bottom: 10 })
             .borderRadius(10)
             .backgroundColor($r('app.color.doctor_workspace_surface_hover'))
-            .accessibilityText('部分数据暂未同步，正在自动重试')
+            .accessibilityText('部分数据暂未同步，请检查网络后重试')
         }
-        GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
-          ForEach(this.metrics(), (metric: AdminMetric) => {
-            GridCol({ span: this.compactWidth ? 6 : 3 }) { this.metricCard(metric) }
-          }, (metric: AdminMetric) => metric.label)
-        }.width('100%')
+        this.metricsGrid(this.coreLoadReady)
         GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
           GridCol({ span: this.compactWidth ? 12 : 5 }) {
             if (this.isDoctor) {
@@ -575,7 +644,7 @@ export struct WideAdminWorkspace {
                   rooms: this.businessStore.rooms,
                   tasks: this.businessStore.tasks,
                   schedules: this.businessStore.schedules,
-                  loading: this.businessStore.loading,
+                  loading: this.isDataLoading(),
                   compactWidth: this.compactWidth
                 })
               }.width('100%').alignItems(HorizontalAlign.Start)
@@ -586,7 +655,8 @@ export struct WideAdminWorkspace {
           GridCol({ span: this.compactWidth ? 12 : 7 }) {
             if (this.isDoctor) {
               WideDoctorCharts({
-                elders: this.businessStore.elders,
+                elders: this.chartEldersSnapshot,
+                dataVersion: this.metricSnapshotVersion,
                 compactWidth: this.compactWidth
               })
             } else {
@@ -598,7 +668,7 @@ export struct WideAdminWorkspace {
                   Text(`${this.events().length} 项`).fontSize(10).fontColor($r('app.color.doctor_workspace_text_tertiary'))
                 }.width('100%').height(52).padding({ left: 16, right: 16 })
                 if (this.events().length === 0) {
-                  Text(this.businessStore.loading ? '正在加载告警数据' : '暂无运营关注事项')
+                  Text(this.isDataLoading() ? '正在加载告警数据' : '暂无运营关注事项')
                     .width('100%')
                     .padding({ top: 56, bottom: 56 })
                     .fontSize(11)

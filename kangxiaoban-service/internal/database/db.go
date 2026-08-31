@@ -39,10 +39,52 @@ func Connect(cfg *config.DBConfig) (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open db (%s): %w", cfg.Driver, err)
 	}
+	if cfg.Driver == "sqlite" {
+		if err := configureSQLite(db, cfg.SQLitePath); err != nil {
+			return nil, err
+		}
+	}
 	if err := RegisterTenantScope(db); err != nil {
 		return nil, fmt.Errorf("register tenant scope: %w", err)
 	}
 	return db, nil
+}
+
+const sqliteBusyTimeout = 5000
+
+// configureSQLite keeps the embedded database deterministic when the HTTP
+// handlers and the IoT scanners access it at the same time.  SQLite permits
+// many readers but only one writer; a single pooled connection plus WAL and a
+// bounded busy timeout prevents lock errors from turning into an unbounded
+// request wait.  In-memory test databases do not support WAL, so only the
+// timeout is applied there.
+func configureSQLite(db *gorm.DB, path string) error {
+	sqlDB, err := db.DB()
+	if err != nil {
+		return fmt.Errorf("get sqlite connection: %w", err)
+	}
+	// Sharing one connection is intentional for the default local SQLite
+	// deployment. It serializes writes and avoids a second connection waiting
+	// forever on a lock held by the first one.
+	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(1)
+
+	if err := sqlDB.Ping(); err != nil {
+		return fmt.Errorf("ping sqlite: %w", err)
+	}
+	if err := db.Exec(fmt.Sprintf("PRAGMA busy_timeout = %d", sqliteBusyTimeout)).Error; err != nil {
+		return fmt.Errorf("configure sqlite busy timeout: %w", err)
+	}
+	pathLower := strings.ToLower(path)
+	if !strings.Contains(pathLower, ":memory:") && !strings.Contains(pathLower, "mode=memory") {
+		if err := db.Exec("PRAGMA journal_mode = WAL").Error; err != nil {
+			return fmt.Errorf("configure sqlite journal mode: %w", err)
+		}
+		if err := db.Exec("PRAGMA synchronous = NORMAL").Error; err != nil {
+			return fmt.Errorf("configure sqlite synchronous mode: %w", err)
+		}
+	}
+	return nil
 }
 
 // AutoMigrateAndSeed 建表并注入角色、权限、账号和可选的业务初始数据。

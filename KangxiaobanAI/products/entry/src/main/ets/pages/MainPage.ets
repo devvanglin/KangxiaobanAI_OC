@@ -221,7 +221,9 @@ struct MainPage {
       if (event.type === 'admission.submitted' || event.type === 'task.updated' ||
         event.type === 'vital.record' || event.type === 'vital.abnormal' ||
         event.type === 'alert.new' || event.type === 'alert.escalated') {
-        BusinessStore.getShared().load(true);
+        // Coalesce bursts of realtime events so a refresh never keeps the
+        // global loading state alive indefinitely.
+        BusinessStore.getShared().requestRefresh();
       }
     } catch (_error) {
       Logger.warn(TAG, 'ignored malformed business event');

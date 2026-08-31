@@ -26,12 +26,21 @@ const CHART_GRID_COLOR: string = '#E6E9EE';
 @ComponentV2
 export struct WideDoctorCharts {
   @Param @Require elders: Elder[];
+  @Param dataVersion: number = 0;
   @Param compactWidth: boolean = false;
   private pieContext: CanvasRenderingContext2D = new CanvasRenderingContext2D(new RenderingContextSettings(true));
   private ageContext: CanvasRenderingContext2D = new CanvasRenderingContext2D(new RenderingContextSettings(true));
 
   @Monitor('elders')
   onEldersChange(): void {
+    setTimeout((): void => {
+      this.drawCareLevelPie();
+      this.drawAgeBars();
+    }, 0);
+  }
+
+  @Monitor('dataVersion')
+  onDataVersionChange(): void {
     setTimeout((): void => {
       this.drawCareLevelPie();
       this.drawAgeBars();
@@ -198,6 +207,13 @@ export struct WideDoctorCharts {
     return this.ageData().reduce((sum: number, item: AgeRangeValue) => sum + item.female, 0);
   }
 
+  private genderLegend(): AgeRangeValue[] {
+    return [
+      { label: '男', male: this.maleTotal(), female: 0 },
+      { label: '女', male: 0, female: this.femaleTotal() }
+    ];
+  }
+
   @Builder
   private chartLegendDot(color: string, label: string, value: number) {
     Row({ space: 6 }) {
@@ -224,7 +240,7 @@ export struct WideDoctorCharts {
         Column({ space: 8 }) {
           ForEach(this.careLevelData(), (item: CareLevelSegment) => {
             this.chartLegendDot(item.color, item.label, item.value)
-          }, (item: CareLevelSegment) => item.label)
+          }, (item: CareLevelSegment) => `${item.label}-${this.dataVersion}`)
         }.alignItems(HorizontalAlign.Start)
       }.width('100%').alignItems(VerticalAlign.Center)
     }.width('100%').alignItems(HorizontalAlign.Start)
@@ -238,8 +254,10 @@ export struct WideDoctorCharts {
           .fontColor($r('app.color.doctor_workspace_text_primary'))
         Blank()
         Row({ space: 12 }) {
-          this.chartLegendDot(MALE_COLOR, '男', this.maleTotal())
-          this.chartLegendDot(FEMALE_COLOR, '女', this.femaleTotal())
+          ForEach(this.genderLegend(), (item: AgeRangeValue) => {
+            this.chartLegendDot(item.label === '男' ? MALE_COLOR : FEMALE_COLOR, item.label,
+              item.label === '男' ? item.male : item.female)
+          }, (item: AgeRangeValue) => `${item.label}-${this.dataVersion}`)
         }
       }.width('100%')
       Canvas(this.ageContext)
