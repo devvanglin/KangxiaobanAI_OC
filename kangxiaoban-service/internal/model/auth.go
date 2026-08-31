@@ -43,6 +43,9 @@ type Role struct {
 	Code        string       `gorm:"size:32;uniqueIndex;not null" json:"code"`
 	Name        string       `gorm:"size:64;not null" json:"name"`
 	Description string       `gorm:"size:255" json:"description"`
+	DisplayOrder int8        `gorm:"default:0" json:"display_order"`
+	Status      int8         `gorm:"default:1" json:"status"`
+	Remark      string       `gorm:"size:500" json:"remark"`
 	Permissions []Permission `gorm:"many2many:sys_role_permission;joinForeignKey:RoleID;joinReferences:PermissionID" json:"permissions,omitempty"`
 }
 

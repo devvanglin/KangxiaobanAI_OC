@@ -1,8 +1,9 @@
 import ApiClient from '../../network/ApiClient';
 
 interface RolePermission { code: string; name: string; }
-interface RoleRecord { id: number; code: string; name: string; description: string; created_at?: string; permissions?: RolePermission[]; }
+interface RoleRecord { id: number; code: string; name: string; description: string; created_at?: string; status?: number; permissions?: RolePermission[]; }
 interface RolePage { list: RoleRecord[]; total: number; }
+interface RoleStatusRequest { status: number; }
 
 @ComponentV2
 export struct WideRoleManagement {
@@ -33,6 +34,16 @@ export struct WideRoleManagement {
     try {
       this.getUIContext().getPromptAction().showToast({ message: `${action}接口尚未开放` });
     } catch (_error) {
+    }
+  }
+
+  private async toggleStatus(role: RoleRecord): Promise<void> {
+    try {
+      const request: RoleStatusRequest = { status: role.status === 1 ? 0 : 1 };
+      const response = await ApiClient.patch<Object>(`/roles/${role.id}/status`, request);
+      if (response.code === 0) await this.loadRoles();
+    } catch (_error) {
+      this.error = '角色状态更新失败';
     }
   }
 
@@ -83,9 +94,10 @@ export struct WideRoleManagement {
       Text(role.permissions?.map((item: RolePermission) => item.code).join('、') || '暂无权限')
         .width(290).fontSize(12).fontColor($r('sys.color.font_secondary')).maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
-      Button('启用').width(62).height(28).fontSize(11).borderRadius(14)
-        .fontColor(Color.White).backgroundColor($r('app.color.doctor_workspace_success'))
-        .onClick(() => this.actionHint('状态切换'))
+      Button(role.status === 1 ? '正常' : '停用').width(62).height(28).fontSize(11).borderRadius(14)
+        .fontColor(Color.White)
+        .backgroundColor(role.status === 1 ? $r('app.color.doctor_workspace_success') : $r('sys.color.font_tertiary'))
+        .onClick(() => this.toggleStatus(role))
       Text(this.formatCreatedAt(role.created_at)).width(160).fontSize(12)
         .fontColor($r('sys.color.font_secondary'))
       Row({ space: 10 }) {

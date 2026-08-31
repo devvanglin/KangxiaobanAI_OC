@@ -82,6 +82,10 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		// 服务器监控：仅管理员可查看主机和进程资源，避免向普通业务角色暴露部署信息。
 		authed.GET("/system/monitor", perm("admin:all"), systemHandler.Monitor)
 		authed.GET("/roles", perm("admin:all"), roleHandler.List)
+		authed.POST("/roles", perm("admin:all"), roleHandler.Create)
+		authed.PUT("/roles/:id", perm("admin:all"), roleHandler.Update)
+		authed.DELETE("/roles/:id", perm("admin:all"), roleHandler.Delete)
+		authed.PATCH("/roles/:id/status", perm("admin:all"), roleHandler.SetStatus)
 
 		// 长者档案（读）
 		elders := authed.Group("/elders", perm("elder:read"))
