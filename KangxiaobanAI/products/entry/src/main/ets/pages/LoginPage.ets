@@ -21,8 +21,10 @@ import { WindowUtil } from '../util/WindowUtil';
 import ApiClient from '../network/ApiClient';
 import AuthStore from '../network/AuthStore';
 import { LoginResp, RoleInfo } from '../network/Dto';
+import { PreferenceManager } from '../util/PreferenceManager';
 
 const TAG: string = '[LoginPage]';
+const LOGIN_REMEMBERED_ACCOUNT_KEY: string = 'login_remembered_account';
 
 interface LoginRequest {
   username: string;
@@ -39,11 +41,26 @@ struct LoginPage {
   @Local rememberMe: boolean = false;
   @Local keyboardOffset: number = 0;
   @Local loginError: string = '';
+  private preferenceManager: PreferenceManager = PreferenceManager.getInstance();
   @Local globalInfoModel: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO, () => new GlobalInfoModel()) ?? new GlobalInfoModel();
 
   aboutToAppear(): void {
     WindowUtil.setImmersiveMode(false);
+    const rememberedAccount: string = this.preferenceManager.getValue<string>(
+      LOGIN_REMEMBERED_ACCOUNT_KEY, JSON.stringify('')) ?? '';
+    if (rememberedAccount.length > 0) {
+      this.account = rememberedAccount;
+      this.rememberMe = true;
+    }
+  }
+
+  private persistRememberedAccount(): void {
+    if (this.rememberMe) {
+      this.preferenceManager.setValue<string>(LOGIN_REMEMBERED_ACCOUNT_KEY, this.account);
+    } else {
+      this.preferenceManager.deleteValue(LOGIN_REMEMBERED_ACCOUNT_KEY);
+    }
   }
 
   @Monitor('globalInfoModel.keyboardHeight')
@@ -85,6 +102,7 @@ struct LoginPage {
           return;
         }
         AuthStore.setSession(resp.data.token, resp.data.user);
+        this.persistRememberedAccount();
         this.globalInfoModel.role = role;
         Logger.info(TAG, 'backend login ok');
         await this.getUIContext().getRouter().replaceUrl({ url: 'pages/MainPage' });
@@ -270,6 +288,9 @@ struct LoginPage {
                 .height(18)
                 .onChange((val: boolean) => {
                   this.rememberMe = val;
+                  if (!val) {
+                    this.preferenceManager.deleteValue(LOGIN_REMEMBERED_ACCOUNT_KEY);
+                  }
                 })
               Text('记住我')
                 .fontSize($r('sys.float.Body_M'))

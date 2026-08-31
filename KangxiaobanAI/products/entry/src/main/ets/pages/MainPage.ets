@@ -39,6 +39,7 @@ import {
 } from '../component/wide/WideCaregiverWorkspace';
 import { WideCaregiverTitleActions } from '../component/wide/WideCaregiverTitleActions';
 import { WideAdminWorkspace } from '../component/wide/WideAdminWorkspace';
+import { WideDoctorTitleActions } from '../component/wide/WideDoctorTitleActions';
 import { AI_BRAND_NAME } from '../component/AiTitleLabel';
 import { AiChatPage } from '../pages/AiChatPage';
 import { MineDetailPage } from '../pages/MineDetailPage';
@@ -131,6 +132,7 @@ struct MainPage {
   @Local caregiverBackRequestToken: number = 0;
   @Local caregiverUnreadMessageCount: number = 0;
   @Local caregiverMaterialScrollerOwner: CaregiverMaterialScrollerOwner = 'residentDetail';
+  @Local doctorNavIndex: number = 0;
   @Local businessStore: BusinessStore = BusinessStore.getShared();
   private wideHomeScroller: Scroller = new Scroller();
   private wideHomeTaskDetailScroller: Scroller = new Scroller();
@@ -138,6 +140,7 @@ struct MainPage {
   private wideResidentDetailScroller: Scroller = new Scroller();
   private wideMessageListScroller: Scroller = new Scroller();
   private wideMessageChatScroller: Scroller = new Scroller();
+  private wideDoctorScroller: Scroller = new Scroller();
   private wideAiChatScroller: ListScroller = new ListScroller();
   private businessWsClient: WsClient = new WsClient();
   private preferenceManager: PreferenceManager = PreferenceManager.getInstance();
@@ -237,6 +240,24 @@ struct MainPage {
     return WIDE_TITLE_BAR_HEIGHT + this.globalInfoModel.statusBarHeight;
   }
 
+  private isDoctorWideWorkspace(): boolean {
+    return this.isWideLayout() && this.globalInfoModel.role === '医师';
+  }
+
+  @Builder
+  private wideDoctorTitleActions() {
+    WideDoctorTitleActions({
+      selectedIndex: this.doctorNavIndex,
+      compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
+      onSelect: (index: number) => {
+        this.doctorNavIndex = index;
+      },
+      onOpenAbout: () => this.pathStack.pushPath({ name: 'AboutPage' }),
+      onOpenGeneral: () => this.pathStack.pushPath({ name: 'GeneralSettingsPage' }),
+      onLogout: () => this.handleLogout()
+    })
+  }
+
   private immersiveTitleBarStyle(): TitleBarStyleOptions {
     return {
       scrollEffectOpts: {
@@ -282,6 +303,22 @@ struct MainPage {
         style: this.immersiveTitleBarStyle()
       };
     }
+    if (this.isDoctorWideWorkspace()) {
+      return {
+        padding: {
+          start: LengthMetrics.vp(16),
+          end: LengthMetrics.vp(16)
+        },
+        avoidLayoutSafeArea: true,
+        enableComponentSafeArea: false,
+        content: {
+          title: { mainTitle: '医师工作台' },
+          menu: { value: [] },
+          stackBuilder: (): void => this.wideDoctorTitleActions()
+        },
+        style: this.immersiveTitleBarStyle()
+      };
+    }
     return {
       avoidLayoutSafeArea: true,
       enableComponentSafeArea: false,
@@ -323,6 +360,9 @@ struct MainPage {
         return this.caregiverHasLocalBackLayer ?
           [this.wideMessageChatScroller] : [this.wideMessageListScroller];
       }
+    }
+    if (this.isDoctorWideWorkspace()) {
+      return [this.wideDoctorScroller];
     }
     return [];
   }
@@ -1120,6 +1160,8 @@ struct MainPage {
         statusBarHeight: this.globalInfoModel.statusBarHeight,
         naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
         compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
+        doctorScroller: this.wideDoctorScroller,
+        doctorNavIndex: this.doctorNavIndex,
         canHandleAlerts: this.globalInfoModel.role === '管理',
         isDoctor: this.globalInfoModel.role === '医师',
         onOpenAbout: () => {
@@ -1243,7 +1285,7 @@ struct MainPage {
         .titleBar(this.navigationTitleBarOptions())
         .bindToScrollable(this.navigationScrollers())
         .hideBackButton(!this.showCaregiverLocalBackButton())
-        .hideTitleBar(this.isWideLayout() && !this.isCaregiverWideWorkspace(), true)
+        .hideTitleBar(this.isWideLayout() && !this.isCaregiverWideWorkspace() && !this.isDoctorWideWorkspace(), true)
         .titleMode(HdsNavigationTitleMode.MINI)
         .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
         .width('100%')

@@ -42,6 +42,8 @@ interface AlertHandleRequest {
   note?: string;
 }
 
+const WIDE_TITLE_BAR_HEIGHT: number = 56;
+
 @ComponentV2
 export struct WideAdminWorkspace {
   @Param statusBarHeight: number = 0;
@@ -53,6 +55,8 @@ export struct WideAdminWorkspace {
   // read-only without forking the UI.
   @Param canHandleAlerts: boolean = true;
   @Param isDoctor: boolean = false;
+  @Param doctorScroller: Scroller = new Scroller();
+  @Param doctorNavIndex: number = 0;
   @Event onOpenAbout: () => void = () => {};
   @Event onOpenGeneral: () => void = () => {};
   @Event onLogout: () => void = () => {};
@@ -61,7 +65,6 @@ export struct WideAdminWorkspace {
   @Local selectedPeriod: number = 0;
   @Local hoveredId: string = '';
   @Local businessStore: BusinessStore = BusinessStore.getShared();
-  @Local doctorModuleScroller: Scroller = new Scroller();
 
   private navItemsForRole(): AdminNavItem[] {
     if (this.isDoctor) {
@@ -86,7 +89,19 @@ export struct WideAdminWorkspace {
     ];
   }
 
+  @Monitor('doctorNavIndex')
+  onDoctorNavIndexChange(): void {
+    if (!this.isDoctor) {
+      return;
+    }
+    const ids: string[] = ['overview', 'residents', 'staff', 'quality', 'risk', 'assets', 'reports'];
+    if (this.doctorNavIndex >= 0 && this.doctorNavIndex < ids.length) {
+      this.selectedNavId = ids[this.doctorNavIndex];
+    }
+  }
+
   aboutToAppear(): void {
+    this.onDoctorNavIndexChange();
     this.businessStore.load();
   }
 
@@ -190,6 +205,10 @@ export struct WideAdminWorkspace {
       return 72;
     }
     return this.compactWidth ? 220 : 248;
+  }
+
+  private contentTopPadding(): number {
+    return this.isDoctor ? WIDE_TITLE_BAR_HEIGHT + this.statusBarHeight + 20 : this.statusBarHeight + 28;
   }
 
   private toneColor(tone: string): ResourceColor {
@@ -355,7 +374,9 @@ export struct WideAdminWorkspace {
   @Builder
   private eventRow(item: AdminEvent) {
     Row({ space: 12 }) {
-      Row().width(4).height(42).borderRadius(2).backgroundColor(this.toneColor(item.tone))
+      if (!this.isDoctor) {
+        Row().width(4).height(42).borderRadius(2).backgroundColor(this.toneColor(item.tone))
+      }
       Column({ space: 4 }) {
         Text(item.title).fontSize(13).fontWeight(FontWeight.Medium)
           .fontColor($r('app.color.doctor_workspace_text_primary')).maxLines(1).width('100%')
@@ -422,15 +443,17 @@ export struct WideAdminWorkspace {
         Text(`${used}/${total} · ${percent}%`).fontSize(10)
           .fontColor($r('app.color.doctor_workspace_text_secondary'))
       }.width('100%')
-      Progress({ value: percent, total: 100, type: ProgressType.Linear })
-        .width('100%').height(6).color(this.isOccupancyWarning(percent) ? $r('app.color.doctor_workspace_warning') :
-          $r('app.color.doctor_workspace_focus')).backgroundColor($r('app.color.doctor_workspace_surface_hover'))
+      if (!this.isDoctor) {
+        Progress({ value: percent, total: 100, type: ProgressType.Linear })
+          .width('100%').height(6).color(this.isOccupancyWarning(percent) ? $r('app.color.doctor_workspace_warning') :
+            $r('app.color.doctor_workspace_focus')).backgroundColor($r('app.color.doctor_workspace_surface_hover'))
+      }
     }.width('100%').alignItems(HorizontalAlign.Start)
   }
 
   @Builder
   private dashboard() {
-    Scroll() {
+    Scroll(this.doctorScroller) {
       Column({ space: 20 }) {
         Row() {
           Column({ space: 5 }) {
@@ -478,7 +501,7 @@ export struct WideAdminWorkspace {
         }.width('100%')
       }
       .width('100%').padding({ left: this.compactWidth ? 20 : 28, right: this.compactWidth ? 20 : 28,
-        top: this.statusBarHeight + 28, bottom: 36 + this.naviIndicatorHeight }).alignItems(HorizontalAlign.Start)
+        top: this.contentTopPadding(), bottom: 36 + this.naviIndicatorHeight }).alignItems(HorizontalAlign.Start)
     }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
   }
 
@@ -501,7 +524,7 @@ export struct WideAdminWorkspace {
 
   @Builder
   private doctorResidentModule() {
-    Scroll(this.doctorModuleScroller) {
+    Scroll(this.doctorScroller) {
       Column({ space: 12 }) {
         this.moduleHeader('长者档案', '查看在院长者的基本资料、照护等级和床位信息')
         if (this.businessStore.elders.length === 0) {
@@ -530,7 +553,7 @@ export struct WideAdminWorkspace {
       }
       .width('100%').constraintSize({ maxWidth: 1088 })
       .padding({ left: this.compactWidth ? 20 : 28, right: this.compactWidth ? 20 : 28,
-        top: this.statusBarHeight + 28, bottom: 36 + this.naviIndicatorHeight })
+        top: this.contentTopPadding(), bottom: 36 + this.naviIndicatorHeight })
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
@@ -538,7 +561,7 @@ export struct WideAdminWorkspace {
 
   @Builder
   private doctorRiskModule() {
-    Scroll(this.doctorModuleScroller) {
+    Scroll(this.doctorScroller) {
       Column({ space: 12 }) {
         this.moduleHeader('风险复核', '查看服务端生成的风险事件；医师端不直接关闭或处置告警')
         if (this.events().length === 0) {
@@ -549,7 +572,7 @@ export struct WideAdminWorkspace {
       }
       .width('100%').constraintSize({ maxWidth: 1088 })
       .padding({ left: this.compactWidth ? 20 : 28, right: this.compactWidth ? 20 : 28,
-        top: this.statusBarHeight + 28, bottom: 36 + this.naviIndicatorHeight })
+        top: this.contentTopPadding(), bottom: 36 + this.naviIndicatorHeight })
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
@@ -557,7 +580,7 @@ export struct WideAdminWorkspace {
 
   @Builder
   private doctorHealthModule() {
-    Scroll(this.doctorModuleScroller) {
+    Scroll(this.doctorScroller) {
       Column({ space: 12 }) {
         this.moduleHeader('健康监测', '查看服务器已记录的体征与设备状态，不在医师端直接录入')
         if (this.businessStore.healthRecords.length === 0) {
@@ -583,7 +606,7 @@ export struct WideAdminWorkspace {
       }
       .width('100%').constraintSize({ maxWidth: 1088 })
       .padding({ left: this.compactWidth ? 20 : 28, right: this.compactWidth ? 20 : 28,
-        top: this.statusBarHeight + 28, bottom: 36 + this.naviIndicatorHeight })
+        top: this.contentTopPadding(), bottom: 36 + this.naviIndicatorHeight })
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
@@ -591,7 +614,7 @@ export struct WideAdminWorkspace {
 
   @Builder
   private doctorCollaborationModule() {
-    Scroll(this.doctorModuleScroller) {
+    Scroll(this.doctorScroller) {
       Column({ space: 12 }) {
         this.moduleHeader('护理协作', '查看护理任务与执行进度，复核由服务端记录的护理结果')
         if (this.businessStore.tasks.length === 0) {
@@ -622,7 +645,7 @@ export struct WideAdminWorkspace {
       }
       .width('100%').constraintSize({ maxWidth: 1088 })
       .padding({ left: this.compactWidth ? 20 : 28, right: this.compactWidth ? 20 : 28,
-        top: this.statusBarHeight + 28, bottom: 36 + this.naviIndicatorHeight })
+        top: this.contentTopPadding(), bottom: 36 + this.naviIndicatorHeight })
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
@@ -630,7 +653,7 @@ export struct WideAdminWorkspace {
 
   @Builder
   private doctorReportsModule() {
-    Scroll(this.doctorModuleScroller) {
+    Scroll(this.doctorScroller) {
       Column({ space: 12 }) {
         this.moduleHeader('评估记录', '查看已保存的服务端评估结果和护理执行进度')
         if (this.businessStore.assessments.length === 0) {
@@ -687,7 +710,7 @@ export struct WideAdminWorkspace {
     } else if (this.selectedNavId === 'quality') {
       WideDoctorAdmission({
         compactWidth: this.compactWidth,
-        contentTopInset: this.statusBarHeight,
+        contentTopInset: WIDE_TITLE_BAR_HEIGHT + this.statusBarHeight,
         naviIndicatorHeight: this.naviIndicatorHeight,
         standaloneMode: false,
         onExit: () => { this.selectedNavId = 'overview'; }
@@ -703,24 +726,33 @@ export struct WideAdminWorkspace {
     }
   }
 
-  build() {
-    Row() {
-      this.sidebar()
-      Column() {
-        if (this.selectedNavId === 'overview') {
-          this.dashboard()
-        } else if (this.isDoctor) {
-          this.doctorModuleView()
-        } else {
-          this.modulePlaceholder()
-        }
+  @Builder
+  private workspaceContent() {
+    Column() {
+      if (this.selectedNavId === 'overview') {
+        this.dashboard()
+      } else if (this.isDoctor) {
+        this.doctorModuleView()
+      } else {
+        this.modulePlaceholder()
       }
-      .layoutWeight(1)
-      .width('100%')
-      .height('100%')
+    }
+    .layoutWeight(1)
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('app.color.doctor_workspace_background'))
+  }
+
+  build() {
+    if (this.isDoctor) {
+      this.workspaceContent()
+    } else {
+      Row() {
+        this.sidebar()
+        this.workspaceContent()
+      }
+      .width('100%').height('100%')
       .backgroundColor($r('app.color.doctor_workspace_background'))
     }
-    .width('100%').height('100%')
-    .backgroundColor($r('app.color.doctor_workspace_background'))
   }
 }
