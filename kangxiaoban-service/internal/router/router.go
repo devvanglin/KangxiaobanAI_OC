@@ -58,6 +58,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	notificationHandler := handler.NewNotificationHandler(notificationSvc)
 	messageHandler := handler.NewMessageHandler(messageSvc, familySvc, hub, userRepo)
 	systemHandler := handler.NewSystemHandler()
+	roleHandler := handler.NewRoleHandler(db)
 
 	// 访问校验封装
 	perm := func(code string) gin.HandlerFunc { return middleware.RequirePermission(userRepo, code) }
@@ -80,6 +81,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		authed.GET("/dashboard/policy", perm("dash:read"), dashboardHandler.Policy)
 		// 服务器监控：仅管理员可查看主机和进程资源，避免向普通业务角色暴露部署信息。
 		authed.GET("/system/monitor", perm("admin:all"), systemHandler.Monitor)
+		authed.GET("/roles", perm("admin:all"), roleHandler.List)
 
 		// 长者档案（读）
 		elders := authed.Group("/elders", perm("elder:read"))
