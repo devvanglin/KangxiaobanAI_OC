@@ -586,7 +586,8 @@ export struct WideAdminWorkspace {
   private doctorQuickFunctionButton(item: DoctorQuickFunction) {
     Button({ type: ButtonType.Normal, stateEffect: true }) {
       Row({ space: 8 }) {
-        SymbolGlyph(item.symbol).fontSize(20).fontColor([this.toneColor(item.tone)])
+        // Keep quick-action symbols in the system's adaptive monochrome icon color.
+        SymbolGlyph(item.symbol).fontSize(20).fontColor([$r('sys.color.icon_primary')])
         Text(item.label).fontSize(14).fontColor($r('app.color.doctor_workspace_text_primary'))
           .maxLines(1)
       }
