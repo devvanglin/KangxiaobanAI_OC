@@ -284,6 +284,17 @@ export struct WideAdminWorkspace {
     return WIDE_TITLE_BAR_HEIGHT + this.statusBarHeight + 20;
   }
 
+  /**
+   * Keep only the live gesture/navigation inset below the dashboard cards.
+   * The dashboard already owns a full-height scroll viewport, so an extra
+   * decorative bottom margin would leave an avoidable strip below both cards.
+   * A small fallback keeps the cards from touching the edge on devices that
+   * report no navigation indicator area.
+   */
+  private dashboardBottomPadding(): number {
+    return Math.max(12, this.naviIndicatorHeight);
+  }
+
   private lengthValue(value: Length): number {
     if (typeof value === 'number') {
       return value;
@@ -298,7 +309,7 @@ export struct WideAdminWorkspace {
     if (this.dashboardHeight <= 0 || this.metricsHeight <= 0) {
       return 500;
     }
-    const bottomInset: number = 36 + this.naviIndicatorHeight;
+    const bottomInset: number = this.dashboardBottomPadding();
     const errorInset: number = this.businessStore.error.length > 0 ? 48 : 0;
     const measured: number = this.dashboardHeight - this.contentTopPadding() -
       this.metricsHeight - 20 - bottomInset - errorInset;
@@ -740,7 +751,7 @@ export struct WideAdminWorkspace {
         .constraintSize({ minHeight: this.compactWidth ? 0 : this.lowerRowHeight() })
       }
       .width('100%').padding({ left: this.compactWidth ? 20 : 28, right: this.compactWidth ? 20 : 28,
-        top: this.contentTopPadding(), bottom: 36 + this.naviIndicatorHeight }).alignItems(HorizontalAlign.Start)
+        top: this.contentTopPadding(), bottom: this.dashboardBottomPadding() }).alignItems(HorizontalAlign.Start)
     }
     .width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
       .align(Alignment.TopStart)
