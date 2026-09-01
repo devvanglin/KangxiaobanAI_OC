@@ -9,6 +9,8 @@ import AdmissionApi, {
   AdmissionAssessmentPayload,
   AdmissionAssessmentRecord,
   AdmissionBootstrap,
+  AdmissionIntakePayload,
+  AdmissionIntakeResult,
   AdmissionPreviewResult,
   AdmissionScreening,
   AdmissionScreeningPayload,
@@ -144,6 +146,14 @@ export class AdmissionRepository {
       return AdmissionRepository.map<Paged<Bed>>(await AdmissionApi.freeBeds());
     } catch (_error) {
       return AdmissionRepository.networkFailure<Paged<Bed>>();
+    }
+  }
+
+  public static async createIntake(payload: AdmissionIntakePayload): Promise<AdmissionResult<AdmissionIntakeResult>> {
+    try {
+      return AdmissionRepository.map<AdmissionIntakeResult>(await AdmissionApi.createIntake(payload));
+    } catch (_error) {
+      return AdmissionRepository.networkFailure<AdmissionIntakeResult>();
     }
   }
 }

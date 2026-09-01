@@ -40,13 +40,13 @@ type User struct {
 // Role 角色（护工/医师/管理员…）。
 type Role struct {
 	Base
-	Code        string       `gorm:"size:32;uniqueIndex;not null" json:"code"`
-	Name        string       `gorm:"size:64;not null" json:"name"`
-	Description string       `gorm:"size:255" json:"description"`
-	DisplayOrder int8        `gorm:"default:0" json:"display_order"`
-	Status      int8         `gorm:"default:1" json:"status"`
-	Remark      string       `gorm:"size:500" json:"remark"`
-	Permissions []Permission `gorm:"many2many:sys_role_permission;joinForeignKey:RoleID;joinReferences:PermissionID" json:"permissions,omitempty"`
+	Code         string       `gorm:"size:32;uniqueIndex;not null" json:"code"`
+	Name         string       `gorm:"size:64;not null" json:"name"`
+	Description  string       `gorm:"size:255" json:"description"`
+	DisplayOrder int8         `gorm:"default:0" json:"display_order"`
+	Status       int8         `gorm:"default:1" json:"status"`
+	Remark       string       `gorm:"size:500" json:"remark"`
+	Permissions  []Permission `gorm:"many2many:sys_role_permission;joinForeignKey:RoleID;joinReferences:PermissionID" json:"permissions,omitempty"`
 }
 
 // Permission 权限码（如 elder:read / task:write）。
@@ -78,7 +78,7 @@ func AutoMigrateAll(db *gorm.DB) error {
 		&Assessment{}, &CarePlan{}, &CarePlanItem{}, &CareExecution{}, &Incident{},
 		&AssessmentTemplate{}, &AssessmentQuestion{}, &AssessmentOption{}, &AdmissionDictionaryItem{},
 		&AdmissionCarePlanTemplate{}, &AdmissionAssessment{}, &AdmissionAssessmentAnswer{},
-		&AdmissionScreening{}, &AdmissionScreeningAnswer{},
+		&AdmissionScreening{}, &AdmissionScreeningAnswer{}, &AdmissionIntake{},
 		&IotDevice{}, &SignalRecord{}, &Alert{}, &AlertAction{}, &Notification{},
 		&Schedule{}, &ShiftHandover{}, &BillingRate{}, &Bill{}, &FundFlow{}, &MedicationRecord{},
 		&MedicineStock{}, &DiningOrder{}, &FamilyElder{}, &Message{}, &OperationPolicy{},

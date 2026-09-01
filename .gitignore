@@ -16,6 +16,8 @@
 tmp/
 KangxiaobanAI/screenshots/
 kangxiaoban-service/kangxiaoban-server
+kangxiaoban-service/server.exe
+kangxiaoban-service/server-check.exe
 
 .claude/settings.local.json
 

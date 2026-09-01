@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -120,6 +121,9 @@ func AutoMigrateAndSeed(db *gorm.DB, seedBusiness bool) error {
 	if err := ensureElderIdentityConstraint(db); err != nil {
 		return fmt.Errorf("ensure elder identity constraint: %w", err)
 	}
+	if err := ensureAdmissionIntakeConstraint(db); err != nil {
+		return fmt.Errorf("ensure admission intake constraint: %w", err)
+	}
 	if err := seed(db); err != nil {
 		return err
 	}
@@ -232,8 +236,12 @@ func ensureDefaultTenant(db *gorm.DB) error {
 		}
 	}
 	// GORM 默认值通常会填充历史行；显式修复可能遗留的 0 值。
-	for _, table := range []interface{}{&model.User{}, &model.Role{}, &model.Permission{}, &model.AuditLog{}, &model.Elder{}, &model.Room{}, &model.Bed{}, &model.CareTask{}, &model.HealthRecord{}, &model.HealthThreshold{}, &model.Assessment{}, &model.CarePlan{}, &model.CarePlanItem{}, &model.CareExecution{}, &model.Incident{}, &model.AssessmentTemplate{}, &model.AssessmentQuestion{}, &model.AssessmentOption{}, &model.AdmissionDictionaryItem{}, &model.AdmissionCarePlanTemplate{}, &model.AdmissionAssessment{}, &model.AdmissionAssessmentAnswer{}, &model.AdmissionScreening{}, &model.AdmissionScreeningAnswer{}, &model.IotDevice{}, &model.SignalRecord{}, &model.Alert{}, &model.AlertAction{}, &model.Notification{}, &model.Schedule{}, &model.ShiftHandover{}, &model.BillingRate{}, &model.Bill{}, &model.FundFlow{}, &model.MedicationRecord{}, &model.MedicineStock{}, &model.DiningOrder{}, &model.FamilyElder{}, &model.Message{}, &model.OperationPolicy{}, &model.AIPromptSuggestion{}, &model.AIConversation{}, &model.AIMessage{}} {
-		if err := db.Model(table).Where("tenant_id = 0").Update("tenant_id", 1).Error; err != nil {
+	// This is a startup-wide repair, not a tenant-scoped request. Use the
+	// private migration context so the tenant callback does not turn the
+	// predicate into `tenant_id = 0 AND tenant_id = 1`.
+	backfillDB := db.WithContext(withoutTenantScope(context.Background()))
+	for _, table := range []interface{}{&model.User{}, &model.Role{}, &model.Permission{}, &model.AuditLog{}, &model.Elder{}, &model.Room{}, &model.Bed{}, &model.CareTask{}, &model.HealthRecord{}, &model.HealthThreshold{}, &model.Assessment{}, &model.CarePlan{}, &model.CarePlanItem{}, &model.CareExecution{}, &model.Incident{}, &model.AssessmentTemplate{}, &model.AssessmentQuestion{}, &model.AssessmentOption{}, &model.AdmissionDictionaryItem{}, &model.AdmissionCarePlanTemplate{}, &model.AdmissionAssessment{}, &model.AdmissionAssessmentAnswer{}, &model.AdmissionScreening{}, &model.AdmissionScreeningAnswer{}, &model.AdmissionIntake{}, &model.IotDevice{}, &model.SignalRecord{}, &model.Alert{}, &model.AlertAction{}, &model.Notification{}, &model.Schedule{}, &model.ShiftHandover{}, &model.BillingRate{}, &model.Bill{}, &model.FundFlow{}, &model.MedicationRecord{}, &model.MedicineStock{}, &model.DiningOrder{}, &model.FamilyElder{}, &model.Message{}, &model.OperationPolicy{}, &model.AIPromptSuggestion{}, &model.AIConversation{}, &model.AIMessage{}} {
+		if err := backfillDB.Model(table).Where("tenant_id = 0").Update("tenant_id", 1).Error; err != nil {
 			return err
 		}
 	}

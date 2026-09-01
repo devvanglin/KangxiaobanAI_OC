@@ -4,7 +4,7 @@
  */
 
 import ApiClient from './ApiClient';
-import { ApiResp, Bed, Paged } from './Dto';
+import { ApiResp, Bed, Bill, Elder, Paged } from './Dto';
 
 export interface AdmissionAssessmentOption {
   id: number;
@@ -305,6 +305,79 @@ export interface AdmissionSubmitResult {
   idempotent: boolean;
 }
 
+/**
+ * Basic operational intake payload.  This is deliberately separate from the
+ * A/B/C assessment payload: the server creates the resident and operational
+ * records, but does not infer or fabricate an ability assessment.
+ */
+export interface AdmissionIntakePayload {
+  idempotency_key: string;
+  elder_id?: number;
+  resident_name: string;
+  gender: string;
+  birth_date: string;
+  age: number;
+  id_card: string;
+  contact_phone: string;
+  family_address: string;
+  family_name: string;
+  family_phone: string;
+  family_relation: string;
+  admission_start_date: string;
+  admission_end_date: string;
+  fee_start_date: string;
+  fee_end_date: string;
+  room_type: string;
+  care_level: string;
+  bed_id: number;
+  deposit: number;
+  care_fee: number;
+  bed_fee: number;
+  other_fee: number;
+  medical_insurance: number;
+  subsidy: number;
+  note: string;
+}
+
+export interface AdmissionIntakeRecord {
+  id: number;
+  intake_no: string;
+  assessor_id: number;
+  elder_id: number;
+  bed_id: number;
+  admission_start_date: string;
+  admission_end_date: string;
+  fee_start_date: string;
+  fee_end_date: string;
+  room_type: string;
+  care_level: number;
+  care_level_code: string;
+  family_address: string;
+  family_name: string;
+  family_phone: string;
+  family_relation: string;
+  deposit: number;
+  care_fee: number;
+  bed_fee: number;
+  other_fee: number;
+  medical_insurance: number;
+  subsidy: number;
+  note: string;
+  status: string;
+  completed_at?: string;
+  care_plan_id?: number;
+  bill_id?: number;
+}
+
+export interface AdmissionIntakeResult {
+  intake: AdmissionIntakeRecord;
+  elder: Elder;
+  bed: Bed;
+  care_plan?: Object;
+  bill?: Bill;
+  idempotent: boolean;
+}
+
 interface AdmissionPreviewRequest {
   answers: AdmissionAnswer[];
 }
@@ -357,6 +430,10 @@ export class AdmissionApi {
 
   public static freeBeds(): Promise<ApiResp<Paged<Bed>>> {
     return ApiClient.getAll<Bed>('/beds?status=free', 200);
+  }
+
+  public static createIntake(payload: AdmissionIntakePayload): Promise<ApiResp<AdmissionIntakeResult>> {
+    return ApiClient.post<AdmissionIntakeResult>('/admission-intakes', payload);
   }
 }
 

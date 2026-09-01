@@ -99,6 +99,17 @@ func (r *ResourceRepository) ListBeds(ctx context.Context, roomID uint, status s
 	}
 	if status != "" {
 		q = q.Where("status = ?", status)
+		// A free bed in a maintenance room is not actually assignable. Keep it
+		// out of the availability list so the admission form does not present a
+		// choice that can only fail after submission. Use a tenant-scoped
+		// subquery instead of a join: both tables carry tenant_id and a join
+		// would make the shared tenant callback's unqualified predicate
+		// ambiguous on SQLite/MySQL.
+		if strings.EqualFold(strings.TrimSpace(status), "free") {
+			maintenanceRooms := r.db.WithContext(ctx).Model(&model.Room{}).
+				Select("id").Where("LOWER(COALESCE(status, '')) = ?", "maintenance")
+			q = q.Where("room_id NOT IN (?)", maintenanceRooms)
+		}
 	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {

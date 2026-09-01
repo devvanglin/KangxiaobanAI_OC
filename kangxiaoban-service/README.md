@@ -24,6 +24,22 @@ PATCH    /api/v1/notifications/:id/read
 
 短信、Push、微信等外部渠道仍需实现对应 Provider；当前通知记录和 WebSocket 广播是可运行的基础层。
 
+## 办理入住（简化运营表单）
+
+简化表单使用独立的入住单接口，不会把未完成的 26 项能力评估伪造成已提交：
+
+```text
+POST /api/v1/admission-intakes
+GET  /api/v1/admission-intakes
+GET  /api/v1/admission-intakes/:id
+```
+
+提交时必须提供 `resident_name`、`gender`、`birth_date`（YYYY-MM-DD）、`age`、`id_card`、
+`admission_start_date`（YYYY-MM-DD）、`care_level` 和真实可用的 `bed_id`。费用、家属和结束日期为可选项；
+`idempotency_key` 为必填项，用于安全重试和并发去重。成功后服务端在一个事务中创建/关联长者、占用床位、护理计划与任务，
+按填写费用生成账单、按填写押金生成资金流水，并返回入住单及关联记录。床位冲突、重复身份证和跨租户访问会分别返回
+409/403，不会留下半成品数据。
+
 ## 管理端服务器监控
 
 管理员登录后可访问：

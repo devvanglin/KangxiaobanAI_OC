@@ -186,6 +186,8 @@ func (h *AdmissionHandler) fail(c *gin.Context, err error, fallback string) {
 		Fail(c, http.StatusConflict, 409, "目标床位不存在或已被占用")
 	case errors.Is(err, service.ErrAdmissionElderConflict):
 		Fail(c, http.StatusConflict, 409, "长者已入住或身份信息与现有档案冲突")
+	case errors.Is(err, service.ErrAdmissionIdempotencyConflict):
+		Fail(c, http.StatusConflict, 409, "幂等键已用于另一份入住申请，请更换幂等键")
 	case errors.Is(err, service.ErrAdmissionIncomplete), errors.Is(err, service.ErrAdmissionValidation):
 		Fail(c, http.StatusBadRequest, 400, err.Error())
 	default:

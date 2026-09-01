@@ -48,3 +48,33 @@ func TestElderIdentityIsUniquePerTenant(t *testing.T) {
 		t.Fatalf("same ID card should be allowed in tenant 2: %v", err)
 	}
 }
+
+func TestEnsureDefaultTenantBackfillsLegacyAdmissionIntakeRows(t *testing.T) {
+	dsn := fmt.Sprintf("file:tenant_backfill_%d?mode=memory&cache=shared", time.Now().UnixNano())
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := RegisterTenantScope(db); err != nil {
+		t.Fatal(err)
+	}
+	if err := model.AutoMigrateAll(db); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec("INSERT INTO tenants (id, tenant_id, code, name, status) VALUES (1, 0, 'default', '默认机构', 1)").Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec("INSERT INTO admission_intakes (tenant_id, intake_no, assessor_id, elder_id, bed_id, admission_start_date, status) VALUES (0, 'LEGACY-INTAKE', 1, 1, 1, '2026-09-01', 'completed')").Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureDefaultTenant(db); err != nil {
+		t.Fatal(err)
+	}
+	var tenantID uint
+	if err := db.Raw("SELECT tenant_id FROM admission_intakes WHERE intake_no = ?", "LEGACY-INTAKE").Scan(&tenantID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if tenantID != 1 {
+		t.Fatalf("legacy admission intake tenant_id = %d, want 1", tenantID)
+	}
+}

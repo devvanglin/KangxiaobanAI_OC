@@ -18,13 +18,14 @@ import (
 const currentAdmissionTemplateCode = "GB_T_42195_2022_ADMISSION"
 
 var (
-	ErrAdmissionNotFound      = errors.New("admission assessment not found")
-	ErrAdmissionForbidden     = errors.New("admission assessment forbidden")
-	ErrAdmissionInvalidState  = errors.New("admission assessment state does not allow operation")
-	ErrAdmissionValidation    = errors.New("admission assessment validation failed")
-	ErrAdmissionIncomplete    = errors.New("admission assessment answers incomplete")
-	ErrAdmissionBedConflict   = errors.New("admission bed conflict")
-	ErrAdmissionElderConflict = errors.New("admission elder conflict")
+	ErrAdmissionNotFound            = errors.New("admission assessment not found")
+	ErrAdmissionForbidden           = errors.New("admission assessment forbidden")
+	ErrAdmissionInvalidState        = errors.New("admission assessment state does not allow operation")
+	ErrAdmissionValidation          = errors.New("admission assessment validation failed")
+	ErrAdmissionIncomplete          = errors.New("admission assessment answers incomplete")
+	ErrAdmissionBedConflict         = errors.New("admission bed conflict")
+	ErrAdmissionElderConflict       = errors.New("admission elder conflict")
+	ErrAdmissionIdempotencyConflict = errors.New("admission idempotency key conflicts with request")
 )
 
 // AdmissionActor is the authenticated staff member performing an admission operation.
@@ -351,12 +352,21 @@ func (s *AdmissionService) Submit(ctx context.Context, actor AdmissionActor, id 
 		if err != nil {
 			return err
 		}
-		if err := tx.Model(elder).Updates(map[string]interface{}{
-			"status": 2, "bed_id": bed.ID, "care_level": levelRule.CareLevel,
-		}).Error; err != nil {
-			return err
+		// The initial elder read is only a friendly validation. Claim the
+		// lifecycle transition atomically so concurrent submissions that link the
+		// same registered elder cannot occupy two beds and race on bed_id.
+		updatedElder := tx.Model(&model.Elder{}).
+			Where("id = ? AND status <> ? AND bed_id IS NULL", elder.ID, 2).
+			Updates(map[string]interface{}{
+				"status": 2, "bed_id": bed.ID, "care_level": levelRule.CareLevel,
+			})
+		if updatedElder.Error != nil {
+			return updatedElder.Error
 		}
-		if err := tx.Model(&model.Room{}).Where("id = ?", bed.RoomID).Update("status", "occupied").Error; err != nil {
+		if updatedElder.RowsAffected != 1 {
+			return ErrAdmissionElderConflict
+		}
+		if err := updateAdmissionRoomStatus(tx, bed.RoomID); err != nil {
 			return err
 		}
 
@@ -860,11 +870,17 @@ func occupyAdmissionBed(tx *gorm.DB, bedID *uint, elderID uint) (*model.Bed, err
 		return nil, fmt.Errorf("%w: target bed is required", ErrAdmissionValidation)
 	}
 	var bed model.Bed
-	if err := tx.First(&bed, *bedID).Error; err != nil {
+	if err := tx.Preload("Room").First(&bed, *bedID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("%w: bed not found", ErrAdmissionBedConflict)
 		}
 		return nil, err
+	}
+	if bed.Room == nil || bed.RoomID == 0 {
+		return nil, ErrAdmissionBedConflict
+	}
+	if strings.EqualFold(strings.TrimSpace(bed.Room.Status), "maintenance") {
+		return nil, ErrAdmissionBedConflict
 	}
 	updated := tx.Model(&model.Bed{}).Where("id = ? AND status = ? AND elder_id IS NULL", bed.ID, "free").
 		Updates(map[string]interface{}{"status": "occupied", "elder_id": elderID})
@@ -877,6 +893,55 @@ func occupyAdmissionBed(tx *gorm.DB, bedID *uint, elderID uint) (*model.Bed, err
 	bed.Status = "occupied"
 	bed.ElderID = &elderID
 	return &bed, nil
+}
+
+// updateAdmissionRoomStatus recalculates a room's occupancy after a bed claim
+// without ever turning a maintenance room back into an operational room. The
+// conditional update also closes the small race where maintenance is applied
+// between the bed preload and this status write.
+func updateAdmissionRoomStatus(tx *gorm.DB, roomID uint) error {
+	if roomID == 0 {
+		return ErrAdmissionBedConflict
+	}
+	var room model.Room
+	if err := tx.First(&room, roomID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrAdmissionBedConflict
+		}
+		return err
+	}
+	if strings.EqualFold(strings.TrimSpace(room.Status), "maintenance") {
+		return ErrAdmissionBedConflict
+	}
+	var occupied int64
+	if err := tx.Model(&model.Bed{}).Where("room_id = ? AND status = ?", roomID, "occupied").Count(&occupied).Error; err != nil {
+		return err
+	}
+	status := "free"
+	if occupied > 0 {
+		status = "occupied"
+	}
+	updated := tx.Model(&model.Room{}).Where("id = ? AND lower(status) <> ?", roomID, "maintenance").Update("status", status)
+	if updated.Error != nil {
+		return updated.Error
+	}
+	if updated.RowsAffected == 0 {
+		// MySQL reports changed rows by default, so setting an already
+		// "occupied" room to "occupied" can legitimately return zero even
+		// though the room exists and is still usable. Re-read to distinguish
+		// that case from a maintenance transition or a missing room.
+		var current model.Room
+		if err := tx.First(&current, roomID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrAdmissionBedConflict
+			}
+			return err
+		}
+		if strings.EqualFold(strings.TrimSpace(current.Status), "maintenance") {
+			return ErrAdmissionBedConflict
+		}
+	}
+	return nil
 }
 
 func createCarePlanFromTemplate(tx *gorm.DB, elderID, actorID uint, caregiverID *uint, caregiverName string, template *model.AdmissionCarePlanTemplate, optionalCodes []string, now time.Time) (*model.CarePlan, error) {

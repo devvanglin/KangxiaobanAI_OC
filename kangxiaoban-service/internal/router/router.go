@@ -157,6 +157,10 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		authed.POST("/admission-assessments/:id/submit", perm("admission:write"), admissionHandler.Submit)
 		authed.GET("/admission-assessments/:id/screenings", perm("admission:read"), admissionHandler.ListScreenings)
 		authed.PUT("/admission-assessments/:id/screenings/:template_code", perm("admission:write"), admissionHandler.SaveScreening)
+		// 简化办理入住：独立于完整 A/B/C 能力评估，不伪造评估分数。
+		authed.GET("/admission-intakes", perm("admission:read"), admissionHandler.ListIntakes)
+		authed.POST("/admission-intakes", perm("admission:write"), admissionHandler.CreateIntake)
+		authed.GET("/admission-intakes/:id", perm("admission:read"), admissionHandler.GetIntake)
 		authed.GET("/notifications", notificationHandler.List)
 		authed.PATCH("/notifications/:id/read", notificationHandler.MarkRead)
 		authed.GET("/messages", messageHandler.List)
