@@ -1,8 +1,6 @@
 import { curves } from '@kit.ArkUI';
 import { Bed, CareTask, Elder, Room, Schedule } from '../../network/Dto';
 
-const DOCTOR_SCHEDULE_CALENDAR_GEOMETRY_ID: string = 'doctor-schedule-calendar';
-
 interface DoctorScheduleItem {
   id: string;
   time: string;
@@ -393,35 +391,31 @@ export struct WideDoctorSchedule {
   @Builder
   private scheduleContent() {
     Column({ space: 12 }) {
-      // One persistent layout footprint keeps the content below the calendar
-      // in normal flow throughout the spring geometry transition.  The
-      // conditional children still share the same geometry id for the visual
-      // morph, while the wrapper prevents an intermediate frame from painting
-      // over the schedule title.
-      Column() {
-        if (!this.calendarExpanded) {
-          Column() {
-            Scroll() {
-              Row({ space: 4 }) {
-                ForEach(this.calendarDays(), (day: CalendarDay) => this.calendarDay(day),
-                  (day: CalendarDay) => day.key)
-              }.width('100%').constraintSize({ minWidth: this.compactWidth ? 360 : 472 })
-                .justifyContent(FlexAlign.SpaceAround)
-            }
-            .width('100%').height(70)
-            .scrollable(ScrollDirection.Horizontal).scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
+      // Keep both calendar presentations mounted in one footprint.  Toggling
+      // visibility instead of conditionally mounting the month view makes the
+      // first expansion use the same measured spring path as later toggles.
+      Stack({ alignContent: Alignment.TopStart }) {
+        Column() {
+          Scroll() {
+            Row({ space: 4 }) {
+              ForEach(this.calendarDays(), (day: CalendarDay) => this.calendarDay(day),
+                (day: CalendarDay) => day.key)
+            }.width('100%').constraintSize({ minWidth: this.compactWidth ? 360 : 472 })
+              .justifyContent(FlexAlign.SpaceAround)
           }
           .width('100%').height(70)
-          .geometryTransition(DOCTOR_SCHEDULE_CALENDAR_GEOMETRY_ID, { follow: true })
-          .transition(TransitionEffect.OPACITY)
-        } else {
-          Column() {
-            this.expandedCalendar()
-          }
-          .width('100%').height(this.expandedCalendarHeight())
-          .geometryTransition(DOCTOR_SCHEDULE_CALENDAR_GEOMETRY_ID)
-          .transition(TransitionEffect.OPACITY)
+          .scrollable(ScrollDirection.Horizontal).scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
         }
+        .width('100%').height(70)
+        .visibility(this.calendarExpanded ? Visibility.Hidden : Visibility.Visible)
+        .zIndex(this.calendarExpanded ? 0 : 1)
+
+        Column() {
+          this.expandedCalendar()
+        }
+        .width('100%').height(this.expandedCalendarHeight())
+        .visibility(this.calendarExpanded ? Visibility.Visible : Visibility.Hidden)
+        .zIndex(this.calendarExpanded ? 1 : 0)
       }
       .width('100%')
       .height(this.calendarExpanded ? this.expandedCalendarHeight() : 70)
