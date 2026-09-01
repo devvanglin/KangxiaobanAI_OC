@@ -833,7 +833,11 @@ export struct WideDoctorAdmissionForm {
         this.stackedChoiceField('护理等级', this.careLevelOptions, this.careLevel,
           (value: string) => this.careLevel = value, true)
       }
-      GridCol({ span: 12 }) {
+      // On wide windows the level and bed selectors form one balanced row;
+      // keeping the bed selector full-width here left an avoidable empty band
+      // beside the care-level choices. Narrow windows retain the stacked flow
+      // so the controls stay touchable and readable.
+      GridCol({ span: this.compactWidth ? 12 : 6 }) {
         this.bedField()
       }
       GridCol({ span: this.compactWidth ? 6 : 4 }) {
