@@ -40,6 +40,7 @@ import {
 import { WideDoctorResidentPage } from '../component/wide/WideDoctorResidentPage';
 import { WideCaregiverTitleActions } from '../component/wide/WideCaregiverTitleActions';
 import { WideAdminWorkspace } from '../component/wide/WideAdminWorkspace';
+import { WideDoctorAdmissionForm } from '../component/wide/WideDoctorAdmissionForm';
 import { WideDoctorTitleActions } from '../component/wide/WideDoctorTitleActions';
 import { WideDoctorAiPage } from './WideDoctorAiPage';
 import { AI_BRAND_NAME } from '../component/AiTitleLabel';
@@ -1313,6 +1314,9 @@ struct MainPage {
           onOpenGeneral: () => {
             this.pathStack.pushPath({ name: 'GeneralSettingsPage' });
           },
+          onOpenAdmission: () => {
+            this.pathStack.pushPath({ name: 'AdmissionPage' });
+          },
           onLogout: () => {
             this.handleLogout();
           }
@@ -1385,6 +1389,15 @@ struct MainPage {
       MineDetailPage({ pageType: 'about' })
     } else if (name === 'GeneralSettingsPage') {
       MineDetailPage({ pageType: 'general' })
+    } else if (name === 'AdmissionPage') {
+      WideDoctorAdmissionForm({
+        compactWidth: this.useCompactDoctorWorkspace(),
+        statusBarHeight: this.globalInfoModel.statusBarHeight,
+        naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
+        onClose: () => {
+          this.pathStack.pop();
+        }
+      })
     }
   }
 

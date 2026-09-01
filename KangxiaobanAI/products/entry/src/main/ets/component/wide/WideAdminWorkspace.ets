@@ -2,7 +2,6 @@ import { KeyCode } from '@kit.InputKit';
 import ApiClient from '../../network/ApiClient';
 import { BusinessStore } from '../../network/BusinessStore';
 import { Alert, Bed, CareTask, Elder, HealthRecord, Room, Schedule } from '../../network/Dto';
-import { WideDoctorAdmission } from './WideDoctorAdmission';
 import { WideServerMonitor } from './WideServerMonitor';
 import { WideRoleManagement } from './WideRoleManagement';
 import { WideUserManagement } from './WideUserManagement';
@@ -75,6 +74,7 @@ export struct WideAdminWorkspace {
   @Param managementNavIndex: number = 0;
   @Event onOpenAbout: () => void = () => {};
   @Event onOpenGeneral: () => void = () => {};
+  @Event onOpenAdmission: () => void = () => {};
   @Event onLogout: () => void = () => {};
   @Event onManagementNavSelect: (index: number) => void = (_index: number) => {};
   @Local selectedNavId: string = 'overview';
@@ -359,7 +359,7 @@ export struct WideAdminWorkspace {
 
   private doctorQuickFunctions(): DoctorQuickFunction[] {
     return [
-      { id: 'admission', label: '入住/退住管理', symbol: $r('sys.symbol.person_badge_plus'), tone: 'focus', target: 'quality' },
+      { id: 'admission', label: '办理入住', symbol: $r('sys.symbol.person_badge_plus'), tone: 'focus', target: 'quality' },
       { id: 'beds', label: '床位预览', symbol: $r('sys.symbol.bed_double_fill'), tone: 'success', target: 'residents' },
       { id: 'tasks', label: '护理任务', symbol: $r('sys.symbol.checkmark_circle_fill'), tone: 'warning', target: 'staff' },
       { id: 'alerts', label: '告警处理', symbol: $r('sys.symbol.exclamationmark_triangle_fill'), tone: 'danger', target: 'risk' },
@@ -369,16 +369,16 @@ export struct WideAdminWorkspace {
   }
 
   private openDoctorQuickFunction(item: DoctorQuickFunction): void {
+    if (this.isDoctor && item.id === 'admission') {
+      this.onOpenAdmission();
+      return;
+    }
     const ids: string[] = ['overview', 'residents', 'ai', 'quality', 'staff', 'risk'];
     const index: number = ids.indexOf(item.target);
     this.selectedNavId = item.target;
     if (index >= 0) {
       this.onManagementNavSelect(index);
     }
-  }
-
-  private doctorElderName(elderId: number): string {
-    return this.businessStore.elders.find((item: Elder) => item.id === elderId)?.name ?? '未知长者';
   }
 
   private activate(event: KeyEvent, action: () => void): void {
@@ -788,138 +788,6 @@ export struct WideAdminWorkspace {
   }
 
   @Builder
-  private doctorRiskModule() {
-    Scroll(this.managementScroller) {
-      Column({ space: 12 }) {
-        this.moduleHeader('风险复核', '查看服务端生成的风险事件；医师端不直接关闭或处置告警')
-        if (this.events().length === 0) {
-          this.moduleEmpty('暂无待复核风险事件')
-        } else {
-          ForEach(this.events(), (item: AdminEvent) => this.eventRow(item), (item: AdminEvent) => item.id)
-        }
-      }
-      .width('100%').constraintSize({ maxWidth: 1088 })
-      .padding({ left: this.compactWidth ? 20 : 28, right: this.compactWidth ? 20 : 28,
-        top: this.contentTopPadding(), bottom: 36 + this.naviIndicatorHeight })
-      .alignItems(HorizontalAlign.Start)
-    }
-    .width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
-      .align(Alignment.TopStart)
-  }
-
-  @Builder
-  private doctorHealthModule() {
-    Scroll(this.managementScroller) {
-      Column({ space: 12 }) {
-        this.moduleHeader('健康监测', '查看服务器已记录的体征与设备状态，不在医师端直接录入')
-        if (this.businessStore.healthRecords.length === 0) {
-          this.moduleEmpty('暂无健康记录')
-        } else {
-          ForEach(this.businessStore.healthRecords.slice(-80).reverse(), (record: HealthRecord) => {
-            Row({ space: 10 }) {
-              Column({ space: 4 }) {
-                Text(this.doctorElderName(record.elder_id)).fontSize(13).fontWeight(FontWeight.Medium)
-                  .fontColor($r('app.color.doctor_workspace_text_primary'))
-                Text(record.record_time.length >= 16 ? record.record_time.slice(0, 16).replace('T', ' ') : '--')
-                  .fontSize(10).fontColor($r('app.color.doctor_workspace_text_tertiary'))
-              }.alignItems(HorizontalAlign.Start).layoutWeight(1)
-              Text(`心率 ${record.heart_rate ?? '--'} · 血氧 ${record.spo2 ?? '--'} · 体温 ${record.temperature ?? '--'}`)
-                .fontSize(10).fontColor(record.is_abnormal ? $r('app.color.doctor_workspace_warning') :
-                  $r('app.color.doctor_workspace_text_secondary'))
-            }
-            .width('100%').padding(13).borderRadius(12)
-            .backgroundColor($r('app.color.doctor_workspace_surface'))
-            .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
-          }, (record: HealthRecord) => `doctor-health-${record.id}`)
-        }
-      }
-      .width('100%').constraintSize({ maxWidth: 1088 })
-      .padding({ left: this.compactWidth ? 20 : 28, right: this.compactWidth ? 20 : 28,
-        top: this.contentTopPadding(), bottom: 36 + this.naviIndicatorHeight })
-      .alignItems(HorizontalAlign.Start)
-    }
-    .width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
-      .align(Alignment.TopStart)
-  }
-
-  @Builder
-  private doctorCollaborationModule() {
-    Scroll(this.managementScroller) {
-      Column({ space: 12 }) {
-        this.moduleHeader('护理协作', '查看护理任务与执行进度，复核由服务端记录的护理结果')
-        if (this.businessStore.tasks.length === 0) {
-          this.moduleEmpty('暂无护理任务')
-        } else {
-          ForEach(this.businessStore.tasks.slice(-80).reverse(), (task: CareTask) => {
-            Row({ space: 10 }) {
-              Column({ space: 4 }) {
-                Text(task.title).fontSize(13).fontWeight(FontWeight.Medium)
-                  .fontColor($r('app.color.doctor_workspace_text_primary'))
-                Text(`${this.doctorElderName(task.elder_id)} · ${task.assignee ?? '未分配'}`)
-                  .fontSize(10).fontColor($r('app.color.doctor_workspace_text_secondary'))
-              }.alignItems(HorizontalAlign.Start).layoutWeight(1)
-              Text(task.status === 'done' ? '已完成' : task.status === 'doing' ? '进行中' : '待处理')
-                .fontSize(11).fontColor(task.status === 'done' ? $r('app.color.doctor_workspace_success') :
-                  $r('app.color.doctor_workspace_warning'))
-            }
-            .width('100%').padding(13).borderRadius(12)
-            .backgroundColor($r('app.color.doctor_workspace_surface'))
-            .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
-          }, (task: CareTask) => `doctor-task-${task.id}`)
-        }
-        if (this.businessStore.careExecutions.length > 0) {
-          Text(`已记录护理执行 ${this.businessStore.careExecutions.length} 条`)
-            .fontSize(11).fontColor($r('app.color.doctor_workspace_text_tertiary'))
-            .width('100%').margin({ top: 4 })
-        }
-      }
-      .width('100%').constraintSize({ maxWidth: 1088 })
-      .padding({ left: this.compactWidth ? 20 : 28, right: this.compactWidth ? 20 : 28,
-        top: this.contentTopPadding(), bottom: 36 + this.naviIndicatorHeight })
-      .alignItems(HorizontalAlign.Start)
-    }
-    .width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
-      .align(Alignment.TopStart)
-  }
-
-  @Builder
-  private moduleHeader(title: string, subtitle: string) {
-    Column({ space: 5 }) {
-      Text(title).fontSize(24).fontWeight(FontWeight.Bold)
-        .fontColor($r('app.color.doctor_workspace_text_primary'))
-      Text(subtitle).fontSize(11).fontColor($r('app.color.doctor_workspace_text_secondary'))
-    }.width('100%').alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  private moduleEmpty(text: string) {
-    Text(text).width('100%').padding({ top: 64, bottom: 64 })
-      .fontSize(12).fontColor($r('app.color.doctor_workspace_text_tertiary'))
-      .textAlign(TextAlign.Center)
-  }
-
-  @Builder
-  private doctorModuleView() {
-    if (this.selectedNavId === 'staff') {
-      this.doctorCollaborationModule()
-    } else if (this.selectedNavId === 'quality') {
-      WideDoctorAdmission({
-        compactWidth: this.compactWidth,
-        contentTopInset: WIDE_TITLE_BAR_HEIGHT + this.statusBarHeight,
-        naviIndicatorHeight: this.naviIndicatorHeight,
-        standaloneMode: false,
-        onExit: () => { this.selectedNavId = 'overview'; }
-      })
-    } else if (this.selectedNavId === 'risk') {
-      this.doctorRiskModule()
-    } else if (this.selectedNavId === 'assets') {
-      this.doctorHealthModule()
-    } else {
-      this.modulePlaceholder()
-    }
-  }
-
-  @Builder
   private workspaceContent() {
     Column() {
       if (this.selectedNavId === 'overview') {
@@ -966,7 +834,7 @@ export struct WideAdminWorkspace {
           managementScroller: this.managementScroller
         })
       } else if (this.isDoctor) {
-        this.doctorModuleView()
+        this.modulePlaceholder()
       } else {
         this.modulePlaceholder()
       }
