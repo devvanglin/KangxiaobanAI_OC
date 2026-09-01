@@ -507,7 +507,7 @@ export struct WideAdminWorkspace {
 
   @Builder
   private metricCard(metric: AdminMetric) {
-    Column({ space: this.isDoctor ? 8 : 12 }) {
+    Column({ space: this.isDoctor ? 6 : 12 }) {
       if (!this.isDoctor) {
         Row() {
           Stack({ alignContent: Alignment.Center }) {
@@ -519,15 +519,19 @@ export struct WideAdminWorkspace {
             .fontColor($r('app.color.doctor_workspace_text_tertiary'))
         }.width('100%')
       }
-      Text(metric.label).fontSize(12).fontColor($r('app.color.doctor_workspace_text_secondary')).width('100%')
-      Text(metric.value).fontSize(28).fontWeight(FontWeight.Bold)
+      Text(metric.label).fontSize(this.isDoctor ? 16 : 12)
+        .fontColor($r('app.color.doctor_workspace_text_secondary')).width('100%')
+      Text(metric.value).fontSize(this.isDoctor ? 40 : 28).fontWeight(FontWeight.Bold)
         .fontColor($r('app.color.doctor_workspace_text_primary')).width('100%')
-      Text(metric.note).fontSize(13).fontColor(this.toneColor(metric.tone)).width('100%')
+      if (!this.isDoctor) {
+        Text(metric.note).fontSize(13).fontColor(this.toneColor(metric.tone)).width('100%')
+      }
     }
-    .width('100%').height(this.isDoctor ? 108 : 176).padding(this.isDoctor ? 14 : 16).borderRadius(16)
+    .width('100%').height(this.isDoctor ? 108 : 176).padding(this.isDoctor ? 16 : 16).borderRadius(16)
     .backgroundColor($r('app.color.doctor_workspace_surface'))
     .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
     .alignItems(HorizontalAlign.Start)
+    .justifyContent(this.isDoctor ? FlexAlign.Center : FlexAlign.Start)
   }
 
   @Builder

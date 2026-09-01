@@ -38,6 +38,11 @@ export struct WideDoctorSchedule {
   @Local selectedDate: string = '';
   @Local calendarExpanded: boolean = false;
   @Local calendarMonthOffset: number = 0;
+  @Local calendarMonthTransitionDirection: number = 0;
+  @Local calendarMonthTransitionProgress: number = 0;
+  @Local calendarMonthTransitionFromOffset: number = 0;
+  @Local calendarViewportWidth: number = 0;
+  private calendarMonthTransitionToken: number = 0;
 
   aboutToAppear(): void {
     this.selectedDate = this.today();
@@ -183,21 +188,21 @@ export struct WideDoctorSchedule {
     return days;
   }
 
-  private calendarMonthDate(): Date {
+  private calendarMonthDate(offset: number = this.calendarMonthOffset): Date {
     const value: Date = new Date();
     value.setHours(12, 0, 0, 0);
     value.setDate(1);
-    value.setMonth(value.getMonth() + this.calendarMonthOffset);
+    value.setMonth(value.getMonth() + offset);
     return value;
   }
 
-  private calendarMonthLabel(): string {
-    const value: Date = this.calendarMonthDate();
+  private calendarMonthLabel(offset: number = this.calendarMonthOffset): string {
+    const value: Date = this.calendarMonthDate(offset);
     return `${value.getFullYear()}年${value.getMonth() + 1}月`;
   }
 
-  private monthWeeks(): CalendarWeek[] {
-    const month: Date = this.calendarMonthDate();
+  private monthWeeks(offset: number = this.calendarMonthOffset): CalendarWeek[] {
+    const month: Date = this.calendarMonthDate(offset);
     const monthKey: string = `${month.getFullYear()}-${month.getMonth()}`;
     const firstWeekday: number = month.getDay();
     const daysInMonth: number = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
@@ -234,7 +239,27 @@ export struct WideDoctorSchedule {
    */
   private expandedCalendarHeight(): number {
     // toolbar + gap + weekday header + gap + week rows
-    return 30 + 10 + 22 + 8 + this.monthWeeks().length * 46;
+    const currentWeekCount: number = this.monthWeeks().length;
+    const transitionWeekCount: number = this.calendarMonthTransitionDirection === 0
+      ? currentWeekCount
+      : Math.max(currentWeekCount, this.monthWeeks(this.calendarMonthTransitionFromOffset).length);
+    return 30 + 10 + 22 + 8 + transitionWeekCount * 46;
+  }
+
+  private updateCalendarViewportWidth(width: Length): void {
+    let nextWidth: number = 0;
+    if (typeof width === 'number') {
+      nextWidth = width;
+    } else if (typeof width === 'string') {
+      nextWidth = parseFloat(width);
+    }
+    if (nextWidth > 0 && Math.abs(nextWidth - this.calendarViewportWidth) > 0.5) {
+      this.calendarViewportWidth = nextWidth;
+    }
+  }
+
+  private calendarMonthSlideDistance(): number {
+    return this.calendarViewportWidth > 0 ? this.calendarViewportWidth : (this.compactWidth ? 360 : 520);
   }
 
   private hasItems(date: string): boolean {
@@ -252,6 +277,35 @@ export struct WideDoctorSchedule {
     if (this.loading) return '正在加载';
     if (items.length === 0) return `${this.selectedDateLabel()} 暂无安排`;
     return `${items.length} 项安排`;
+  }
+
+  private changeCalendarMonth(delta: number): void {
+    if (delta === 0 || this.calendarMonthTransitionDirection !== 0) {
+      return;
+    }
+    const requestToken: number = ++this.calendarMonthTransitionToken;
+    this.calendarMonthTransitionFromOffset = this.calendarMonthOffset;
+    this.calendarMonthOffset += delta;
+    this.calendarMonthTransitionDirection = delta > 0 ? 1 : -1;
+    this.calendarMonthTransitionProgress = 0;
+
+    // Let the two month layers mount at their starting positions, then
+    // animate their shared progress so the old month exits in the opposite
+    // direction from the new month.
+    setTimeout(() => {
+      if (requestToken !== this.calendarMonthTransitionToken) {
+        return;
+      }
+      this.getUIContext().animateTo({ duration: 260, curve: Curve.Friction }, () => {
+        this.calendarMonthTransitionProgress = 1;
+      });
+      setTimeout(() => {
+        if (requestToken === this.calendarMonthTransitionToken) {
+          this.calendarMonthTransitionDirection = 0;
+          this.calendarMonthTransitionProgress = 0;
+        }
+      }, 280);
+    }, 0);
   }
 
   private toggleCalendar(): void {
@@ -325,7 +379,7 @@ export struct WideDoctorSchedule {
   }
 
   @Builder
-  private monthView() {
+  private monthView(offset: number = this.calendarMonthOffset) {
     Column({ space: 8 }) {
       Row({ space: 4 }) {
         Text('').width(26)
@@ -334,7 +388,7 @@ export struct WideDoctorSchedule {
         }, (day: string) => day)
       }.width('100%').height(22)
       Column() {
-        ForEach(this.monthWeeks(), (week: CalendarWeek) => this.monthWeekRow(week), (week: CalendarWeek) => week.key)
+        ForEach(this.monthWeeks(offset), (week: CalendarWeek) => this.monthWeekRow(week), (week: CalendarWeek) => week.key)
       }.width('100%')
     }.width('100%')
   }
@@ -382,15 +436,42 @@ export struct WideDoctorSchedule {
         Button({ type: ButtonType.Circle, stateEffect: true }) {
           SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(14)
         }.width(30).height(30).padding(0).backgroundColor($r('sys.color.comp_background_secondary'))
-          .accessibilityText('上一个月').onClick(() => this.calendarMonthOffset -= 1)
+          .accessibilityText('上一个月').onClick(() => this.changeCalendarMonth(-1))
         Text(this.calendarMonthLabel()).fontSize(11).fontColor($r('sys.color.font_secondary'))
         Button({ type: ButtonType.Circle, stateEffect: true }) {
           SymbolGlyph($r('sys.symbol.chevron_right')).fontSize(14)
         }.width(30).height(30).padding(0).backgroundColor($r('sys.color.comp_background_secondary'))
-          .accessibilityText('下一个月').onClick(() => this.calendarMonthOffset += 1)
+          .accessibilityText('下一个月').onClick(() => this.changeCalendarMonth(1))
         Blank()
       }.width('100%').alignItems(VerticalAlign.Center)
-      this.monthView()
+      Stack({ alignContent: Alignment.TopStart }) {
+        if (this.calendarMonthTransitionDirection !== 0) {
+          Column() {
+            this.monthView(this.calendarMonthTransitionFromOffset)
+          }
+          .width('100%')
+          .translate({
+            x: -this.calendarMonthTransitionDirection * this.calendarMonthSlideDistance() *
+              this.calendarMonthTransitionProgress
+          })
+          .zIndex(0)
+
+          Column() {
+            this.monthView()
+          }
+          .width('100%')
+          .translate({
+            x: this.calendarMonthTransitionDirection * this.calendarMonthSlideDistance() *
+              (1 - this.calendarMonthTransitionProgress)
+          })
+          .zIndex(1)
+        } else {
+          this.monthView()
+        }
+      }
+      .width('100%')
+      .clip(true)
+      .onAreaChange((_oldValue: Area, newValue: Area) => this.updateCalendarViewportWidth(newValue.width))
     }.width('100%').height(this.expandedCalendarHeight())
   }
 
