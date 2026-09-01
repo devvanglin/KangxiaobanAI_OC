@@ -227,6 +227,17 @@ export struct WideDoctorSchedule {
     return weeks;
   }
 
+  /**
+   * Keep the calendar's layout footprint deterministic while its height is
+   * animated.  Without an explicit footprint ArkUI can measure a six-week
+   * month one frame late, allowing the schedule header to overlap the last
+   * calendar row during the shared-geometry transition.
+   */
+  private expandedCalendarHeight(): number {
+    // toolbar + gap + weekday header + gap + week rows
+    return 30 + 10 + 22 + 8 + this.monthWeeks().length * 46;
+  }
+
   private hasItems(date: string): boolean {
     return this.tasks.some((task: CareTask) => task.due_at !== undefined && this.dayKey(task.due_at) === date) ||
       this.schedules.some((item: Schedule) => this.normalizeDate(item.work_date) === date);
@@ -319,7 +330,7 @@ export struct WideDoctorSchedule {
         ForEach(['日', '一', '二', '三', '四', '五', '六'], (day: string) => {
           Text(day).layoutWeight(1).fontSize(13).fontColor($r('sys.color.font_tertiary')).textAlign(TextAlign.Center)
         }, (day: string) => day)
-      }.width('100%')
+      }.width('100%').height(22)
       Column() {
         ForEach(this.monthWeeks(), (week: CalendarWeek) => this.monthWeekRow(week), (week: CalendarWeek) => week.key)
       }.width('100%')
@@ -376,35 +387,45 @@ export struct WideDoctorSchedule {
         Blank()
       }.width('100%').alignItems(VerticalAlign.Center)
       this.monthView()
-    }.width('100%')
+    }.width('100%').height(this.expandedCalendarHeight())
   }
 
   @Builder
   private scheduleContent() {
     Column({ space: 12 }) {
-      if (!this.calendarExpanded) {
-        Column() {
-          Scroll() {
-            Row({ space: 4 }) {
-              ForEach(this.calendarDays(), (day: CalendarDay) => this.calendarDay(day),
-                (day: CalendarDay) => day.key)
-            }.width('100%').constraintSize({ minWidth: this.compactWidth ? 360 : 472 })
-              .justifyContent(FlexAlign.SpaceAround)
+      // One persistent layout footprint keeps the content below the calendar
+      // in normal flow throughout the spring geometry transition.  The
+      // conditional children still share the same geometry id for the visual
+      // morph, while the wrapper prevents an intermediate frame from painting
+      // over the schedule title.
+      Column() {
+        if (!this.calendarExpanded) {
+          Column() {
+            Scroll() {
+              Row({ space: 4 }) {
+                ForEach(this.calendarDays(), (day: CalendarDay) => this.calendarDay(day),
+                  (day: CalendarDay) => day.key)
+              }.width('100%').constraintSize({ minWidth: this.compactWidth ? 360 : 472 })
+                .justifyContent(FlexAlign.SpaceAround)
+            }
+            .width('100%').height(70)
+            .scrollable(ScrollDirection.Horizontal).scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
           }
           .width('100%').height(70)
-          .scrollable(ScrollDirection.Horizontal).scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
+          .geometryTransition(DOCTOR_SCHEDULE_CALENDAR_GEOMETRY_ID, { follow: true })
+          .transition(TransitionEffect.OPACITY)
+        } else {
+          Column() {
+            this.expandedCalendar()
+          }
+          .width('100%').height(this.expandedCalendarHeight())
+          .geometryTransition(DOCTOR_SCHEDULE_CALENDAR_GEOMETRY_ID)
+          .transition(TransitionEffect.OPACITY)
         }
-        .width('100%').height(70)
-        .geometryTransition(DOCTOR_SCHEDULE_CALENDAR_GEOMETRY_ID, { follow: true })
-        .transition(TransitionEffect.OPACITY)
-      } else {
-        Column() {
-          this.expandedCalendar()
-        }
-        .width('100%')
-        .geometryTransition(DOCTOR_SCHEDULE_CALENDAR_GEOMETRY_ID)
-        .transition(TransitionEffect.OPACITY)
       }
+      .width('100%')
+      .height(this.calendarExpanded ? this.expandedCalendarHeight() : 70)
+      .clip(true)
       Row() {
         Text(`${this.selectedDateLabel()} 安排`).fontSize(14).fontColor($r('sys.color.font_secondary'))
         Blank()
@@ -412,7 +433,7 @@ export struct WideDoctorSchedule {
           Text('按时间排序').fontSize(12).fontColor($r('sys.color.font_tertiary'))
         }
       }.width('100%')
-      if (this.compactWidth) {
+      if (this.compactWidth || this.calendarExpanded) {
         this.scheduleRows()
       } else {
         Scroll() {
@@ -425,7 +446,7 @@ export struct WideDoctorSchedule {
         .align(Alignment.Top)
       }
     }
-    .width('100%').layoutWeight(this.compactWidth ? 0 : 1)
+    .width('100%').layoutWeight(this.compactWidth || this.calendarExpanded ? 0 : 1)
   }
 
   build() {
@@ -446,7 +467,19 @@ export struct WideDoctorSchedule {
         .accessibilityText(this.calendarExpanded ? '收起日历' : '展开日历')
         .onClick(() => this.toggleCalendar())
       }.width('100%')
-      this.scheduleContent()
+      if (this.compactWidth || !this.calendarExpanded) {
+        this.scheduleContent()
+      } else {
+        // A six-week month is taller than the fixed wide dashboard card.
+        // Scroll the expanded calendar and its schedule as one top-aligned
+        // surface so the schedule header remains below the final week.
+        Scroll() {
+          this.scheduleContent()
+        }
+        .width('100%').layoutWeight(1)
+        .scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
+        .align(Alignment.Top)
+      }
     }
     .width('100%')
     .height(this.compactWidth ? 'auto' : '100%')
