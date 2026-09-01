@@ -175,7 +175,10 @@ export struct WideDoctorCharts {
     const left: number = Math.max(56, size.width * 0.065);
     const right: number = Math.max(24, size.width * 0.03);
     const top: number = 24;
-    const bottom: number = this.compactWidth ? 68 : 78;
+    // Reserve a little more canvas room for the enlarged age-range labels.
+    // Canvas text is measured in pixels on the high-density device, so the
+    // extra inset keeps the labels readable without colliding with the plot.
+    const bottom: number = this.compactWidth ? 76 : 90;
     const plotWidth: number = Math.max(1, size.width - left - right);
     const plotHeight: number = Math.max(1, size.height - top - bottom);
     context.strokeStyle = CHART_GRID_COLOR;
@@ -201,10 +204,10 @@ export struct WideDoctorCharts {
     const groupWidth: number = plotWidth / values.length;
     const barWidth: number = Math.max(8, Math.min(52, groupWidth * 0.32));
     const targetAgeLabelFontSize: number = this.compactWidth ?
-      Math.max(20, Math.min(26, size.width / 40)) :
-      Math.max(30, Math.min(40, size.width / 36));
-    const ageLabelFontSize: number = Math.max(this.compactWidth ? 16 : 22,
-      Math.min(targetAgeLabelFontSize, groupWidth / 5.4));
+      Math.max(23, Math.min(30, size.width / 34)) :
+      Math.max(36, Math.min(48, size.width / 30));
+    const ageLabelFontSize: number = Math.max(this.compactWidth ? 19 : 27,
+      Math.min(targetAgeLabelFontSize, groupWidth / 4.8));
     context.textAlign = 'center';
     context.textBaseline = 'alphabetic';
     for (let index: number = 0; index < values.length; index++) {

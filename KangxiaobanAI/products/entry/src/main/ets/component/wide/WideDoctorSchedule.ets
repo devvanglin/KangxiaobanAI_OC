@@ -1,4 +1,7 @@
+import { curves } from '@kit.ArkUI';
 import { Bed, CareTask, Elder, Room, Schedule } from '../../network/Dto';
+
+const DOCTOR_SCHEDULE_CALENDAR_GEOMETRY_ID: string = 'doctor-schedule-calendar';
 
 interface DoctorScheduleItem {
   id: string;
@@ -65,18 +68,35 @@ export struct WideDoctorSchedule {
   }
 
   private selectMonthDate(key: string): void {
-    this.getUIContext().animateTo({ duration: 220, curve: Curve.EaseInOut }, () => {
+    this.getUIContext().animateTo({
+      curve: curves.interpolatingSpring(0, 1, 342, 38)
+    }, () => {
       this.selectDate(key);
       this.calendarExpanded = false;
     });
   }
 
-  private dayKey(value: string): string {
-    const parsed: Date = new Date(value.replace('T', ' '));
+  /**
+   * Business dates are date-only values even when a task carries a timestamp.
+   * Prefer the wire-format date prefix so a UTC offset cannot move an item to
+   * a neighbouring day in the local timezone.
+   */
+  private normalizeDate(value?: string): string {
+    if (value === undefined) return '';
+    const normalized: string = value.trim();
+    if (normalized.length >= 10 && normalized.charAt(4) === '-' &&
+      normalized.charAt(7) === '-') {
+      return normalized.slice(0, 10);
+    }
+    const parsed: Date = new Date(normalized);
     if (Number.isNaN(parsed.getTime())) {
-      return value.length >= 10 ? value.slice(0, 10) : '';
+      return '';
     }
     return this.dateKey(parsed);
+  }
+
+  private dayKey(value: string): string {
+    return this.normalizeDate(value);
   }
 
   private timeLabel(value?: string): string {
@@ -127,7 +147,7 @@ export struct WideDoctorSchedule {
 
   private scheduleItems(date: string = this.selectedDateKey()): DoctorScheduleItem[] {
     return this.schedules
-      .filter((item: Schedule) => item.work_date === date)
+      .filter((item: Schedule) => this.normalizeDate(item.work_date) === date)
       .map((item: Schedule): DoctorScheduleItem => ({
         id: `schedule-${item.id}`,
         time: item.shift || '今日',
@@ -141,7 +161,11 @@ export struct WideDoctorSchedule {
 
   private items(date: string = this.selectedDateKey()): DoctorScheduleItem[] {
     const tasks: DoctorScheduleItem[] = this.taskItems(date);
-    return tasks.length > 0 ? tasks : this.scheduleItems(date);
+    const schedules: DoctorScheduleItem[] = this.scheduleItems(date);
+    // A day can contain both care tasks and a staff shift.  Do not hide the
+    // shift merely because a task was found; the overview represents both.
+    return tasks.concat(schedules).sort((left: DoctorScheduleItem, right: DoctorScheduleItem) =>
+      left.time.localeCompare(right.time));
   }
 
   private calendarDays(): CalendarDay[] {
@@ -205,7 +229,7 @@ export struct WideDoctorSchedule {
 
   private hasItems(date: string): boolean {
     return this.tasks.some((task: CareTask) => task.due_at !== undefined && this.dayKey(task.due_at) === date) ||
-      this.schedules.some((item: Schedule) => item.work_date === date);
+      this.schedules.some((item: Schedule) => this.normalizeDate(item.work_date) === date);
   }
 
   private selectedDateLabel(): string {
@@ -222,7 +246,11 @@ export struct WideDoctorSchedule {
 
   private toggleCalendar(): void {
     const nextExpanded: boolean = !this.calendarExpanded;
-    this.getUIContext().animateTo({ duration: 220, curve: Curve.EaseInOut }, () => {
+    this.getUIContext().animateTo({
+      curve: nextExpanded
+        ? curves.interpolatingSpring(0, 1, 328, 36)
+        : curves.interpolatingSpring(0, 1, 342, 38)
+    }, () => {
       this.calendarExpanded = nextExpanded;
       if (nextExpanded) {
         this.selectDate(this.selectedDateKey());
@@ -355,17 +383,27 @@ export struct WideDoctorSchedule {
   private scheduleContent() {
     Column({ space: 12 }) {
       if (!this.calendarExpanded) {
-        Scroll() {
-          Row({ space: 4 }) {
-            ForEach(this.calendarDays(), (day: CalendarDay) => this.calendarDay(day), (day: CalendarDay) => day.key)
-          }.width('100%').constraintSize({ minWidth: this.compactWidth ? 360 : 472 })
-            .justifyContent(FlexAlign.SpaceAround)
+        Column() {
+          Scroll() {
+            Row({ space: 4 }) {
+              ForEach(this.calendarDays(), (day: CalendarDay) => this.calendarDay(day),
+                (day: CalendarDay) => day.key)
+            }.width('100%').constraintSize({ minWidth: this.compactWidth ? 360 : 472 })
+              .justifyContent(FlexAlign.SpaceAround)
+          }
+          .width('100%').height(70)
+          .scrollable(ScrollDirection.Horizontal).scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
         }
         .width('100%').height(70)
-        .scrollable(ScrollDirection.Horizontal).scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
-      }
-      if (this.calendarExpanded) {
-        this.expandedCalendar()
+        .geometryTransition(DOCTOR_SCHEDULE_CALENDAR_GEOMETRY_ID, { follow: true })
+        .transition(TransitionEffect.OPACITY)
+      } else {
+        Column() {
+          this.expandedCalendar()
+        }
+        .width('100%')
+        .geometryTransition(DOCTOR_SCHEDULE_CALENDAR_GEOMETRY_ID)
+        .transition(TransitionEffect.OPACITY)
       }
       Row() {
         Text(`${this.selectedDateLabel()} 安排`).fontSize(14).fontColor($r('sys.color.font_secondary'))
@@ -374,7 +412,7 @@ export struct WideDoctorSchedule {
           Text('按时间排序').fontSize(12).fontColor($r('sys.color.font_tertiary'))
         }
       }.width('100%')
-      if (this.compactWidth || this.calendarExpanded) {
+      if (this.compactWidth) {
         this.scheduleRows()
       } else {
         Scroll() {
@@ -387,7 +425,7 @@ export struct WideDoctorSchedule {
         .align(Alignment.Top)
       }
     }
-    .width('100%').layoutWeight(this.compactWidth || this.calendarExpanded ? 0 : 1)
+    .width('100%').layoutWeight(this.compactWidth ? 0 : 1)
   }
 
   build() {
@@ -408,18 +446,7 @@ export struct WideDoctorSchedule {
         .accessibilityText(this.calendarExpanded ? '收起日历' : '展开日历')
         .onClick(() => this.toggleCalendar())
       }.width('100%')
-      if (this.compactWidth || !this.calendarExpanded) {
-        this.scheduleContent()
-      } else {
-        // A full month is taller than the fixed dashboard card. Scroll the
-        // expanded calendar and its schedule as one top-aligned surface.
-        Scroll() {
-          this.scheduleContent()
-        }
-        .width('100%').layoutWeight(1)
-        .scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
-        .align(Alignment.Top)
-      }
+      this.scheduleContent()
     }
     .width('100%')
     .height(this.compactWidth ? 'auto' : '100%')
