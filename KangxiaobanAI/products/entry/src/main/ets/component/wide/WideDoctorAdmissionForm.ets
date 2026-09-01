@@ -1,10 +1,7 @@
-import { SymbolGlyphModifier } from '@kit.ArkUI';
 import {
   HdsListItemCard,
   HdsNavDestination,
   HdsNavDestinationTitleMode,
-  IconSize,
-  PrefixIcon,
   ScrollEffectType,
   SuffixText,
   TitleBarStyleOptions,
@@ -13,38 +10,26 @@ import {
 
 @ComponentV2
 struct AdmissionGroupCard {
-  @Param @Require icon: Resource;
   @Param @Require title: string;
-  @Param @Require subtitle: string;
   @BuilderParam @Require content: () => void;
 
   build() {
     Column({ space: 0 }) {
       HdsListItemCard({
-        prefixItem: new PrefixIcon({
-          iconSize: IconSize.SYSTEM_ICON,
-          iconValue: {
-            symbol: new SymbolGlyphModifier(this.icon).fontColor([$r('app.color.brand_blue')])
-          }
-        }),
         textItem: {
           primaryText: { text: this.title },
-          secondaryText: { text: this.subtitle }
         },
-        suffixItem: new SuffixText({ text: '填写' }),
         cardBorderRadius: 0,
         cardBackgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
-        cardHeight: 64,
-        cardPrefixMargin: 16,
-        cardSuffixMargin: 16,
+        cardHeight: 58,
         hoverBorderRadius: 0
       })
       Divider().strokeWidth(0.5).color($r('sys.color.comp_divider')).margin({ left: 16, right: 16 });
-      Column({ space: 16 }) {
+      Column({ space: 18 }) {
       this.content()
       }
       .width('100%')
-      .padding(18)
+      .padding({ left: 20, right: 20, top: 18, bottom: 22 })
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
@@ -67,15 +52,25 @@ export struct WideDoctorAdmissionForm {
   @Local gender: string = '';
   @Local idCard: string = '';
   @Local birthDate: string = '';
+  @Local age: string = '';
   @Local phone: string = '';
-  @Local contact: string = '';
-  @Local contactPhone: string = '';
+  @Local familyAddress: string = '';
+  @Local familyName: string = '';
+  @Local familyPhone: string = '';
+  @Local familyRelation: string = '';
   @Local admissionDate: string = '';
+  @Local admissionEndDate: string = '';
+  @Local feeStartDate: string = '';
+  @Local feeEndDate: string = '';
   @Local careLevel: string = '';
   @Local roomType: string = '';
-  @Local diagnosis: string = '';
-  @Local medication: string = '';
-  @Local allergy: string = '';
+  @Local bedName: string = '';
+  @Local deposit: string = '';
+  @Local careFee: string = '';
+  @Local bedFee: string = '';
+  @Local otherFee: string = '';
+  @Local medicalInsurance: string = '';
+  @Local subsidy: string = '';
   @Local note: string = '';
   @Local submitted: boolean = false;
   @Local activeField: string = '';
@@ -103,7 +98,7 @@ export struct WideDoctorAdmissionForm {
 
   private requiredReady(): boolean {
     return this.name.trim().length > 0 && this.gender.length > 0 &&
-      this.idCard.trim().length > 0 && this.birthDate.trim().length > 0 &&
+      this.idCard.trim().length > 0 && this.birthDate.trim().length > 0 && this.age.trim().length > 0 &&
       this.admissionDate.trim().length > 0 && this.careLevel.length > 0;
   }
 
@@ -128,15 +123,25 @@ export struct WideDoctorAdmissionForm {
     this.gender = '';
     this.idCard = '';
     this.birthDate = '';
+    this.age = '';
     this.phone = '';
-    this.contact = '';
-    this.contactPhone = '';
+    this.familyAddress = '';
+    this.familyName = '';
+    this.familyPhone = '';
+    this.familyRelation = '';
     this.admissionDate = '';
+    this.admissionEndDate = '';
+    this.feeStartDate = '';
+    this.feeEndDate = '';
     this.careLevel = '';
     this.roomType = '';
-    this.diagnosis = '';
-    this.medication = '';
-    this.allergy = '';
+    this.bedName = '';
+    this.deposit = '';
+    this.careFee = '';
+    this.bedFee = '';
+    this.otherFee = '';
+    this.medicalInsurance = '';
+    this.subsidy = '';
     this.note = '';
     this.submitted = false;
     this.activeField = '';
@@ -145,21 +150,17 @@ export struct WideDoctorAdmissionForm {
   @Builder
   private textField(label: string, placeholder: string, value: string,
     onChange: (value: string) => void, required: boolean = false, numeric: boolean = false) {
-    Column({ space: 6 }) {
-      Row() {
-        Text(required ? `${label} *` : label)
-          .fontSize(13)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-        Blank()
-        if (required && value.trim().length === 0) {
-          Text('必填').fontSize(10).fontColor($r('sys.color.font_tertiary'))
-        }
-      }.width('100%')
-      TextInput({ text: value, placeholder: placeholder })
-        .width('100%')
-        .height(46)
+    Row({ space: 12 }) {
+      Text(required ? `${label} *` : label)
+        .width(this.compactWidth ? 86 : 106)
         .fontSize(14)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .textAlign(TextAlign.End)
+      TextInput({ text: value, placeholder: placeholder })
+        .layoutWeight(1)
+        .height(48)
+        .fontSize(15)
         .fontColor($r('sys.color.font_primary'))
         .backgroundColor($r('sys.color.comp_background_secondary'))
         .borderRadius(10)
@@ -171,74 +172,173 @@ export struct WideDoctorAdmissionForm {
           onChange(next);
           this.activeField = label;
         })
-    }.width('100%').alignItems(HorizontalAlign.Start)
+    }.width('100%').alignItems(VerticalAlign.Center)
   }
 
   @Builder
   private textAreaField(label: string, placeholder: string, value: string,
     onChange: (value: string) => void) {
-    Column({ space: 6 }) {
-      Text(label).fontSize(13).fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary')).width('100%')
+    Row({ space: 12 }) {
+      Text(label).width(this.compactWidth ? 86 : 106)
+        .fontSize(14).fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary')).textAlign(TextAlign.End)
       TextArea({ text: value, placeholder: placeholder })
-        .width('100%')
-        .height(88)
-        .fontSize(14)
+        .layoutWeight(1)
+        .height(112)
+        .fontSize(15)
         .fontColor($r('sys.color.font_primary'))
         .backgroundColor($r('sys.color.comp_background_secondary'))
         .borderRadius(10)
         .border({ width: 0.5, color: $r('sys.color.comp_divider') })
         .onChange((next: string) => onChange(next))
-    }.width('100%').alignItems(HorizontalAlign.Start)
+    }.width('100%').alignItems(VerticalAlign.Top)
   }
 
   @Builder
   private choiceField(label: string, options: string[], selected: string,
     onSelect: (value: string) => void, required: boolean = false) {
-    Column({ space: 8 }) {
-      Text(required ? `${label} *` : label).fontSize(13).fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary')).width('100%')
+    Row({ space: 12 }) {
+      Text(required ? `${label} *` : label).width(this.compactWidth ? 86 : 106)
+        .fontSize(14).fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary')).textAlign(TextAlign.End)
       Flex({ wrap: FlexWrap.Wrap }) {
         ForEach(options, (option: string) => {
           Button({ type: ButtonType.Normal, stateEffect: true }) {
-            Text(option).fontSize(13)
+            Text(option).fontSize(14)
+              .textAlign(TextAlign.Center)
               .fontColor(selected === option ? Color.White : $r('sys.color.font_secondary'))
           }
+          .width(88)
+          .padding(0)
           .height(40)
-          .padding({ left: 18, right: 18 })
           .margin({ right: 8, bottom: 8 })
-          .borderRadius(20)
+          .borderRadius(10)
           .backgroundColor(selected === option ? $r('app.color.brand_blue') :
             $r('sys.color.comp_background_secondary'))
           .border({ width: selected === option ? 0 : 0.5, color: $r('sys.color.comp_divider') })
           .accessibilityText(`${label}${option}`)
           .onClick(() => onSelect(option))
         }, (option: string) => `${label}-${option}`)
-      }.width('100%')
-    }.width('100%').alignItems(HorizontalAlign.Start)
+      }.layoutWeight(1)
+    }.width('100%').alignItems(VerticalAlign.Top)
+  }
+
+  @Builder
+  private dateRangeField(label: string, startPlaceholder: string, endPlaceholder: string,
+    startValue: string, endValue: string, onStartChange: (value: string) => void,
+    onEndChange: (value: string) => void) {
+    Row({ space: 12 }) {
+      Text(label).width(this.compactWidth ? 86 : 106)
+        .fontSize(14).fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary')).textAlign(TextAlign.End)
+      Row({ space: 8 }) {
+        TextInput({ text: startValue, placeholder: startPlaceholder })
+          .layoutWeight(1)
+          .height(48)
+          .fontSize(14)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .borderRadius(10)
+          .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+          .onChange((next: string) => onStartChange(next))
+        Text('至').fontSize(14).fontColor($r('sys.color.font_secondary'))
+        TextInput({ text: endValue, placeholder: endPlaceholder })
+          .layoutWeight(1)
+          .height(48)
+          .fontSize(14)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .borderRadius(10)
+          .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+          .onChange((next: string) => onEndChange(next))
+      }.layoutWeight(1)
+    }.width('100%').alignItems(VerticalAlign.Center)
+  }
+
+  private adjustAmount(current: string, delta: number, onChange: (value: string) => void): void {
+    let amount: number = Number(current);
+    if (isNaN(amount)) {
+      amount = 0;
+    }
+    onChange(`${Math.max(0, amount + delta)}`);
+  }
+
+  @Builder
+  private amountField(label: string, placeholder: string, value: string,
+    onChange: (value: string) => void) {
+    Row({ space: 12 }) {
+      Text(label).width(this.compactWidth ? 86 : 106)
+        .fontSize(14).fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary')).textAlign(TextAlign.End)
+      Row({ space: 0 }) {
+        Button({ type: ButtonType.Normal, stateEffect: true }) {
+          Text('−').fontSize(20).fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_secondary'))
+        }
+          .width(38)
+          .height(42)
+          .padding(0)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .borderRadius({ topLeft: 10, bottomLeft: 10 })
+          .accessibilityText(`减少${label}`)
+          .onClick(() => this.adjustAmount(value, -100, onChange))
+        TextInput({ text: value, placeholder: placeholder })
+          .layoutWeight(1)
+          .height(42)
+          .fontSize(14)
+          .type(InputType.Number)
+          .textAlign(TextAlign.Center)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .borderRadius(0)
+          .border({ width: { top: 0.5, bottom: 0.5 }, color: $r('sys.color.comp_divider') })
+          .onChange((next: string) => onChange(next))
+        Button({ type: ButtonType.Normal, stateEffect: true }) {
+          Text('+').fontSize(20).fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_secondary'))
+        }
+          .width(38)
+          .height(42)
+          .padding(0)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .borderRadius({ topRight: 10, bottomRight: 10 })
+          .accessibilityText(`增加${label}`)
+          .onClick(() => this.adjustAmount(value, 100, onChange))
+      }.layoutWeight(1)
+    }.width('100%').alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  private uploadField(label: string, description: string) {
+    Row({ space: 12 }) {
+      Text(label).width(this.compactWidth ? 86 : 106)
+        .fontSize(14).fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary')).textAlign(TextAlign.End)
+      Row({ space: 10 }) {
+        SymbolGlyph($r('sys.symbol.camera_fill')).fontSize(20)
+          .fontColor([$r('app.color.brand_blue')])
+        Column({ space: 2 }) {
+          Text('点击上传').fontSize(14).fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.brand_blue'))
+          Text(description).fontSize(11).fontColor($r('sys.color.font_tertiary'))
+        }.alignItems(HorizontalAlign.Start)
+      }
+      .layoutWeight(1)
+      .height(72)
+      .padding({ left: 16, right: 16 })
+      .backgroundColor($r('sys.color.comp_background_secondary'))
+      .borderRadius(10)
+      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+      .onClick(() => this.showToast('照片上传功能待接入'))
+    }.width('100%').alignItems(VerticalAlign.Center)
   }
 
   @Builder
   private formContent() {
-    Column({ space: 16 }) {
-      AdmissionGroupCard({ icon: $r('sys.symbol.person_fill'), title: '长者身份', subtitle: '基本身份与联系资料',
+    Column({ space: 20 }) {
+      AdmissionGroupCard({ title: '基本信息',
         content: (): void => { this.identityFields(); } });
-      AdmissionGroupCard({ icon: $r('sys.symbol.heart_fill'), title: '健康情况', subtitle: '疾病、用药与过敏信息',
-        content: (): void => { this.healthFields(); } });
-      AdmissionGroupCard({ icon: $r('sys.symbol.calendar_fill'), title: '入住安排', subtitle: '日期、护理等级与房型偏好',
+      AdmissionGroupCard({ title: '家属信息',
+        content: (): void => { this.familyFields(); } });
+      AdmissionGroupCard({ title: '入住配置',
         content: (): void => { this.arrangementFields(); } });
-
-      Row({ space: 10 }) {
-        SymbolGlyph($r('sys.symbol.info_circle')).fontSize(18)
-          .fontColor([$r('app.color.brand_blue')])
-        Text('当前为前端填写预览，确认后不会提交服务器。')
-          .fontSize(12).fontColor($r('sys.color.font_secondary')).layoutWeight(1)
-      }
-      .width('100%')
-      .padding(16)
-      .backgroundColor($r('sys.color.comp_background_primary'))
-      .borderRadius(16)
-      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
     }.width('100%')
   }
 
@@ -249,54 +349,130 @@ export struct WideDoctorAdmissionForm {
         this.textField('姓名', '请输入长者姓名', this.name, (value: string) => this.name = value, true)
       }
       GridCol({ span: this.compactWidth ? 12 : 6 }) {
-        this.choiceField('性别', ['男', '女'], this.gender, (value: string) => this.gender = value, true)
-      }
-      GridCol({ span: this.compactWidth ? 12 : 6 }) {
-        this.textField('证件号码', '身份证或其他证件号', this.idCard,
+        this.textField('身份证号', '请输入身份证号', this.idCard,
           (value: string) => this.idCard = value, true)
       }
       GridCol({ span: this.compactWidth ? 12 : 6 }) {
-        this.textField('出生日期', '例如 1942-06-18', this.birthDate,
+        this.textField('出生日期', '请选择出生日期', this.birthDate,
           (value: string) => this.birthDate = value, true)
       }
       GridCol({ span: this.compactWidth ? 12 : 6 }) {
-        this.textField('联系电话', '长者本人手机号（可选）', this.phone,
-          (value: string) => this.phone = value, false, true)
+        this.textField('年龄', '请输入年龄', this.age,
+          (value: string) => this.age = value, true, true)
       }
       GridCol({ span: this.compactWidth ? 12 : 6 }) {
-        this.textField('紧急联系人', '姓名或关系', this.contact, (value: string) => this.contact = value)
+        this.choiceField('性别', ['男', '女'], this.gender, (value: string) => this.gender = value, true)
+      }
+      GridCol({ span: this.compactWidth ? 12 : 6 }) {
+        this.textField('联系方式', '请输入手机号或其他联系方式', this.phone,
+          (value: string) => this.phone = value, false, true)
       }
       GridCol({ span: 12 }) {
-        this.textField('紧急联系电话', '联系人手机号', this.contactPhone,
-          (value: string) => this.contactPhone = value, false, true)
+        this.textAreaField('家庭住址', '请输入家庭住址', this.familyAddress,
+          (value: string) => this.familyAddress = value)
+      }
+      GridCol({ span: this.compactWidth ? 12 : 4 }) {
+        this.uploadField('一寸照片', '支持 JPG、PNG 格式')
+      }
+      GridCol({ span: this.compactWidth ? 12 : 4 }) {
+        this.uploadField('身份证人像面', '请上传清晰证件照片')
+      }
+      GridCol({ span: this.compactWidth ? 12 : 4 }) {
+        this.uploadField('身份证国徽面', '请上传清晰证件照片')
       }
     }.width('100%')
   }
 
   @Builder
-  private healthFields() {
-    Column({ space: 16 }) {
-      this.textAreaField('既往诊断', '例如：高血压、骨关节病', this.diagnosis,
-        (value: string) => this.diagnosis = value)
-      this.textAreaField('用药说明', '例如：阿司匹林，每日一次', this.medication,
-        (value: string) => this.medication = value)
-      this.textAreaField('过敏史', '例如：青霉素，皮疹；无过敏史可填写“无”', this.allergy,
-        (value: string) => this.allergy = value)
-    }.width('100%').alignItems(HorizontalAlign.Start)
+  private familyFields() {
+    GridRow({ columns: 12, gutter: { x: 14, y: 14 } }) {
+      GridCol({ span: this.compactWidth ? 12 : 3 }) {
+        this.textField('家属姓名', '请输入主要联系人姓名', this.familyName,
+          (value: string) => this.familyName = value)
+      }
+      GridCol({ span: this.compactWidth ? 12 : 3 }) {
+        this.textField('家属联系方式', '请输入手机号或其他联系方式', this.familyPhone,
+          (value: string) => this.familyPhone = value, false, true)
+      }
+      GridCol({ span: this.compactWidth ? 12 : 4 }) {
+        this.choiceField('与长者关系', ['子女', '配偶', '亲属', '其他'], this.familyRelation,
+          (value: string) => this.familyRelation = value)
+      }
+      GridCol({ span: this.compactWidth ? 12 : 2 }) {
+        Row({ space: 8 }) {
+          Button({ type: ButtonType.Normal, stateEffect: true }) {
+            Row({ space: 6 }) {
+              SymbolGlyph($r('sys.symbol.plus')).fontSize(16)
+                .fontColor([$r('app.color.brand_blue')])
+              Text('添加家属').fontSize(13).fontColor($r('app.color.brand_blue'))
+            }
+          }
+          .height(38)
+          .padding({ left: 10, right: 10 })
+          .borderRadius(19)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .onClick(() => this.showToast('家属信息可继续添加'))
+          Button({ type: ButtonType.Normal, stateEffect: true }) {
+            SymbolGlyph($r('sys.symbol.minus')).fontSize(16)
+              .fontColor([$r('sys.color.font_secondary')])
+          }
+          .width(38)
+          .height(38)
+          .borderRadius(19)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .onClick(() => this.showToast('当前至少保留一位联系人'))
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.End)
+      }
+    }.width('100%')
   }
 
   @Builder
   private arrangementFields() {
-    Column({ space: 16 }) {
-      this.textField('计划入住日期', '例如 2026-09-01', this.admissionDate,
-        (value: string) => this.admissionDate = value, true)
-      this.choiceField('护理等级', this.careLevelOptions, this.careLevel,
-        (value: string) => this.careLevel = value, true)
-      this.choiceField('房型偏好', this.roomOptions, this.roomType,
-        (value: string) => this.roomType = value)
-      this.textAreaField('入住备注', '记录接待安排、饮食偏好或其他需要关注的事项', this.note,
-        (value: string) => this.note = value)
-    }.width('100%').alignItems(HorizontalAlign.Start)
+    GridRow({ columns: 12, gutter: { x: 14, y: 14 } }) {
+      GridCol({ span: this.compactWidth ? 12 : 6 }) {
+        this.dateRangeField('入住期限', '开始日期', '结束日期', this.admissionDate, this.admissionEndDate,
+          (value: string) => this.admissionDate = value,
+          (value: string) => this.admissionEndDate = value)
+      }
+      GridCol({ span: this.compactWidth ? 12 : 6 }) {
+        this.dateRangeField('费用期限', '开始日期', '结束日期', this.feeStartDate, this.feeEndDate,
+          (value: string) => this.feeStartDate = value,
+          (value: string) => this.feeEndDate = value)
+      }
+      GridCol({ span: this.compactWidth ? 12 : 6 }) {
+        this.choiceField('护理等级', this.careLevelOptions, this.careLevel,
+          (value: string) => this.careLevel = value, true)
+      }
+      GridCol({ span: this.compactWidth ? 12 : 6 }) {
+        this.textField('入住床位', '请选择入住床位', this.bedName,
+          (value: string) => this.bedName = value)
+      }
+      GridCol({ span: this.compactWidth ? 12 : 6 }) {
+        this.amountField('押金', '请输入金额', this.deposit, (value: string) => this.deposit = value)
+      }
+      GridCol({ span: this.compactWidth ? 12 : 6 }) {
+        this.amountField('护理费用', '请输入金额', this.careFee, (value: string) => this.careFee = value)
+      }
+      GridCol({ span: this.compactWidth ? 12 : 6 }) {
+        this.amountField('床位费用', '请输入金额', this.bedFee, (value: string) => this.bedFee = value)
+      }
+      GridCol({ span: this.compactWidth ? 12 : 6 }) {
+        this.amountField('其他费用', '请输入金额', this.otherFee, (value: string) => this.otherFee = value)
+      }
+      GridCol({ span: this.compactWidth ? 12 : 6 }) {
+        this.amountField('医保支付', '请输入金额', this.medicalInsurance,
+          (value: string) => this.medicalInsurance = value)
+      }
+      GridCol({ span: this.compactWidth ? 12 : 6 }) {
+        this.amountField('政府补贴', '请输入金额', this.subsidy, (value: string) => this.subsidy = value)
+      }
+      GridCol({ span: 12 }) {
+        this.textAreaField('入住备注', '记录接待安排、饮食偏好或其他需要关注的事项', this.note,
+          (value: string) => this.note = value)
+      }
+    }.width('100%')
   }
 
   @Builder
@@ -308,7 +484,7 @@ export struct WideDoctorAdmissionForm {
         .fontColor($r('sys.color.font_primary'))
       Text('这是前端确认状态，后续可接入入住申请接口。')
         .fontSize(13).fontColor($r('sys.color.font_secondary')).textAlign(TextAlign.Center)
-      AdmissionGroupCard({ icon: $r('sys.symbol.checkmark_circle_fill'), title: '填写完成', subtitle: '前端确认信息', content: () => {
+      AdmissionGroupCard({ title: '填写完成', content: () => {
         HdsListItemCard({
           textItem: {
             primaryText: { text: this.name },
@@ -345,7 +521,8 @@ export struct WideDoctorAdmissionForm {
         .opacity(this.requiredReady() ? 1 : 0.45)
         .onClick(() => this.confirmForm())
     }
-    .width(this.compactWidth ? '100%' : undefined)
+    .width('100%')
+    .justifyContent(FlexAlign.End)
     .padding({ top: 12, bottom: 12 + this.naviIndicatorHeight })
   }
 
@@ -360,32 +537,26 @@ export struct WideDoctorAdmissionForm {
         .padding({ left: this.horizontalPadding(), right: this.horizontalPadding(),
           top: 24 + this.statusBarHeight, bottom: 24 + this.naviIndicatorHeight })
       } else {
-          Column() {
-            Scroll(this.scroller) {
-              Row() {
-                Column({ space: 18 }) {
-                  this.formContent()
-                }
-                .width('100%')
-                .constraintSize({ maxWidth: 720 })
-                .padding({ left: this.horizontalPadding(), right: this.horizontalPadding(),
-                  top: this.statusBarHeight + 56, bottom: 32 + this.naviIndicatorHeight })
-                .alignItems(HorizontalAlign.Center)
+        Column() {
+          Scroll(this.scroller) {
+            Row() {
+              Column({ space: 18 }) {
+                this.formContent()
+                this.footer()
               }
               .width('100%')
-              .justifyContent(FlexAlign.Center)
+              .constraintSize({ maxWidth: this.compactWidth ? 720 : 1320 })
+              .padding({ left: this.horizontalPadding(), right: this.horizontalPadding(),
+                top: this.statusBarHeight + 56, bottom: 20 + this.naviIndicatorHeight })
+              .alignItems(HorizontalAlign.Center)
             }
+            .width('100%')
+            .justifyContent(FlexAlign.Center)
+          }
           .layoutWeight(1)
           .width('100%')
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring)
-          Row() {
-            this.footer()
-          }
-          .width('100%')
-          .justifyContent(FlexAlign.End)
-          .border({ width: { top: 0.5 }, color: { top: $r('sys.color.comp_divider') } })
-          .padding({ left: this.horizontalPadding(), right: this.horizontalPadding() })
         }
         .width('100%')
         .height('100%')
