@@ -198,12 +198,13 @@ export struct WideDoctorSchedule {
 
   private monthWeeks(): CalendarWeek[] {
     const month: Date = this.calendarMonthDate();
+    const monthKey: string = `${month.getFullYear()}-${month.getMonth()}`;
     const firstWeekday: number = month.getDay();
     const daysInMonth: number = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
     const weekNames: string[] = ['日', '一', '二', '三', '四', '五', '六'];
     const cells: CalendarDay[] = [];
     for (let index: number = 0; index < firstWeekday; index++) {
-      cells.push({ key: `placeholder-${index}`, day: '', month: '', weekday: '', isToday: false, isPlaceholder: true });
+      cells.push({ key: `${monthKey}-placeholder-${index}`, day: '', month: '', weekday: '', isToday: false, isPlaceholder: true });
     }
     for (let day: number = 1; day <= daysInMonth; day++) {
       const value: Date = new Date(month.getFullYear(), month.getMonth(), day, 12);
@@ -212,7 +213,7 @@ export struct WideDoctorSchedule {
         weekday: `周${weekNames[value.getDay()]}`, isToday: key === this.today() });
     }
     while (cells.length % 7 !== 0) {
-      cells.push({ key: `placeholder-${cells.length}`, day: '', month: '', weekday: '', isToday: false, isPlaceholder: true });
+      cells.push({ key: `${monthKey}-placeholder-${cells.length}`, day: '', month: '', weekday: '', isToday: false, isPlaceholder: true });
     }
     const weeks: CalendarWeek[] = [];
     for (let index: number = 0; index < cells.length; index += 7) {
@@ -220,7 +221,7 @@ export struct WideDoctorSchedule {
       const date: Date = first.isPlaceholder === true ? new Date(month.getFullYear(), month.getMonth(), 1, 12) :
         new Date(`${first.key}T12:00:00`);
       const weekNo: number = Math.ceil((date.getDate() + new Date(date.getFullYear(), date.getMonth(), 1).getDay()) / 7);
-      weeks.push({ key: `week-${index}`, label: `${weekNo}`, days: cells.slice(index, index + 7) });
+      weeks.push({ key: `${monthKey}-week-${index}`, label: `${weekNo}`, days: cells.slice(index, index + 7) });
     }
     return weeks;
   }
@@ -255,15 +256,18 @@ export struct WideDoctorSchedule {
 
   private toggleCalendar(): void {
     const nextExpanded: boolean = !this.calendarExpanded;
+    // Resolve the selected month before the expanded tree is rendered.  On
+    // the first open this prevents the title and cells from observing two
+    // different month offsets during the same spring transaction.
+    if (nextExpanded) {
+      this.selectDate(this.selectedDateKey());
+    }
     this.getUIContext().animateTo({
       curve: nextExpanded
         ? curves.interpolatingSpring(0, 1, 328, 36)
         : curves.interpolatingSpring(0, 1, 342, 38)
     }, () => {
       this.calendarExpanded = nextExpanded;
-      if (nextExpanded) {
-        this.selectDate(this.selectedDateKey());
-      }
     });
   }
 
@@ -358,8 +362,10 @@ export struct WideDoctorSchedule {
   @Builder
   private scheduleRows() {
     if (this.items().length === 0) {
-      Text(this.summaryText()).width('100%').height(58).fontSize(14)
-        .fontColor($r('sys.color.font_tertiary')).textAlign(TextAlign.Center)
+      if (!this.calendarExpanded) {
+        Text(this.summaryText()).width('100%').height(58).fontSize(14)
+          .fontColor($r('sys.color.font_tertiary')).textAlign(TextAlign.Center)
+      }
     } else {
       Column() {
         ForEach(this.items(), (item: DoctorScheduleItem, index: number) =>
@@ -420,13 +426,15 @@ export struct WideDoctorSchedule {
       .width('100%')
       .height(this.calendarExpanded ? this.expandedCalendarHeight() : 70)
       .clip(true)
-      Row() {
-        Text(`${this.selectedDateLabel()} 安排`).fontSize(14).fontColor($r('sys.color.font_secondary'))
-        Blank()
-        if (this.items().length > 0) {
-          Text('按时间排序').fontSize(12).fontColor($r('sys.color.font_tertiary'))
-        }
-      }.width('100%')
+      if (!this.calendarExpanded) {
+        Row() {
+          Text(`${this.selectedDateLabel()} 安排`).fontSize(14).fontColor($r('sys.color.font_secondary'))
+          Blank()
+          if (this.items().length > 0) {
+            Text('按时间排序').fontSize(12).fontColor($r('sys.color.font_tertiary'))
+          }
+        }.width('100%')
+      }
       if (this.compactWidth || this.calendarExpanded) {
         this.scheduleRows()
       } else {
