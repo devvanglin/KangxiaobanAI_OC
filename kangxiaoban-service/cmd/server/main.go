@@ -4,11 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"os"
-	"path/filepath"
 	"time"
-
-	"github.com/gin-gonic/gin"
 
 	"kangxiaoban-service/internal/config"
 	"kangxiaoban-service/internal/database"
@@ -18,17 +14,6 @@ import (
 	"kangxiaoban-service/internal/service"
 	"kangxiaoban-service/internal/ws"
 )
-
-// mountStatic 以 NoRoute 提供展示壳静态文件；目录/未命中回退 index.html。
-func mountStatic(r *gin.Engine, dir string) {
-	r.NoRoute(func(c *gin.Context) {
-		p := filepath.Join(dir, filepath.Clean(c.Request.URL.Path))
-		if info, err := os.Stat(p); err != nil || info.IsDir() {
-			p = filepath.Join(dir, "index.html")
-		}
-		http.ServeFile(c.Writer, c.Request, p)
-	})
-}
 
 func main() {
 	cfg := config.Load()
@@ -86,11 +71,6 @@ func main() {
 
 	r := router.New(db, cfg, hub, iotSvc, userRepo, authSvc, elderSvc, resourceSvc, taskSvc, healthSvc,
 		scheduleSvc, financeSvc, medicationSvc, auditSvc, auditRepo, supplySvc, familySvc, careSvc, admissionSvc, notificationSvc, messageSvc, aiSvc)
-
-	// 展示壳静态托管：落地页(/)与大屏(/dashboard.html)（API 路由优先，未匹配路径回落到静态）
-	if cfg.Server.StaticDir != "" {
-		mountStatic(r, cfg.Server.StaticDir)
-	}
 
 	log.Printf("Kangxiaoban 后端服务启动: http://0.0.0.0:%s (db=%s)", cfg.Server.Port, cfg.Database.Driver)
 	server := &http.Server{

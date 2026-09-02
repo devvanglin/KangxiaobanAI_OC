@@ -1,295 +1,39 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>康小伴 · 康养护理中枢</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>智慧养老系统数据大屏</title>
 <style>
-  :root{
-    --ink:#0d253d; --ink-2:#273951; --mute:#64748d; --primary:#533afd; --primary-soft:#665efd;
-    --primary-bg:#eef0ff; --canvas:#ffffff; --soft:#f6f9fc; --hairline:#e3e8ee;
-    --ruby:#ea2261; --amber:#b45309; --green:#15803d; --green-bg:#ecfdf5; --red-bg:#fdf2f4;
-  }
-  *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}
-  html,body{height:100%;}
-  body{
-    font-family:'Inter','PingFang SC','Microsoft YaHei',system-ui,-apple-system,sans-serif;
-    background:var(--canvas); color:var(--ink);
-    font-weight:300; display:flex; flex-direction:column; min-height:100vh; overflow:hidden;
-  }
-  /* 顶部极简导航 */
-  .top{display:flex; align-items:center; gap:24px; padding:16px 28px; border-bottom:1px solid var(--hairline);}
-  .brand{display:flex; align-items:center; gap:10px;}
-  .brand .mark{width:28px;height:28px;border-radius:8px;background:var(--primary);}
-  .brand .name{font-size:15px;font-weight:500;letter-spacing:-.2px;}
-  .brand .sub{font-size:12px;color:var(--mute);letter-spacing:.3px;}
-  .nav{display:flex;gap:4px; margin-left:8px;}
-  .nav a{padding:7px 14px;border-radius:999px;font-size:14px;color:var(--mute);text-decoration:none;cursor:pointer;font-weight:400;}
-  .nav a.active{background:var(--primary-bg);color:var(--primary);}
-  .sp{flex:1;}
-  .meta{display:flex;align-items:center;gap:14px;font-size:13px;color:var(--mute);}
-  .dot{width:7px;height:7px;border-radius:50%;display:inline-block;}
-  .dot.on{background:#22c55e;} .dot.off{background:#f43f5e;}
-  .clock{font-variant-numeric:tabular-nums;color:var(--ink-2);font-weight:400;}
-
-  .wrap{flex:1;min-height:0;overflow:hidden;position:relative;}
-  .view{display:none;flex-direction:column;height:100%;padding:24px 28px;gap:20px;overflow:auto;}
-  .view.show{display:flex;}
-  .head{display:flex;align-items:baseline;gap:12px;}
-  .head h1{font-size:26px;font-weight:300;letter-spacing:-.6px;}
-  .head .hint{font-size:13px;color:var(--mute);font-weight:400;}
-
-  /* 统计卡：极简数字 */
-  .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;}
-  .stat{background:var(--canvas);border:1px solid var(--hairline);border-radius:12px;padding:18px 20px;}
-  .stat .k{font-size:12px;color:var(--mute);letter-spacing:.2px;font-weight:400;}
-  .stat .v{font-size:34px;font-weight:300;letter-spacing:-1px;margin-top:6px;font-variant-numeric:tabular-nums;}
-  .stat .v em{font-style:normal;font-size:14px;color:var(--mute);font-weight:400;letter-spacing:0;margin-left:4px;}
-  .stat.acc .v{color:var(--primary);}
-  .stat.alert .v{color:var(--ruby);}
-
-  .grid{display:grid;list-style:none;grid-template-columns:1.5fr 1fr;gap:14px;flex:1;min-height:0;}
-  .panel{background:var(--canvas);border:1px solid var(--hairline);border-radius:12px;display:flex;flex-direction:column;min-height:0;box-shadow:rgba(13,37,61,.04) 0 1px 2px;}
-  .panel .phead{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--hairline);}
-  .panel .phead h3{font-size:15px;font-weight:500;letter-spacing:-.2px;}
-  .panel .phead .tag{font-size:11px;color:var(--mute);}
-  .panel .phead .sp{flex:1;}
-  .btn{padding:7px 16px;border-radius:999px;font-size:13px;cursor:pointer;border:1px solid transparent;font-weight:400;}
-  .btn.pri{background:var(--primary);color:#fff;}
-  .btn.pri:hover{background:var(--primary-soft);}
-  .btn.sec{border-color:var(--hairline);color:var(--ink);background:var(--canvas);}
-  .btn.sec:hover{border-color:var(--primary);color:var(--primary);}
-  .panel .pbody{overflow:auto;padding:6px 8px;flex:1;font-size:13px;}
-  .panel .pbody::-webkit-scrollbar{width:6px;height:6px;}
-  .panel .pbody::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}
-
-  table{width:100%;border-collapse:collapse;}
-  th{font-size:11px;color:var(--mute);font-weight:400;text-align:left;letter-spacing:.4px;text-transform:uppercase;padding:10px 12px;border-bottom:1px solid var(--hairline);}
-  td{padding:11px 12px;border-bottom:1px solid var(--hairline);color:var(--ink-2);font-weight:300;font-variant-numeric:tabular-nums;}
-  tr:last-child td{border-bottom:none;}
-  .num{font-variant-numeric:tabular-nums;}
-  .lv{display:inline-block;padding:2px 9px;border-radius:6px;font-size:11px;font-weight:400;}
-  .lv.emergency{background:var(--red-bg);color:var(--ruby);}
-  .lv.important{background:#fef3c7;color:var(--amber);}
-  .lv.info{background:var(--soft);color:var(--mute);}
-  .st{font-size:11px;padding:2px 8px;border-radius:6px;background:var(--soft);color:var(--mute);}
-  .st.paid{background:var(--green-bg);color:var(--green);}
-  .st.partial{background:#fef3c7;color:var(--amber);}
-  .st.closed{opacity:.45;}
-  .money{color:var(--ink);font-weight:400;}
-  .ok{color:var(--green);}.bad{color:var(--ruby);}
-
-  .formbar{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--hairline);flex-wrap:wrap;}
-  .formbar input,.formbar textarea{background:var(--canvas);border:1px solid var(--hairline);color:var(--ink);border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;font-weight:300;min-width:110px;}
-  .formbar input:focus,.formbar textarea:focus{outline:none;border-color:var(--primary);}
-  .formbar input[style*="flex"]{flex:2;min-width:130px;}
-  .cap{font-size:12px;color:var(--mute);padding:10px 18px;border-top:1px solid var(--hairline);}
-
-  .overlay{position:fixed;inset:0;background:rgba(13,37,61,.25);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:50;}
-  .overlay.show{display:flex;}
-  .login{background:var(--canvas);border:1px solid var(--hairline);border-radius:16px;padding:32px;width:340px;box-shadow:rgba(13,37,61,.1) 0 20px 60px;}
-  .login h3{font-size:18px;font-weight:500;margin-bottom:4px;letter-spacing:-.3px;}
-  .login .lsub{font-size:13px;color:var(--mute);margin-bottom:18px;}
-  .login input{width:100%;background:var(--soft);border:1px solid var(--hairline);color:var(--ink);border-radius:8px;padding:11px 12px;margin-bottom:12px;font-size:14px;font-weight:300;font-family:inherit;}
-  .login input:focus{outline:none;border-color:var(--primary);background:#fff;}
-  .login button{width:100%;background:var(--primary);color:#fff;border:0;padding:12px;border-radius:10px;font-size:15px;cursor:pointer;font-weight:400;}
-  .login button:hover{background:var(--primary-soft);}
-  .login .err{color:var(--ruby);font-size:12px;margin-top:8px;min-height:16px;}
-  @media(max-width:1080px){.grid{grid-template-columns:1fr;}.stats{grid-template-columns:repeat(3,1fr);}}
+.dashboard{margin-top:12px}.top-grid,.lower-grid{display:grid;grid-template-columns:1.15fr 1.15fr .76fr;gap:12px}.lower-grid{margin-top:12px;grid-template-rows:62px minmax(360px,1fr)}.left-stack{display:contents}.top-grid .overview{grid-column:1}.top-grid .status{grid-column:2}.top-grid .habits{grid-column:3}.lower-grid .filters{grid-column:1;grid-row:1}.lower-grid .table-panel{grid-column:1;grid-row:2}.lower-grid .severity{grid-column:2;grid-row:1 / span 2}.lower-grid .disease{grid-column:2;grid-row:3}.lower-grid>.chart-panel:last-child{grid-column:3;grid-row:1 / span 3}
+:root{--bg:#f3f5f7;--panel:#fff;--line:#e8edf2;--ink:#17212b;--muted:#7a858f;--blue:#4aa8ee;--blue2:#9bcafa;--green:#5bb38a;--amber:#f5b94d;--sand:#f8dca5;--deep:#5c7fa4}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Microsoft YaHei",sans-serif;color:var(--ink);background:var(--bg)}
+.screen{padding:12px;min-height:100vh}.top{height:76px;padding:0 38px;display:flex;align-items:center;justify-content:center;position:relative;background:linear-gradient(100deg,#e5f3ff,#cfe7fb 55%,#e5f3ff);border:1px solid #dcecf8}.top h1{font-size:34px;letter-spacing:.06em;font-weight:600;color:#155a9b;margin:0}.top .time{position:absolute;right:28px;color:#1f609d;font-size:16px;font-weight:500}.top .mark{position:absolute;left:56px;display:grid;place-items:center;width:52px;height:52px;border-radius:17px;background:#4aa8ee;color:#fff;font-size:25px}.layout{display:grid;grid-template-columns:1.15fr 1.15fr .76fr;grid-template-rows:auto 1fr 1fr;gap:12px;margin-top:12px}.panel{background:var(--panel);border:1px solid var(--line);min-width:0;overflow:hidden}.panel h2{margin:0;padding:26px 18px 12px;font-size:21px;font-weight:500}.overview{grid-column:1;grid-row:1}.status{grid-column:2;grid-row:1}..habits{grid-column:3;grid-row:1}..metrics{display:grid;grid-template-columns:repeat(3,1fr);padding:15px 14px 25px;gap:8px}.metric{padding:10px 16px;border-left:1px solid var(--line)}.metric:first-child{border-left:0}.metric label{display:block;color:var(--muted);font-size:16px}.metric b{display:block;margin-top:9px;font-size:30px;line-height:1;font-weight:500;color:#3d4d59}.filters{grid-column:1;grid-row:2;display:flex;align-items:center;gap:18px;padding:14px 28px;background:#fff}.filters label{font-size:14px}.filters select{height:38px;min-width:200px;padding:0 12px;border:1px solid #d7e0e8;border-radius:5px;background:#fff;color:#9aa4ad;font-size:14px}.table-panel{grid-column:1;grid-row:3;min-height:360px}.table-wrap{padding:0 16px 14px;height:calc(100% - 62px);overflow:auto}.table-wrap table{width:100%;border-collapse:collapse;font-size:14px}.table-wrap th{background:#5aa9eb;color:white;font-weight:500;padding:10px 8px;white-space:nowrap}.table-wrap td{padding:9px 8px;text-align:center;border-bottom:1px solid #edf0f3;white-space:nowrap}.table-wrap tr:nth-child(even){background:#f7f8fa}.chart-panel{padding-bottom:16px}.severity{grid-column:2;grid-row:2}.disease{grid-column:2;grid-row:3}.chart{padding:10px 28px 25px}.bars{height:220px;display:flex;align-items:flex-end;gap:22px;border-bottom:1px solid #dfe5ea;background:repeating-linear-gradient(to top,transparent 0,transparent 43px,#e8edf2 44px)}.bar-col{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:6px}.bar{width:34px;background:linear-gradient(var(--blue),#76c8a0);border-radius:2px 2px 0 0;min-height:3px}.bar-col:nth-child(2) .bar{background:var(--blue)}.bar-col:nth-child(3) .bar{background:#9ed5bd}.bar-col:nth-child(4) .bar{background:#acd3f7}.bar-col:nth-child(5) .bar{background:var(--amber)}.bar-col:nth-child(6) .bar{background:var(--sand)}.bar-col span{font-size:13px;color:var(--muted)}.legend{display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin-top:14px;color:var(--muted);font-size:13px}.legend i{display:inline-block;width:9px;height:9px;margin-right:5px}.donuts{display:grid;grid-template-columns:1fr;gap:30px;padding:12px 24px 30px}.donut-row{display:flex;align-items:center;justify-content:center;gap:18px}.donut{width:126px;height:126px;border-radius:50%;background:conic-gradient(var(--amber) 0 25%,var(--sand) 25% 52%,var(--blue) 52% 78%,var(--blue2) 78% 100%);position:relative}.donut:after{content:"";position:absolute;inset:29px;border-radius:50%;background:#fff}.donut-label{display:flex;flex-direction:column;gap:8px;color:var(--muted);font-size:13px}.donut-label span:before{content:"";display:inline-block;width:9px;height:9px;margin-right:6px;background:var(--blue);}.donut-label span:nth-child(2):before{background:var(--blue2)}.donut-label span:nth-child(3):before{background:var(--amber)}.donut-label span:nth-child(4):before{background:var(--sand)}
+.habits{grid-column:3;grid-row:1}.metrics{display:grid;grid-template-columns:repeat(3,1fr);padding:15px 14px 25px;gap:8px}.filters{align-self:start;height:62px;padding:10px 28px}
+@media(max-width:1100px){.top-grid,.lower-grid{grid-template-columns:1fr 1fr}.top-grid .overview,.top-grid .status,.top-grid .habits,.lower-grid .filters,.lower-grid .table-panel,.lower-grid .severity,.lower-grid .disease,.lower-grid>.chart-panel:last-child{grid-column:auto;grid-row:auto}.top-grid .habits,.lower-grid>.chart-panel:last-child{grid-column:1 / -1}.lower-grid{grid-template-rows:none}.top h1{font-size:28px}.top .mark{left:24px}.top .time{font-size:13px;right:18px}}
+@media(max-width:680px){.screen{padding:6px}.top{height:64px;padding:0 10px}.top h1{font-size:20px}.top .mark{display:none}.top .time{font-size:11px}.top-grid,.lower-grid{display:flex;flex-direction:column}.metrics{padding-bottom:20px}.metric{padding:8px}.metric label{font-size:13px}.metric b{font-size:24px}.filters{flex-wrap:wrap;padding:16px}.filters select{flex:1;min-width:130px}.table-panel{min-height:350px}.donut{width:108px;height:108px}}
 </style>
 </head>
-<body>
-
-<header class="top">
-  <div class="brand">
-    <div class="mark"></div>
-    <div>
-      <div class="name">康小伴 · 康养护理中枢</div>
-      <div class="sub">KangXiaoBan Care Command Center</div>
-    </div>
-  </div>
-  <nav class="nav" id="tabBar">
-    <a class="active" data-v="overview">总览</a>
-    <a data-v="finance">费用账单</a>
-    <a data-v="schedule">排班交接</a>
-  </nav>
-  <div class="sp"></div>
-  <div class="meta">
-    <span><span class="dot" id="wsDot"></span><span id="wsText">连接中</span></span>
-    <span class="clock" id="clock">--:--</span>
-  </div>
-</header>
-
-<div class="wrap">
-
-  <!-- 总览 -->
-  <section class="view show" id="v-overview">
-    <div class="head"><h1>全院实时总览</h1><span class="hint">数据 6 秒刷新 · 来自康养护理中枢 API</span></div>
-    <div class="stats">
-      <div class="stat"><div class="k">在住长者</div><div class="v" id="stElders">-<em>人</em></div></div>
-      <div class="stat"><div class="k">在线设备</div><div class="v" id="stDevices">-<em>/<span id="stDevTotal">-</span></em></div></div>
-      <div class="stat alert"><div class="k">待处理告警</div><div class="v" id="stAlerts">-<em>条</em></div></div>
-      <div class="stat"><div class="k">待办任务</div><div class="v" id="stTasks">-<em>项</em></div></div>
-      <div class="stat acc"><div class="k">待缴费用</div><div class="v" id="stBills">-<em>元</em></div></div>
-    </div>
-    <div class="grid">
-      <div class="panel"><div class="phead"><h3>实时告警</h3><span class="tag">按级别</span><span class="sp"></span><button class="btn sec" onclick="refreshAll()">刷新</button></div>
-        <div class="pbody"><table><thead><tr><th>时间</th><th>级别</th><th>内容</th><th>设备</th><th>状态</th></tr></thead><tbody id="alertRows"></tbody></table></div></div>
-      <div class="panel"><div class="phead"><h3>设备在线</h3><span class="tag" id="devCount">-</span></div>
-        <div class="pbody"><table><thead><tr><th>设备</th><th>类型</th><th>状态</th><th>上报</th></tr></thead><tbody id="deviceRows"></tbody></table></div></div>
-    </div>
-  </section>
-
-  <!-- 费用 -->
-  <section class="view" id="v-finance">
-    <div class="head"><h1>费用账单</h1><span class="hint">月度出账与收缴</span><span class="sp"></span><button class="btn pri" onclick="genBills()">生成本月账单</button></div>
-    <div class="stats">
-      <div class="stat"><div class="k">本月账单</div><div class="v" id="bCount">-<em>笔</em></div></div>
-      <div class="stat acc"><div class="k">应缴合计</div><div class="v" id="bSum">-<em>元</em></div></div>
-      <div class="stat"><div class="k">已缴</div><div class="v" id="bPaid">-<em>元</em></div></div>
-      <div class="stat alert"><div class="k">待缴</div><div class="v" id="bDue">-<em>元</em></div></div>
-      <div class="stat"><div class="k">缴费率</div><div class="v" id="bRate">-</div></div>
-    </div>
-    <div class="panel" style="flex:1"><div class="phead"><h3>月度账单明细</h3><span class="tag">金额均十位对齐</span></div>
-      <div class="pbody"><table><thead><tr><th>月份</th><th>长者</th><th>床位</th><th>护理</th><th>餐费</th><th>合计</th><th>已缴</th><th>状态</th><th></th></tr></thead><tbody id="billRows"></tbody></table></div></div>
-  </section>
-
-  <!-- 排班 -->
-  <section class="view" id="v-schedule">
-    <div class="head"><h1>排班与交接</h1><span class="hint">班组任务与责任交接</span></div>
-    <div class="grid">
-      <div class="panel"><div class="phead"><h3>排班</h3><span class="tag" id="schCount">-</span></div>
-        <div class="pbody"><table><thead><tr><th>日期</th><th>员工</th><th>班次</th><th>负责房间</th></tr></thead><tbody id="scheduleRows"></tbody></table></div>
-        <div class="formbar"><input id="scStaff" placeholder="员工"><input id="scDate" placeholder="日期 YYYY-MM-DD"><input id="scShift" placeholder="班次"><button class="btn pri" onclick="addSchedule()">新增</button></div></div>
-      <div class="panel"><div class="phead"><h3>交接班</h3></div>
-        <div class="pbody"><table><thead><tr><th>日期</th><th>交班 → 接班</th><th>摘要</th><th>问题</th></tr></thead><tbody id="handoverRows"></tbody></table></div>
-        <div class="formbar"><input id="hoFrom" placeholder="交班"><input id="hoTo" placeholder="接班"><textarea style="flex:2;min-width:130px;display:block" id="hoSum" placeholder="交接摘要"></textarea><button class="btn pri" onclick="addHandover()">记录</button></div></div>
-    </div>
-  </section>
-
+<body><div class="screen"><header class="top"><div class="mark">康</div><h1>智慧养老系统数据大屏</h1><div class="time" id="clock">--</div></header>
+<main class="dashboard">
+<div class="top-grid">
+<section class="panel overview"><h2>老年用户概况</h2><div class="metrics"><div class="metric"><label>总用户数</label><b id="totalElders">—</b></div><div class="metric"><label>男性用户数</label><b id="maleElders">—</b></div><div class="metric"><label>女性用户数</label><b id="femaleElders">—</b></div></div></section>
+<section class="panel status"><h2>用户患病情况</h2><div class="metrics"><div class="metric"><label>患病用户数</label><b id="alertElders">—</b></div><div class="metric"><label>健康用户数</label><b id="healthyElders">—</b></div><div class="metric"><label>重度照护用户数</label><b id="care5">—</b></div></div></section>
+<section class="panel habits"><h2>重点生活习惯</h2><div class="metrics"><div class="metric"><label>在线设备</label><b id="onlineDevices">—</b></div><div class="metric"><label>待处理事项</label><b id="openTasks">—</b></div></div></section>
 </div>
-
-<div class="overlay" id="loginOverlay">
-  <form class="login" onsubmit="return doLogin(event)">
-    <h3>进入康养护理中枢</h3>
-    <div class="lsub">使用机构分配的正式账号登录</div>
-    <input id="user" autocomplete="username" placeholder="账号">
-    <input id="pass" type="password" autocomplete="current-password" placeholder="密码">
-    <button type="submit">登录</button>
-    <div class="err" id="loginErr"></div>
-  </form>
-</div>
-
+<div class="lower-grid"><div class="left-stack">
+<section class="panel filters"><label>长者</label><select id="elderFilter"><option>请选择长者</option></select><label>照护等级</label><select id="levelFilter"><option>请选择等级</option><option>1级照护</option><option>2级照护</option><option>3级照护</option><option>4级照护</option><option>5级照护</option></select></section>
+<section class="panel table-panel"><h2>用户健康状况详请</h2><div class="table-wrap"><table><thead><tr><th>用户ID</th><th>姓名</th><th>性别</th><th>照护等级</th><th>在线设备</th><th>状态</th></tr></thead><tbody id="elderRows"><tr><td colspan="6">加载中</td></tr></tbody></table></div></section>
+<section class="panel chart-panel severity"><h2>照护等级分布</h2><div class="chart"><div class="bars" id="levelBars"></div><div class="legend" id="levelLegend"></div></div></section>
+<section class="panel chart-panel disease"><h2>年龄分布</h2><div class="chart"><div class="bars" id="ageBars"></div><div class="legend"><span>长者人数</span></div></div></section>
+<section class="panel chart-panel"><h2>设备与事项状态</h2><div class="donuts"><div class="donut-row"><div class="donut" id="deviceDonut"></div><div class="donut-label"><span>在线设备</span><span>离线设备</span></div></div><div class="donut-row"><div class="donut" id="taskDonut"></div><div class="donut-label"><span>待处理事项</span><span>其余事项</span></div></div></div></section>
+</div></div></main></div>
 <script>
-const API_BASE='/api/v1';
-const WS_BASE=(location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/api/v1/ws';
-const $=id=>document.getElementById(id);
-let token=sessionStorage.getItem('kxb_token')||'', ws=null;
-let elderNames=new Map();
-let elderNamesPromise=null;
-
-document.getElementById('tabBar').addEventListener('click',e=>{
-  const a=e.target.closest('a'); if(!a)return;
-  document.querySelectorAll('#tabBar a').forEach(x=>x.classList.remove('active'));
-  a.classList.add('active');
-  document.querySelectorAll('.view').forEach(v=>v.classList.remove('show'));
-  $('v-'+a.dataset.v).classList.add('show');
-});
-function setWs(ok,t){$('wsText').textContent=t;$('wsDot').className='dot '+(ok?'on':'off');}
-function clock(){const d=new Date(),p=n=>String(n).padStart(2,'0');
-  $('clock').textContent=p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());}
-function api(p){return fetch(API_BASE+p,{headers:{'Authorization':'Bearer '+token}}).then(r=>r.json());}
-function auth(p,o){o=o||{};o.headers=Object.assign({'Content-Type':'application/json','Authorization':'Bearer '+token},o.headers||{});return fetch(API_BASE+p,o).then(r=>r.json());}
-async function apiAll(path,size=200){
-  const list=[]; let page=1,total=0;
-  while(page<=1000){
-    const sep=path.includes('?')?'&':'?';
-    const r=await api(path+sep+'page='+page+'&size='+size);
-    if(r.code!==0||!r.data)return r;
-    const batch=r.data.list||[]; list.push(...batch); total=Number(r.data.total||0);
-    if(batch.length===0||list.length>=total||batch.length<size)break;
-    page++;
-  }
-  return {code:0,msg:'',data:{list:list,total:Math.max(total,list.length),page:1,size:list.length}};
-}
-
-async function refreshElderNames(){
-  if(elderNamesPromise)return elderNamesPromise;
-  elderNamesPromise=apiAll('/elders').then(r=>{
-    if(r.code!==0||!r.data)return;
-    const next=new Map();
-    (r.data.list||[]).forEach(e=>{
-      const id=Number(e.id),name=String(e.name||'').trim();
-      if(id>0&&name)next.set(id,name);
-    });
-    elderNames=next;
-  }).catch(()=>{}).finally(()=>{elderNamesPromise=null;});
-  return elderNamesPromise;
-}
-
-function elderDisplayName(id){
-  return elderNames.get(Number(id))||'长者姓名未返回';
-}
-
-async function doLogin(e){e.preventDefault();$('loginErr').textContent='';
-  const r=await auth('/auth/login',{method:'POST',body:JSON.stringify({username:$('user').value,password:$('pass').value})});
-  if(r.code===0&&r.data&&r.data.token){token=r.data.token;sessionStorage.setItem('kxb_token',token);$('loginOverlay').classList.remove('show');connectWs();refreshAll();}
-  else $('loginErr').textContent=r.msg||'登录失败';}
-
-async function restoreSession(){
-  if(!token){$('loginOverlay').classList.add('show');return;}
-  try{
-    const r=await api('/auth/me');
-    if(r.code===0){$('loginOverlay').classList.remove('show');connectWs();refreshAll();return;}
-  }catch(_){ }
-  token='';sessionStorage.removeItem('kxb_token');$('loginOverlay').classList.add('show');
-}
-
-const LVN={emergency:'紧急',important:'重要',info:'提示'};
-function lvc(l){return l==='emergency'?'lv emergency':(l==='important'?'lv important':'lv info');}
-function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
-function ft(t){if(!t)return'-';const d=new Date(t),p=n=>String(n).padStart(2,'0');return p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());}
-const money=n=>Number(n||0).toLocaleString('zh-CN',{minimumFractionDigits:0});
-
-function refreshSummary(){api('/dashboard/summary').then(r=>{if(r.code!==0||!r.data)return;const d=r.data;
-  $('stElders').innerHTML=d.elders.in_bed+'<em>人</em>';
-  $('stDevices').innerHTML=d.devices.online+'<em>/'+(d.devices.total||0)+'</em>';
-  $('stAlerts').innerHTML=d.alerts.new+'<em>条</em>';
-  $('stTasks').innerHTML=d.tasks.todo+'<em>项</em>';
-  $('stBills').innerHTML=money(d.bills.unpaid_sum)+'<em>元</em>';});}
-
-function refreshAlerts(){apiAll('/alerts').then(r=>{if(r.code!==0)return;const l=r.data.list||[];
-  const o={emergency:0,important:1,info:2};l.sort((a,b)=>(o[a.level]||9)-(o[b.level]||9));
-  $('alertRows').innerHTML=l.map(a=>`<tr><td>${ft(a.create_time)}</td><td><span class="${lvc(a.level)}">${LVN[a.level]||a.level}</span></td><td>${esc(a.content)}</td><td style="color:var(--mute)">${esc(a.device_id)}</td><td><span class="st ${a.status==='closed'?'closed':''}">${a.status}</span></td></tr>`).join('')||'<tr><td colspan="5" style="color:var(--mute)">暂无告警</td></tr>';});}
-function refreshDevices(){apiAll('/iot/devices').then(r=>{if(r.code!==0)return;const l=r.data.list||[];let on=0;l.forEach(d=>{if(d.online===1)on++;});$('devCount').textContent=String(on)+' / '+l.length+' 在线';
-  l.sort((a,b)=>(b.online||0)-(a.online||0));
-  $('deviceRows').innerHTML=l.map(d=>`<tr><td>${esc(d.device_id)}</td><td style="color:var(--mute)">${esc(d.product)}</td><td>${d.online===1?'<span class="ok">● 在线</span>':'<span class="bad">● 离线</span>'}</td><td style="color:var(--mute)">${d.last_seen?ft(d.last_seen):'-'}</td></tr>`).join('')||'<tr><td colspan="4" style="color:var(--mute)">暂无设备</td></tr>';});}
-
-async function refreshBills(){if(elderNames.size===0)await refreshElderNames();return apiAll('/bills').then(r=>{if(r.code!==0)return;const l=r.data.list||[];let sum=0,paid=0;
-  l.forEach(b=>{sum+=b.amount;paid+=b.paid;});
-  $('bCount').textContent=l.length;$('bSum').textContent=money(sum);$('bPaid').textContent=money(paid);$('bDue').textContent=money(sum-paid);
-  $('bRate').textContent=(sum?Math.round(paid/sum*100):0)+'%';
-  $('billRows').innerHTML=l.map(b=>`<tr><td>${esc(b.bill_month)}</td><td>${esc(elderDisplayName(b.elder_id))}</td><td>${b.bed_fee}</td><td>${b.nursing_fee}</td><td>${b.meal_fee}</td><td class="money">${b.amount}</td><td>${b.paid}</td><td><span class="st ${b.status==='paid'?'paid':(b.status==='partial'?'partial':'')}">${b.status}</span></td><td>${b.paid>=b.amount?'':`<button class="btn sec" onclick="payBill(${b.elder_id},'${b.bill_month}')">缴费</button>`}</td></tr>`).join('')||'<tr><td colspan="9" style="color:var(--mute)">暂无账单</td></tr>';});}
-function genBills(){auth('/bills/generate',{method:'POST'}).then(r=>{alert('本月账单已生成：'+(r.data?r.data.created:0)+' 笔');refreshBills();});}
-function payBill(eld,month){const amt=parseFloat(prompt('为'+elderDisplayName(eld)+'缴纳 '+month+' 金额：'));if(!amt)return;
-  auth('/bills/pay',{method:'POST',body:JSON.stringify({elder_id:Number(eld),month:month,amount:amt})}).then(()=>refreshBills());}
-
-function refreshSchedules(){apiAll('/schedules').then(r=>{if(r.code!==0)return;const l=r.data.list||[];$('schCount').textContent=l.length+' 条';
-  $('scheduleRows').innerHTML=l.map(s=>`<tr><td>${esc(s.work_date)}</td><td>${esc(s.staff)}</td><td>${esc(s.shift)}</td><td style="color:var(--mute)">${esc(s.room_scope)}</td></tr>`).join('')||'<tr><td colspan="4" style="color:var(--mute)">暂无排班</td></tr>';});}
-function refreshHandovers(){apiAll('/handovers').then(r=>{if(r.code!==0)return;const l=r.data.list||[];
-  $('handoverRows').innerHTML=l.map(h=>`<tr><td>${esc(h.work_date)}</td><td>${esc(h.from_staff)} → ${esc(h.to_staff)}</td><td>${esc(h.summary)}</td><td style="color:var(--amber)">${esc(h.issues)}</td></tr>`).join('')||'<tr><td colspan="4" style="color:var(--mute)">暂无交接</td></tr>';});}
-function addSchedule(){auth('/schedules',{method:'POST',body:JSON.stringify({staff:$('scStaff').value,work_date:$('scDate').value,shift:$('scShift').value,room_scope:''})}).then(refreshSchedules);}
-function localDate(){const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
-function addHandover(){auth('/handovers',{method:'POST',body:JSON.stringify({from_staff:$('hoFrom').value,to_staff:$('hoTo').value,work_date:localDate(),summary:$('hoSum').value})}).then(refreshHandovers);}
-
-function connectWs(){if(!token)return;if(ws){try{ws.close();}catch(e){}}ws=new WebSocket(WS_BASE+'?token='+encodeURIComponent(token));
-  ws.onopen=()=>setWs(true,'实时连接');ws.onmessage=e=>{let ev;try{ev=JSON.parse(e.data);}catch(_){return;}if(ev.type==='alert.new'){refreshAlerts();}};
-  ws.onclose=()=>{setWs(false,'重连中');setTimeout(connectWs,3000);};ws.onerror=()=>{try{ws.close();}catch(_){}};}
-async function refreshAll(){await refreshElderNames();refreshSummary();refreshAlerts();refreshDevices();refreshBills();refreshSchedules();refreshHandovers();}
-
-setInterval(clock,1000);clock();
-restoreSession();
-setInterval(refreshAll,6000);
-</script>
-</body>
-</html>
+const $=id=>document.getElementById(id);const api='/api/v1/public/dashboard';
+function clock(){const d=new Date(),p=n=>String(n).padStart(2,'0');$('clock').textContent=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}  ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;}setInterval(clock,1000);clock();
+function fitTable(){const f=document.querySelector('.filters'),t=document.querySelector('.table-panel');if(!f||!t||innerWidth<681)return;const gap=t.getBoundingClientRect().top-f.getBoundingClientRect().bottom;if(gap>4){t.style.transform=`translateY(${-gap}px)`;t.style.marginBottom=`${-gap}px`;}}
+addEventListener('load',()=>setTimeout(fitTable,30));addEventListener('resize',()=>setTimeout(fitTable,30));
+function esc(s){return String(s??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]));}
+function drawBars(target,data,colors){const max=Math.max(1,...Object.values(data));$(target).innerHTML=Object.entries(data).map(([k,v],i)=>`<div class="bar-col"><b>${v}</b><div class="bar" style="height:${Math.max(3,v/max*180)}px;background:${colors[i%colors.length]}"></div><span>${esc(k)}</span></div>`).join('');}
+function setDonut(id,part){const safe=Math.max(0,Math.min(100,Number(part)||0));$(id).style.background=`conic-gradient(var(--blue) 0 ${safe}%,var(--blue2) ${safe}% 100%)`;}
+async function load(){try{const r=await fetch(api).then(x=>x.json());if(r.code!==0)return;const d=r.data||{},e=d.elders||{},g=d.gender||{},levels=d.care_levels||{},ages=d.age_buckets||{};const total=Number(e.in_bed||0),male=Number(g['男']||0),female=Number(g['女']||0),online=Number(d.devices?.online||0),deviceTotal=Number(d.devices?.total||0),todo=Number(d.tasks?.todo||0);$('totalElders').textContent=total;$('maleElders').textContent=male;$('femaleElders').textContent=female;$('onlineDevices').textContent=`${online}/${deviceTotal}`;$('openTasks').textContent=todo;$('alertElders').textContent=d.alerts?.emergency||0;$('healthyElders').textContent=Math.max(0,total-Number(d.alerts?.emergency||0));$('care5').textContent=levels['5级照护']||0;setDonut('deviceDonut',deviceTotal?online/deviceTotal*100:0);setDonut('taskDonut',todo?Math.min(100,todo/Math.max(todo,total)*100):0);drawBars('levelBars',levels,['#5bb38a','#8fc9a9','#acd3f7','#f5b94d','#f8dca5']);drawBars('ageBars',ages,['#4aa8ee','#8fc9f7','#9ed5bd','#f5b94d','#f8dca5']);const rows=d.elder_rows||[];$('elderRows').innerHTML=rows.map(x=>`<tr><td>${esc(x.id)}</td><td>${esc(x.name)}</td><td>${esc(x.gender||'—')}</td><td>${esc(x.care_level)}</td><td>—</td><td>在住</td></tr>`).join('')||'<tr><td colspan="6">暂无长者数据</td></tr>';const sel=$('elderFilter');if(sel.options.length===1)rows.forEach(x=>{const o=document.createElement('option');o.textContent=x.name;o.value=x.id;sel.appendChild(o);});}catch(e){$('elderRows').innerHTML='<tr><td colspan="6">数据暂不可用</td></tr>';}}
+load();setInterval(load,6000);
+</script></body></html>

@@ -89,6 +89,8 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 
 	// 公开：登录
 	r.POST("/api/v1/auth/login", authHandler.Login)
+	// 公共展示屏：仅返回脱敏聚合数据，无需登录。
+	r.GET("/api/v1/public/dashboard", dashboardHandler.PublicSummary)
 	// WebSocket 实时推送：token 经 query 或 Authorization 头，由 WSHandler 自行校验
 	r.GET("/api/v1/ws", wsHandler.Serve)
 

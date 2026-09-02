@@ -10,7 +10,6 @@ services:
       - "80:8080"
     environment:
       KXB_SERVER_PORT: "8080"
-      KXB_STATIC_DIR: "/showcase"
       KXB_DB_DRIVER: "sqlite"
       KXB_DB_SQLITE_PATH: "/data/kangxiaoban.db"
       # Keep private admission photos beside the persistent database volume;
@@ -25,4 +24,3 @@ services:
       KXB_SEED_BUSINESS: "true"
     volumes:
       - ./data:/data
-      - ../showcase:/showcase:ro

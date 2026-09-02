@@ -60,6 +60,122 @@ func (h *DashboardHandler) Summary(c *gin.Context) {
 	})
 }
 
+// PublicSummary GET /api/v1/public/dashboard —— 养老院公共展示屏只读摘要。
+// 仅返回全院聚合数字和脱敏状态，不返回长者姓名、身份证、房间明细或账单明细。
+func (h *DashboardHandler) PublicSummary(c *gin.Context) {
+	db := h.db.WithContext(c.Request.Context())
+	var (
+		eldersInBed, devicesTotal, devicesOnline, alertsNew, alertsEmergency, tasksTodo int64
+		unpaidSum                                                                       float64
+	)
+	var elders []model.Elder
+	if err := db.Where("status = 2").Order("id").Find(&elders).Error; err != nil {
+		Fail(c, 500, 500, "查询公开长者数据失败")
+		return
+	}
+	db.Model(&model.Elder{}).Where("status = 2").Count(&eldersInBed)
+	db.Model(&model.IotDevice{}).Count(&devicesTotal)
+	db.Model(&model.IotDevice{}).Where("online = 1").Count(&devicesOnline)
+	db.Model(&model.Alert{}).Where("status = 'new'").Count(&alertsNew)
+	db.Model(&model.Alert{}).Where("level = 'emergency' AND status != 'closed'").Count(&alertsEmergency)
+	db.Model(&model.CareTask{}).Where("status = 'todo'").Count(&tasksTodo)
+	db.Model(&model.Bill{}).Where("status = 'unpaid' OR status = 'partial'").Select("COALESCE(SUM(amount - paid),0)").Scan(&unpaidSum)
+
+	var alerts []model.Alert
+	if err := db.Order("create_time desc, id desc").Limit(12).Find(&alerts).Error; err != nil {
+		Fail(c, 500, 500, "查询公开大屏数据失败")
+		return
+	}
+	recentAlerts := make([]gin.H, 0, len(alerts))
+	for _, alert := range alerts {
+		level := "关注"
+		if alert.Level == "emergency" {
+			level = "紧急"
+		} else if alert.Status == "closed" || alert.Status == "handled" {
+			level = "完成"
+		}
+		recentAlerts = append(recentAlerts, gin.H{
+			"create_time": alert.CreateTime,
+			"level":       level,
+			"type":        alertTitle(alert.Type),
+			"status":      alert.Status,
+		})
+	}
+
+	var devices []model.IotDevice
+	if err := db.Order("online desc, last_seen desc, id desc").Limit(12).Find(&devices).Error; err != nil {
+		Fail(c, 500, 500, "查询公开设备数据失败")
+		return
+	}
+	publicDevices := make([]gin.H, 0, len(devices))
+	for _, device := range devices {
+		publicDevices = append(publicDevices, gin.H{
+			"product":   deviceProductLabel(device.Product),
+			"online":    device.Online == 1,
+			"last_seen": device.LastSeen,
+		})
+	}
+	gender := map[string]int{"男": 0, "女": 0}
+	careLevels := map[string]int{"1级照护": 0, "2级照护": 0, "3级照护": 0, "4级照护": 0, "5级照护": 0}
+	ageBuckets := map[string]int{"60岁以下": 0, "60-69岁": 0, "70-79岁": 0, "80-89岁": 0, "90岁以上": 0}
+	publicElders := make([]gin.H, 0, len(elders))
+	now := time.Now()
+	for _, elder := range elders {
+		if elder.Gender == "M" || elder.Gender == "男" {
+			gender["男"]++
+		} else if elder.Gender == "F" || elder.Gender == "女" {
+			gender["女"]++
+		}
+		level := int(elder.CareLevel)
+		if level < 1 {
+			level = 1
+		}
+		if level > 5 {
+			level = 5
+		}
+		careLevels[fmt.Sprintf("%d级照护", level)]++
+		age := 0
+		if birth, err := time.Parse("2006-01-02", elder.BirthDate); err == nil {
+			age = now.Year() - birth.Year()
+			if now.YearDay() < birth.YearDay() {
+				age--
+			}
+		}
+		switch {
+		case age > 0 && age < 60:
+			ageBuckets["60岁以下"]++
+		case age < 70:
+			ageBuckets["60-69岁"]++
+		case age < 80:
+			ageBuckets["70-79岁"]++
+		case age < 90:
+			ageBuckets["80-89岁"]++
+		default:
+			ageBuckets["90岁以上"]++
+		}
+		name := strings.TrimSpace(elder.Name)
+		maskedName := "长者"
+		if name != "" {
+			maskedName = string([]rune(name)[0]) + "某"
+		}
+		publicElders = append(publicElders, gin.H{"id": fmt.Sprintf("ELD-%04d", elder.ID), "name": maskedName,
+			"gender": map[string]string{"M": "男", "F": "女"}[elder.Gender], "care_level": fmt.Sprintf("%d级照护", level)})
+	}
+
+	OK(c, gin.H{
+		"updated_at":  time.Now(),
+		"elders":      gin.H{"in_bed": eldersInBed},
+		"elder_rows":  publicElders,
+		"gender":      gender,
+		"care_levels": careLevels,
+		"age_buckets": ageBuckets,
+		"devices":     gin.H{"total": devicesTotal, "online": devicesOnline, "list": publicDevices},
+		"alerts":      gin.H{"new": alertsNew, "emergency": alertsEmergency, "list": recentAlerts},
+		"tasks":       gin.H{"todo": tasksTodo},
+		"bills":       gin.H{"unpaid_sum": unpaidSum},
+	})
+}
+
 // Policy GET /api/v1/dashboard/policy returns the tenant-owned thresholds used
 // by both dashboard clients and the IoT background service.
 func (h *DashboardHandler) Policy(c *gin.Context) {
