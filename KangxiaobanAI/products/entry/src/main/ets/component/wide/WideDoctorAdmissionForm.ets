@@ -1608,7 +1608,7 @@ export struct WideDoctorAdmissionForm {
         .textAlign(TextAlign.Start)
       Flex({ wrap: FlexWrap.Wrap }) {
         ForEach(options, (option: string) => {
-          Button({ type: ButtonType.Normal, stateEffect: true }) {
+          Button({ type: ButtonType.Capsule, stateEffect: true }) {
             Text(option).fontSize(15)
               .textAlign(TextAlign.Center)
               .fontColor(selected === option ? Color.White : $r('sys.color.font_secondary'))
@@ -1617,7 +1617,6 @@ export struct WideDoctorAdmissionForm {
           .padding(0)
           .height(40)
           .margin({ right: optionWidth <= 72 ? 6 : 8, bottom: 8 })
-          .borderRadius(10)
           .backgroundColor(selected === option ? $r('app.color.brand_blue') :
             $r('sys.color.comp_background_secondary'))
           .border({ width: selected === option ? 0 : 0.5, color: $r('sys.color.comp_divider') })
@@ -1930,7 +1929,7 @@ export struct WideDoctorAdmissionForm {
         .textAlign(TextAlign.Start)
       Row({ space: 6 }) {
         ForEach(['子女', '配偶', '亲属', '其他'], (option: string) => {
-          Button({ type: ButtonType.Normal, stateEffect: true }) {
+          Button({ type: ButtonType.Capsule, stateEffect: true }) {
             Text(option)
               .fontSize(14)
               .textAlign(TextAlign.Center)
@@ -1943,7 +1942,6 @@ export struct WideDoctorAdmissionForm {
           .constraintSize({ minWidth: this.compactWidth ? 56 : 60 })
           .height(40)
           .padding(0)
-          .borderRadius(10)
           .backgroundColor(this.familyRelation === option ? $r('app.color.brand_blue') :
             $r('sys.color.comp_background_secondary'))
           .border({ width: this.familyRelation === option ? 0 : 0.5,
