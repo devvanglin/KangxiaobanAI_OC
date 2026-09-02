@@ -24,32 +24,33 @@ import (
 // intentionally smaller than AdmissionDraftInput and does not contain
 // assessment answers or client-provided scores.
 type AdmissionIntakeInput struct {
-	IdempotencyKey     string  `json:"idempotency_key"`
-	ElderID            *uint   `json:"elder_id"`
-	ResidentName       string  `json:"resident_name"`
-	Gender             string  `json:"gender"`
-	BirthDate          string  `json:"birth_date"`
-	Age                int     `json:"age"`
-	IDCard             string  `json:"id_card"`
-	ContactPhone       string  `json:"contact_phone"`
-	FamilyAddress      string  `json:"family_address"`
-	FamilyName         string  `json:"family_name"`
-	FamilyPhone        string  `json:"family_phone"`
-	FamilyRelation     string  `json:"family_relation"`
-	AdmissionStartDate string  `json:"admission_start_date"`
-	AdmissionEndDate   string  `json:"admission_end_date"`
-	FeeStartDate       string  `json:"fee_start_date"`
-	FeeEndDate         string  `json:"fee_end_date"`
-	RoomType           string  `json:"room_type"`
-	CareLevel          string  `json:"care_level"`
-	BedID              uint    `json:"bed_id"`
-	Deposit            float64 `json:"deposit"`
-	CareFee            float64 `json:"care_fee"`
-	BedFee             float64 `json:"bed_fee"`
-	OtherFee           float64 `json:"other_fee"`
-	MedicalInsurance   float64 `json:"medical_insurance"`
-	Subsidy            float64 `json:"subsidy"`
-	Note               string  `json:"note"`
+	IdempotencyKey     string   `json:"idempotency_key"`
+	ElderID            *uint    `json:"elder_id"`
+	ResidentName       string   `json:"resident_name"`
+	Gender             string   `json:"gender"`
+	BirthDate          string   `json:"birth_date"`
+	Age                int      `json:"age"`
+	IDCard             string   `json:"id_card"`
+	ContactPhone       string   `json:"contact_phone"`
+	FamilyAddress      string   `json:"family_address"`
+	FamilyName         string   `json:"family_name"`
+	FamilyPhone        string   `json:"family_phone"`
+	FamilyRelation     string   `json:"family_relation"`
+	AdmissionStartDate string   `json:"admission_start_date"`
+	AdmissionEndDate   string   `json:"admission_end_date"`
+	FeeStartDate       string   `json:"fee_start_date"`
+	FeeEndDate         string   `json:"fee_end_date"`
+	RoomType           string   `json:"room_type"`
+	CareLevel          string   `json:"care_level"`
+	BedID              uint     `json:"bed_id"`
+	Deposit            float64  `json:"deposit"`
+	CareFee            float64  `json:"care_fee"`
+	BedFee             float64  `json:"bed_fee"`
+	OtherFee           float64  `json:"other_fee"`
+	MedicalInsurance   float64  `json:"medical_insurance"`
+	Subsidy            float64  `json:"subsidy"`
+	Note               string   `json:"note"`
+	PhotoUploadKeys    []string `json:"photo_upload_keys"`
 }
 
 // AdmissionIntakeResult is returned after the transaction commits. The
@@ -78,32 +79,33 @@ type normalizedIntakeInput struct {
 // compared with the original request, while equivalent display labels hash to
 // the same canonical values.
 type intakeFingerprintPayload struct {
-	ElderID            uint    `json:"elder_id,omitempty"`
-	ResidentName       string  `json:"resident_name"`
-	Gender             string  `json:"gender"`
-	BirthDate          string  `json:"birth_date"`
-	Age                int     `json:"age"`
-	IDCard             string  `json:"id_card"`
-	ContactPhone       string  `json:"contact_phone"`
-	FamilyAddress      string  `json:"family_address"`
-	FamilyName         string  `json:"family_name"`
-	FamilyPhone        string  `json:"family_phone"`
-	FamilyRelation     string  `json:"family_relation"`
-	AdmissionStartDate string  `json:"admission_start_date"`
-	AdmissionEndDate   string  `json:"admission_end_date"`
-	FeeStartDate       string  `json:"fee_start_date"`
-	FeeEndDate         string  `json:"fee_end_date"`
-	RoomType           string  `json:"room_type"`
-	CareLevel          int8    `json:"care_level"`
-	CareLevelCode      string  `json:"care_level_code"`
-	BedID              uint    `json:"bed_id"`
-	Deposit            float64 `json:"deposit"`
-	CareFee            float64 `json:"care_fee"`
-	BedFee             float64 `json:"bed_fee"`
-	OtherFee           float64 `json:"other_fee"`
-	MedicalInsurance   float64 `json:"medical_insurance"`
-	Subsidy            float64 `json:"subsidy"`
-	Note               string  `json:"note"`
+	ElderID            uint     `json:"elder_id,omitempty"`
+	ResidentName       string   `json:"resident_name"`
+	Gender             string   `json:"gender"`
+	BirthDate          string   `json:"birth_date"`
+	Age                int      `json:"age"`
+	IDCard             string   `json:"id_card"`
+	ContactPhone       string   `json:"contact_phone"`
+	FamilyAddress      string   `json:"family_address"`
+	FamilyName         string   `json:"family_name"`
+	FamilyPhone        string   `json:"family_phone"`
+	FamilyRelation     string   `json:"family_relation"`
+	AdmissionStartDate string   `json:"admission_start_date"`
+	AdmissionEndDate   string   `json:"admission_end_date"`
+	FeeStartDate       string   `json:"fee_start_date"`
+	FeeEndDate         string   `json:"fee_end_date"`
+	RoomType           string   `json:"room_type"`
+	CareLevel          int8     `json:"care_level"`
+	CareLevelCode      string   `json:"care_level_code"`
+	BedID              uint     `json:"bed_id"`
+	Deposit            float64  `json:"deposit"`
+	CareFee            float64  `json:"care_fee"`
+	BedFee             float64  `json:"bed_fee"`
+	OtherFee           float64  `json:"other_fee"`
+	MedicalInsurance   float64  `json:"medical_insurance"`
+	Subsidy            float64  `json:"subsidy"`
+	Note               string   `json:"note"`
+	PhotoUploadKeys    []string `json:"photo_upload_keys,omitempty"`
 }
 
 // errAdmissionIntakeDuplicateKey is internal control flow used when the
@@ -385,6 +387,9 @@ func (s *AdmissionService) CreateIntake(ctx context.Context, actor AdmissionActo
 			}
 			return err
 		}
+		if err := attachAdmissionPhotos(tx, actor, intake.ID, intake.ElderID, normalized.PhotoUploadKeys); err != nil {
+			return err
+		}
 		audit := model.AuditLog{UserID: actor.UserID, Action: "create", Module: "admission_intake", Method: "POST", Path: "/api/v1/admission-intakes"}
 		if err := tx.Create(&audit).Error; err != nil {
 			return err
@@ -600,6 +605,7 @@ func hashAdmissionIntake(input normalizedIntakeInput) (string, error) {
 		CareLevel: input.CareLevelNum, CareLevelCode: input.CareLevelCode, BedID: input.BedID,
 		Deposit: input.Deposit, CareFee: input.CareFee, BedFee: input.BedFee, OtherFee: input.OtherFee,
 		MedicalInsurance: input.MedicalInsurance, Subsidy: input.Subsidy, Note: input.Note,
+		PhotoUploadKeys: input.PhotoUploadKeys,
 	}
 	encoded, err := json.Marshal(payload)
 	if err != nil {
@@ -811,6 +817,66 @@ func feeMonth(input normalizedIntakeInput) string {
 		return date[:7]
 	}
 	return time.Now().Format("2006-01")
+}
+
+func attachAdmissionPhotos(tx *gorm.DB, actor AdmissionActor, intakeID, elderID uint, keys []string) error {
+	if len(keys) == 0 {
+		return nil
+	}
+	if len(keys) > 3 {
+		return fmt.Errorf("%w: 最多上传三张照片", ErrAdmissionPhotoInvalid)
+	}
+	seen := map[string]bool{}
+	for _, key := range keys {
+		if !validUploadKey(key) || len(key) == 0 || len(key) > 128 || seen[key] {
+			return fmt.Errorf("%w: photo upload key 无效或重复", ErrAdmissionPhotoInvalid)
+		}
+		seen[key] = true
+	}
+	tenantID := tenantIDFromContext(tx.Statement.Context)
+	var photos []model.AdmissionIntakePhoto
+	if err := tx.Where("tenant_id = ? AND upload_key IN ? AND intake_id = 0 AND uploaded_by = ?", tenantID, keys, actor.UserID).Find(&photos).Error; err != nil {
+		return err
+	}
+	if len(photos) != len(keys) {
+		return fmt.Errorf("%w: 照片不存在、已绑定或无权使用", ErrAdmissionPhotoInvalid)
+	}
+	seenKinds := map[string]bool{}
+	for _, photo := range photos {
+		if _, ok := admissionPhotoKinds[photo.Kind]; !ok {
+			return fmt.Errorf("%w: 照片类型无效", ErrAdmissionPhotoInvalid)
+		}
+		if seenKinds[photo.Kind] {
+			return fmt.Errorf("%w: 同一类型照片只能上传一张", ErrAdmissionPhotoInvalid)
+		}
+		seenKinds[photo.Kind] = true
+		updated := tx.Model(&model.AdmissionIntakePhoto{}).
+			Where("tenant_id = ? AND id = ? AND intake_id = 0 AND uploaded_by = ?", tenantID, photo.ID, actor.UserID).
+			Updates(map[string]interface{}{"intake_id": intakeID, "elder_id": elderID})
+		if updated.Error != nil {
+			return updated.Error
+		}
+		// The row may have been attached by a concurrent intake after the
+		// initial SELECT.  Never let the admission commit while silently
+		// dropping a requested document; the surrounding transaction will roll
+		// back the elder/bed/plan changes and the caller can retry with a fresh
+		// upload key.
+		if updated.RowsAffected != 1 {
+			return fmt.Errorf("%w: 照片不存在、已绑定或无权使用", ErrAdmissionPhotoInvalid)
+		}
+		if photo.Kind == "portrait" {
+			updatedElder := tx.Model(&model.Elder{}).
+				Where("tenant_id = ? AND id = ?", tenantID, elderID).
+				Update("image", fmt.Sprintf("/api/v1/admission-intake-photos/%d/content", photo.ID))
+			if updatedElder.Error != nil {
+				return updatedElder.Error
+			}
+			if updatedElder.RowsAffected != 1 {
+				return fmt.Errorf("%w: 关联长者不存在或无权更新", ErrAdmissionPhotoInvalid)
+			}
+		}
+	}
+	return nil
 }
 
 func (s *AdmissionService) loadIntakeResult(db *gorm.DB, id uint) (*AdmissionIntakeResult, error) {

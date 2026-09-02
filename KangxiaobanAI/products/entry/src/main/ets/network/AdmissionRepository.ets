@@ -11,6 +11,8 @@ import AdmissionApi, {
   AdmissionBootstrap,
   AdmissionIntakePayload,
   AdmissionIntakeResult,
+  AdmissionPhoto,
+  AdmissionPhotoDeleteResult,
   AdmissionPreviewResult,
   AdmissionScreening,
   AdmissionScreeningPayload,
@@ -154,6 +156,26 @@ export class AdmissionRepository {
       return AdmissionRepository.map<AdmissionIntakeResult>(await AdmissionApi.createIntake(payload));
     } catch (_error) {
       return AdmissionRepository.networkFailure<AdmissionIntakeResult>();
+    }
+  }
+
+  public static async uploadPhoto(kind: string, uploadKey: string, contentType: string,
+    data: ArrayBuffer): Promise<AdmissionResult<AdmissionPhoto>> {
+    try {
+      return AdmissionRepository.map<AdmissionPhoto>(
+        await AdmissionApi.uploadPhoto(kind, uploadKey, contentType, data));
+    } catch (_error) {
+      return AdmissionRepository.networkFailure<AdmissionPhoto>();
+    }
+  }
+
+  public static async deletePendingPhoto(uploadKey: string,
+    kind: string): Promise<AdmissionResult<AdmissionPhotoDeleteResult>> {
+    try {
+      return AdmissionRepository.map<AdmissionPhotoDeleteResult>(
+        await AdmissionApi.deletePendingPhoto(uploadKey, kind));
+    } catch (_error) {
+      return AdmissionRepository.networkFailure<AdmissionPhotoDeleteResult>();
     }
   }
 }

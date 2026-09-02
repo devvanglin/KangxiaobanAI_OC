@@ -4,6 +4,7 @@
  */
 
 import { http } from '@kit.NetworkKit';
+import { util } from '@kit.ArkTS';
 import AuthStore from './AuthStore';
 import { ApiResp, Paged } from './Dto';
 import { ApiConfig } from './ApiConfig';
@@ -233,6 +234,100 @@ export class ApiClient {
 
   public static post<T>(path: string, body?: Object): Promise<ApiResp<T>> {
     return ApiClient.request<T>('POST', path, body);
+  }
+
+  /** Upload one image as a multipart form field while retaining auth headers. */
+  public static uploadBinary<T>(path: string, data: ArrayBuffer, contentType: string,
+    extraHeaders: Record<string, string> = {}): Promise<ApiResp<T>> {
+    const httpRequest = http.createHttp();
+    const boundary: string = `----KXBAdmissionPhoto${Date.now()}`;
+    const encoder = new util.TextEncoder('utf-8');
+    const prefix: Uint8Array = encoder.encodeInto(
+      `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="admission-photo"\r\n` +
+      `Content-Type: ${contentType}\r\n\r\n`);
+    const suffix: Uint8Array = encoder.encodeInto(`\r\n--${boundary}--\r\n`);
+    const bytes: Uint8Array = new Uint8Array(prefix.length + data.byteLength + suffix.length);
+    bytes.set(prefix, 0);
+    bytes.set(new Uint8Array(data), prefix.length);
+    bytes.set(suffix, prefix.length + data.byteLength);
+    const header: Record<string, string> = { 'Content-Type': `multipart/form-data; boundary=${boundary}` };
+    Object.keys(extraHeaders).forEach((key: string): void => {
+      header[key] = extraHeaders[key];
+    });
+    const token: string = AuthStore.getToken();
+    if (token.length > 0) {
+      header['Authorization'] = 'Bearer ' + token;
+    }
+    const options: http.HttpRequestOptions = {
+      method: http.RequestMethod.POST,
+      header: header,
+      expectDataType: http.HttpDataType.STRING,
+      connectTimeout: ApiClient.CONNECT_TIMEOUT_MS,
+      readTimeout: ApiClient.READ_TIMEOUT_MS,
+      extraData: bytes.buffer as ArrayBuffer
+    };
+    return new Promise<ApiResp<T>>((resolve, reject) => {
+      let settled: boolean = false;
+      const timeoutId: number = setTimeout(() => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        try {
+          httpRequest.destroy();
+        } catch (_error) {
+          // Ignore release failures after a watchdog timeout.
+        }
+        reject(new Error(`上传超时(${ApiClient.REQUEST_TIMEOUT_MS}ms)`));
+      }, ApiClient.REQUEST_TIMEOUT_MS);
+      const finishError = (error: Object): void => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(timeoutId);
+        try {
+          httpRequest.destroy();
+        } catch (_error) {
+          // Ignore release failures while completing an error path.
+        }
+        reject(error);
+      };
+      try {
+        httpRequest.request(ApiConfig.API_BASE + path, options, (err: BusinessError, response: http.HttpResponse) => {
+          if (err) {
+            finishError(err);
+            return;
+          }
+          if (settled) {
+            return;
+          }
+          try {
+            const rawResult: Object = response.result as Object;
+            const resultText: string = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
+            const payload: ApiResp<T> = JSON.parse(resultText) as ApiResp<T>;
+            if (typeof payload.code !== 'number') {
+              throw new Error('响应格式无效');
+            }
+            if (payload.code === 401) {
+              AuthStore.clear();
+            }
+            settled = true;
+            clearTimeout(timeoutId);
+            try {
+              httpRequest.destroy();
+            } catch (_error) {
+              Logger.warn('[ApiClient]', `POST ${ApiClient.logPath(path)} destroy failed after upload response`);
+            }
+            resolve(payload);
+          } catch (error) {
+            finishError(error instanceof Error ? error : new Error('上传响应解析失败'));
+          }
+        });
+      } catch (error) {
+        finishError(error instanceof Error ? error : new Error('上传请求失败'));
+      }
+    });
   }
 
   public static patch<T>(path: string, body?: Object): Promise<ApiResp<T>> {

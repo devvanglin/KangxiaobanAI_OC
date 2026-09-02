@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -12,10 +13,139 @@ import (
 )
 
 // AdmissionHandler exposes the persisted A/B/C admission assessment workflow.
-type AdmissionHandler struct{ svc *service.AdmissionService }
+type AdmissionHandler struct {
+	svc    *service.AdmissionService
+	photos *service.AdmissionPhotoService
+}
 
-func NewAdmissionHandler(svc *service.AdmissionService) *AdmissionHandler {
-	return &AdmissionHandler{svc: svc}
+// The binary image itself is capped at 5 MiB by the service. Leave a small
+// allowance for multipart headers while preventing an attacker from making
+// Gin parse an arbitrarily large request before that validation runs.
+const maxAdmissionPhotoRequestBytes int64 = 6 << 20
+
+func NewAdmissionHandler(svc *service.AdmissionService, photos ...*service.AdmissionPhotoService) *AdmissionHandler {
+	h := &AdmissionHandler{svc: svc}
+	if len(photos) > 0 {
+		h.photos = photos[0]
+	}
+	return h
+}
+
+func (h *AdmissionHandler) UploadIntakePhoto(c *gin.Context) {
+	if h.photos == nil {
+		Fail(c, http.StatusNotImplemented, 501, "照片上传未配置")
+		return
+	}
+	if c.Request.ContentLength > maxAdmissionPhotoRequestBytes {
+		Fail(c, http.StatusRequestEntityTooLarge, 413, "照片请求过大")
+		return
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxAdmissionPhotoRequestBytes)
+	header, err := c.FormFile("file")
+	if err != nil {
+		Fail(c, http.StatusBadRequest, 400, "请上传图片文件")
+		return
+	}
+	key := c.GetHeader("X-Upload-Key")
+	kind := c.GetHeader("X-Photo-Kind")
+	photo, err := h.photos.UploadPending(c.Request.Context(), admissionActor(c), key, kind, header)
+	if err != nil {
+		h.failPhoto(c, err)
+		return
+	}
+	OK(c, service.AdmissionPhotoViewFromModel(*photo))
+}
+
+// DeletePendingIntakePhoto DELETE /api/v1/admission-intakes/photos
+//
+// The upload key and slot kind may be sent in the same headers used by the
+// multipart upload (`X-Upload-Key`/`X-Photo-Kind`) or as query parameters
+// (`upload_key`/`kind`).  Header support keeps the native client contract
+// symmetric with upload; query support makes the endpoint easy to exercise
+// from maintenance tools without putting opaque keys in a request body.
+// Only pending rows owned by the authenticated user in the current tenant can
+// be removed.  The service treats an already absent row as an idempotent
+// success, so a repeated cleanup does not surface a spurious error.
+func (h *AdmissionHandler) DeletePendingIntakePhoto(c *gin.Context) {
+	if h.photos == nil {
+		Fail(c, http.StatusNotImplemented, 501, "照片上传未配置")
+		return
+	}
+	key := strings.TrimSpace(c.GetHeader("X-Upload-Key"))
+	if key == "" {
+		key = strings.TrimSpace(c.Query("upload_key"))
+	}
+	kind := strings.TrimSpace(c.GetHeader("X-Photo-Kind"))
+	if kind == "" {
+		kind = strings.TrimSpace(c.Query("kind"))
+	}
+	if key == "" || kind == "" {
+		Fail(c, http.StatusBadRequest, 400, "upload_key 与 kind 必填")
+		return
+	}
+	deleted, err := h.photos.DeletePending(c.Request.Context(), admissionActor(c), key, kind)
+	if err != nil {
+		h.failPhoto(c, err)
+		return
+	}
+	OK(c, gin.H{"deleted": deleted, "upload_key": key, "kind": kind})
+}
+
+func (h *AdmissionHandler) ListIntakePhotos(c *gin.Context) {
+	if h.photos == nil {
+		Fail(c, http.StatusNotImplemented, 501, "照片上传未配置")
+		return
+	}
+	id, ok := admissionID(c)
+	if !ok {
+		return
+	}
+	photos, err := h.photos.List(c.Request.Context(), admissionActor(c), id)
+	if err != nil {
+		h.failPhoto(c, err)
+		return
+	}
+	OK(c, service.AdmissionPhotoViewsFromModels(photos))
+}
+
+func (h *AdmissionHandler) IntakePhotoContent(c *gin.Context) {
+	if h.photos == nil {
+		Fail(c, http.StatusNotImplemented, 501, "照片上传未配置")
+		return
+	}
+	id, ok := admissionID(c)
+	if !ok {
+		return
+	}
+	content, err := h.photos.Content(c.Request.Context(), admissionActor(c), id)
+	if err != nil {
+		h.failPhoto(c, err)
+		return
+	}
+	// Identity documents are sensitive; do not let browser or intermediary
+	// caches retain a copy after the authenticated response.
+	c.Header("Cache-Control", "no-store")
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("Content-Disposition", "inline")
+	c.Header("Content-Type", content.Photo.ContentType)
+	http.ServeFile(c.Writer, c.Request, content.Path)
+}
+
+func (h *AdmissionHandler) failPhoto(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, service.ErrAdmissionPhotoNotFound), errors.Is(err, service.ErrAdmissionNotFound):
+		Fail(c, http.StatusNotFound, 404, "照片或入住记录不存在")
+	case errors.Is(err, service.ErrAdmissionForbidden):
+		Fail(c, http.StatusForbidden, 403, "无权限操作照片")
+	case errors.Is(err, service.ErrAdmissionPhotoConflict):
+		Fail(c, http.StatusConflict, 409, "照片已绑定，不能重复上传")
+	case errors.Is(err, service.ErrAdmissionInvalidState):
+		Fail(c, http.StatusConflict, 409, "入住记录当前状态不允许上传照片")
+	case errors.Is(err, service.ErrAdmissionPhotoInvalid):
+		Fail(c, http.StatusBadRequest, 400, err.Error())
+	default:
+		Fail(c, http.StatusInternalServerError, 500, "照片处理失败")
+	}
 }
 
 func (h *AdmissionHandler) CurrentTemplate(c *gin.Context) {
@@ -188,6 +318,10 @@ func (h *AdmissionHandler) fail(c *gin.Context, err error, fallback string) {
 		Fail(c, http.StatusConflict, 409, "长者已入住或身份信息与现有档案冲突")
 	case errors.Is(err, service.ErrAdmissionIdempotencyConflict):
 		Fail(c, http.StatusConflict, 409, "幂等键已用于另一份入住申请，请更换幂等键")
+	case errors.Is(err, service.ErrAdmissionPhotoConflict):
+		Fail(c, http.StatusConflict, 409, "照片已绑定，不能重复上传")
+	case errors.Is(err, service.ErrAdmissionPhotoInvalid):
+		Fail(c, http.StatusBadRequest, 400, err.Error())
 	case errors.Is(err, service.ErrAdmissionIncomplete), errors.Is(err, service.ErrAdmissionValidation):
 		Fail(c, http.StatusBadRequest, 400, err.Error())
 	default:

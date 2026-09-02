@@ -13,6 +13,9 @@ services:
       KXB_STATIC_DIR: "/showcase"
       KXB_DB_DRIVER: "sqlite"
       KXB_DB_SQLITE_PATH: "/data/kangxiaoban.db"
+      # Keep private admission photos beside the persistent database volume;
+      # they are served only through authenticated API handlers.
+      KXB_UPLOAD_DIR: "/data/uploads"
       KXB_JWT_SECRET: "${KXB_JWT_SECRET:?set KXB_JWT_SECRET in .env}"
       KXB_JWT_EXPIRE: "86400"
       KXB_MQTT_ENABLE: "false"

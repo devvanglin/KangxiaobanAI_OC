@@ -44,3 +44,22 @@ type AdmissionIntake struct {
 	CarePlanID                *uint      `gorm:"index" json:"care_plan_id"`
 	BillID                    *uint      `gorm:"index" json:"bill_id"`
 }
+
+// AdmissionIntakePhoto records one private image submitted with an intake.
+// The bytes live on disk; only validated metadata and a generated storage key
+// are persisted here. Never expose StorageKey directly to clients.
+type AdmissionIntakePhoto struct {
+	Base
+	IntakeID     uint   `gorm:"index;default:0" json:"intake_id"`
+	ElderID      uint   `gorm:"index;default:0" json:"elder_id"`
+	Kind         string `gorm:"size:16;not null" json:"kind"` // portrait/id_front/id_back
+	OriginalName string `gorm:"size:255" json:"-"`
+	StorageKey   string `gorm:"size:255;uniqueIndex;not null" json:"-"`
+	ContentType  string `gorm:"size:64;not null" json:"content_type"`
+	Size         int64  `gorm:"not null" json:"size"`
+	// Hash and uploader are retained for integrity/audit, but are not part of
+	// the client-facing photo metadata response.
+	SHA256     string `gorm:"size:64;not null" json:"-"`
+	UploadedBy uint   `gorm:"index;not null" json:"-"`
+	UploadKey  string `gorm:"size:128;index;not null;default:''" json:"-"`
+}

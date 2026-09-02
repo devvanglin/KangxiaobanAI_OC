@@ -78,7 +78,7 @@ func AutoMigrateAll(db *gorm.DB) error {
 		&Assessment{}, &CarePlan{}, &CarePlanItem{}, &CareExecution{}, &Incident{},
 		&AssessmentTemplate{}, &AssessmentQuestion{}, &AssessmentOption{}, &AdmissionDictionaryItem{},
 		&AdmissionCarePlanTemplate{}, &AdmissionAssessment{}, &AdmissionAssessmentAnswer{},
-		&AdmissionScreening{}, &AdmissionScreeningAnswer{}, &AdmissionIntake{},
+		&AdmissionScreening{}, &AdmissionScreeningAnswer{}, &AdmissionIntake{}, &AdmissionIntakePhoto{},
 		&IotDevice{}, &SignalRecord{}, &Alert{}, &AlertAction{}, &Notification{},
 		&Schedule{}, &ShiftHandover{}, &BillingRate{}, &Bill{}, &FundFlow{}, &MedicationRecord{},
 		&MedicineStock{}, &DiningOrder{}, &FamilyElder{}, &Message{}, &OperationPolicy{},

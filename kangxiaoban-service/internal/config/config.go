@@ -19,6 +19,9 @@ type ServerConfig struct {
 	Port string
 	// StaticDir 展示壳静态目录（落地页/大屏），空则不托管。
 	StaticDir string
+	// UploadDir stores private user-uploaded media. Files are served through
+	// authenticated API handlers rather than the public static shell.
+	UploadDir string
 	// SeedBusiness 首次启动是否写入一套互相关联的业务初始数据，默认 true。
 	SeedBusiness bool
 }
@@ -64,6 +67,7 @@ func Load() *Config {
 		Server: ServerConfig{
 			Port:         env("KXB_SERVER_PORT", "8080"),
 			StaticDir:    env("KXB_STATIC_DIR", "../showcase"),
+			UploadDir:    env("KXB_UPLOAD_DIR", "uploads"),
 			SeedBusiness: seedBusinessEnabled(),
 		},
 		Database: DBConfig{

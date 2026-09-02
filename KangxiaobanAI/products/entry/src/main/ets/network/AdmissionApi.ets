@@ -337,7 +337,24 @@ export interface AdmissionIntakePayload {
   medical_insurance: number;
   subsidy: number;
   note: string;
+  /** Upload keys returned implicitly by the pre-admission photo upload flow. */
+  photo_upload_keys?: string[];
 }
+
+export interface AdmissionPhoto {
+  id: number;
+  kind: string;
+  content_type: string;
+  size: number;
+  preview_url?: string;
+}
+
+export interface AdmissionPhotoDeleteResult {
+  deleted: boolean;
+  upload_key: string;
+  kind: string;
+}
+
 
 export interface AdmissionIntakeRecord {
   id: number;
@@ -434,6 +451,19 @@ export class AdmissionApi {
 
   public static createIntake(payload: AdmissionIntakePayload): Promise<ApiResp<AdmissionIntakeResult>> {
     return ApiClient.post<AdmissionIntakeResult>('/admission-intakes', payload);
+  }
+
+  public static uploadPhoto(kind: string, uploadKey: string, contentType: string,
+    data: ArrayBuffer): Promise<ApiResp<AdmissionPhoto>> {
+    return ApiClient.uploadBinary<AdmissionPhoto>('/admission-intakes/photos', data, contentType, {
+      'X-Upload-Key': uploadKey,
+      'X-Photo-Kind': kind
+    });
+  }
+
+  public static deletePendingPhoto(uploadKey: string, kind: string): Promise<ApiResp<AdmissionPhotoDeleteResult>> {
+    const query: string = `/admission-intakes/photos?upload_key=${encodeURIComponent(uploadKey)}&kind=${encodeURIComponent(kind)}`;
+    return ApiClient.delete<AdmissionPhotoDeleteResult>(query);
   }
 }
 

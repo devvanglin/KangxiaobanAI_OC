@@ -18,6 +18,10 @@ KangxiaobanAI/screenshots/
 kangxiaoban-service/kangxiaoban-server
 kangxiaoban-service/server.exe
 kangxiaoban-service/server-check.exe
+# Runtime database and private admission-photo storage; never publish these
+# artifacts or identity documents to the repository.
+kangxiaoban-service/data/
+kangxiaoban-service/uploads/
 
 .claude/settings.local.json
 
