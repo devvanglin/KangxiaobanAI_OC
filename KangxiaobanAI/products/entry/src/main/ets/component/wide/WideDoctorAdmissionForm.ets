@@ -1777,10 +1777,14 @@ export struct WideDoctorAdmissionForm {
     }.width('100%').alignItems(HorizontalAlign.Start)
   }
 
+  private uploadDisplayLabel(label: string): string {
+    return label === '一寸照片' ? '人像照' : label;
+  }
+
   @Builder
   private uploadField(label: string, description: string) {
     Column({ space: 8 }) {
-      Text(label)
+      Text(this.uploadDisplayLabel(label))
         .width('100%')
         .fontSize(15)
         .fontWeight(FontWeight.Medium)
@@ -1810,7 +1814,7 @@ export struct WideDoctorAdmissionForm {
           .enabled(!this.photoControlsLocked(label))
           .opacity(this.submitting ? 0.72 : 1)
           .keyboardFocusStyle()
-          .accessibilityText(`${label}预览，点击可更换`)
+          .accessibilityText(`${this.uploadDisplayLabel(label)}预览，点击可更换`)
           .accessibilityRole(AccessibilityRoleType.BUTTON)
           .onClick(() => {
             if (!this.photoControlsLocked(label)) {
@@ -1829,7 +1833,7 @@ export struct WideDoctorAdmissionForm {
           .backgroundColor('#99000000')
           .enabled(!this.photoControlsLocked(label))
           .opacity(this.photoControlsLocked(label) ? 0.55 : 1)
-          .accessibilityText(`移除${label}`)
+          .accessibilityText(`移除${this.uploadDisplayLabel(label)}`)
           .accessibilityRole(AccessibilityRoleType.BUTTON)
           .keyboardFocusStyle()
           .onClick(() => this.removePhoto(label))
@@ -1860,7 +1864,7 @@ export struct WideDoctorAdmissionForm {
           .backgroundColor(Color.Transparent)
           .enabled(!this.photoControlsLocked(label))
           .keyboardFocusStyle()
-          .accessibilityText(`${label}，点击选择照片`)
+          .accessibilityText(`${this.uploadDisplayLabel(label)}，点击选择照片`)
           .accessibilityRole(AccessibilityRoleType.BUTTON)
           .onClick(() => {
             if (!this.photoControlsLocked(label)) {

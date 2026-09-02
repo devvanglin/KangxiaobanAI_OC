@@ -368,8 +368,8 @@ func seed(db *gorm.DB) error {
 	formalUsers := []struct {
 		username, password, realName, roleCode string
 	}{
-		{"caregiver", defaultAccountPassword, "护理员", "caregiver"},
-		{"doctor", defaultAccountPassword, "医师", "doctor"},
+		{"xiaoli", defaultAccountPassword, "护理员", "caregiver"},
+		{"xiaomo", defaultAccountPassword, "医师", "doctor"},
 	}
 	for _, userSeed := range formalUsers {
 		var u model.User
@@ -425,9 +425,11 @@ func migrateLegacyAccountNames(db *gorm.DB) error {
 			return tx.Model(&oldUser).Update("username", newName).Error
 		}
 		for _, names := range [][2]string{
-			{"caregiver_demo", "caregiver"},
-			{"doctor_demo", "doctor"},
+			{"caregiver_demo", "xiaoli"},
+			{"doctor_demo", "xiaomo"},
 			{"family_demo", "family"},
+			{"caregiver", "xiaoli"},
+			{"doctor", "xiaomo"},
 		} {
 			if err := rename(names[0], names[1]); err != nil {
 				return err
@@ -463,8 +465,8 @@ func migrateLegacyAccountNames(db *gorm.DB) error {
 			aliases  []string
 			formal   string
 		}{
-			{username: "caregiver", aliases: []string{"演示护工", "演示护理员", "Demo Caregiver"}, formal: "护理员"},
-			{username: "doctor", aliases: []string{"演示医师", "演示医生", "Demo Doctor"}, formal: "医师"},
+			{username: "xiaoli", aliases: []string{"演示护工", "演示护理员", "Demo Caregiver"}, formal: "护理员"},
+			{username: "xiaomo", aliases: []string{"演示医师", "演示医生", "Demo Doctor"}, formal: "医师"},
 			{username: "family", aliases: []string{"演示家属", "Demo Family"}, formal: "家属"},
 		} {
 			var user model.User
@@ -629,7 +631,7 @@ func seedCoreBusinessDataTx(db *gorm.DB) error {
 	}
 
 	now := time.Now()
-	caregiverName := formalUserDisplayName(db, "caregiver", "护理员")
+	caregiverName := formalUserDisplayName(db, "xiaoli", "护理员")
 	firstDueAt := time.Date(now.Year(), now.Month(), now.Day(), 8, 30, 0, 0, now.Location())
 	secondDueAt := time.Date(now.Year(), now.Month(), now.Day(), 10, 0, 0, 0, now.Location())
 	tasks := []model.CareTask{{ElderID: binding[0].ID, Title: "早间翻身", Kind: "turnover", Category: "todo", Priority: "warning", Assignee: caregiverName, DueAt: &firstDueAt, Status: "todo", Remark: bootstrapTurnoverInstructions}}
@@ -665,7 +667,7 @@ func seedCoreBusinessDataTx(db *gorm.DB) error {
 // unrelated institution-owned records.
 func ensureBusinessRelations(db *gorm.DB) error {
 	var caregiver model.User
-	if err := db.Where("username = ?", "caregiver").First(&caregiver).Error; err != nil {
+	if err := db.Where("username = ?", "xiaoli").First(&caregiver).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil
 		}
@@ -676,10 +678,10 @@ func ensureBusinessRelations(db *gorm.DB) error {
 		staffName = caregiver.Username
 	}
 	var doctor model.User
-	if err := db.Where("username = ?", "doctor").First(&doctor).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err := db.Where("username = ?", "xiaomo").First(&doctor).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
-	doctorName := formalUserDisplayName(db, "doctor", "医师")
+	doctorName := formalUserDisplayName(db, "xiaomo", "医师")
 	legacyCaregiverNames := []string{"李护工", "演示护工", "演示护理员", "Demo Caregiver"}
 	legacyCaregiverCurrentNames := append(append([]string{}, legacyCaregiverNames...), "护理员")
 	legacyDoctorNames := []string{"刘护工", "演示医师", "演示医生", "Demo Doctor"}
@@ -806,8 +808,8 @@ func seedBusinessDataTx(db *gorm.DB) error {
 		return err
 	}
 	now := time.Now()
-	caregiverName := formalUserDisplayName(db, "caregiver", "护理员")
-	doctorName := formalUserDisplayName(db, "doctor", "医师")
+	caregiverName := formalUserDisplayName(db, "xiaoli", "护理员")
+	doctorName := formalUserDisplayName(db, "xiaomo", "医师")
 
 	// 设备（绑定在院长者）
 	var elders []model.Elder
@@ -973,7 +975,7 @@ func seedBusinessDataTx(db *gorm.DB) error {
 		name string
 		dest *uint
 	}{
-		{"doctor", &doctorID}, {"caregiver", &caregiverID}, {"family", &familyID},
+		{"xiaomo", &doctorID}, {"xiaoli", &caregiverID}, {"family", &familyID},
 	} {
 		var u model.User
 		if err := db.Where("username = ?", item.name).First(&u).Error; err == nil {

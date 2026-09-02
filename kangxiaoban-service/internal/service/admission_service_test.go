@@ -208,9 +208,9 @@ func TestAdmissionPermissions(t *testing.T) {
 		roles    []string
 		want     int
 	}{
-		{"doctor", []string{"doctor"}, http.StatusNoContent},
+		{"xiaomo", []string{"doctor"}, http.StatusNoContent},
 		{"admin", []string{"admin"}, http.StatusNoContent},
-		{"caregiver", []string{"caregiver"}, http.StatusForbidden},
+		{"xiaoli", []string{"caregiver"}, http.StatusForbidden},
 		{"family", []string{"family"}, http.StatusForbidden},
 	} {
 		t.Run(tt.username, func(t *testing.T) {
@@ -303,7 +303,7 @@ func TestAdmissionSubmitIsIdempotentAndTraceable(t *testing.T) {
 		t.Fatalf("care task count = %d, want %d", len(tasks), len(plan.Items))
 	}
 	var caregiver model.User
-	if err := db.Where("username = ?", "caregiver").First(&caregiver).Error; err != nil {
+	if err := db.Where("username = ?", "xiaoli").First(&caregiver).Error; err != nil {
 		t.Fatal(err)
 	}
 	for _, task := range tasks {
@@ -449,7 +449,7 @@ func TestAdmissionSubmitBindsFamilyByContactPhone(t *testing.T) {
 
 func TestAdmissionSubmitKeepsTasksUnassignedWithoutCaregiver(t *testing.T) {
 	svc, db, doctorID, ctx := newAdmissionTestService(t)
-	if err := db.Model(&model.User{}).Where("username = ?", "caregiver").Update("status", 0).Error; err != nil {
+	if err := db.Model(&model.User{}).Where("username = ?", "xiaoli").Update("status", 0).Error; err != nil {
 		t.Fatal(err)
 	}
 	input := validAdmissionInput(t, svc, db, ctx)
@@ -605,7 +605,7 @@ func newAdmissionTestService(t *testing.T) (*AdmissionService, *gorm.DB, uint, c
 		t.Fatalf("AutoMigrateAndSeed: %v", err)
 	}
 	var doctor model.User
-	if err := db.Where("username = ?", "doctor").First(&doctor).Error; err != nil {
+	if err := db.Where("username = ?", "xiaomo").First(&doctor).Error; err != nil {
 		t.Fatalf("load doctor: %v", err)
 	}
 	ctx := context.WithValue(context.Background(), model.TenantContextKey, uint(1))

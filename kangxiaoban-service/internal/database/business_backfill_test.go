@@ -114,10 +114,10 @@ func TestLegacyDemoDisplayNamesAndRelationsAreNormalized(t *testing.T) {
 	}
 
 	var caregiver, doctor model.User
-	if err := db.Where("username = ?", "caregiver").First(&caregiver).Error; err != nil {
+	if err := db.Where("username = ?", "xiaoli").First(&caregiver).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Where("username = ?", "doctor").First(&doctor).Error; err != nil {
+	if err := db.Where("username = ?", "xiaomo").First(&doctor).Error; err != nil {
 		t.Fatal(err)
 	}
 	var seedElder model.Elder
@@ -191,10 +191,10 @@ func TestLegacyDemoDisplayNamesAndRelationsAreNormalized(t *testing.T) {
 	if err := AutoMigrateAndSeed(db, true); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Where("username = ?", "caregiver").First(&caregiver).Error; err != nil {
+	if err := db.Where("username = ?", "xiaoli").First(&caregiver).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Where("username = ?", "doctor").First(&doctor).Error; err != nil {
+	if err := db.Where("username = ?", "xiaomo").First(&doctor).Error; err != nil {
 		t.Fatal(err)
 	}
 	if caregiver.RealName != "护理员" || doctor.RealName != "医师" {
@@ -276,7 +276,7 @@ func TestLegacyDuplicateAccountMergePreservesUserReferences(t *testing.T) {
 
 	var formalFamily, formalCaregiver, formalDoctor model.User
 	for username, target := range map[string]*model.User{
-		"family": &formalFamily, "caregiver": &formalCaregiver, "doctor": &formalDoctor,
+		"family": &formalFamily, "xiaoli": &formalCaregiver, "xiaomo": &formalDoctor,
 	} {
 		if err := db.Where("username = ?", username).First(target).Error; err != nil {
 			t.Fatal(err)

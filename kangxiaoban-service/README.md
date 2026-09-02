@@ -71,8 +71,8 @@ Goroutine 数。该接口受 `admin:all` 保护；CPU、主机内存和磁盘指
 
 ```text
 管理员：admin / 123456
-护工：caregiver / 123456
-医师：doctor / 123456
+护工：xiaoli / 123456
+医师：xiaomo / 123456
 家属：family / 123456
 ```
 
