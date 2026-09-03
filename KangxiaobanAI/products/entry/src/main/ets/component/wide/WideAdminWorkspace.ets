@@ -5,7 +5,8 @@ import { Alert, Bed, CareTask, Elder, HealthRecord, Room, Schedule } from '../..
 import { WideServerMonitor } from './WideServerMonitor';
 import { WideRoleManagement } from './WideRoleManagement';
 import { WideUserManagement } from './WideUserManagement';
-import { WideBedManagement } from './WideBedManagement';
+import { WideAreaManagement } from './WideAreaManagement';
+import { WideCarePackageManagement } from './WideCarePackageManagement';
 import { WideModelManagement } from './WideModelManagement';
 import { WideDeviceManagement } from './WideDeviceManagement';
 import { WideDoctorCharts } from './WideDoctorCharts';
@@ -105,8 +106,9 @@ export struct WideAdminWorkspace {
       { id: 'overview', label: '服务器监控', symbol: $r('sys.symbol.desktop_fill') },
       { id: 'roles', label: '角色管理', symbol: $r('sys.symbol.key_shield_badge_person_crop_circle_fill') },
       { id: 'users', label: '用户', symbol: $r('sys.symbol.person_crop_circle_fill') },
-      { id: 'quality', label: '床位', symbol: $r('sys.symbol.bed_double_fill') },
-      { id: 'risk', label: '大模型', symbol: $r('sys.symbol.AI_model') },
+      { id: 'areas', label: '区域', symbol: $r('sys.symbol.square_grid_2x2') },
+      { id: 'plans', label: '计划', symbol: $r('sys.symbol.calendar_badge_clock') },
+      { id: 'models', label: '大模型', symbol: $r('sys.symbol.AI_model') },
       { id: 'assets', label: '设备', symbol: $r('sys.symbol.beacon_tower_fill') }
     ];
   }
@@ -115,7 +117,7 @@ export struct WideAdminWorkspace {
   onManagementNavIndexChange(): void {
     const ids: string[] = this.isDoctor ?
       ['overview', 'residents', 'ai'] :
-      ['overview', 'roles', 'users', 'quality', 'risk', 'assets'];
+      ['overview', 'roles', 'users', 'areas', 'plans', 'models', 'assets'];
     if (this.managementNavIndex >= 0 && this.managementNavIndex < ids.length) {
       this.selectedNavId = ids[this.managementNavIndex];
       setTimeout((): void => { this.managementScroller.scrollEdge(Edge.Top); }, 0);
@@ -359,11 +361,11 @@ export struct WideAdminWorkspace {
 
   private doctorQuickFunctions(): DoctorQuickFunction[] {
     return [
-      { id: 'admission', label: '办理入住', symbol: $r('sys.symbol.person_badge_plus'), tone: 'focus', target: 'quality' },
+      { id: 'admission', label: '办理入住', symbol: $r('sys.symbol.person_badge_plus'), tone: 'focus', target: 'overview' },
       { id: 'beds', label: '床位预览', symbol: $r('sys.symbol.bed_double_fill'), tone: 'success', target: 'residents' },
-      { id: 'tasks', label: '护理任务', symbol: $r('sys.symbol.checkmark_circle_fill'), tone: 'warning', target: 'staff' },
-      { id: 'alerts', label: '告警处理', symbol: $r('sys.symbol.exclamationmark_triangle_fill'), tone: 'danger', target: 'risk' },
-      { id: 'assessment', label: '健康评估', symbol: $r('sys.symbol.heart_fill'), tone: 'focus', target: 'quality' },
+      { id: 'tasks', label: '护理任务', symbol: $r('sys.symbol.checkmark_circle_fill'), tone: 'warning', target: 'overview' },
+      { id: 'alerts', label: '告警处理', symbol: $r('sys.symbol.exclamationmark_triangle_fill'), tone: 'danger', target: 'overview' },
+      { id: 'assessment', label: '健康评估', symbol: $r('sys.symbol.heart_fill'), tone: 'focus', target: 'residents' },
       { id: 'billing', label: '账单管理', symbol: $r('sys.symbol.doc_text'), tone: 'success', target: 'residents' }
     ];
   }
@@ -373,11 +375,13 @@ export struct WideAdminWorkspace {
       this.onOpenAdmission();
       return;
     }
-    const ids: string[] = ['overview', 'residents', 'ai', 'quality', 'staff', 'risk'];
+    const ids: string[] = ['overview', 'residents', 'ai'];
     const index: number = ids.indexOf(item.target);
-    this.selectedNavId = item.target;
+    this.selectedNavId = index >= 0 ? item.target : 'overview';
     if (index >= 0) {
       this.onManagementNavSelect(index);
+    } else {
+      try { this.getUIContext().getPromptAction().showToast({ message: `${item.label}将在对应业务模块中展开` }); } catch (_error) {}
     }
   }
 
@@ -813,14 +817,20 @@ export struct WideAdminWorkspace {
           statusBarHeight: this.statusBarHeight,
           naviIndicatorHeight: this.naviIndicatorHeight
         })
-      } else if (!this.isDoctor && this.selectedNavId === 'quality') {
-        WideBedManagement({
+      } else if (!this.isDoctor && this.selectedNavId === 'areas') {
+        WideAreaManagement({
           compactWidth: this.compactWidth,
           statusBarHeight: this.statusBarHeight,
           naviIndicatorHeight: this.naviIndicatorHeight,
           managementScroller: this.managementScroller
         })
-      } else if (!this.isDoctor && this.selectedNavId === 'risk') {
+      } else if (!this.isDoctor && this.selectedNavId === 'plans') {
+        WideCarePackageManagement({
+          compactWidth: this.compactWidth,
+          statusBarHeight: this.statusBarHeight,
+          naviIndicatorHeight: this.naviIndicatorHeight
+        })
+      } else if (!this.isDoctor && this.selectedNavId === 'models') {
         WideModelManagement({
           compactWidth: this.compactWidth,
           statusBarHeight: this.statusBarHeight,

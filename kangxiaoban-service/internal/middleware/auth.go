@@ -53,7 +53,7 @@ func RequirePermission(repo *repository.UserRepository, required string) gin.Han
 		}
 		cl := claims.(*auth.Claims)
 
-		perms, err := repo.PermissionsByRoleCodes(cl.Roles)
+	perms, err := repo.PermissionsByRoleCodesContext(c.Request.Context(), cl.Roles)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "权限校验失败"})
 			return

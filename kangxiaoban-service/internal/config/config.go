@@ -26,11 +26,13 @@ type ServerConfig struct {
 
 // AIConfig AI 对话网关（可插拔 provider）。
 type AIConfig struct {
-	Enabled  bool
-	Provider string // local / http（http 走 BaseURL 真实模型）
-	BaseURL  string
-	Model    string
-	APIKey   string
+	Enabled      bool
+	Provider     string // local / http（http 走 BaseURL 真实模型）
+	BaseURL      string
+	Model        string
+	APIKey       string
+	ConfigKey    string // 用于数据库中 AI 密钥的加密；生产环境应显式注入
+	SystemPrompt string
 }
 
 type DBConfig struct {
@@ -86,11 +88,13 @@ func Load() *Config {
 			TopicFL:  "/Radar60FL/+/sys/property/post",
 		},
 		AI: AIConfig{
-			Enabled:  env("KXB_AI_ENABLED", "true") == "true",
-			Provider: env("KXB_AI_PROVIDER", "local"),
-			BaseURL:  env("KXB_AI_BASE_URL", ""),
-			Model:    env("KXB_AI_MODEL", "kxb-local"),
-			APIKey:   os.Getenv("KXB_AI_API_KEY"),
+			Enabled:      env("KXB_AI_ENABLED", "true") == "true",
+			Provider:     env("KXB_AI_PROVIDER", "local"),
+			BaseURL:      env("KXB_AI_BASE_URL", ""),
+			Model:        env("KXB_AI_MODEL", "kxb-local"),
+			APIKey:       os.Getenv("KXB_AI_API_KEY"),
+			ConfigKey:    env("KXB_AI_CONFIG_KEY", env("KXB_JWT_SECRET", "change-me-in-production")),
+			SystemPrompt: env("KXB_AI_SYSTEM_PROMPT", "你是康小伴智慧康养护理平台的照护助理，回答须谨慎、贴题、仅作参考，不做临床诊断。"),
 		},
 	}
 }

@@ -3,7 +3,8 @@ import ApiClient from '../../network/ApiClient';
 interface UserRole { code: string; name: string; }
 interface UserRecord { id: number; username: string; real_name: string; phone: string; status: number; created_at?: string; roles?: UserRole[]; }
 interface UserPage { list: UserRecord[]; total: number; }
-interface CreateUserRequest { username: string; password: string; real_name: string; phone: string; role_code: string; }
+interface CreateUserRequest { username: string; password: string; real_name: string; phone: string; role_code: string; role_codes?: string[]; }
+interface RolePage { list: UserRole[]; }
 interface UserStatusRequest { status: number; }
 
 @ComponentV2
@@ -22,9 +23,23 @@ export struct WideUserManagement {
   @Local realName: string = '';
   @Local phone: string = '';
   @Local roleCode: string = 'caregiver';
+  @Local selectedRoleCodes: string[] = ['caregiver'];
+  @Local availableRoles: UserRole[] = [];
   private scroller: Scroller = new Scroller();
 
-  aboutToAppear(): void { this.loadUsers(); }
+  aboutToAppear(): void { this.loadUsers(); this.loadRoles(); }
+
+  private async loadRoles(): Promise<void> {
+    try {
+      const response = await ApiClient.get<RolePage>('/roles?page=1&size=100');
+      if (response.code === 0 && response.data !== undefined) { this.availableRoles = response.data.list ?? []; }
+    } catch (_error) { /* the user list remains usable even if role metadata is unavailable */ }
+  }
+
+  private toggleRole(code: string): void {
+    const next: string[] = this.selectedRoleCodes.indexOf(code) >= 0 ? this.selectedRoleCodes.filter((item: string) => item !== code) : this.selectedRoleCodes.concat([code]);
+    if (next.length > 0) { this.selectedRoleCodes = next; this.roleCode = next[0]; }
+  }
 
   private async loadUsers(): Promise<void> {
     this.loading = true; this.error = '';
@@ -38,12 +53,12 @@ export struct WideUserManagement {
 
   private async createUser(): Promise<void> {
     const request: CreateUserRequest = { username: this.username.trim(), password: this.password,
-      real_name: this.realName.trim(), phone: this.phone.trim(), role_code: this.roleCode };
+      real_name: this.realName.trim(), phone: this.phone.trim(), role_code: this.roleCode, role_codes: this.selectedRoleCodes };
     if (!request.username || !request.password) { this.error = '用户名和密码不能为空'; return; }
     try {
       const response = await ApiClient.post<UserRecord>('/users', request);
       if (response.code !== 0) throw new Error(response.msg);
-      this.showCreate = false; this.username = ''; this.password = ''; this.realName = ''; this.phone = ''; await this.loadUsers();
+      this.showCreate = false; this.username = ''; this.password = ''; this.realName = ''; this.phone = ''; this.selectedRoleCodes = ['caregiver']; this.roleCode = 'caregiver'; await this.loadUsers();
     } catch (_error) { this.error = '创建用户失败'; }
   }
 
@@ -67,8 +82,8 @@ export struct WideUserManagement {
         TextInput({ placeholder: '姓名', text: $$this.realName }).width('100%').height(42).margin({ top: 10 })
         TextInput({ placeholder: '手机号', text: $$this.phone }).width('100%').height(42).margin({ top: 10 })
         Row({ space: 10 }) {
-          ForEach([{ code: 'admin', name: '管理员' }, { code: 'doctor', name: '医师' }, { code: 'caregiver', name: '护工' }], (role: UserRole) => {
-            Button(role.name).height(34).fontSize(11).borderRadius(17).backgroundColor(this.roleCode === role.code ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary')).fontColor(this.roleCode === role.code ? Color.White : $r('sys.color.font_secondary')).onClick(() => this.roleCode = role.code)
+          ForEach(this.availableRoles, (role: UserRole) => {
+            Button(role.name).height(34).fontSize(11).borderRadius(17).backgroundColor(this.selectedRoleCodes.indexOf(role.code) >= 0 ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary')).fontColor(this.selectedRoleCodes.indexOf(role.code) >= 0 ? Color.White : $r('sys.color.font_secondary')).onClick(() => this.toggleRole(role.code))
           }, (role: UserRole) => role.code)
         }.width('100%').margin({ top: 12 })
         Row({ space: 10 }) {

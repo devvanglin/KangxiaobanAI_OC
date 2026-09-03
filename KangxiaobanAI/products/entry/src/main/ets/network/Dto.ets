@@ -178,6 +178,19 @@ export interface Room {
   beds?: Bed[];
 }
 
+export interface Area {
+  id: number;
+  parent_id?: number;
+  type: string;
+  code: string;
+  name: string;
+  building?: string;
+  floor_no?: number;
+  status: string;
+  sort_order?: number;
+  description?: string;
+}
+
 /** 床位。 */
 export interface Bed {
   id: number;
@@ -296,14 +309,44 @@ export interface IotDevice {
   id: number;
   device_id: string;
   product: string;
+  device_type?: string;
   building: string;
   room: string;
   bed: string;
+  area_id?: number;
   elder_id?: number;
   online: number;
   battery?: number;
   last_seen?: string;
   protocol: string;
+  stream_url?: string;
+  stream_status?: string;
+  discovery_status?: string;
+}
+
+export interface CarePackageItem {
+  id: number;
+  template_id: number;
+  title: string;
+  kind?: string;
+  frequency?: string;
+  instructions?: string;
+  risk_level?: string;
+  assignee_role?: string;
+  enabled: boolean;
+}
+
+export interface CarePackageTemplate {
+  id: number;
+  code: string;
+  name: string;
+  description?: string;
+  applicable_care_level?: number;
+  monthly_price: number;
+  currency: string;
+  status: string;
+  version: number;
+  items?: CarePackageItem[];
 }
 
 export interface Alert {

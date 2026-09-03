@@ -62,7 +62,6 @@ func (r *UserRepository) ListContacts(tenantID, excludeID uint) ([]model.User, e
 	var users []model.User
 	err := r.db.Preload("Roles").
 		Where("tenant_id = ? AND id <> ? AND deleted_at IS NULL AND status = 1", tenantID, excludeID).
-		Where("EXISTS (SELECT 1 FROM sys_user_role sur JOIN roles sr ON sr.id = sur.role_id WHERE sur.user_id = users.id AND sr.code IN ?)", []string{"admin", "doctor", "caregiver"}).
 		Order("id asc").Find(&users).Error
 	for i := range users {
 		users[i].PasswordHash = ""
@@ -72,15 +71,25 @@ func (r *UserRepository) ListContacts(tenantID, excludeID uint) ([]model.User, e
 
 // PermissionsByRoleCodes 汇总给定角色集合的权限码（去重）。
 func (r *UserRepository) PermissionsByRoleCodes(codes []string) ([]string, error) {
+	return r.PermissionsByRoleCodesContext(context.Background(), codes)
+}
+
+// PermissionsByRoleCodesContext resolves role permissions inside the caller's
+// tenant. JWT role names are display data; tenant membership remains enforced
+// by this query.
+func (r *UserRepository) PermissionsByRoleCodesContext(ctx context.Context, codes []string) ([]string, error) {
 	if len(codes) == 0 {
 		return nil, nil
 	}
 	var perms []model.Permission
-	err := r.db.
+	query := r.db.
 		Joins("JOIN sys_role_permission srp ON srp.permission_id = permissions.id").
 		Joins("JOIN roles r ON r.id = srp.role_id").
-		Where("r.code IN ?", codes).
-		Find(&perms).Error
+		Where("r.code IN ?", codes)
+	if tenantID, ok := contextTenantID(ctx); ok {
+		query = query.Where("r.tenant_id = ?", tenantID)
+	}
+	err := query.Find(&perms).Error
 	if err != nil {
 		return nil, err
 	}
@@ -93,4 +102,9 @@ func (r *UserRepository) PermissionsByRoleCodes(codes []string) ([]string, error
 		}
 	}
 	return out, nil
+}
+
+func contextTenantID(ctx context.Context) (uint, bool) {
+	value, ok := ctx.Value(model.TenantContextKey).(uint)
+	return value, ok && value > 0
 }

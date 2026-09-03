@@ -48,7 +48,7 @@ func RegisterTenantScope(db *gorm.DB) error {
 		if tenantScopeBypassed(tx.Statement.Context) {
 			return
 		}
-		if tx.Statement.Schema == nil || tx.Statement.Schema.Table == "tenants" || tx.Statement.Schema.Table == "roles" || tx.Statement.Schema.Table == "permissions" || tx.Statement.Schema.LookUpField("TenantID") == nil {
+		if tx.Statement.Schema == nil || tx.Statement.Schema.Table == "tenants" || tx.Statement.Schema.Table == "permissions" || tx.Statement.Schema.LookUpField("TenantID") == nil {
 			return
 		}
 		tx.Statement.AddClause(clause.Where{Exprs: []clause.Expression{clause.Eq{Column: clause.Column{Name: "tenant_id"}, Value: tenantFromContext(tx.Statement.Context)}}})
@@ -57,7 +57,7 @@ func RegisterTenantScope(db *gorm.DB) error {
 		if tenantScopeBypassed(tx.Statement.Context) {
 			return
 		}
-		if tx.Statement.Schema == nil || tx.Statement.Schema.Table == "tenants" || tx.Statement.Schema.Table == "roles" || tx.Statement.Schema.Table == "permissions" {
+		if tx.Statement.Schema == nil || tx.Statement.Schema.Table == "tenants" || tx.Statement.Schema.Table == "permissions" {
 			return
 		}
 		if tx.Statement.Schema.LookUpField("TenantID") == nil {

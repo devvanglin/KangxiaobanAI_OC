@@ -74,6 +74,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	m4Handler := handler.NewM4Handler(scheduleSvc, financeSvc, medicationSvc, auditSvc)
 	supplyHandler := handler.NewSupplyHandler(supplySvc)
 	aiHandler := handler.NewAIHandler(aiSvc)
+	aiConfigHandler := handler.NewAIConfigHandler(db, &cfg.AI)
 	careHandler := handler.NewCareHandler(careSvc)
 	photoSvc := service.NewAdmissionPhotoService(db, cfg.Server.UploadDir)
 	admissionHandler := handler.NewAdmissionHandler(admissionSvc, photoSvc)
@@ -82,6 +83,8 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	systemHandler := handler.NewSystemHandler()
 	roleHandler := handler.NewRoleHandler(db)
 	userHandler := handler.NewUserHandler(db)
+	areaHandler := handler.NewAreaHandler(db)
+	carePackageHandler := handler.NewCarePackageHandler(db)
 
 	// 访问校验封装
 	perm := func(code string) gin.HandlerFunc { return middleware.RequirePermission(userRepo, code) }
@@ -107,13 +110,19 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		// 服务器监控：仅管理员可查看主机和进程资源，避免向普通业务角色暴露部署信息。
 		authed.GET("/system/monitor", perm("admin:all"), systemHandler.Monitor)
 		authed.GET("/roles", perm("admin:all"), roleHandler.List)
+		authed.GET("/permissions", perm("admin:all"), roleHandler.ListPermissions)
 		authed.POST("/roles", perm("admin:all"), roleHandler.Create)
 		authed.PUT("/roles/:id", perm("admin:all"), roleHandler.Update)
 		authed.DELETE("/roles/:id", perm("admin:all"), roleHandler.Delete)
 		authed.PATCH("/roles/:id/status", perm("admin:all"), roleHandler.SetStatus)
 		authed.GET("/users", perm("admin:all"), userHandler.List)
 		authed.POST("/users", perm("admin:all"), userHandler.Create)
+		authed.PUT("/users/:id/roles", perm("admin:all"), userHandler.UpdateRoles)
 		authed.PATCH("/users/:id/status", perm("admin:all"), userHandler.SetStatus)
+		authed.GET("/admin/ai/configs", perm("admin:all"), aiConfigHandler.List)
+		authed.POST("/admin/ai/configs", perm("admin:all"), aiConfigHandler.Create)
+		authed.PUT("/admin/ai/configs/:id", perm("admin:all"), aiConfigHandler.Update)
+		authed.DELETE("/admin/ai/configs/:id", perm("admin:all"), aiConfigHandler.Delete)
 
 		// 长者档案（读）
 		elders := authed.Group("/elders", perm("elder:read"))
@@ -129,6 +138,21 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		// 资源：房间/床位（浏览权限用 elder:read）
 		authed.GET("/rooms", perm("elder:read"), resourceHandler.ListRooms)
 		authed.GET("/beds", perm("elder:read"), resourceHandler.ListBeds)
+		authed.POST("/beds", perm("admin:all"), resourceHandler.CreateBed)
+		areas := authed.Group("/areas", perm("elder:read"))
+		areas.GET("", areaHandler.List)
+		areas.GET("/tree", areaHandler.List)
+		areas.POST("", perm("admin:all"), areaHandler.Create)
+		areas.PUT("/:id", perm("admin:all"), areaHandler.Update)
+		areas.DELETE("/:id", perm("admin:all"), areaHandler.Delete)
+		packages := authed.Group("/care-package-templates", perm("task:read"))
+		packages.GET("", carePackageHandler.ListTemplates)
+		packages.POST("", perm("admin:all"), carePackageHandler.CreateTemplate)
+		packages.PUT("/:id", perm("admin:all"), carePackageHandler.UpdateTemplate)
+		packages.POST("/:id/items", perm("admin:all"), carePackageHandler.AddTemplateItem)
+		elderPackages := authed.Group("/elders/:id/care-package-subscriptions", perm("task:read"))
+		elderPackages.GET("", carePackageHandler.ListSubscriptions)
+		elderPackages.POST("", perm("plan:manage"), carePackageHandler.CreateSubscription)
 
 		// 护理任务
 		authed.GET("/tasks", perm("task:read"), taskHandler.List)
@@ -177,11 +201,14 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		// 物联网：设备/告警读写
 		authed.GET("/iot/devices", perm("alert:read"), iotHandler.ListDevices)
 		authed.POST("/iot/devices", perm("admin:all"), iotHandler.CreateDevice)
+		authed.PATCH("/iot/devices/:id", perm("admin:all"), iotHandler.UpdateDevice)
+		authed.GET("/iot/devices/:id/signals", perm("alert:read"), iotHandler.ListSignals)
+		authed.POST("/iot/devices/:id/probe", perm("admin:all"), iotHandler.Probe)
 		authed.DELETE("/iot/devices/:id", perm("admin:all"), iotHandler.DeleteDevice)
 		authed.GET("/alerts", perm("alert:read"), iotHandler.ListAlerts)
 		authed.GET("/alerts/:id/actions", perm("alert:read"), iotHandler.ListAlertActions)
-		authed.POST("/alerts/:id/actions", perm("task:write"), iotHandler.CreateAlertAction)
-		authed.PATCH("/alerts/:id/handle", perm("admin:all"), iotHandler.HandleAlert)
+		authed.POST("/alerts/:id/actions", perm("alert:handle"), iotHandler.CreateAlertAction)
+		authed.PATCH("/alerts/:id/handle", perm("alert:handle"), iotHandler.HandleAlert)
 		authed.POST("/iot/ingest", perm("admin:all"), iotHandler.Ingest)
 
 		// ---- M4 排班/交接班 ----

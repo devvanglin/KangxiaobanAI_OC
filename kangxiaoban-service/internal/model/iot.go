@@ -5,16 +5,21 @@ import "time"
 // IotDevice 物联网设备（雷达/床垫/血压计等）。
 type IotDevice struct {
 	Base
-	DeviceID string     `gorm:"size:64;uniqueIndex;not null" json:"device_id"`
-	Product  string     `gorm:"size:32" json:"product"` // breath_radar / fall_radar / ...
-	Building string     `gorm:"size:16" json:"building"`
-	Room     string     `gorm:"size:16" json:"room"`
-	Bed      string     `gorm:"size:8" json:"bed"`
-	ElderID  *uint      `json:"elder_id"`
-	Online   int8       `gorm:"default:0" json:"online"` // 1在线 0离线
-	Battery  *int       `json:"battery"`
-	LastSeen *time.Time `json:"last_seen"`
-	Protocol string     `gorm:"size:16;default:MQTT" json:"protocol"`
+	DeviceID        string     `gorm:"size:64;uniqueIndex;not null" json:"device_id"`
+	Product         string     `gorm:"size:32" json:"product"`                         // breath_radar / fall_radar / ...
+	DeviceType      string     `gorm:"size:24;default:other;index" json:"device_type"` // millimeter_wave/camera/other
+	Building        string     `gorm:"size:16" json:"building"`
+	Room            string     `gorm:"size:16" json:"room"`
+	Bed             string     `gorm:"size:8" json:"bed"`
+	AreaID          *uint      `gorm:"index" json:"area_id"`
+	ElderID         *uint      `json:"elder_id"`
+	Online          int8       `gorm:"default:0" json:"online"` // 1在线 0离线
+	Battery         *int       `json:"battery"`
+	LastSeen        *time.Time `json:"last_seen"`
+	Protocol        string     `gorm:"size:16;default:MQTT" json:"protocol"`
+	StreamURL       string     `gorm:"size:512" json:"stream_url,omitempty"`
+	StreamStatus    string     `gorm:"size:16;default:unknown" json:"stream_status"`
+	DiscoveryStatus string     `gorm:"size:16;default:claimed;index" json:"discovery_status"` // pending/claimed/disabled
 }
 
 // SignalRecord 设备归一化体征/事件。

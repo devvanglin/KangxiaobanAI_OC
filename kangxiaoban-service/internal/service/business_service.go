@@ -60,6 +60,9 @@ func (s *ResourceService) ListRooms(ctx context.Context, building string, floor,
 func (s *ResourceService) ListBeds(ctx context.Context, roomID uint, status string, page, size int) ([]model.Bed, int64, error) {
 	return s.repo.ListBeds(ctx, roomID, status, page, size)
 }
+func (s *ResourceService) CreateBed(ctx context.Context, bed *model.Bed) error {
+	return s.repo.CreateBed(ctx, bed)
+}
 
 // TaskService 护理任务。
 type TaskService struct{ repo *repository.TaskRepository }

@@ -3,8 +3,11 @@ package iot
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"math"
+	"net"
+	"net/url"
 	"strconv"
 	"sync"
 	"time"
@@ -89,7 +92,8 @@ func (s *IotService) IngestContext(ctx context.Context, deviceID, product string
 	var dev model.IotDevice
 	if err := db.Where("device_id = ?", deviceID).First(&dev).Error; err != nil {
 		// 设备未知：登记
-		dev = model.IotDevice{DeviceID: deviceID, Product: product, Protocol: "MQTT", Online: 1, Battery: battery}
+		deviceType := "millimeter_wave"
+		dev = model.IotDevice{DeviceID: deviceID, Product: product, DeviceType: deviceType, Protocol: "MQTT", Online: 1, Battery: battery, DiscoveryStatus: "pending"}
 		if dev.Product == "" {
 			dev.Product = "unknown"
 		}
@@ -121,6 +125,28 @@ func (s *IotService) IngestContext(ctx context.Context, deviceID, product string
 		sr := model.SignalRecord{DeviceID: deviceID, ElderID: dev.ElderID, Type: typ, Value: toStr(v), TS: now}
 		if err := db.Create(&sr).Error; err != nil {
 			log.Printf("write signal failed: %v", err)
+		}
+	}
+	// Project the normalized radar frame into the health timeline when the
+	// device is already assigned to a resident. This lets both resident pages
+	// use the same server-backed health overview while raw SignalRecord remains
+	// available for live/device detail views.
+	if dev.ElderID != nil {
+		record := model.HealthRecord{ElderID: *dev.ElderID, Source: "iot", RecordTime: now}
+		if value, ok := toFloatOK(values["heartRateValue"]); ok {
+			v := int(value)
+			record.HeartRate = &v
+		}
+		if value, ok := toFloatOK(values["breathValue"]); ok {
+			v := int(value)
+			record.RespiratoryRate = &v
+		}
+		if record.HeartRate != nil || record.RespiratoryRate != nil {
+			record.RiskLevel = "normal"
+			record.RiskSummary = "毫米波设备已上报"
+			if err := db.Create(&record).Error; err != nil {
+				log.Printf("write health projection failed: %v", err)
+			}
 		}
 	}
 
@@ -265,8 +291,7 @@ func (s *IotService) contextForDevice(deviceID string) context.Context {
 }
 
 // ListDevices 设备列表。
-func (s *IotService) ListDevices(page, size int) ([]model.IotDevice, int64, error) {
-	ctx := context.Background()
+func (s *IotService) ListDevices(ctx context.Context, page, size int) ([]model.IotDevice, int64, error) {
 	q := s.db.WithContext(ctx).Model(&model.IotDevice{})
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
@@ -278,7 +303,53 @@ func (s *IotService) ListDevices(page, size int) ([]model.IotDevice, int64, erro
 }
 
 func (s *IotService) CreateDevice(ctx context.Context, device *model.IotDevice) error {
+	if device.DeviceType == "" {
+		if device.Protocol == "RTSP" {
+			device.DeviceType = "camera"
+		} else {
+			device.DeviceType = "other"
+		}
+	}
+	if device.Protocol == "" {
+		device.Protocol = "MQTT"
+	}
+	if device.DiscoveryStatus == "" {
+		device.DiscoveryStatus = "claimed"
+	}
 	return s.db.WithContext(ctx).Create(device).Error
+}
+
+func (s *IotService) UpdateDevice(ctx context.Context, id uint, updates map[string]interface{}) error {
+	return s.db.WithContext(ctx).Model(&model.IotDevice{}).Where("id = ?", id).Updates(updates).Error
+}
+
+func (s *IotService) GetDevice(ctx context.Context, id uint) (*model.IotDevice, error) {
+	var device model.IotDevice
+	err := s.db.WithContext(ctx).First(&device, id).Error
+	return &device, err
+}
+
+func (s *IotService) ListSignals(ctx context.Context, deviceID string, limit int) ([]model.SignalRecord, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	var records []model.SignalRecord
+	err := s.db.WithContext(ctx).Where("device_id = ?", deviceID).Order("ts desc, id desc").Limit(limit).Find(&records).Error
+	return records, err
+}
+
+func (s *IotService) ProbeStream(ctx context.Context, streamURL string) error {
+	parsed, err := url.Parse(streamURL)
+	if err != nil || parsed.Hostname() == "" || parsed.Port() == "" {
+		return fmt.Errorf("invalid stream url")
+	}
+	address := net.JoinHostPort(parsed.Hostname(), parsed.Port())
+	dialer := net.Dialer{Timeout: 3 * time.Second}
+	conn, err := dialer.DialContext(ctx, "tcp", address)
+	if err != nil {
+		return err
+	}
+	return conn.Close()
 }
 
 func (s *IotService) DeleteDevice(ctx context.Context, id uint) error {
@@ -294,8 +365,7 @@ func (s *IotService) GetAlert(ctx context.Context, id uint) (*model.Alert, error
 }
 
 // ListAlerts 告警列表（可按状态/级别筛）。
-func (s *IotService) ListAlerts(status, level string, page, size int) ([]model.Alert, int64, error) {
-	ctx := context.Background()
+func (s *IotService) ListAlerts(ctx context.Context, status, level string, page, size int) ([]model.Alert, int64, error) {
 	q := s.db.WithContext(ctx).Model(&model.Alert{})
 	if status != "" {
 		q = q.Where("status = ?", status)

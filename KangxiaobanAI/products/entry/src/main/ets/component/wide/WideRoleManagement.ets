@@ -7,6 +7,7 @@ interface RoleRecord {
 }
 interface RolePage { list: RoleRecord[]; total: number; }
 interface RoleStatusRequest { status: number; }
+interface RoleCreateRequest { name: string; code: string; remark: string; permission_codes: string[]; status: number; }
 
 @ComponentV2
 export struct WideRoleManagement {
@@ -23,6 +24,11 @@ export struct WideRoleManagement {
   @Local hoveredRoleId: number = 0;
   @Local loading: boolean = false;
   @Local error: string = '';
+  @Local showCreate: boolean = false;
+  @Local roleName: string = '';
+  @Local roleCode: string = '';
+  @Local roleRemark: string = '';
+  @Local permissionCodes: string = 'elder:read,task:read';
   private scroller: Scroller = new Scroller();
 
   aboutToAppear(): void { this.loadRoles(); }
@@ -44,6 +50,15 @@ export struct WideRoleManagement {
       const response = await ApiClient.patch<Object>(`/roles/${role.id}/status`, request);
       if (response.code === 0) await this.loadRoles();
     } catch (_error) { this.error = '角色状态更新失败'; }
+  }
+
+  private async createRole(): Promise<void> {
+    if (this.roleName.trim() === '' || this.roleCode.trim() === '') { this.error = '角色名称和权限字符不能为空'; return; }
+    const codes: string[] = this.permissionCodes.split(',').map((item: string) => item.trim()).filter((item: string) => item.length > 0);
+    const request: RoleCreateRequest = { name: this.roleName.trim(), code: this.roleCode.trim(), remark: this.roleRemark.trim(), permission_codes: codes, status: 1 };
+    const response = await ApiClient.post<RoleRecord>('/roles', request);
+    if (response.code !== 0) { this.error = response.msg || '角色创建失败'; return; }
+    this.showCreate = false; this.roleName = ''; this.roleCode = ''; this.roleRemark = ''; await this.loadRoles();
   }
 
   private hint(action: string): void {
@@ -95,7 +110,7 @@ export struct WideRoleManagement {
       }.width('100%')
       Row({ space: 10 }) {
         Button('新增').height(36).fontSize(12).borderRadius(6).fontColor($r('app.color.brand_blue'))
-          .backgroundColor($r('sys.color.comp_background_secondary')).onClick(() => this.hint('新增角色'))
+          .backgroundColor($r('sys.color.comp_background_secondary')).onClick(() => this.showCreate = true)
         Button('修改').height(36).fontSize(12).borderRadius(6).enabled(this.selectedRoleId > 0).onClick(() => this.hint('修改角色'))
         Button('删除').height(36).fontSize(12).borderRadius(6).enabled(this.selectedRoleId > 0).onClick(() => this.hint('删除角色'))
         Button('导出').height(36).fontSize(12).borderRadius(6).fontColor($r('sys.color.font_secondary'))
@@ -140,8 +155,23 @@ export struct WideRoleManagement {
       .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
   }
 
+  @Builder
+  private createDialog() {
+    if (this.showCreate) {
+      Column({ space: 12 }) {
+        Text('新增角色').fontSize(20).fontWeight(FontWeight.Medium)
+        TextInput({ placeholder: '角色名称，例如护士长', text: $$this.roleName }).height(42)
+        TextInput({ placeholder: '权限字符，例如 head_nurse', text: $$this.roleCode }).height(42)
+        TextInput({ placeholder: '权限字符，逗号分隔', text: $$this.permissionCodes }).height(42)
+        TextArea({ placeholder: '备注，可选', text: $$this.roleRemark }).height(80)
+        Row({ space: 10 }) { Button('取消').layoutWeight(1).height(40).onClick(() => this.showCreate = false); Button('保存').layoutWeight(1).height(40).fontColor(Color.White).backgroundColor($r('app.color.brand_blue')).onClick(() => this.createRole()) }.width('100%')
+      }.width(this.compactWidth ? '90%' : 460).padding(24).backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
+    }
+  }
+
   build() {
-    Scroll(this.scroller) {
+    Stack() {
+      Scroll(this.scroller) {
       Column({ space: 18 }) {
         this.roleToolbar()
         if (this.error.length > 0) Text(this.error).fontSize(12).fontColor($r('app.color.doctor_workspace_danger'))
@@ -156,6 +186,8 @@ export struct WideRoleManagement {
         Text(`共 ${this.roles.length} 条`).fontSize(11).fontColor($r('sys.color.font_tertiary')).width('100%').textAlign(TextAlign.End)
       }.width('100%').padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28,
         top: 56 + this.statusBarHeight, bottom: 24 + this.naviIndicatorHeight }).alignItems(HorizontalAlign.Start)
-    }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
+      }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
+      if (this.showCreate) Row() { this.createDialog() }.width('100%').height('100%').backgroundColor('#66000000').justifyContent(FlexAlign.Center)
+    }.width('100%').height('100%')
   }
 }

@@ -41,11 +41,12 @@ func (h *UserHandler) List(c *gin.Context) {
 }
 
 type userInput struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password"`
-	RealName string `json:"real_name"`
-	Phone    string `json:"phone"`
-	RoleCode string `json:"role_code" binding:"required"`
+	Username  string   `json:"username" binding:"required"`
+	Password  string   `json:"password"`
+	RealName  string   `json:"real_name"`
+	Phone     string   `json:"phone"`
+	RoleCode  string   `json:"role_code"`
+	RoleCodes []string `json:"role_codes"`
 }
 
 func (h *UserHandler) Create(c *gin.Context) {
@@ -54,20 +55,20 @@ func (h *UserHandler) Create(c *gin.Context) {
 		Fail(c, 400, 400, "用户名、密码和角色必填")
 		return
 	}
-	input.RoleCode = strings.TrimSpace(input.RoleCode)
+	roleCodes := normalizeRoleCodes(input.RoleCodes, input.RoleCode)
+	if len(roleCodes) == 0 {
+		Fail(c, 400, 400, "至少绑定一个角色")
+		return
+	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 	if err != nil {
 		Fail(c, 500, 500, "密码处理失败")
 		return
 	}
-	var role model.Role
 	db := h.db.WithContext(c.Request.Context())
-	if !isSupportedRoleCode(input.RoleCode) {
-		Fail(c, 400, 400, "仅支持管理员、医师或护工角色")
-		return
-	}
-	if err := db.Where("code = ?", input.RoleCode).First(&role).Error; err != nil {
-		Fail(c, 400, 400, "角色不存在")
+	var roles []model.Role
+	if err := db.Where("code IN ? AND status = 1", roleCodes).Find(&roles).Error; err != nil || len(roles) != len(roleCodes) {
+		Fail(c, 400, 400, "角色不存在或已停用")
 		return
 	}
 	user := model.User{Username: strings.TrimSpace(input.Username), PasswordHash: string(hash), RealName: input.RealName, Phone: input.Phone, Status: 1}
@@ -75,12 +76,44 @@ func (h *UserHandler) Create(c *gin.Context) {
 		Fail(c, 409, 409, "用户名已存在")
 		return
 	}
-	if err := db.Model(&user).Association("Roles").Replace([]model.Role{role}); err != nil {
+	if err := db.Model(&user).Association("Roles").Replace(roles); err != nil {
 		Fail(c, 500, 500, "角色绑定失败")
 		return
 	}
 	user.PasswordHash = ""
-	user.Roles = []model.Role{role}
+	user.Roles = roles
+	OK(c, user)
+}
+
+// UpdateRoles replaces all active roles for one user. The caller must be an
+// administrator; tenant scoping is supplied by the request context.
+func (h *UserHandler) UpdateRoles(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	var req struct {
+		RoleCodes []string `json:"role_codes"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || len(req.RoleCodes) == 0 {
+		Fail(c, 400, 400, "至少绑定一个角色")
+		return
+	}
+	roleCodes := normalizeRoleCodes(req.RoleCodes, "")
+	var roles []model.Role
+	db := h.db.WithContext(c.Request.Context())
+	if err := db.Where("code IN ? AND status = 1", roleCodes).Find(&roles).Error; err != nil || len(roles) != len(roleCodes) {
+		Fail(c, 400, 400, "角色不存在或已停用")
+		return
+	}
+	var user model.User
+	if err := db.First(&user, uint(id)).Error; err != nil {
+		Fail(c, 404, 404, "用户不存在")
+		return
+	}
+	if err := db.Model(&user).Association("Roles").Replace(roles); err != nil {
+		Fail(c, 500, 500, "角色绑定失败")
+		return
+	}
+	user.PasswordHash = ""
+	user.Roles = roles
 	OK(c, user)
 }
 
@@ -98,4 +131,17 @@ func (h *UserHandler) SetStatus(c *gin.Context) {
 		return
 	}
 	OK(c, gin.H{"status": input.Status})
+}
+
+func normalizeRoleCodes(codes []string, fallback string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(codes)+1)
+	for _, value := range append(codes, fallback) {
+		value = strings.TrimSpace(value)
+		if value != "" && !seen[value] {
+			seen[value] = true
+			out = append(out, value)
+		}
+	}
+	return out
 }

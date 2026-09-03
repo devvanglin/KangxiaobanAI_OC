@@ -114,6 +114,10 @@ func (r *ResourceRepository) GetBed(ctx context.Context, id uint) (*model.Bed, e
 	return &b, err
 }
 
+func (r *ResourceRepository) CreateBed(ctx context.Context, bed *model.Bed) error {
+	return r.db.WithContext(ctx).Create(bed).Error
+}
+
 // TaskRepository 护理任务。
 type TaskRepository struct{ db *gorm.DB }
 

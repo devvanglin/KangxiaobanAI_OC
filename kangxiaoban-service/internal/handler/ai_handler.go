@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"kangxiaoban-service/internal/auth"
 
 	"kangxiaoban-service/internal/middleware"
 	"kangxiaoban-service/internal/service"
@@ -23,11 +24,13 @@ func NewAIHandler(svc *service.AIService) *AIHandler {
 
 // ListSuggestions GET /api/v1/ai/suggestions
 func (h *AIHandler) ListSuggestions(c *gin.Context) {
-	if _, ok := middleware.ClaimsFrom(c); !ok {
+	claims, ok := middleware.ClaimsFrom(c)
+	if !ok {
 		Fail(c, http.StatusUnauthorized, 401, "未登录")
 		return
 	}
-	items, err := h.svc.ListPromptSuggestions(c.Request.Context())
+	ctx := service.WithAIRoleScope(c.Request.Context(), aiRoleScope(claims))
+	items, err := h.svc.ListPromptSuggestions(ctx)
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "查询 AI 快捷提示失败")
 		return
@@ -59,7 +62,8 @@ func (h *AIHandler) Chat(c *gin.Context) {
 		Fail(c, http.StatusBadRequest, 400, "参数错误: question 必填")
 		return
 	}
-	answer, model, err := h.svc.ChatAndPersistDefault(c.Request.Context(), claims.UserID, req.Question)
+	ctx := service.WithAIRoleScope(c.Request.Context(), aiRoleScope(claims))
+	answer, model, err := h.svc.ChatAndPersistDefault(ctx, claims.UserID, req.Question)
 	if err != nil {
 		handleAIConversationError(c, err, "AI 暂不可用")
 		return
@@ -155,7 +159,8 @@ func (h *AIHandler) SendMessage(c *gin.Context) {
 		Fail(c, http.StatusBadRequest, 400, "参数错误: content 必填")
 		return
 	}
-	exchange, err := h.svc.SendMessage(c.Request.Context(), claims.UserID, id, req.Content)
+	ctx := service.WithAIRoleScope(c.Request.Context(), aiRoleScope(claims))
+	exchange, err := h.svc.SendMessage(ctx, claims.UserID, id, req.Content)
 	if err != nil {
 		handleAIConversationError(c, err, "发送 AI 消息失败")
 		return
@@ -165,6 +170,15 @@ func (h *AIHandler) SendMessage(c *gin.Context) {
 		"assistant_message": exchange.AssistantMessage, "answer": exchange.Answer,
 		"model": exchange.Model, "note": "AI 回答仅供参考，不构成临床诊断",
 	})
+}
+
+func aiRoleScope(claims *auth.Claims) string {
+	for _, role := range claims.Roles {
+		if role == "doctor" {
+			return "doctor"
+		}
+	}
+	return "caregiver"
 }
 
 func parseAIConversationID(c *gin.Context) (uint, bool) {

@@ -26,7 +26,7 @@ import { BusinessStore } from '../../network/BusinessStore';
 import { Alert, Bed, CareExecution, CareTask, Elder, HealthRecord, IotDevice, MedicationRecord, Room } from '../../network/Dto';
 
 type ResidentFilter = 'all' | 'warning' | 'danger';
-type ResidentDetailTab = 'overview' | 'vitals' | 'care' | 'devices';
+type ResidentDetailTab = 'overview' | 'vitals' | 'care' | 'devices' | 'behavior';
 
 interface VitalTrendRow {
   time: string;
@@ -87,7 +87,8 @@ export struct WideDoctorResidentPage {
     { title: '概览', index: 0 },
     { title: '体征趋势', index: 1 },
     { title: '护理记录', index: 2 },
-    { title: '设备', index: 3 }
+    { title: '设备', index: 3 },
+    { title: '行为', index: 4 }
   ];
   @Local selectedResidentId: string = '';
   @Local selectedTab: ResidentDetailTab = 'overview';
@@ -377,6 +378,9 @@ export struct WideDoctorResidentPage {
     if (this.selectedTab === 'devices') {
       return 3;
     }
+    if (this.selectedTab === 'behavior') {
+      return 4;
+    }
     return 0;
   }
 
@@ -387,6 +391,8 @@ export struct WideDoctorResidentPage {
       this.selectedTab = 'care';
     } else if (index === 3) {
       this.selectedTab = 'devices';
+    } else if (index === 4) {
+      this.selectedTab = 'behavior';
     } else {
       this.selectedTab = 'overview';
     }
@@ -805,6 +811,8 @@ export struct WideDoctorResidentPage {
             this.vitalTrendContent(resident)
           } else if (this.selectedTab === 'care') {
             this.careRecordContent(resident)
+          } else if (this.selectedTab === 'behavior') {
+            this.behaviorContent(resident)
           } else {
             this.deviceContent(resident)
           }
@@ -1674,6 +1682,18 @@ export struct WideDoctorResidentPage {
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(12)
     .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+  }
+
+  @Builder
+  private behaviorContent(resident: ResidentData) {
+    Column({ space: 12 }) {
+      this.cardTitle('摄像头行为', resident.room)
+      Column({ space: 10 }) {
+        SymbolGlyph($r('sys.symbol.camera_fill')).fontSize(32).fontColor([$r('app.color.brand_blue')])
+        Text('摄像头行为识别接入中').fontSize(16).fontWeight(FontWeight.Medium)
+        Text('当前仅完成摄像头设备配置与在线状态展示，行为分析适配后将在这里显示事件。').fontSize(12).fontColor($r('sys.color.font_secondary')).textAlign(TextAlign.Center)
+      }.width('100%').padding(28).backgroundColor($r('sys.color.comp_background_secondary')).borderRadius(10).alignItems(HorizontalAlign.Center)
+    }.width('100%')
   }
 
   @Builder

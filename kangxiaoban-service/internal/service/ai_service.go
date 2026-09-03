@@ -15,6 +15,7 @@ import (
 
 	"kangxiaoban-service/internal/config"
 	"kangxiaoban-service/internal/model"
+	"kangxiaoban-service/internal/security"
 )
 
 const (
@@ -43,6 +44,39 @@ type AIService struct {
 	db  *gorm.DB
 }
 
+type aiRoleScopeKey struct{}
+
+// WithAIRoleScope selects the role-specific tenant configuration for one AI request.
+func WithAIRoleScope(ctx context.Context, scope string) context.Context {
+	return context.WithValue(ctx, aiRoleScopeKey{}, strings.TrimSpace(scope))
+}
+
+func (s *AIService) roleScope(ctx context.Context) string {
+	if value, ok := ctx.Value(aiRoleScopeKey{}).(string); ok && value != "" {
+		return value
+	}
+	return "caregiver"
+}
+
+func (s *AIService) configForContext(ctx context.Context) *config.AIConfig {
+	base := *s.cfg
+	var row model.AIModelConfig
+	err := s.db.WithContext(ctx).Where("role_scope IN ? AND enabled = ? AND allowed = ?", []string{s.roleScope(ctx), "all"}, true, true).
+		Order("is_default DESC, id DESC").First(&row).Error
+	if err != nil {
+		return &base
+	}
+	base.Provider, base.BaseURL, base.Model, base.APIKey = row.Provider, row.BaseURL, row.Model, ""
+	base.ConfigKey = s.cfg.ConfigKey
+	if value, decryptErr := security.Decrypt(base.ConfigKey, row.APIKeyEncrypted); decryptErr == nil {
+		base.APIKey = value
+	}
+	if row.SystemPrompt != "" {
+		base.SystemPrompt = row.SystemPrompt
+	}
+	return &base
+}
+
 func NewAIService(cfg *config.AIConfig, db *gorm.DB) *AIService {
 	return &AIService{cfg: cfg, db: db}
 }
@@ -50,7 +84,8 @@ func NewAIService(cfg *config.AIConfig, db *gorm.DB) *AIService {
 // ListPromptSuggestions returns the current tenant's enabled starter prompts.
 func (s *AIService) ListPromptSuggestions(ctx context.Context) ([]model.AIPromptSuggestion, error) {
 	var suggestions []model.AIPromptSuggestion
-	err := s.db.WithContext(ctx).Where("enabled = ?", true).
+	role := s.roleScope(ctx)
+	err := s.db.WithContext(ctx).Where("enabled = ? AND role_scope IN ?", true, []string{role, "all"}).
 		Order("group_index ASC, sort_order ASC, id ASC").Find(&suggestions).Error
 	return suggestions, err
 }
@@ -187,26 +222,27 @@ func (s *AIService) Chat(ctx context.Context, question string) (string, string, 
 	if question == "" {
 		return "", "", fmt.Errorf("question 不能为空")
 	}
-	if s.cfg == nil || !s.cfg.Enabled {
+	cfg := s.configForContext(ctx)
+	if cfg == nil || !cfg.Enabled {
 		return "", "", ErrAIProviderUnavailable
 	}
-	provider := strings.ToLower(strings.TrimSpace(s.cfg.Provider))
+	provider := strings.ToLower(strings.TrimSpace(cfg.Provider))
 	switch provider {
 	case "local":
-		modelName := strings.TrimSpace(s.cfg.Model)
+		modelName := strings.TrimSpace(cfg.Model)
 		if modelName == "" {
 			modelName = "kxb-local"
 		}
 		return s.localAnswer(ctx, question), modelName, nil
 	case "http":
-		if strings.TrimSpace(s.cfg.BaseURL) == "" || strings.TrimSpace(s.cfg.Model) == "" {
+		if strings.TrimSpace(cfg.BaseURL) == "" || strings.TrimSpace(cfg.Model) == "" {
 			return "", "", fmt.Errorf("%w: http provider is not fully configured", ErrAIProviderUnavailable)
 		}
-		answer, err := s.chatHTTP(ctx, question)
+		answer, err := s.chatHTTP(ctx, cfg, question)
 		if err != nil {
 			return "", "", fmt.Errorf("%w: %v", ErrAIProviderUnavailable, err)
 		}
-		return answer, strings.TrimSpace(s.cfg.Model), nil
+		return answer, strings.TrimSpace(cfg.Model), nil
 	default:
 		return "", "", fmt.Errorf("%w: unsupported provider %q", ErrAIProviderUnavailable, provider)
 	}
@@ -274,23 +310,23 @@ func mapAIConversationNotFound(err error) error {
 }
 
 // chatHTTP 兼容 OpenAI /v1/chat/completions 的远端模型。
-func (s *AIService) chatHTTP(ctx context.Context, question string) (string, error) {
+func (s *AIService) chatHTTP(ctx context.Context, cfg *config.AIConfig, question string) (string, error) {
 	body, _ := json.Marshal(map[string]interface{}{
-		"model": s.cfg.Model,
+		"model": cfg.Model,
 		"messages": []map[string]string{
-			{"role": "system", "content": "你是康小伴智慧康养护理平台的照护助理，回答须谨慎、贴题、仅作参考，不做临床诊断。"},
+			{"role": "system", "content": cfg.SystemPrompt},
 			{"role": "user", "content": question},
 		},
 		"temperature": 0.3,
 	})
-	baseURL := strings.TrimRight(strings.TrimSpace(s.cfg.BaseURL), "/")
+	baseURL := strings.TrimRight(strings.TrimSpace(cfg.BaseURL), "/")
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/v1/chat/completions", bytes.NewReader(body))
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if s.cfg.APIKey != "" {
-		req.Header.Set("Authorization", "Bearer "+s.cfg.APIKey)
+	if cfg.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
 	}
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)

@@ -16,8 +16,13 @@ services:
       # they are served only through authenticated API handlers.
       KXB_UPLOAD_DIR: "/data/uploads"
       KXB_JWT_SECRET: "${KXB_JWT_SECRET:?set KXB_JWT_SECRET in .env}"
+      KXB_AI_CONFIG_KEY: "${KXB_AI_CONFIG_KEY:?set KXB_AI_CONFIG_KEY in .env}"
       KXB_JWT_EXPIRE: "86400"
-      KXB_MQTT_ENABLE: "false"
+      KXB_MQTT_ENABLE: "${KXB_MQTT_ENABLE:-true}"
+      KXB_MQTT_URL: "${KXB_MQTT_URL:-tcp://10.10.1.14:1883}"
+      KXB_MQTT_CLIENT_ID: "${KXB_MQTT_CLIENT_ID:-kxb-backend}"
+      KXB_MQTT_USERNAME: "${KXB_MQTT_USERNAME:-}"
+      KXB_MQTT_PASSWORD: "${KXB_MQTT_PASSWORD:-}"
       KXB_AI_ENABLED: "true"
       KXB_AI_PROVIDER: "local"
       # 空库首启写入一套互相关联的业务初始数据；已有正式数据时可设为 false。

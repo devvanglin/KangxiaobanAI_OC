@@ -93,6 +93,9 @@ func AutoMigrateAndSeed(db *gorm.DB, seedBusiness bool) error {
 	if err := model.AutoMigrateAll(db); err != nil {
 		return fmt.Errorf("auto migrate: %w", err)
 	}
+	if err := ensureTenantScopedIdentityIndexes(db); err != nil {
+		return fmt.Errorf("ensure tenant identity indexes: %w", err)
+	}
 	// 单机构历史库统一迁移到默认租户，避免新增 tenant_id 后出现不可见数据。
 	if err := ensureDefaultTenant(db); err != nil {
 		return fmt.Errorf("ensure default tenant: %w", err)
@@ -142,6 +145,9 @@ func AutoMigrateAndSeed(db *gorm.DB, seedBusiness bool) error {
 	}
 	if err := ensureBusinessRelations(db); err != nil {
 		return fmt.Errorf("ensure business relations: %w", err)
+	}
+	if err := backfillAreas(db); err != nil {
+		return fmt.Errorf("backfill areas: %w", err)
 	}
 	if seedBusiness {
 		if err := seedBusinessData(db); err != nil {
@@ -356,8 +362,10 @@ func seed(db *gorm.DB) error {
 		{"health:read", "体征查看"},
 		{"health:write", "体征录入"},
 		{"alert:read", "告警查看"},
+		{"alert:handle", "告警处置"},
 		{"admission:read", "入住评估查看"},
 		{"admission:write", "入住评估办理"},
+		{"plan:manage", "护理套餐分配"},
 		{"admin:all", "系统管理"},
 	}
 	permByCode := map[string]model.Permission{}
@@ -376,9 +384,9 @@ func seed(db *gorm.DB) error {
 	}{
 		{"admin", "管理员", "系统管理与全部业务", []string{
 			"dash:read", "elder:read", "elder:write", "task:read", "task:write",
-			"care:review", "health:read", "health:write", "alert:read", "admission:read", "admission:write", "admin:all"}},
+		"care:review", "health:read", "health:write", "alert:read", "alert:handle", "admission:read", "admission:write", "plan:manage", "admin:all"}},
 		{"doctor", "医师", "看护与评估", []string{
-			"dash:read", "elder:read", "health:read", "task:read", "care:review", "alert:read", "admission:read", "admission:write"}},
+		"dash:read", "elder:read", "health:read", "task:read", "care:review", "alert:read", "alert:handle", "admission:read", "admission:write", "plan:manage"}},
 		{"caregiver", "护工", "现场护理", []string{
 			"dash:read", "elder:read", "health:read", "health:write",
 			"task:read", "task:write", "alert:read"}},

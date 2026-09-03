@@ -29,7 +29,7 @@ type Tenant struct {
 // User 员工账号（管理员/医师/护工）。
 type User struct {
 	Base
-	Username     string `gorm:"size:64;uniqueIndex;not null" json:"username"`
+	Username     string `gorm:"size:64;uniqueIndex:uk_users_tenant_username;not null" json:"username"`
 	PasswordHash string `gorm:"size:255;not null" json:"-"`
 	RealName     string `gorm:"size:64" json:"real_name"`
 	Phone        string `gorm:"size:32" json:"phone"`
@@ -40,7 +40,7 @@ type User struct {
 // Role 角色（管理员/医师/护工）。
 type Role struct {
 	Base
-	Code         string       `gorm:"size:32;uniqueIndex;not null" json:"code"`
+	Code         string       `gorm:"size:32;uniqueIndex:uk_roles_tenant_code;not null" json:"code"`
 	Name         string       `gorm:"size:64;not null" json:"name"`
 	Description  string       `gorm:"size:255" json:"description"`
 	DisplayOrder int8         `gorm:"default:0" json:"display_order"`
@@ -81,6 +81,7 @@ func AutoMigrateAll(db *gorm.DB) error {
 		&AdmissionScreening{}, &AdmissionScreeningAnswer{}, &AdmissionIntake{}, &AdmissionIntakePhoto{},
 		&IotDevice{}, &SignalRecord{}, &Alert{}, &AlertAction{}, &Notification{},
 		&Schedule{}, &ShiftHandover{}, &BillingRate{}, &Bill{}, &FundFlow{}, &MedicationRecord{},
-		&MedicineStock{}, &DiningOrder{}, &Message{}, &OperationPolicy{},
-		&AIPromptSuggestion{}, &AIConversation{}, &AIMessage{})
+		&MedicineStock{}, &DiningOrder{}, &Message{}, &OperationPolicy{}, &Area{},
+		&CarePackageTemplate{}, &CarePackageItem{}, &ElderCarePackageSubscription{},
+		&AIPromptSuggestion{}, &AIModelConfig{}, &AIConversation{}, &AIMessage{})
 }

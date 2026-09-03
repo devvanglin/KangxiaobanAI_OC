@@ -6,6 +6,7 @@ import "time"
 // Institutions can edit or disable rows without rebuilding any client.
 type AIPromptSuggestion struct {
 	Base
+	RoleScope  string `gorm:"size:16;default:all;index" json:"role_scope"`
 	Code       string `gorm:"size:64;index;not null" json:"code"`
 	GroupIndex int    `gorm:"index;not null" json:"group_index"`
 	Title      string `gorm:"size:255;not null" json:"title"`
@@ -15,6 +16,28 @@ type AIPromptSuggestion struct {
 }
 
 func (AIPromptSuggestion) TableName() string { return "ai_prompt_suggestions" }
+
+// AIModelConfig is tenant-owned configuration for one role's AI gateway.
+// API keys are deliberately never serialized.
+type AIModelConfig struct {
+	Base
+	RoleScope          string  `gorm:"size:16;index;not null" json:"role_scope"`
+	Name               string  `gorm:"size:128;not null" json:"name"`
+	Provider           string  `gorm:"size:16;not null" json:"provider"`
+	BaseURL            string  `gorm:"size:512" json:"base_url"`
+	Model              string  `gorm:"size:128;not null" json:"model"`
+	APIKeyEncrypted    string  `gorm:"size:2048" json:"-"`
+	SystemPrompt       string  `gorm:"type:text" json:"system_prompt"`
+	ContextWindow      int     `gorm:"default:8192" json:"context_window"`
+	Temperature        float64 `gorm:"default:0.3" json:"temperature"`
+	Enabled            bool    `gorm:"default:true;index" json:"enabled"`
+	Allowed            bool    `gorm:"default:true" json:"allowed"`
+	IsDefault          bool    `gorm:"default:false;index" json:"is_default"`
+	RAGEnabled         bool    `gorm:"default:false" json:"rag_enabled"`
+	RAGBaseURL         string  `gorm:"size:512" json:"rag_base_url"`
+	RAGDatasetID       string  `gorm:"size:128" json:"rag_dataset_id"`
+	RAGAPIKeyEncrypted string  `gorm:"size:2048" json:"-"`
+}
 
 // AIConversation is one authenticated user's isolated AI chat thread.
 type AIConversation struct {

@@ -43,6 +43,7 @@ type Room struct {
 type Bed struct {
 	Base
 	RoomID  uint   `gorm:"index" json:"room_id"`
+	AreaID  *uint  `gorm:"index" json:"area_id,omitempty"`
 	BedNo   string `gorm:"size:8" json:"bed_no"`
 	Status  string `gorm:"size:16;default:free" json:"status"`
 	ElderID *uint  `json:"elder_id"`
@@ -115,13 +116,15 @@ type Assessment struct {
 // CarePlan 护理计划主表。
 type CarePlan struct {
 	Base
-	ElderID   uint           `gorm:"index;not null" json:"elder_id"`
-	Name      string         `gorm:"size:128;not null" json:"name"`
-	Status    string         `gorm:"size:16;default:active" json:"status"` // draft/active/paused/completed
-	StartDate string         `gorm:"size:10" json:"start_date"`
-	EndDate   string         `gorm:"size:10" json:"end_date"`
-	CreatedBy uint           `gorm:"index" json:"created_by"`
-	Items     []CarePlanItem `json:"items,omitempty"`
+	ElderID        uint           `gorm:"index;not null" json:"elder_id"`
+	TemplateID     *uint          `gorm:"index" json:"template_id,omitempty"`
+	SubscriptionID *uint          `gorm:"index" json:"subscription_id,omitempty"`
+	Name           string         `gorm:"size:128;not null" json:"name"`
+	Status         string         `gorm:"size:16;default:active" json:"status"` // draft/active/paused/completed
+	StartDate      string         `gorm:"size:10" json:"start_date"`
+	EndDate        string         `gorm:"size:10" json:"end_date"`
+	CreatedBy      uint           `gorm:"index" json:"created_by"`
+	Items          []CarePlanItem `json:"items,omitempty"`
 }
 
 // CarePlanItem 护理计划中的周期性项目。
