@@ -275,12 +275,19 @@ their component code, Scrollers, and local presentation state are intentionally 
 separately. The doctor resident surface remains server-backed/read-only where the role lacks mutation permission,
 including its compact master/detail native HDS back behavior. Both workspaces constrain the content column after the sidebar so the four overview
 cards remain inside the available window (the previous administrator root could clip the fourth card on a 2-in-1
-display). The doctor account keeps alert rows read-only because the current backend doctor role has `task:read` but not
-`task:write`/`admin:all`; the shared button appearance is retained and a guarded click explains the read-only state
-without bypassing RBAC. The backend-connected
+display). The doctor account can acknowledge and handle alert rows through the dedicated `alert:handle` permission;
+server-side RBAC remains the authorization boundary. The backend-connected
 `WideDoctorAdmission` remains available for a future approved entry point but is not exposed by the current doctor
-navigation. Wide administrator layouts mount `WideAdminWorkspace` directly; its operations overview reads server
-records and tenant policy, while non-overview administrator modules remain placeholders.
+navigation. Wide administrator layouts mount `WideAdminWorkspace` directly; its operations overview and management
+modules read and write through authenticated server APIs.
+
+The current administrator capsule is `服务器 / 角色 / 用户 / 区域 / 计划 / 大模型 / 设备`.
+`区域` keeps the historical room/bed contract while adding floor, room, corridor, stair, common-area, and other
+spatial records. `计划` manages tenant-owned care-package templates and elder subscriptions that generate runtime
+care plans and tasks. The model page persists separate caregiver and doctor AI configurations through authenticated
+admin APIs; keys are encrypted server-side and never returned to clients. Device management accepts MQTT radar
+metadata and manually configured RTSP cameras. Camera behavior remains an explicit empty state until the vision
+adapter is integrated.
 
 `HdsNavigation` uses an immersive/adaptive system material title bar, gradient-blur scroll effect, the currently active
 bound Scroller, a back button hidden except for compact caregiver or doctor-resident local-detail state, a hidden title bar for the other
@@ -454,6 +461,9 @@ Current production source is under `KangxiaobanAI/products/entry/src/main/ets`.
 | `component/wide/WideCaregiverWorkspace.ets` | responsive top command-bar shell, sliding primary navigation, live message badge, persistent wide feature roots, avatar account actions, local-back cleanup, and safe-area forwarding |
 | `component/wide/WideDoctorWorkspace.ets` | compatibility facade that delegates the visible doctor console to `WideAdminWorkspace`; the former duplicate doctor builders were removed |
 | `component/wide/WideDoctorAdmission.ets` | backend-persisted four-step appendix A/B/C admission workflow, server preview/scoring, screenings, care-plan selection, confirmations, and submission result |
+| `component/wide/WideDoctorQuickPanel.ets` | doctor workbench quick views for beds, tasks, alerts, assessments, bills, and daily schedules |
+| `component/wide/WideAreaManagement.ets` | compatibility-aware floor/room/bed and corridor/stair area management |
+| `component/wide/WideCarePackageManagement.ets` | administrator care-package template, item, and elder subscription UI |
 | `component/wide/WideAdminWorkspace.ets` | server-backed administrator overview plus the doctor workbench; the removed doctor collaboration/assessment/risk/monitoring entries are out of visible navigation |
 | `component/wide/WideHomePage.ets` | caregiver on-shift workbench, server task summaries/queue, resident rhythm, and persisted task actions |
 | `component/wide/WideResidentPage.ets` | open-canvas responsive resident master/detail view; wide view uses independent list/detail work surfaces and widths below 1180vp switch between full-width list and detail |
