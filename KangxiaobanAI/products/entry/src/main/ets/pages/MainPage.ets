@@ -1306,7 +1306,7 @@ struct MainPage {
           onManagementNavSelect: (index: number) => {
             this.updateManagementNav(index);
           },
-          canHandleAlerts: this.globalInfoModel.role === '管理',
+          canHandleAlerts: this.globalInfoModel.role === '管理' || this.globalInfoModel.role === '医师',
           isDoctor: this.globalInfoModel.role === '医师',
           onOpenAbout: () => {
             this.pathStack.pushPath({ name: 'AboutPage' });

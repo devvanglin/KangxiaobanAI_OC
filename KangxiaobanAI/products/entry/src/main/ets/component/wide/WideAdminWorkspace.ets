@@ -11,6 +11,7 @@ import { WideModelManagement } from './WideModelManagement';
 import { WideDeviceManagement } from './WideDeviceManagement';
 import { WideDoctorCharts } from './WideDoctorCharts';
 import { WideDoctorSchedule } from './WideDoctorSchedule';
+import { WideDoctorQuickPanel } from './WideDoctorQuickPanel';
 
 interface AdminNavItem {
   id: string;
@@ -93,6 +94,7 @@ export struct WideAdminWorkspace {
   @Local chartHealthSnapshot: HealthRecord[] = [];
   @Local dashboardHeight: number = 0;
   @Local metricsHeight: number = 0;
+  @Local doctorQuickModule: string = '';
 
   private navItemsForRole(): AdminNavItem[] {
     if (this.isDoctor) {
@@ -259,7 +261,7 @@ export struct WideAdminWorkspace {
   private async handleAlert(item: AdminEvent): Promise<void> {
     if (!this.canHandleAlerts) {
       try {
-        this.getUIContext().getPromptAction().showToast({ message: '医师端当前仅支持查看风险记录' });
+        this.getUIContext().getPromptAction().showToast({ message: '当前账号没有告警处置权限' });
       } catch (_error) {
         // The permission boundary is still enforced if the prompt service is unavailable.
       }
@@ -366,7 +368,8 @@ export struct WideAdminWorkspace {
       { id: 'tasks', label: '护理任务', symbol: $r('sys.symbol.checkmark_circle_fill'), tone: 'warning', target: 'overview' },
       { id: 'alerts', label: '告警处理', symbol: $r('sys.symbol.exclamationmark_triangle_fill'), tone: 'danger', target: 'overview' },
       { id: 'assessment', label: '健康评估', symbol: $r('sys.symbol.heart_fill'), tone: 'focus', target: 'residents' },
-      { id: 'billing', label: '账单管理', symbol: $r('sys.symbol.doc_text'), tone: 'success', target: 'residents' }
+      { id: 'billing', label: '账单管理', symbol: $r('sys.symbol.doc_text'), tone: 'success', target: 'residents' },
+      { id: 'schedule', label: '日常总览', symbol: $r('sys.symbol.calendar_badge_clock'), tone: 'focus', target: 'overview' }
     ];
   }
 
@@ -377,6 +380,11 @@ export struct WideAdminWorkspace {
     }
     const ids: string[] = ['overview', 'residents', 'ai'];
     const index: number = ids.indexOf(item.target);
+    if (this.isDoctor) {
+      this.doctorQuickModule = item.id;
+      this.selectedNavId = 'overview';
+      return;
+    }
     this.selectedNavId = index >= 0 ? item.target : 'overview';
     if (index >= 0) {
       this.onManagementNavSelect(index);
@@ -403,6 +411,7 @@ export struct WideAdminWorkspace {
   }
 
   private selectNavItem(item: AdminNavItem): void {
+    this.doctorQuickModule = '';
     this.selectedNavId = item.id;
     const index: number = this.navIndex(item.id);
     if (index >= 0) {
@@ -796,7 +805,11 @@ export struct WideAdminWorkspace {
     Column() {
       if (this.selectedNavId === 'overview') {
         if (this.isDoctor) {
-          this.dashboard()
+          if (this.doctorQuickModule.length > 0) {
+            WideDoctorQuickPanel({ kind: this.doctorQuickModule, compactWidth: this.compactWidth, onBack: () => this.doctorQuickModule = '' })
+          } else {
+            this.dashboard()
+          }
         } else {
           WideServerMonitor({
             statusBarHeight: this.statusBarHeight,

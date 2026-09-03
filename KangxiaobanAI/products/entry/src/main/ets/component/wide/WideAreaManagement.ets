@@ -3,7 +3,7 @@ import { Area, Bed, Room } from '../../network/Dto';
 import { BusinessStore } from '../../network/BusinessStore';
 
 interface AreaPage { list: Area[]; }
-interface AreaCreateRequest { type: string; code: string; name: string; building: string; floor_no: number; status: string; }
+interface AreaCreateRequest { type: string; code: string; name: string; building: string; floor_no: number; status: string; parent_id?: number; }
 interface AreaChoice { code: string; label: string; }
 interface BedCreateRequest { room_id: number; bed_no: string; status: string; }
 
@@ -21,12 +21,12 @@ export struct WideAreaManagement {
   @Local name: string = '';
   @Local building: string = '';
   @Local floorNo: string = '';
+  @Local parentId: number = 0;
   @Local showBedCreate: boolean = false;
   @Local bedTargetRoomId: number = 0;
   @Local bedNo: string = '';
   @Local error: string = '';
   @Local loading: boolean = false;
-  private scroller: Scroller = new Scroller();
 
   aboutToAppear(): void { this.load(); this.businessStore.load(); }
 
@@ -55,10 +55,10 @@ export struct WideAreaManagement {
 
   private async create(): Promise<void> {
     if (this.code.trim().length === 0 || this.name.trim().length === 0) { this.error = '区域编码和名称不能为空'; return; }
-    const request: AreaCreateRequest = { type: this.type, code: this.code.trim(), name: this.name.trim(), building: this.building.trim(), floor_no: Number(this.floorNo) || 0, status: 'active' };
+    const request: AreaCreateRequest = { type: this.type, code: this.code.trim(), name: this.name.trim(), building: this.building.trim(), floor_no: Number(this.floorNo) || 0, status: 'active', parent_id: this.parentId > 0 ? this.parentId : undefined };
     const response = await ApiClient.post<Area>('/areas', request);
     if (response.code !== 0) { this.error = response.msg || '区域创建失败'; return; }
-    this.showCreate = false; this.code = ''; this.name = ''; this.building = ''; this.floorNo = ''; await this.load();
+    this.showCreate = false; this.code = ''; this.name = ''; this.building = ''; this.floorNo = ''; this.parentId = 0; await this.load();
   }
 
   private openBedCreate(area: Area): void {
@@ -82,13 +82,17 @@ export struct WideAreaManagement {
         Text('新增区域').fontSize(20).fontWeight(FontWeight.Medium)
         Row({ space: 8 }) {
           ForEach([{ code: 'floor', label: '楼层' }, { code: 'room', label: '房间' }, { code: 'corridor', label: '走廊' }, { code: 'stair', label: '楼梯' }, { code: 'common', label: '公共区' }] as AreaChoice[], (item: AreaChoice) => {
-            Button(item.label).layoutWeight(1).height(34).fontSize(11).backgroundColor(this.type === item.code ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary')).fontColor(this.type === item.code ? Color.White : $r('sys.color.font_secondary')).onClick(() => this.type = item.code)
+            Button(item.label).layoutWeight(1).height(34).fontSize(11).backgroundColor(this.type === item.code ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary')).fontColor(this.type === item.code ? Color.White : $r('sys.color.font_secondary')).onClick(() => { this.type = item.code; if (item.code === 'room' && this.parentId === 0) this.parentId = this.areas.find((area: Area) => area.type === 'floor')?.id ?? 0; })
           }, (item: AreaChoice) => item.code)
         }
         TextInput({ placeholder: '区域编码，例如 A-room-103', text: $$this.code }).height(42)
         TextInput({ placeholder: '区域名称，例如 103', text: $$this.name }).height(42)
         TextInput({ placeholder: '楼栋，可选', text: $$this.building }).height(42)
         TextInput({ placeholder: '楼层，可选', text: $$this.floorNo }).height(42).type(InputType.Number)
+        if (this.type === 'room') {
+          Text('所属楼层').fontSize(12).fontColor($r('sys.color.font_secondary'))
+          ForEach(this.areas.filter((area: Area) => area.type === 'floor'), (area: Area) => Button(area.name).width('100%').height(32).fontSize(11).backgroundColor(this.parentId === area.id ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary')).fontColor(this.parentId === area.id ? Color.White : $r('sys.color.font_secondary')).onClick(() => this.parentId = area.id), (area: Area) => `parent-floor-${area.id}`)
+        }
         Row({ space: 10 }) { Button('取消').layoutWeight(1).height(40).onClick(() => this.showCreate = false); Button('保存').layoutWeight(1).height(40).fontColor(Color.White).backgroundColor($r('app.color.brand_blue')).onClick(() => this.create()) }.width('100%')
       }.width(this.compactWidth ? '90%' : 460).padding(24).backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
     }
@@ -96,7 +100,7 @@ export struct WideAreaManagement {
 
   build() {
     Stack() {
-      Scroll(this.scroller) {
+      Scroll(this.managementScroller) {
         Column({ space: 16 }) {
           Row() { Column({ space: 4 }) { Text('区域管理').fontSize(this.compactWidth ? 24 : 28).fontWeight(FontWeight.Bold); Text('楼层、房间、床位以及走廊、楼梯等机构空间').fontSize(11).fontColor($r('sys.color.font_secondary')) }.layoutWeight(1); Button('新增区域').height(36).fontSize(12).fontColor(Color.White).backgroundColor($r('app.color.brand_blue')).onClick(() => this.showCreate = true) }.width('100%')
           if (this.error.length > 0) Text(this.error).fontSize(12).fontColor($r('app.color.doctor_workspace_danger'))

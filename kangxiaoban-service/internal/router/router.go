@@ -243,6 +243,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 
 		// ---- 照护 AI（登录即可问）----
 		authed.POST("/ai/chat", aiHandler.Chat)
+		authed.GET("/ai/models", aiHandler.ListModels)
 		authed.GET("/ai/suggestions", aiHandler.ListSuggestions)
 		authed.GET("/ai/conversations", aiHandler.ListConversations)
 		authed.POST("/ai/conversations", aiHandler.CreateConversation)

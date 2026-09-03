@@ -384,9 +384,9 @@ func seed(db *gorm.DB) error {
 	}{
 		{"admin", "管理员", "系统管理与全部业务", []string{
 			"dash:read", "elder:read", "elder:write", "task:read", "task:write",
-		"care:review", "health:read", "health:write", "alert:read", "alert:handle", "admission:read", "admission:write", "plan:manage", "admin:all"}},
+			"care:review", "health:read", "health:write", "alert:read", "alert:handle", "admission:read", "admission:write", "plan:manage", "admin:all"}},
 		{"doctor", "医师", "看护与评估", []string{
-		"dash:read", "elder:read", "health:read", "task:read", "care:review", "alert:read", "alert:handle", "admission:read", "admission:write", "plan:manage"}},
+			"dash:read", "elder:read", "health:read", "task:read", "care:review", "alert:read", "alert:handle", "admission:read", "admission:write", "plan:manage"}},
 		{"caregiver", "护工", "现场护理", []string{
 			"dash:read", "elder:read", "health:read", "health:write",
 			"task:read", "task:write", "alert:read"}},

@@ -61,8 +61,21 @@ func (h *AreaHandler) Create(c *gin.Context) {
 	if status == "" {
 		status = "active"
 	}
+	db := h.db.WithContext(c.Request.Context())
 	area := &model.Area{ParentID: input.ParentID, Type: model.AreaType(input.Type), Code: strings.TrimSpace(input.Code), Name: strings.TrimSpace(input.Name), Building: strings.TrimSpace(input.Building), FloorNo: input.FloorNo, Status: status, SortOrder: input.SortOrder, Description: strings.TrimSpace(input.Description)}
-	if err := h.db.WithContext(c.Request.Context()).Create(area).Error; err != nil {
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(area).Error; err != nil {
+			return err
+		}
+		// Keep the historical rooms/beds API usable for newly created room areas.
+		if area.Type == model.AreaTypeRoom {
+			room := &model.Room{Building: area.Building, Floor: area.FloorNo, RoomNo: area.Name, Status: "free"}
+			if err := tx.Create(room).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
 		Fail(c, http.StatusConflict, 409, "区域编码已存在或创建失败")
 		return
 	}

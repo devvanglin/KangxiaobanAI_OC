@@ -60,6 +60,9 @@ func (s *AIService) roleScope(ctx context.Context) string {
 
 func (s *AIService) configForContext(ctx context.Context) *config.AIConfig {
 	base := *s.cfg
+	if base.SystemPrompt == "" {
+		base.SystemPrompt = "你是康小伴智慧康养护理平台的照护助理，回答须谨慎、贴题、仅作参考，不做临床诊断。"
+	}
 	var row model.AIModelConfig
 	err := s.db.WithContext(ctx).Where("role_scope IN ? AND enabled = ? AND allowed = ?", []string{s.roleScope(ctx), "all"}, true, true).
 		Order("is_default DESC, id DESC").First(&row).Error
@@ -88,6 +91,17 @@ func (s *AIService) ListPromptSuggestions(ctx context.Context) ([]model.AIPrompt
 	err := s.db.WithContext(ctx).Where("enabled = ? AND role_scope IN ?", true, []string{role, "all"}).
 		Order("group_index ASC, sort_order ASC, id ASC").Find(&suggestions).Error
 	return suggestions, err
+}
+
+// ListAvailableModels exposes only non-secret model metadata to a logged-in
+// caregiver or doctor. The admin configuration endpoint is the only writer.
+func (s *AIService) ListAvailableModels(ctx context.Context) ([]model.AIModelConfig, error) {
+	role := s.roleScope(ctx)
+	var rows []model.AIModelConfig
+	err := s.db.WithContext(ctx).Where("role_scope IN ? AND enabled = ? AND allowed = ?", []string{role, "all"}, true, true).
+		Order("is_default DESC, id DESC").Find(&rows).Error
+	for i := range rows { rows[i].APIKeyEncrypted = ""; rows[i].RAGAPIKeyEncrypted = "" }
+	return rows, err
 }
 
 // ListConversations returns only conversations owned by the authenticated user.

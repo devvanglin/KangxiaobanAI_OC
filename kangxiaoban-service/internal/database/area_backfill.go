@@ -32,7 +32,11 @@ func backfillAreas(db *gorm.DB) error {
 			if err != gorm.ErrRecordNotFound {
 				return err
 			}
-			area = model.Area{ParentID: &floor.ID, Type: model.AreaTypeRoom, Code: roomCode, Name: room.RoomNo, Building: room.Building, FloorNo: room.Floor, Status: room.Status}
+			areaStatus := "active"
+			if room.Status == "maintenance" {
+				areaStatus = "maintenance"
+			}
+			area = model.Area{ParentID: &floor.ID, Type: model.AreaTypeRoom, Code: roomCode, Name: room.RoomNo, Building: room.Building, FloorNo: room.Floor, Status: areaStatus}
 			if err := db.Create(&area).Error; err != nil {
 				return err
 			}

@@ -38,6 +38,15 @@ func (h *AIHandler) ListSuggestions(c *gin.Context) {
 	OK(c, gin.H{"list": items})
 }
 
+// ListModels GET /api/v1/ai/models
+func (h *AIHandler) ListModels(c *gin.Context) {
+	claims, ok := middleware.ClaimsFrom(c)
+	if !ok { Fail(c, http.StatusUnauthorized, 401, "未登录"); return }
+	items, err := h.svc.ListAvailableModels(service.WithAIRoleScope(c.Request.Context(), aiRoleScope(claims)))
+	if err != nil { Fail(c, 500, 500, "查询可用 AI 模型失败"); return }
+	OK(c, gin.H{"list": items})
+}
+
 type aiReq struct {
 	Question string `json:"question" binding:"required"`
 }

@@ -1,8 +1,9 @@
 import { BusinessStore } from '../../network/BusinessStore';
-import { IotDevice, Room } from '../../network/Dto';
+import { Area, IotDevice, Room } from '../../network/Dto';
 import ApiClient from '../../network/ApiClient';
 
 interface DeviceCreateRequest { device_id: string; product: string; device_type: string; room: string; building: string; bed: string; area_id?: number; stream_url?: string; }
+interface AreaPage { list: Area[]; }
 
 @ComponentV2
 export struct WideDeviceManagement {
@@ -11,17 +12,21 @@ export struct WideDeviceManagement {
   @Param naviIndicatorHeight: number = 0;
   @Param managementScroller: Scroller = new Scroller();
   @Local businessStore: BusinessStore = BusinessStore.getShared();
+  @Local areas: Area[] = [];
   @Local showCreate: boolean = false;
   @Local deviceId: string = '';
   @Local deviceType: string = '毫米波雷达';
   @Local room: string = '';
   @Local bed: string = '';
   @Local cameraIp: string = '';
+  @Local areaId: number = 0;
   @Local previewUrl: string = '';
   private videoController: VideoController = new VideoController();
   @Local error: string = '';
 
-  aboutToAppear(): void { this.businessStore.load(); }
+  aboutToAppear(): void { this.businessStore.load(); this.loadAreas(); }
+
+  private async loadAreas(): Promise<void> { try { const response = await ApiClient.get<AreaPage>('/areas'); if (response.code === 0 && response.data !== undefined) this.areas = response.data.list ?? []; } catch (_error) {} }
 
   private productName(product: string): string { return product === 'fall_radar' ? '毫米波跌倒雷达' : product === 'breath_radar' ? '毫米波呼吸雷达' : product === 'camera' ? '摄像头' : product || '未知设备'; }
   private productSymbol(product: string): Resource {
@@ -39,10 +44,10 @@ export struct WideDeviceManagement {
   private async createDevice(): Promise<void> {
     const target: Room | undefined = this.businessStore.rooms.find((item: Room) => item.room_no === this.room);
     const isCamera: boolean = this.deviceType === '摄像头';
-    const request: DeviceCreateRequest = { device_id: this.deviceId.trim(), product: isCamera ? 'camera' : 'fall_radar', device_type: isCamera ? 'camera' : 'millimeter_wave', room: this.room, building: target?.building ?? '', bed: this.bed, stream_url: isCamera ? `rtsp://${this.cameraIp.trim()}:8554/stream0` : '' };
+    const request: DeviceCreateRequest = { device_id: this.deviceId.trim(), product: isCamera ? 'camera' : 'fall_radar', device_type: isCamera ? 'camera' : 'millimeter_wave', room: this.room, building: target?.building ?? '', bed: this.bed, area_id: this.areaId > 0 ? this.areaId : undefined, stream_url: isCamera ? `rtsp://${this.cameraIp.trim()}:8554/stream0` : '' };
     if (!request.device_id) { this.error = '设备编号不能为空'; return; }
     if (isCamera && this.cameraIp.trim().length === 0) { this.error = '摄像头 IP 不能为空'; return; }
-    try { const response = await ApiClient.post<IotDevice>('/iot/devices', request); if (response.code !== 0) throw new Error(response.msg); this.showCreate = false; this.deviceId = ''; this.room = ''; this.bed = ''; this.cameraIp = ''; await this.businessStore.load(true); } catch (_error) { this.error = '设备添加失败'; }
+    try { const response = await ApiClient.post<IotDevice>('/iot/devices', request); if (response.code !== 0) throw new Error(response.msg); this.showCreate = false; this.deviceId = ''; this.room = ''; this.bed = ''; this.cameraIp = ''; this.areaId = 0; await this.businessStore.load(true); } catch (_error) { this.error = '设备添加失败'; }
   }
 
   private openPreview(device: IotDevice): void { this.previewUrl = device.stream_url ?? ''; }
@@ -77,6 +82,8 @@ export struct WideDeviceManagement {
         if (this.deviceType === '摄像头') { TextInput({ placeholder: '摄像头 IP，例如 192.168.1.20', text: $$this.cameraIp }).height(42) }
         TextInput({ placeholder: '绑定房间号，可选，例如 101', text: $$this.room }).height(42)
         TextInput({ placeholder: '床位号，可选，例如 1', text: $$this.bed }).height(42)
+        Text('绑定区域（可选）').fontSize(12).fontColor($r('sys.color.font_secondary'))
+        ForEach(this.areas, (area: Area) => Button(area.name).width('100%').height(32).fontSize(11).backgroundColor(this.areaId === area.id ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary')).fontColor(this.areaId === area.id ? Color.White : $r('sys.color.font_secondary')).onClick(() => this.areaId = area.id), (area: Area) => `device-area-${area.id}`)
         Row({ space: 10 }) { Button('取消').layoutWeight(1).height(40).onClick(() => this.showCreate = false); Button('保存').layoutWeight(1).height(40).fontColor(Color.White).backgroundColor($r('app.color.brand_blue')).onClick(() => this.createDevice()) }.width('100%')
       }.width(this.compactWidth ? '90%' : 440).padding(24).backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
     }
