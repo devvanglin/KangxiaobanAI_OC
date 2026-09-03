@@ -4,6 +4,8 @@ import ApiClient from '../../network/ApiClient';
 
 interface DeviceCreateRequest { device_id: string; product: string; device_type: string; room: string; building: string; bed: string; area_id?: number; stream_url?: string; }
 interface AreaPage { list: Area[]; }
+interface SignalRecord { id: number; type: string; value: string; ts: string; }
+interface SignalPage { list: SignalRecord[]; }
 
 @ComponentV2
 export struct WideDeviceManagement {
@@ -20,6 +22,9 @@ export struct WideDeviceManagement {
   @Local bed: string = '';
   @Local cameraIp: string = '';
   @Local areaId: number = 0;
+  @Local showSignals: boolean = false;
+  @Local signalDeviceName: string = '';
+  @Local signals: SignalRecord[] = [];
   @Local previewUrl: string = '';
   private videoController: VideoController = new VideoController();
   @Local error: string = '';
@@ -51,6 +56,14 @@ export struct WideDeviceManagement {
   }
 
   private openPreview(device: IotDevice): void { this.previewUrl = device.stream_url ?? ''; }
+
+  private async openSignals(device: IotDevice): Promise<void> {
+    try {
+      const response = await ApiClient.get<SignalPage>(`/iot/devices/${device.id}/signals?limit=40`);
+      if (response.code !== 0 || response.data === undefined) throw new Error(response.msg);
+      this.signals = response.data.list ?? []; this.signalDeviceName = device.device_id; this.showSignals = true;
+    } catch (_error) { this.error = '毫米波信号加载失败'; }
+  }
 
   @Builder
   private createDialog() {
@@ -105,6 +118,7 @@ export struct WideDeviceManagement {
             Text(device.building ? `${device.building} · ${device.room}` : '未绑定房间').fontSize(12)
               .fontColor($r('sys.color.font_secondary'))
             if (device.device_type === 'camera' && device.stream_url !== undefined && device.stream_url.length > 0) Button('预览').height(28).fontSize(11).onClick(() => this.openPreview(device))
+            if (device.device_type !== 'camera') Button('信号').height(28).fontSize(11).onClick(() => this.openSignals(device))
             Text(device.discovery_status === 'pending' ? '待认领' : device.online === 1 ? '在线' : '离线').fontSize(12)
               .fontColor(device.online === 1 ? $r('app.color.doctor_workspace_success') : $r('sys.color.font_tertiary'))
           }.width('100%').height(58).padding({ left: 14, right: 14 })
@@ -119,6 +133,14 @@ export struct WideDeviceManagement {
           Video({ src: this.previewUrl, controller: this.videoController }).width(this.compactWidth ? '100%' : 620).height(this.compactWidth ? 220 : 360).controls(true).objectFit(ImageFit.Contain).onError(() => this.error = 'RTSP 播放失败，请检查摄像头或转码服务')
           Button('关闭').width('100%').height(40).onClick(() => { this.videoController.pause(); this.previewUrl = ''; })
         }.width(this.compactWidth ? '90%' : 660).padding(20).backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
+      }.width('100%').height('100%').backgroundColor('#66000000').justifyContent(FlexAlign.Center)
+      if (this.showSignals) Row() {
+        Column({ space: 12 }) {
+          Text(`毫米波信号 · ${this.signalDeviceName}`).fontSize(18).fontWeight(FontWeight.Medium)
+          if (this.signals.length === 0) Text('暂无信号记录，等待设备上报').fontSize(13).fontColor($r('sys.color.font_secondary')).padding(24)
+          ForEach(this.signals, (signal: SignalRecord) => Row() { Text(signal.type).width(150).fontSize(12); Text(signal.value).layoutWeight(1).fontSize(13); Text(signal.ts.length >= 19 ? signal.ts.slice(11, 19) : signal.ts).fontSize(11).fontColor($r('sys.color.font_secondary')) }.width('100%').height(36), (signal: SignalRecord) => `signal-${signal.id}`)
+          Button('关闭').width('100%').height(40).onClick(() => this.showSignals = false)
+        }.width(this.compactWidth ? '90%' : 520).padding(20).backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
       }.width('100%').height('100%').backgroundColor('#66000000').justifyContent(FlexAlign.Center)
     }.width('100%').height('100%')
   }
