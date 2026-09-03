@@ -49,18 +49,17 @@ export struct WideCaregiverTitleActions {
 
   private navigationItems(): WideSlidingCapsuleItem[] {
     return [
-      { title: '首页', symbol: $r('sys.symbol.house_fill'), index: 0 },
-      { title: '长者', symbol: $r('sys.symbol.person_2_fill'), index: 1 },
+      { title: '首页', index: 0 },
+      { title: '长者', index: 1 },
       {
         title: '消息',
-        symbol: $r('sys.symbol.message_on_message_fill'),
         index: 2,
         badgeText: this.unreadMessageCount > 0 ? this.unreadMessageCount.toString() : undefined,
         badgeTextColor: $r('app.color.text_on_brand'),
         badgeBackgroundColor: $r('app.color.status_danger'),
         badgeAtCorner: true
       },
-      { title: '康小伴 AI', symbol: $r('sys.symbol.AI_message'), index: 3 }
+      { title: '康小伴 AI', index: 3 }
     ];
   }
 

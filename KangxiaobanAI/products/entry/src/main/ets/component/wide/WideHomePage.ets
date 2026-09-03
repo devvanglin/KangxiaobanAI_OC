@@ -34,10 +34,13 @@ type CarePriority = 'danger' | 'warning' | 'normal';
 type CareTaskState = 'pending' | 'doing' | 'done';
 type CareTaskCategory = 'todo' | 'medication' | 'record' | 'family' | 'report';
 type CareWorkFilter = CareTaskCategory | 'priority' | 'completed';
+type CareCardSize = 'long' | 'short';
+type TodayPlanFilter = 'all' | CareTaskCategory | 'completed';
 
 interface CareTaskData {
   id: string;
   category: CareTaskCategory;
+  dueDate: string;
   title: string;
   residentId: string;
   resident: string;
@@ -88,6 +91,7 @@ export struct WideHomePage {
   @Local layoutHeight: number = 0;
   @Local displayWidth: number = 0;
   @Local activeFilter: CareWorkFilter = 'todo';
+  @Local todayPlanFilter: TodayPlanFilter = 'all';
   @Local taskPageIndex: number = 0;
   @Local aiPageIndex: number = 0;
   @Local selectedTaskId: string = '';
@@ -99,6 +103,8 @@ export struct WideHomePage {
   @Local hoveredAiFocusId: string = '';
   @Local pressedAiFocusId: string = '';
   @Local focusedTarget: string = '';
+  @Local expandedTaskCategory: string = '';
+  @Local riskCardExpanded: boolean = false;
   @Local inProgressTaskIds: string[] = [];
   @Local completedTaskIds: string[] = [];
   @Local noteDrafts: Map<string, string> = new Map<string, string>();
@@ -187,6 +193,7 @@ export struct WideHomePage {
         this.businessStore.rooms.find((item: Room) => item.id === bed.room_id);
       const state: CareTaskState = task.status === 'doing' ? 'doing' : task.status === 'done' ? 'done' : 'pending';
       return { id: `${task.id}`, category: this.serverTaskCategory(task), title: task.title,
+        dueDate: task.due_at ? this.trendDayKey(task.due_at) : '',
         residentId: `${task.elder_id}`, resident: elder?.name ?? '未知长者', room: room && bed ?
           `${room.floor}F-${room.room_no}-${bed.bed_no}` : '未分配',
         summary: task.remark ?? '', instructions: this.serverTaskInstructions(task),
@@ -347,6 +354,92 @@ export struct WideHomePage {
     return this.backendTaskData;
   }
 
+  private todayPlanTasks(): CareTaskData[] {
+    const tasks: CareTaskData[] = this.activeTaskData()
+      .filter((task: CareTaskData) => task.dueDate === this.dateValue())
+      .sort((left: CareTaskData, right: CareTaskData): number => {
+        const leftTime: string = left.time === '--' ? '99:99' : left.time;
+        const rightTime: string = right.time === '--' ? '99:99' : right.time;
+        return leftTime.localeCompare(rightTime);
+      });
+    if (this.todayPlanFilter === 'all') {
+      return tasks;
+    }
+    if (this.todayPlanFilter === 'completed') {
+      return tasks.filter((task: CareTaskData) => this.effectiveTaskState(task) === 'done');
+    }
+    if (this.todayPlanFilter === 'todo') {
+      return tasks.filter((task: CareTaskData) => this.effectiveTaskState(task) !== 'done');
+    }
+    return tasks.filter((task: CareTaskData) => task.category === this.todayPlanFilter);
+  }
+
+  private allTodayPlanTasks(): CareTaskData[] {
+    return this.activeTaskData()
+      .filter((task: CareTaskData) => task.dueDate === this.dateValue())
+      .sort((left: CareTaskData, right: CareTaskData): number => {
+        const leftTime: string = left.time === '--' ? '99:99' : left.time;
+        const rightTime: string = right.time === '--' ? '99:99' : right.time;
+        return leftTime.localeCompare(rightTime);
+      });
+  }
+
+  private todayPlanFilterItems(): WideSlidingCapsuleItem[] {
+    const all: CareTaskData[] = this.allTodayPlanTasks();
+    return [
+      { title: '全部', index: 0, badgeText: all.length.toString() },
+      { title: '待办', index: 1, badgeText: all.filter((task: CareTaskData) =>
+        this.effectiveTaskState(task) !== 'done').length.toString() },
+      { title: '用药', index: 2, badgeText: all.filter((task: CareTaskData) => task.category === 'medication').length.toString() },
+      { title: '记录', index: 3, badgeText: all.filter((task: CareTaskData) => task.category === 'record').length.toString() },
+      { title: '家属', index: 4, badgeText: all.filter((task: CareTaskData) => task.category === 'family').length.toString() },
+      { title: '上报', index: 5, badgeText: all.filter((task: CareTaskData) => task.category === 'report').length.toString() },
+      { title: '完成', index: 6, badgeText: all.filter((task: CareTaskData) =>
+        this.effectiveTaskState(task) === 'done').length.toString() }
+    ];
+  }
+
+  private todayPlanFilterIndex(): number {
+    const filters: TodayPlanFilter[] = ['all', 'todo', 'medication', 'record', 'family', 'report', 'completed'];
+    return filters.indexOf(this.todayPlanFilter);
+  }
+
+  private selectTodayPlanFilter(index: number): void {
+    const filters: TodayPlanFilter[] = ['all', 'todo', 'medication', 'record', 'family', 'report', 'completed'];
+    this.todayPlanFilter = filters[index] ?? 'all';
+  }
+
+  private todayPendingCount(): number {
+    return this.allTodayPlanTasks()
+      .filter((task: CareTaskData) => this.effectiveTaskState(task) !== 'done').length;
+  }
+
+  private todayCompletedCount(): number {
+    return this.allTodayPlanTasks()
+      .filter((task: CareTaskData) => this.effectiveTaskState(task) === 'done').length;
+  }
+
+  private nextTodayTask(): CareTaskData | undefined {
+    return this.allTodayPlanTasks()
+      .find((task: CareTaskData) => this.effectiveTaskState(task) !== 'done');
+  }
+
+  private taskCategoryText(category: CareTaskCategory): string {
+    if (category === 'medication') {
+      return '服药照护';
+    }
+    if (category === 'record') {
+      return '护理记录';
+    }
+    if (category === 'family') {
+      return '家属沟通';
+    }
+    if (category === 'report') {
+      return '异常上报';
+    }
+    return '日常待办';
+  }
+
   private activateWithKeyboard(event: KeyEvent, action: () => void): void {
     if (event.type === KeyType.Down &&
       (event.keyCode === KeyCode.KEYCODE_ENTER || event.keyCode === KeyCode.KEYCODE_SPACE)) {
@@ -425,10 +518,19 @@ export struct WideHomePage {
   }
 
   private summaryCardMinHeight(): number {
-    if (!this.useSummarySplitLayout()) {
+    // The overview is a content card, not a viewport-sized dashboard row.
+    // A fixed minimum here leaves a large blank band when the server returns
+    // only a short summary (especially on wide 2-in-1 windows).
+    // Keep the compact/medium summary behavior, but never let the wide
+    // workbench reserve a second viewport-sized band above its card grid.
+    if (!this.useSummarySplitLayout() || this.useWorkSplitLayout()) {
       return 0;
     }
     return this.useXlLayout() ? 276 : 252;
+  }
+
+  private wideUtilityCardHeight(): number {
+    return this.useXlLayout() ? 76 : 68;
   }
 
   private contentHorizontalPadding(): number {
@@ -494,10 +596,30 @@ export struct WideHomePage {
     const schedule: Schedule | undefined = this.businessStore.schedules.find((item: Schedule) =>
       item.work_date === this.dateValue() && names.includes(item.staff));
     if (!schedule) {
-      return `今日排班未登记 · 当前可见 ${this.businessStore.elders.length} 位长者`;
+      return `今日排班未登记 · 当前可见 ${this.visibleResidentCount()} 位长者`;
     }
     const scope: string = schedule.room_scope && schedule.room_scope.length > 0 ? schedule.room_scope : '范围未登记';
-    return `${schedule.shift} · ${scope} · 当前可见 ${this.businessStore.elders.length} 位长者`;
+    return `${schedule.shift} · ${scope} · 当前可见 ${this.visibleResidentCount()} 位长者`;
+  }
+
+  private visibleResidentCount(): number {
+    if (this.businessStore.elders.length > 0) {
+      return this.businessStore.elders.length;
+    }
+    const residentIds: string[] = [];
+    this.backendTaskData.forEach((task: CareTaskData): void => {
+      if (task.residentId.length > 0 && !residentIds.includes(task.residentId)) {
+        residentIds.push(task.residentId);
+      }
+    });
+    return residentIds.length;
+  }
+
+  private isInitialLoading(): boolean {
+    // A core snapshot can already contain tasks while the store finishes a
+    // secondary refresh. In that state an empty category is a real empty
+    // state, not a page-level spinner.
+    return this.businessStore.loading && !this.businessStore.loaded && this.activeTaskData().length === 0;
   }
 
   private effectiveTaskState(task: CareTaskData): CareTaskState {
@@ -555,13 +677,42 @@ export struct WideHomePage {
   }
 
   private pagedVisibleTasks(): CareTaskData[] {
+    // Wide workspaces have enough room to keep the whole task set in one card.
+    // Pagination remains the compact-layout behavior only.
+    if (this.useWorkSplitLayout()) {
+      return this.visibleTasks();
+    }
     const start: number = this.currentTaskPage() * this.cardPageSize();
     return this.visibleTasks().slice(start, start + this.cardPageSize());
   }
 
   private pagedAiFocusItems(): AiFocusItem[] {
+    if (this.useWorkSplitLayout()) {
+      return this.aiFocusItems;
+    }
     const start: number = this.currentAiPage() * this.cardPageSize();
     return this.aiFocusItems.slice(start, start + this.cardPageSize());
+  }
+
+  private showCardPagination(): boolean {
+    return !this.useWorkSplitLayout();
+  }
+
+  private taskCardMinHeight(task: CareTaskData): number {
+    if (task.category === 'medication' || task.category === 'record' || task.category === 'report') {
+      return 112;
+    }
+    if (task.category === 'family') {
+      return 100;
+    }
+    return 92;
+  }
+
+  private aiCardMinHeight(): number {
+    // Wide cards should size themselves from the alert content.  Reusing the
+    // overview-card minimum here makes a short alert list occupy most of the
+    // viewport and creates the large blank area visible on 2-in-1 screens.
+    return this.useWorkSplitLayout() ? 0 : 78;
   }
 
   private previousTaskPage(): void {
@@ -625,6 +776,82 @@ export struct WideHomePage {
     const filters: CareWorkFilter[] = ['todo', 'priority', 'medication', 'record', 'family', 'report', 'completed'];
     this.activeFilter = filters[index] ?? 'todo';
     this.taskPageIndex = 0;
+  }
+
+  private categoryTasks(category: CareTaskCategory): CareTaskData[] {
+    return this.activeTaskData()
+      .filter((task: CareTaskData) => task.category === category)
+      .sort((left: CareTaskData, right: CareTaskData): number => {
+        const leftDone: number = this.effectiveTaskState(left) === 'done' ? 1 : 0;
+        const rightDone: number = this.effectiveTaskState(right) === 'done' ? 1 : 0;
+        if (leftDone !== rightDone) {
+          return leftDone - rightDone;
+        }
+        return left.time.localeCompare(right.time);
+      });
+  }
+
+  private visibleCategoryTasks(category: CareTaskCategory, size: CareCardSize = 'short'): CareTaskData[] {
+    const tasks: CareTaskData[] = this.categoryTasks(category);
+    const limit: number = size === 'long' ? 3 : 2;
+    return this.expandedTaskCategory === category ? tasks : tasks.slice(0, limit);
+  }
+
+  private categoryCardMinHeight(category: CareTaskCategory, size: CareCardSize): number {
+    const total: number = this.categoryTasks(category).length;
+    const limit: number = size === 'long' ? 3 : 2;
+    if (total === 0) {
+      return size === 'long' ? 154 : 146;
+    }
+    const rows: number = this.expandedTaskCategory === category ? total : Math.min(total, limit);
+    return (size === 'long' ? 88 : 84) + rows * 74 +
+      (this.expandedTaskCategory !== category && total > limit ? 40 : 0);
+  }
+
+  private categoryPendingCount(category: CareTaskCategory): number {
+    return this.categoryTasks(category)
+      .filter((task: CareTaskData) => this.effectiveTaskState(task) !== 'done').length;
+  }
+
+  private categoryCountText(category: CareTaskCategory): string {
+    const pending: number = this.categoryPendingCount(category);
+    const total: number = this.categoryTasks(category).length;
+    if (total === 0) {
+      return '0 项';
+    }
+    return pending > 0 ? `${pending} 项待处理` : `${total} 项已完成`;
+  }
+
+  private toggleTaskCategory(category: CareTaskCategory): void {
+    this.expandedTaskCategory = this.expandedTaskCategory === category ? '' : category;
+  }
+
+  private categoryTone(category: CareTaskCategory): ResourceColor {
+    if (category === 'medication') {
+      return $r('app.color.status_warning');
+    }
+    if (category === 'record') {
+      return $r('app.color.status_normal');
+    }
+    if (category === 'family') {
+      return $r('app.color.event_family');
+    }
+    if (category === 'report') {
+      return $r('app.color.status_danger');
+    }
+    return $r('app.color.brand_blue');
+  }
+
+  private visibleRiskItems(): AiFocusItem[] {
+    return this.riskCardExpanded ? this.aiFocusItems : this.aiFocusItems.slice(0, 2);
+  }
+
+  private riskCardMinHeight(): number {
+    if (this.aiFocusItems.length === 0) {
+      return 146;
+    }
+    const rows: number = this.riskCardExpanded ? this.aiFocusItems.length : Math.min(2, this.aiFocusItems.length);
+    return 88 + rows * 74 + (!this.riskCardExpanded && this.aiFocusItems.length > 2 ? 40 : 0);
   }
 
   private pendingCount(): number {
@@ -794,6 +1021,7 @@ export struct WideHomePage {
         return {
           id: item.id,
           category: item.category,
+          dueDate: item.dueDate,
           title: item.title,
           residentId: item.residentId,
           resident: item.resident,
@@ -916,19 +1144,560 @@ export struct WideHomePage {
   }
 
   @Builder
+  private functionTaskRow(task: CareTaskData, isLast: boolean) {
+    Row({ space: 12 }) {
+      Column({ space: 3 }) {
+        Text(task.time)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+        Text(task.room)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_tertiary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .width(72)
+      .alignItems(HorizontalAlign.Start)
+
+      Column({ space: 4 }) {
+        Text(task.title)
+          .width('100%')
+          .fontSize($r('sys.float.Body_L'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(task.resident + (task.summary.length > 0 ? ` · ${task.summary}` : ''))
+          .width('100%')
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      Text(this.taskStateText(task))
+        .fontSize($r('sys.float.Caption_M'))
+        .fontWeight(FontWeight.Medium)
+        .fontColor(this.taskStateColor(task))
+    }
+    .width('100%')
+    .height(74)
+    .padding({ left: 16, right: 14 })
+    .border({
+      width: { bottom: isLast ? 0 : 0.5 },
+      color: { bottom: $r('sys.color.comp_divider') }
+    })
+    .backgroundColor(this.pressedTaskId === task.id ? $r('sys.color.interactive_pressed') :
+      this.hoveredTaskId === task.id ? $r('sys.color.interactive_hover') : Color.Transparent)
+    .alignItems(VerticalAlign.Center)
+    .keyboardFocusStyle()
+    .accessibilityText(`${task.time}，${task.resident}，${task.title}，${this.taskStateText(task)}`)
+    .onHover((isHover: boolean) => this.hoveredTaskId = isHover ? task.id : '')
+    .onTouch((event: TouchEvent) => {
+      if (event.type === TouchType.Down) {
+        this.pressedTaskId = task.id;
+      } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+        this.pressedTaskId = '';
+      }
+    })
+    .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => this.openTask(task.id)))
+    .onClick(() => this.openTask(task.id))
+  }
+
+  @Builder
+  private taskFunctionCard(category: CareTaskCategory, title: string, description: string, size: CareCardSize) {
+    Column({ space: 0 }) {
+      Row({ space: 12 }) {
+        Column({ space: 3 }) {
+          Text(title)
+            .fontSize(18)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('sys.color.font_primary'))
+          Text(description)
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('sys.color.font_secondary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        Text(this.categoryCountText(category))
+          .fontSize($r('sys.float.Caption_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor(this.categoryTone(category))
+          .padding({ left: 9, right: 9, top: 5, bottom: 5 })
+          .borderRadius(12)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+      }
+      .width('100%')
+      .padding({ left: 20, right: 20, top: 18, bottom: 12 })
+      .alignItems(VerticalAlign.Center)
+
+      if (this.categoryTasks(category).length === 0) {
+        Column({ space: 6 }) {
+          Text(this.isInitialLoading() ?
+            '正在加载服务器任务' : '当前没有此类工作')
+            .fontSize($r('sys.float.Body_M'))
+            .fontColor($r('sys.color.font_secondary'))
+        }
+        .width('100%')
+        .height(size === 'long' ? 56 : 48)
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
+      } else {
+        Column({ space: 0 }) {
+          ForEach(this.visibleCategoryTasks(category, size), (task: CareTaskData, index: number) => {
+            this.functionTaskRow(task, index === this.visibleCategoryTasks(category, size).length - 1)
+          }, (task: CareTaskData) => task.id)
+        }
+        .width('100%')
+      }
+
+      if (this.categoryTasks(category).length > (size === 'long' ? 3 : 2)) {
+        Button({ type: ButtonType.Normal, stateEffect: true }) {
+          Text(this.expandedTaskCategory === category ? '收起' : `查看全部 ${this.categoryTasks(category).length} 项`)
+            .fontSize($r('sys.float.Caption_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.brand_blue'))
+        }
+        .width('100%')
+        .height(40)
+        .borderRadius(0)
+        .backgroundColor(Color.Transparent)
+        .border({ width: { top: 0.5 }, color: { top: $r('sys.color.comp_divider') } })
+        .keyboardFocusStyle()
+        .accessibilityText(this.expandedTaskCategory === category ? `收起${title}` : `展开${title}全部任务`)
+        .onClick(() => this.toggleTaskCategory(category))
+      }
+    }
+    .width('100%')
+    .constraintSize({ minHeight: this.categoryCardMinHeight(category, size) })
+    .borderRadius(18)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .clip(true)
+    .alignItems(HorizontalAlign.Start)
+    .alignSelf(ItemAlign.Start)
+  }
+
+  @Builder
+  private riskFunctionRow(item: AiFocusItem, isLast: boolean) {
+    Row({ space: 12 }) {
+      Column({ space: 4 }) {
+        Row({ space: 8 }) {
+          Text(item.name)
+            .fontSize($r('sys.float.Body_L'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+          Text(item.timeLabel)
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor(this.priorityColor(item.priority))
+        }
+        Text(item.detail)
+          .width('100%')
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+    }
+    .width('100%')
+    .height(74)
+    .padding({ left: 16, right: 14 })
+    .border({
+      width: { bottom: isLast ? 0 : 0.5 },
+      color: { bottom: $r('sys.color.comp_divider') }
+    })
+    .backgroundColor(this.pressedAiFocusId === item.id ? $r('sys.color.interactive_pressed') :
+      this.hoveredAiFocusId === item.id ? $r('sys.color.interactive_hover') : Color.Transparent)
+    .alignItems(VerticalAlign.Center)
+    .keyboardFocusStyle()
+    .accessibilityText(`风险提醒，${item.name}，${item.timeLabel}，${item.detail}`)
+    .onHover((isHover: boolean) => this.hoveredAiFocusId = isHover ? item.id : '')
+    .onTouch((event: TouchEvent) => {
+      if (event.type === TouchType.Down) {
+        this.pressedAiFocusId = item.id;
+      } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+        this.pressedAiFocusId = '';
+      }
+    })
+    .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => this.openAiFocusSheet(item.id)))
+    .onClick(() => this.openAiFocusSheet(item.id))
+  }
+
+  @Builder
+  private riskFunctionCard() {
+    Column({ space: 0 }) {
+      Row({ space: 12 }) {
+        Column({ space: 3 }) {
+          Text('风险提醒')
+            .fontSize(18)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('sys.color.font_primary'))
+          Text('来自服务器的未闭环提醒')
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('sys.color.font_secondary'))
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        Text(`${this.aiFocusItems.length} 项`)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor(this.aiFocusItems.length > 0 ? $r('app.color.status_danger') :
+            $r('app.color.status_normal'))
+          .padding({ left: 9, right: 9, top: 5, bottom: 5 })
+          .borderRadius(12)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+      }
+      .width('100%')
+      .padding({ left: 20, right: 20, top: 18, bottom: 12 })
+      .alignItems(VerticalAlign.Center)
+
+      if (this.aiFocusItems.length === 0) {
+        Column({ space: 6 }) {
+          Text(this.isInitialLoading() ?
+            '正在加载服务器告警' : '暂无未闭环风险提醒')
+            .fontSize($r('sys.float.Body_M'))
+            .fontColor($r('sys.color.font_secondary'))
+        }
+        .width('100%')
+        .height(48)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+      } else {
+        Column({ space: 0 }) {
+          ForEach(this.visibleRiskItems(), (item: AiFocusItem, index: number) => {
+            this.riskFunctionRow(item, index === this.visibleRiskItems().length - 1)
+          }, (item: AiFocusItem) => item.id)
+        }
+        .width('100%')
+      }
+
+      if (this.aiFocusItems.length > 2) {
+        Button({ type: ButtonType.Normal, stateEffect: true }) {
+          Text(this.riskCardExpanded ? '收起' : `查看全部 ${this.aiFocusItems.length} 项`)
+            .fontSize($r('sys.float.Caption_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.brand_blue'))
+        }
+        .width('100%')
+        .height(40)
+        .borderRadius(0)
+        .backgroundColor(Color.Transparent)
+        .border({ width: { top: 0.5 }, color: { top: $r('sys.color.comp_divider') } })
+        .keyboardFocusStyle()
+        .accessibilityText(this.riskCardExpanded ? '收起全部风险提醒' : '展开全部风险提醒')
+        .onClick(() => this.riskCardExpanded = !this.riskCardExpanded)
+      }
+    }
+    .width('100%')
+    .constraintSize({ minHeight: this.riskCardMinHeight() })
+    .borderRadius(18)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .clip(true)
+    .alignItems(HorizontalAlign.Start)
+    .alignSelf(ItemAlign.Start)
+    .bindSheet(this.isAiFocusSheetOpen, this.aiFocusSheet, {
+      detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+      preferType: SheetType.CENTER,
+      width: this.aiFocusSheetWidth(),
+      showClose: true,
+      dragBar: true,
+      title: { title: '风险提醒' },
+      backgroundColor: $r('sys.color.comp_background_primary'),
+      onDisappear: () => {
+        if (this.isAiFocusSheetOpen) {
+          this.isAiFocusSheetOpen = false;
+          this.onTaskPanelVisibilityChange(false);
+        }
+      }
+    })
+  }
+
+  @Builder
+  private todayPlanRow(task: CareTaskData, isLast: boolean) {
+    Row({ space: 16 }) {
+      Column({ space: 4 }) {
+        Text(task.time)
+          .fontSize(22)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('sys.color.font_primary'))
+        Text(this.taskCategoryText(task.category))
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_tertiary'))
+      }
+      .width(86)
+      .alignItems(HorizontalAlign.Start)
+
+      Column({ space: 6 }) {
+        Row({ space: 10 }) {
+          Text(task.title)
+            .layoutWeight(1)
+            .fontSize(18)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text(this.taskStateText(task))
+            .fontSize($r('sys.float.Caption_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor(this.taskStateColor(task))
+            .padding({ left: 8, right: 8, top: 4, bottom: 4 })
+            .borderRadius(10)
+            .backgroundColor($r('sys.color.comp_background_secondary'))
+        }
+        .width('100%')
+
+        Text(task.resident + ' · ' + task.room)
+          .width('100%')
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+        Text(task.summary.length > 0 ? task.summary :
+          (task.instructions.length > 0 ? task.instructions : '暂无补充说明'))
+          .width('100%')
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_tertiary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      Text('查看')
+        .fontSize($r('sys.float.Body_M'))
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.brand_blue'))
+    }
+    .width('100%')
+    .padding({ left: 24, right: 24, top: 18, bottom: 18 })
+    .border({
+      width: { bottom: isLast ? 0 : 0.5 },
+      color: { bottom: $r('sys.color.comp_divider') }
+    })
+    .backgroundColor(this.pressedTaskId === task.id ? $r('sys.color.interactive_pressed') :
+      this.hoveredTaskId === task.id ? $r('sys.color.interactive_hover') : Color.Transparent)
+    .alignItems(VerticalAlign.Center)
+    .keyboardFocusStyle()
+    .accessibilityText(`${task.time}，${task.resident}，${task.room}，${task.title}，${this.taskStateText(task)}`)
+    .onFocus(() => this.focusedTarget = task.id)
+    .onBlur(() => this.focusedTarget = '')
+    .onHover((isHover: boolean) => this.hoveredTaskId = isHover ? task.id : '')
+    .onTouch((event: TouchEvent) => {
+      if (event.type === TouchType.Down) {
+        this.pressedTaskId = task.id;
+      } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+        this.pressedTaskId = '';
+      }
+    })
+    .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => this.openTask(task.id)))
+    .onClick(() => this.openTask(task.id))
+  }
+
+  @Builder
+  private todayPlanCard() {
+    Column({ space: 0 }) {
+      Row({ space: 12 }) {
+        Column({ space: 4 }) {
+          Text('今日计划')
+            .fontSize(24)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('sys.color.font_primary'))
+          Text('按时间顺序查看今天需要完成的照护任务')
+            .fontSize($r('sys.float.Body_M'))
+            .fontColor($r('sys.color.font_secondary'))
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        Text(`${this.todayPlanTasks().length} 项计划`)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+          .padding({ left: 12, right: 12, top: 7, bottom: 7 })
+          .borderRadius(14)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+      }
+      .width('100%')
+      .padding({ left: 24, right: 24, top: 24, bottom: 18 })
+      .alignItems(VerticalAlign.Top)
+
+      Row() {
+        Scroll() {
+          WideSlidingCapsule({
+            items: this.todayPlanFilterItems(),
+            selectedIndex: this.todayPlanFilterIndex(),
+            itemWidth: 78,
+            onSelect: (index: number) => this.selectTodayPlanFilter(index)
+          })
+        }
+        .width('100%')
+        .height(44)
+        .scrollable(ScrollDirection.Horizontal)
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
+      }
+      .width('100%')
+      .padding({ left: 22, right: 22, bottom: 14 })
+
+      Row({ space: 18 }) {
+        Text(`${this.todayPendingCount()} 项待处理`)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('app.color.brand_blue'))
+        Text(`${this.todayCompletedCount()} 项已完成`)
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('app.color.status_normal'))
+      }
+      .width('100%')
+      .padding({ left: 24, right: 24, bottom: 12 })
+
+      if (this.todayPlanTasks().length === 0) {
+        Text(this.isInitialLoading() ? '正在加载今日计划' : '今天暂无已安排的计划任务')
+          .width('100%')
+          .height(170)
+          .fontSize($r('sys.float.Body_L'))
+          .fontColor($r('sys.color.font_secondary'))
+          .textAlign(TextAlign.Center)
+          .alignSelf(ItemAlign.Center)
+      } else {
+        Column({ space: 0 }) {
+          ForEach(this.todayPlanTasks(), (task: CareTaskData, index: number) => {
+            this.todayPlanRow(task, index === this.todayPlanTasks().length - 1)
+          }, (task: CareTaskData) => task.id)
+        }
+        .width('100%')
+      }
+    }
+    .width('100%')
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(22)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .clip(true)
+    .alignItems(HorizontalAlign.Start)
+    .alignSelf(ItemAlign.Start)
+  }
+
+  @Builder
+  private nextTodayTaskCard() {
+    Column({ space: 0 }) {
+      Row() {
+        Text('接下来')
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('sys.color.font_primary'))
+        Blank()
+        Text('下一项待办')
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('sys.color.font_tertiary'))
+      }
+      .width('100%')
+
+      if (this.nextTodayTask() === undefined) {
+        Text(this.todayPlanTasks().length === 0 ? '今天暂无计划任务' : '今日计划已全部完成')
+          .width('100%')
+          .padding({ top: 24, bottom: 24 })
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor($r('sys.color.font_secondary'))
+      } else {
+        Column({ space: 8 }) {
+          Text(this.nextTodayTask()!.time)
+            .fontSize(30)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.brand_blue'))
+          Text(this.nextTodayTask()!.title)
+            .width('100%')
+            .fontSize(20)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text(this.nextTodayTask()!.resident + ' · ' + this.nextTodayTask()!.room)
+            .width('100%')
+            .fontSize($r('sys.float.Body_M'))
+            .fontColor($r('sys.color.font_secondary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .width('100%')
+        .padding({ top: 22, bottom: 18 })
+        .alignItems(HorizontalAlign.Start)
+
+        Button({ type: ButtonType.Normal, stateEffect: true }) {
+          Text('查看任务详情')
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.brand_blue'))
+        }
+        .width('100%')
+        .height(42)
+        .borderRadius(21)
+        .backgroundColor($r('sys.color.comp_background_secondary'))
+        .keyboardFocusStyle()
+        .onClick(() => this.openTask(this.nextTodayTask()!.id))
+      }
+    }
+    .width('100%')
+    .padding({ left: 22, right: 22, top: 20, bottom: 20 })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(20)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .alignItems(HorizontalAlign.Start)
+    .alignSelf(ItemAlign.Start)
+  }
+
+  @Builder
+  private wideFunctionGrid() {
+    Column({ space: this.sectionGap() }) {
+      GridRow({ columns: 12, gutter: { x: this.sectionGap(), y: this.sectionGap() } }) {
+        GridCol({ span: this.useXlLayout() ? 8 : 7 }) {
+          this.todayPlanCard()
+        }
+        .alignSelf(ItemAlign.Start)
+
+        GridCol({ span: this.useXlLayout() ? 4 : 5 }) {
+          Column({ space: this.sectionGap() }) {
+            this.nextTodayTaskCard()
+            this.riskFunctionCard()
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Start)
+        }
+        .alignSelf(ItemAlign.Start)
+      }
+      .width('100%')
+      .alignItems(ItemAlign.Start)
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private wideDashboard() {
+    Column({ space: this.sectionGap() }) {
+      this.wideFunctionGrid()
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
   private cardPagination(isAiCard: boolean) {
     Row({ space: 10 }) {
       Button({ type: ButtonType.Normal, stateEffect: true }) {
-        Row({ space: 5 }) {
-          SymbolGlyph($r('sys.symbol.chevron_left'))
-            .fontSize(14)
-            .fontColor([this.currentCardPage(isAiCard) > 0 ? $r('sys.color.icon_primary') :
-              $r('sys.color.icon_tertiary')])
-          Text('上一页')
-            .fontSize($r('sys.float.Body_M'))
-            .fontColor(this.currentCardPage(isAiCard) > 0 ? $r('sys.color.font_primary') :
-              $r('sys.color.font_tertiary'))
-        }
+        Text('上一页')
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor(this.currentCardPage(isAiCard) > 0 ? $r('sys.color.font_primary') :
+            $r('sys.color.font_tertiary'))
       }
       .height(38)
       .padding({ left: 12, right: 14 })
@@ -946,18 +1715,11 @@ export struct WideHomePage {
         .fontColor($r('sys.color.font_secondary'))
 
       Button({ type: ButtonType.Normal, stateEffect: true }) {
-        Row({ space: 5 }) {
-          Text('下一页')
-            .fontSize($r('sys.float.Body_M'))
-            .fontColor(this.currentCardPage(isAiCard) < this.totalCardPages(isAiCard) - 1 ?
-              $r('sys.color.font_primary') :
-              $r('sys.color.font_tertiary'))
-          SymbolGlyph($r('sys.symbol.chevron_right'))
-            .fontSize(14)
-            .fontColor([this.currentCardPage(isAiCard) < this.totalCardPages(isAiCard) - 1 ?
-              $r('sys.color.icon_primary') :
-              $r('sys.color.icon_tertiary')])
-        }
+        Text('下一页')
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor(this.currentCardPage(isAiCard) < this.totalCardPages(isAiCard) - 1 ?
+            $r('sys.color.font_primary') :
+            $r('sys.color.font_tertiary'))
       }
       .height(38)
       .padding({ left: 14, right: 12 })
@@ -977,20 +1739,6 @@ export struct WideHomePage {
   private aiFocusCard() {
     Column({ space: 0 }) {
       Row({ space: 10 }) {
-        if (!this.isTabletDevice()) {
-          Row() {
-            SymbolGlyph($r('sys.symbol.AI_message'))
-              .fontSize(20)
-              .fontColor([$r('app.color.brand_blue')])
-          }
-          .width(40)
-          .height(40)
-          .borderRadius(20)
-          .backgroundColor($r('app.color.ai_feed_background'))
-          .justifyContent(FlexAlign.Center)
-          .alignItems(VerticalAlign.Center)
-        }
-
         Column({ space: 3 }) {
           AiTitleLabel({ text: '康小伴 AI', compact: false, cardTitle: true })
         }
@@ -998,15 +1746,10 @@ export struct WideHomePage {
         .alignItems(HorizontalAlign.Start)
 
         Button({ type: ButtonType.Normal, stateEffect: true }) {
-          Row({ space: 6 }) {
-            Text('开始对话')
-              .fontSize($r('sys.float.Body_M'))
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('app.color.brand_blue'))
-            SymbolGlyph($r('sys.symbol.chevron_right'))
-              .fontSize(14)
-              .fontColor([$r('app.color.brand_blue')])
-          }
+          Text('开始对话')
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.brand_blue'))
         }
         .height(38)
         .padding({ left: 14, right: 12 })
@@ -1020,32 +1763,35 @@ export struct WideHomePage {
       .alignItems(VerticalAlign.Top)
 
       if (this.aiFocusItems.length === 0) {
-        Text(this.businessStore.loading ? '正在加载服务器告警' : '暂无未闭环风险告警')
+        Text(this.isInitialLoading() ? '正在加载服务器告警' : '暂无未闭环风险告警')
           .width('100%')
-          .height(150)
+          .height(this.useWorkSplitLayout() ? undefined : 150)
           .fontSize($r('sys.float.Body_M'))
           .fontColor($r('sys.color.font_secondary'))
           .textAlign(TextAlign.Center)
       } else {
-        Column({ space: 4 }) {
+        Column({ space: this.useWorkSplitLayout() ? 12 : 4 }) {
           ForEach(this.pagedAiFocusItems(), (item: AiFocusItem, index: number) => {
             this.aiFocusRow(item, index === this.pagedAiFocusItems().length - 1)
           }, (item: AiFocusItem) => item.id)
         }
         .width('100%')
-        .layoutWeight(this.useWorkSplitLayout() ? 1 : 0)
         .padding({ left: 10, right: 10, bottom: 8 })
       }
 
-      this.cardPagination(true)
+      if (this.showCardPagination()) {
+        this.cardPagination(true)
+      }
     }
     .width('100%')
-    .height(this.useWorkSplitLayout() && this.isTabletDevice() ? '100%' : undefined)
-    .constraintSize({ minHeight: this.summaryCardMinHeight() })
+    .constraintSize({ minHeight: this.aiCardMinHeight() })
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(20)
     .clip(true)
     .alignItems(HorizontalAlign.Start)
+    // GridRow gives each row its tallest column height. Keep this card at its
+    // content height so a short alert list does not paint a large blank panel.
+    .alignSelf(ItemAlign.Start)
     .bindSheet(this.isAiFocusSheetOpen, this.aiFocusSheet, {
       detents: [SheetSize.MEDIUM, SheetSize.LARGE],
       preferType: SheetType.CENTER,
@@ -1095,21 +1841,21 @@ export struct WideHomePage {
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
-    .constraintSize({ minHeight: 78, maxHeight: 88 })
-    .layoutWeight(this.useWorkSplitLayout() ? 1 : 0)
-    .padding({
+    .constraintSize({ minHeight: this.aiCardMinHeight() })
+    .padding(this.useWorkSplitLayout() ? { left: 16, right: 16, top: 14, bottom: 14 } : {
       left: 8,
       right: 8,
       top: 6,
       bottom: isLast ? 2 : 6
     })
-    .border({
+    .border(this.useWorkSplitLayout() ? { width: 0 } : {
       width: { bottom: isLast ? 0 : 0.5 },
       color: { bottom: $r('sys.color.comp_divider') }
     })
-    .borderRadius(12)
+    .borderRadius(this.useWorkSplitLayout() ? 0 : 12)
     .backgroundColor(this.pressedAiFocusId === item.id ? $r('sys.color.interactive_pressed') :
-      this.hoveredAiFocusId === item.id ? $r('sys.color.interactive_hover') : Color.Transparent)
+      this.hoveredAiFocusId === item.id ? $r('sys.color.interactive_hover') :
+        Color.Transparent)
     .shadow(this.pressedAiFocusId === item.id ?
       { radius: 3, color: 'rgba(0,0,0,0.10)', offsetX: 0, offsetY: 1 } :
       this.hoveredAiFocusId === item.id ?
@@ -1141,18 +1887,6 @@ export struct WideHomePage {
         Scroll() {
           Column({ space: 18 }) {
             Row({ space: 14 }) {
-              Row() {
-                SymbolGlyph($r('sys.symbol.AI_message'))
-                  .fontSize(26)
-                  .fontColor([$r('app.color.brand_blue')])
-              }
-              .width(56)
-              .height(56)
-              .borderRadius(28)
-              .backgroundColor($r('app.color.ai_feed_background'))
-              .justifyContent(FlexAlign.Center)
-              .alignItems(VerticalAlign.Center)
-
               Column({ space: 7 }) {
                 Text(this.selectedAiFocus()!.name)
                   .fontSize(24)
@@ -1202,15 +1936,10 @@ export struct WideHomePage {
             .alignItems(HorizontalAlign.Start)
 
             Column({ space: 10 }) {
-              Row({ space: 8 }) {
-                SymbolGlyph($r('sys.symbol.info_circle'))
-                  .fontSize(18)
-                  .fontColor([$r('app.color.brand_blue')])
-                Text('提醒依据')
-                  .fontSize($r('sys.float.Body_L'))
-                  .fontWeight(FontWeight.Medium)
-                  .fontColor($r('sys.color.font_primary'))
-              }
+              Text('提醒依据')
+                .fontSize($r('sys.float.Body_L'))
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_primary'))
               Text(this.selectedAiFocus()!.signal)
                 .width('100%')
                 .fontSize($r('sys.float.Body_M'))
@@ -1223,15 +1952,10 @@ export struct WideHomePage {
             .alignItems(HorizontalAlign.Start)
 
             Column({ space: 10 }) {
-              Row({ space: 8 }) {
-                SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
-                  .fontSize(18)
-                  .fontColor([$r('app.color.status_warning')])
-                Text('建议处理')
-                  .fontSize($r('sys.float.Body_L'))
-                  .fontWeight(FontWeight.Medium)
-                  .fontColor($r('sys.color.font_primary'))
-              }
+              Text('建议处理')
+                .fontSize($r('sys.float.Body_L'))
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_primary'))
               Text(this.selectedAiFocus()!.suggestion)
                 .width('100%')
                 .fontSize($r('sys.float.Body_M'))
@@ -1271,9 +1995,6 @@ export struct WideHomePage {
                   .layoutWeight(1)
                   .alignItems(HorizontalAlign.Start)
 
-                  SymbolGlyph($r('sys.symbol.chevron_right'))
-                    .fontSize(14)
-                    .fontColor([$r('sys.color.icon_tertiary')])
                 }
                 .width('100%')
                 .alignItems(VerticalAlign.Center)
@@ -1348,6 +2069,97 @@ export struct WideHomePage {
     }
   }
   @Builder
+  private taskQueueHeaderCard() {
+    Row() {
+      Column({ space: 4 }) {
+        Text('今日工作')
+          .fontSize(20)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('sys.color.font_primary'))
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      Text(this.visibleTasks().length + ' 项')
+        .fontSize($r('sys.float.Caption_M'))
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_secondary'))
+        .padding({ left: 10, right: 10, top: 5, bottom: 5 })
+        .borderRadius(12)
+        .backgroundColor($r('sys.color.comp_background_secondary'))
+    }
+    .width('100%')
+    .constraintSize({ minHeight: this.wideUtilityCardHeight() })
+    .padding({ left: 20, right: 20, top: 16, bottom: 16 })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(20)
+    .alignItems(VerticalAlign.Center)
+    .alignSelf(ItemAlign.Start)
+  }
+
+  @Builder
+  private taskFilterCard() {
+    Row() {
+      Scroll() {
+        WideSlidingCapsule({
+          items: this.taskFilterItems(),
+          selectedIndex: this.filterIndex(),
+          // The 1:1:2 wide grid gives this card about 664vp.  86vp per
+          // option keeps all seven labels and inline counts visible without
+          // ellipsizing the Chinese titles.
+          itemWidth: 86,
+          onSelect: (index: number) => this.selectFilter(index)
+        })
+      }
+      .width('100%')
+      .height(44)
+      .scrollable(ScrollDirection.Horizontal)
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+    .constraintSize({ minHeight: this.wideUtilityCardHeight() })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(20)
+    .alignItems(VerticalAlign.Center)
+    .alignSelf(ItemAlign.Start)
+  }
+
+  @Builder
+  private taskItemsCard() {
+    Column({ space: 0 }) {
+      if (this.visibleTasks().length === 0) {
+        Column({ space: 8 }) {
+          Text('当前分类暂无工作事项')
+            .fontSize($r('sys.float.Body_M'))
+            .fontColor($r('sys.color.font_secondary'))
+        }
+        .width('100%')
+        .padding({ left: 24, right: 24, top: 32, bottom: 32 })
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+      } else {
+        // A wide task list is one card.  The rows share its surface and are
+        // separated only by a hairline so the list reads as one work queue.
+        Column({ space: 0 }) {
+          ForEach(this.pagedVisibleTasks(), (task: CareTaskData, index: number) => {
+            this.taskQueueRow(task, index === this.pagedVisibleTasks().length - 1)
+          }, (task: CareTaskData) => task.id)
+        }
+        .width('100%')
+        .padding({ bottom: 0 })
+      }
+    }
+    .width('100%')
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(this.useWorkSplitLayout() ? 18 : 20)
+    .border({ width: this.useWorkSplitLayout() ? 0.5 : 0, color: $r('sys.color.comp_divider') })
+    .clip(true)
+    .alignSelf(ItemAlign.Start)
+  }
+
+  @Builder
   private taskQueueCard() {
     Column({ space: 0 }) {
       Row() {
@@ -1387,36 +2199,37 @@ export struct WideHomePage {
 
       if (this.visibleTasks().length === 0) {
         Column({ space: 8 }) {
-          SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
-            .fontSize(34)
-            .fontColor([$r('app.color.status_normal')])
           Text('当前分类暂无工作事项')
             .fontSize($r('sys.float.Body_M'))
             .fontColor($r('sys.color.font_secondary'))
         }
         .width('100%')
-        .height(220)
+        .height(this.useWorkSplitLayout() ? undefined : 220)
         .justifyContent(FlexAlign.Center)
         .alignItems(HorizontalAlign.Center)
       } else {
-        Column({ space: 4 }) {
+        Column({ space: this.useWorkSplitLayout() ? 0 : 4 }) {
           ForEach(this.pagedVisibleTasks(), (task: CareTaskData, index: number) => {
             this.taskQueueRow(task, index === this.pagedVisibleTasks().length - 1)
           }, (task: CareTaskData) => task.id)
         }
         .width('100%')
-        .layoutWeight(this.useWorkSplitLayout() ? 1 : 0)
         .padding({ left: 10, right: 10, bottom: 8 })
       }
 
-      this.cardPagination(false)
+      if (this.showCardPagination()) {
+        this.cardPagination(false)
+      }
     }
     .width('100%')
-    .height(this.useWorkSplitLayout() ? '100%' : undefined)
+    // Let the module size itself from its rows. A wide `height: 100%` here
+    // couples this card to the tallest sibling and creates a large blank
+    // area below a short task list.
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(20)
     .clip(true)
     .alignItems(HorizontalAlign.Start)
+    .alignSelf(ItemAlign.Start)
   }
 
   @Builder
@@ -1445,12 +2258,14 @@ export struct WideHomePage {
       Column({ space: 5 }) {
         Row({ space: 8 }) {
           Text(task.title)
+            .layoutWeight(1)
             .fontSize($r('sys.float.Body_L'))
             .fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary'))
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
           Text(task.resident)
+            .constraintSize({ maxWidth: 108 })
             .fontSize($r('sys.float.Caption_M'))
             .fontColor($r('sys.color.font_secondary'))
             .maxLines(1)
@@ -1460,7 +2275,7 @@ export struct WideHomePage {
           .width('100%')
           .fontSize($r('sys.float.Body_M'))
           .fontColor($r('sys.color.font_secondary'))
-          .maxLines(1)
+          .maxLines(this.useWorkSplitLayout() ? 2 : 1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
       .layoutWeight(1)
@@ -1476,22 +2291,21 @@ export struct WideHomePage {
           .fontColor($r('sys.color.font_tertiary'))
       }
       .alignItems(HorizontalAlign.End)
-
-      SymbolGlyph($r('sys.symbol.chevron_right'))
-        .fontSize(14)
-        .fontColor([$r('sys.color.icon_tertiary')])
     }
     .width('100%')
-    .constraintSize({ minHeight: 78, maxHeight: 88 })
-    .layoutWeight(this.useWorkSplitLayout() ? 1 : 0)
-    .padding({ left: 14, right: 14 })
+    .constraintSize(this.useWorkSplitLayout() ? { minHeight: this.taskCardMinHeight(task) } :
+      { minHeight: 78, maxHeight: 88 })
+    .padding(this.useWorkSplitLayout() ? { left: 18, right: 18, top: 16, bottom: 16 } :
+      { left: 14, right: 14 })
     .border({
       width: { bottom: isLast ? 0 : 0.5 },
       color: { bottom: $r('sys.color.comp_divider') }
     })
-    .borderRadius(14)
+    .borderRadius(this.useWorkSplitLayout() ? 0 : 14)
     .backgroundColor(this.pressedTaskId === task.id ? $r('sys.color.interactive_pressed') :
-      this.hoveredTaskId === task.id ? $r('sys.color.interactive_hover') : Color.Transparent)
+      this.hoveredTaskId === task.id ? $r('sys.color.interactive_hover') :
+        Color.Transparent)
+    .alignSelf(ItemAlign.Start)
     .shadow(this.pressedTaskId === task.id ?
       { radius: 3, color: 'rgba(0,0,0,0.08)', offsetX: 0, offsetY: 1 } :
       this.hoveredTaskId === task.id ?
@@ -1537,22 +2351,26 @@ export struct WideHomePage {
       .padding({ left: 20, right: 20, top: 20, bottom: 12 })
 
       if (this.checkpoints.length === 0) {
-        Text(this.businessStore.loading ? '正在加载服务器任务' : '暂无今日护理任务')
+        Text(this.isInitialLoading() ? '正在加载服务器任务' : '暂无今日护理任务')
           .width('100%')
-          .height(120)
+          .height(this.useWorkSplitLayout() ? undefined : 120)
           .fontSize($r('sys.float.Body_M'))
           .fontColor($r('sys.color.font_secondary'))
           .textAlign(TextAlign.Center)
       } else {
-        ForEach(this.checkpoints, (checkpoint: CareCheckpoint, index: number) => {
-          this.checkpointRow(checkpoint, index === this.checkpoints.length - 1)
-        }, (checkpoint: CareCheckpoint) => checkpoint.id)
+        Column({ space: 0 }) {
+          ForEach(this.checkpoints, (checkpoint: CareCheckpoint, index: number) => {
+            this.checkpointRow(checkpoint, index === this.checkpoints.length - 1)
+          }, (checkpoint: CareCheckpoint) => checkpoint.id)
+        }
+        .width('100%')
       }
     }
     .width('100%')
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(20)
     .clip(true)
+    .alignSelf(ItemAlign.Start)
   }
 
   @Builder
@@ -1578,19 +2396,12 @@ export struct WideHomePage {
             .backgroundColor($r('sys.color.comp_divider'))
             .margin({ top: 12 })
         }
-        Row() {
-          if (checkpoint.completed) {
-            SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
-              .fontSize(16)
-              .fontColor([$r('app.color.status_normal')])
-          } else {
-            Row()
-              .width(10)
-              .height(10)
-              .borderRadius(5)
-              .backgroundColor($r('app.color.brand_blue'))
-          }
-        }
+        Row()
+          .width(10)
+          .height(10)
+          .borderRadius(5)
+          .backgroundColor(checkpoint.completed ? $r('app.color.status_normal') :
+            $r('app.color.brand_blue'))
         .width(18)
         .height(18)
         .justifyContent(FlexAlign.Center)
@@ -1612,26 +2423,49 @@ export struct WideHomePage {
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
-    .height(66)
+    .height(this.useWorkSplitLayout() ? undefined : 66)
     .padding({ left: 20, right: 20 })
     .alignItems(VerticalAlign.Top)
   }
 
   @Builder
   private mainWorkArea() {
-    GridRow({ columns: 12, gutter: { x: this.sectionGap(), y: this.sectionGap() } }) {
-      if (this.useWorkSplitLayout()) {
-        GridCol({ span: this.isTabletDevice() ? 12 : 8 }) {
-          this.taskQueueCard()
+    if (this.useWorkSplitLayout()) {
+      // Use one twelve-column grid so each module keeps its own width while
+      // the explicit row breaks keep the second row aligned with the first.
+      // The spans reflect the content hierarchy: compact title/filter cards,
+      // a wider work queue, then a medium AI card and the wider care rhythm.
+      // GridRow must not stretch its children; every card sizes from content.
+      GridRow({ columns: 12, gutter: { x: this.sectionGap(), y: this.sectionGap() } }) {
+        GridCol({ span: 3 }) {
+          this.taskQueueHeaderCard()
         }
-        .height('100%')
-        if (!this.isTabletDevice()) {
-          GridCol({ span: 4 }) {
-            this.checkpointCard()
-          }
-          .height('100%')
+        .alignSelf(ItemAlign.Start)
+
+        GridCol({ span: 2 }) {
+          this.taskFilterCard()
         }
-      } else {
+        .alignSelf(ItemAlign.Start)
+
+        GridCol({ span: 7 }) {
+          this.taskItemsCard()
+        }
+        .alignSelf(ItemAlign.Start)
+
+        GridCol({ span: 5 }) {
+          this.aiFocusCard()
+        }
+        .alignSelf(ItemAlign.Start)
+
+        GridCol({ span: 7 }) {
+          this.checkpointCard()
+        }
+        .alignSelf(ItemAlign.Start)
+      }
+      .width('100%')
+      .alignItems(ItemAlign.Start)
+    } else {
+      GridRow({ columns: 12, gutter: { x: this.sectionGap(), y: this.sectionGap() } }) {
         GridCol({ span: 12 }) {
           this.taskQueueCard()
         }
@@ -1641,9 +2475,10 @@ export struct WideHomePage {
           }
         }
       }
+      .width('100%')
+      .alignItems(ItemAlign.Stretch)
+      .constraintSize({ minHeight: this.mainWorkAreaMinHeight() })
     }
-    .width('100%')
-    .constraintSize({ minHeight: this.mainWorkAreaMinHeight() })
   }
 
   @Builder
@@ -1726,9 +2561,6 @@ export struct WideHomePage {
               }
               .layoutWeight(1)
               .alignItems(HorizontalAlign.Start)
-              SymbolGlyph($r('sys.symbol.chevron_right'))
-                .fontSize(14)
-                .fontColor([$r('sys.color.icon_tertiary')])
             }
             .width('100%')
             .height(64)
@@ -1785,17 +2617,11 @@ export struct WideHomePage {
               .fontWeight(FontWeight.Medium)
               .fontColor($r('sys.color.font_primary'))
             if (this.effectiveTaskState(task) === 'done') {
-              Row({ space: 8 }) {
-                SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
-                  .fontSize(18)
-                  .fontColor([$r('app.color.status_normal')])
-                Text('任务状态已同步到服务器')
-                  .fontSize($r('sys.float.Body_M'))
-                  .fontColor($r('sys.color.font_secondary'))
-              }
+              Text('任务状态已同步到服务器')
+                .fontSize($r('sys.float.Body_M'))
+                .fontColor($r('sys.color.font_secondary'))
+                .padding({ top: 12, bottom: 12 })
               .width('100%')
-              .height(48)
-              .alignItems(VerticalAlign.Center)
             } else {
               Text('当前服务仅支持同步任务状态，处理记录接口尚未开放。')
                 .width('100%')
@@ -1810,15 +2636,10 @@ export struct WideHomePage {
           .alignItems(HorizontalAlign.Start)
 
           Column({ space: 8 }) {
-            Row({ space: 8 }) {
-              SymbolGlyph($r('sys.symbol.AI_message'))
-                .fontSize(18)
-                .fontColor([$r('app.color.brand_blue')])
-              Text('康小伴建议')
-                .fontSize($r('sys.float.Body_M'))
-                .fontWeight(FontWeight.Medium)
-                .fontColor($r('sys.color.font_primary'))
-            }
+            Text('康小伴建议')
+              .fontSize($r('sys.float.Body_M'))
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
             Text('先确认长者当前安全状态，再按护理要求执行；异常信息需要人工判断并完整记录。')
               .width('100%')
               .fontSize($r('sys.float.Body_M'))
@@ -1897,16 +2718,20 @@ export struct WideHomePage {
     Stack({ alignContent: Alignment.TopEnd }) {
       Scroll(this.pageScroller) {
         Column({ space: this.sectionGap() }) {
-          if (!this.isTabletDevice()) {
-            GridRow({ columns: 12, gutter: { x: this.sectionGap(), y: this.sectionGap() } }) {
-              GridCol({ span: 12 }) {
-                this.workOverviewCard()
+          if (this.useWorkSplitLayout()) {
+            this.wideDashboard()
+          } else {
+            if (!this.isTabletDevice()) {
+              GridRow({ columns: 12, gutter: { x: this.sectionGap(), y: this.sectionGap() } }) {
+                GridCol({ span: 12 }) {
+                  this.workOverviewCard()
+                }
               }
+              .width('100%')
             }
-            .width('100%')
-          }
 
-          this.mainWorkArea()
+            this.mainWorkArea()
+          }
         }
         .width('100%')
         .constraintSize({ maxWidth: this.contentMaxWidth() })
@@ -1917,11 +2742,13 @@ export struct WideHomePage {
           bottom: 28 + this.naviIndicatorHeight
         })
         .alignItems(HorizontalAlign.Center)
+        .justifyContent(FlexAlign.Start)
       }
       .width('100%')
       .height('100%')
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
+      .align(Alignment.TopStart)
       .backgroundColor($r('sys.color.background_secondary'))
 
     }
