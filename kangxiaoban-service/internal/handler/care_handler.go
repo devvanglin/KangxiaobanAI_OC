@@ -14,19 +14,16 @@ import (
 
 // CareHandler 护理评估、计划、执行与复核。
 type CareHandler struct {
-	svc    *service.CareService
-	family *service.FamilyService
+	svc *service.CareService
 }
 
-func NewCareHandler(svc *service.CareService, family *service.FamilyService) *CareHandler {
-	return &CareHandler{svc: svc, family: family}
+func NewCareHandler(svc *service.CareService) *CareHandler {
+	return &CareHandler{svc: svc}
 }
-
-func (h *CareHandler) allowed(c *gin.Context) []uint { return boundElderIDs(c, h.family) }
 
 func (h *CareHandler) ListAssessments(c *gin.Context) {
 	page, size := parsePage(c)
-	items, total, err := h.svc.ListAssessments(c.Request.Context(), uint(parseUint(c, "elder_id")), page, size, h.allowed(c))
+	items, total, err := h.svc.ListAssessments(c.Request.Context(), uint(parseUint(c, "elder_id")), page, size)
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "查询评估失败")
 		return
@@ -38,10 +35,6 @@ func (h *CareHandler) CreateAssessment(c *gin.Context) {
 	var req model.Assessment
 	if err := c.ShouldBindJSON(&req); err != nil || req.ElderID == 0 || req.AssessmentType == "" {
 		Fail(c, http.StatusBadRequest, 400, "参数错误: elder_id 与 assessment_type 必填")
-		return
-	}
-	if allowed := h.allowed(c); allowed != nil && !contains(req.ElderID, allowed) {
-		Fail(c, 403, 403, "无权限操作该长者")
 		return
 	}
 	req.Base = model.Base{}
@@ -58,7 +51,7 @@ func (h *CareHandler) CreateAssessment(c *gin.Context) {
 
 func (h *CareHandler) ListPlans(c *gin.Context) {
 	page, size := parsePage(c)
-	items, total, err := h.svc.ListPlans(c.Request.Context(), uint(parseUint(c, "elder_id")), page, size, h.allowed(c))
+	items, total, err := h.svc.ListPlans(c.Request.Context(), uint(parseUint(c, "elder_id")), page, size)
 	if err != nil {
 		Fail(c, 500, 500, "查询护理计划失败")
 		return
@@ -70,10 +63,6 @@ func (h *CareHandler) CreatePlan(c *gin.Context) {
 	var req model.CarePlan
 	if err := c.ShouldBindJSON(&req); err != nil || req.ElderID == 0 || req.Name == "" {
 		Fail(c, 400, 400, "参数错误: elder_id 与 name 必填")
-		return
-	}
-	if allowed := h.allowed(c); allowed != nil && !contains(req.ElderID, allowed) {
-		Fail(c, 403, 403, "无权限操作该长者")
 		return
 	}
 	req.Base = model.Base{}
@@ -95,14 +84,6 @@ func (h *CareHandler) AddPlanItem(c *gin.Context) {
 		Fail(c, 400, 400, "参数错误: title 必填")
 		return
 	}
-	if p, err := h.svc.GetPlan(c.Request.Context(), uint(planID)); err == nil {
-		if !requireElderAccess(c, h.family, p.ElderID) {
-			return
-		}
-	} else {
-		Fail(c, 404, 404, "护理计划不存在")
-		return
-	}
 	if err := h.svc.AddPlanItem(c.Request.Context(), uint(planID), &req); err != nil {
 		Fail(c, 404, 404, "护理计划不存在或不可修改")
 		return
@@ -112,7 +93,7 @@ func (h *CareHandler) AddPlanItem(c *gin.Context) {
 
 func (h *CareHandler) ListExecutions(c *gin.Context) {
 	page, size := parsePage(c)
-	items, total, err := h.svc.ListExecutions(c.Request.Context(), uint(parseUint(c, "elder_id")), uint(parseUint(c, "plan_item_id")), page, size, h.allowed(c))
+	items, total, err := h.svc.ListExecutions(c.Request.Context(), uint(parseUint(c, "elder_id")), uint(parseUint(c, "plan_item_id")), page, size)
 	if err != nil {
 		Fail(c, 500, 500, "查询执行记录失败")
 		return
@@ -132,10 +113,6 @@ func (h *CareHandler) CreateExecution(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || req.PlanItemID == 0 || req.ElderID == 0 {
 		Fail(c, 400, 400, "参数错误: plan_item_id 与 elder_id 必填")
-		return
-	}
-	if allowed := h.allowed(c); allowed != nil && !contains(req.ElderID, allowed) {
-		Fail(c, 403, 403, "无权限操作该长者")
 		return
 	}
 	cl, _ := middleware.ClaimsFrom(c)
@@ -182,14 +159,6 @@ func (h *CareHandler) ReviewExecution(c *gin.Context) {
 	var uid uint
 	if cl != nil {
 		uid = cl.UserID
-	}
-	if v, err := h.svc.GetExecution(c.Request.Context(), uint(id)); err == nil {
-		if !requireElderAccess(c, h.family, v.ElderID) {
-			return
-		}
-	} else {
-		Fail(c, 404, 404, "执行记录不存在")
-		return
 	}
 	if err := h.svc.ReviewExecution(c.Request.Context(), uint(id), uid, req.Status, req.Note); err != nil {
 		Fail(c, 404, 404, "执行记录不存在或状态无效")

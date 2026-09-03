@@ -12,17 +12,10 @@ type CareRepository struct{ db *gorm.DB }
 
 func NewCareRepository(db *gorm.DB) *CareRepository { return &CareRepository{db: db} }
 
-func (r *CareRepository) ListAssessments(ctx context.Context, elderID uint, page, size int, allowed []uint) ([]model.Assessment, int64, error) {
+func (r *CareRepository) ListAssessments(ctx context.Context, elderID uint, page, size int) ([]model.Assessment, int64, error) {
 	q := r.db.WithContext(ctx).Model(&model.Assessment{})
 	if elderID > 0 {
 		q = q.Where("elder_id = ?", elderID)
-	}
-	if allowed != nil {
-		if len(allowed) == 0 {
-			q = q.Where("1 = 0")
-		} else {
-			q = q.Where("elder_id IN ?", allowed)
-		}
 	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
@@ -37,17 +30,10 @@ func (r *CareRepository) CreateAssessment(ctx context.Context, v *model.Assessme
 	return r.db.WithContext(ctx).Create(v).Error
 }
 
-func (r *CareRepository) ListPlans(ctx context.Context, elderID uint, page, size int, allowed []uint) ([]model.CarePlan, int64, error) {
+func (r *CareRepository) ListPlans(ctx context.Context, elderID uint, page, size int) ([]model.CarePlan, int64, error) {
 	q := r.db.WithContext(ctx).Model(&model.CarePlan{}).Preload("Items")
 	if elderID > 0 {
 		q = q.Where("elder_id = ?", elderID)
-	}
-	if allowed != nil {
-		if len(allowed) == 0 {
-			q = q.Where("1 = 0")
-		} else {
-			q = q.Where("elder_id IN ?", allowed)
-		}
 	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
@@ -77,20 +63,13 @@ func (r *CareRepository) GetPlanItem(ctx context.Context, id uint) (*model.CareP
 	return &item, err
 }
 
-func (r *CareRepository) ListExecutions(ctx context.Context, elderID, itemID uint, page, size int, allowed []uint) ([]model.CareExecution, int64, error) {
+func (r *CareRepository) ListExecutions(ctx context.Context, elderID, itemID uint, page, size int) ([]model.CareExecution, int64, error) {
 	q := r.db.WithContext(ctx).Model(&model.CareExecution{})
 	if elderID > 0 {
 		q = q.Where("elder_id = ?", elderID)
 	}
 	if itemID > 0 {
 		q = q.Where("plan_item_id = ?", itemID)
-	}
-	if allowed != nil {
-		if len(allowed) == 0 {
-			q = q.Where("1 = 0")
-		} else {
-			q = q.Where("elder_id IN ?", allowed)
-		}
 	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {

@@ -243,56 +243,6 @@ func TestCreateIntakeRejectsSecondAdmissionForLinkedElder(t *testing.T) {
 	}
 }
 
-func TestCreateIntakeDoesNotBindFamilyFromResidentContactPhone(t *testing.T) {
-	svc, db, doctorID, ctx := newAdmissionTestService(t)
-	bed := freeIntakeBed(t, db, ctx)
-
-	// Deliberately create an enabled family account whose phone matches the
-	// resident's contact phone.  The account must not be bound unless the
-	// explicit family_phone field is supplied.
-	var familyRole model.Role
-	if err := db.WithContext(ctx).Where("code = ?", "family").First(&familyRole).Error; err != nil {
-		t.Fatal(err)
-	}
-	family := model.User{Username: "intake-family-contact-only", Phone: "13800000000", Status: 1}
-	if err := db.WithContext(ctx).Create(&family).Error; err != nil {
-		t.Fatal(err)
-	}
-	if err := db.WithContext(ctx).Model(&family).Association("Roles").Replace([]model.Role{familyRole}); err != nil {
-		t.Fatal(err)
-	}
-
-	input := validIntakeInput(bed, "intake-contact-only")
-	input.FamilyName = ""
-	input.FamilyPhone = ""
-	input.FamilyRelation = ""
-	input.ContactPhone = family.Phone
-	result, err := svc.CreateIntake(ctx, AdmissionActor{UserID: doctorID}, input)
-	if err != nil {
-		t.Fatalf("CreateIntake: %v", err)
-	}
-	if result.Intake.ID == 0 {
-		t.Fatal("CreateIntake returned an empty intake")
-	}
-
-	var bindings int64
-	if err := db.WithContext(ctx).Model(&model.FamilyElder{}).
-		Where("user_id = ? AND elder_id = ?", family.ID, result.Elder.ID).Count(&bindings).Error; err != nil {
-		t.Fatal(err)
-	}
-	if bindings != 0 {
-		t.Fatalf("family bindings = %d, want 0 when family_phone is omitted", bindings)
-	}
-	var familyNotifications int64
-	if err := db.WithContext(ctx).Model(&model.Notification{}).
-		Where("user_id = ? AND type = ?", family.ID, "admission_intake_completed").Count(&familyNotifications).Error; err != nil {
-		t.Fatal(err)
-	}
-	if familyNotifications != 0 {
-		t.Fatalf("family notifications = %d, want 0 when family_phone is omitted", familyNotifications)
-	}
-}
-
 func TestIntakePlanTemplateUsesCurrentAdmissionTemplate(t *testing.T) {
 	svc, db, _, ctx := newAdmissionTestService(t)
 	current, err := svc.currentTemplate(db.WithContext(ctx))

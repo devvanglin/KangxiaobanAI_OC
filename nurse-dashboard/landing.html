@@ -159,14 +159,14 @@
   <div class="container">
     <div class="sechead">
       <h2>一个平台，覆盖照护全链路</h2>
-      <p>从毫米波无感监测到家属远程关怀，从排班交接到处方与收付费，数据一屏汇聚。</p>
+      <p>从毫米波无感监测到机构协作，从排班交接到处方与收付费，数据一屏汇聚。</p>
     </div>
     <div class="cards">
       <div class="card"><div class="ico">📡</div><h3>毫米波安全监护</h3><p>60GHz 雷达非接触感知：跌倒检测、离床告警、静息呼吸与心率，隐私友好、无需佩戴。</p></div>
       <div class="card"><div class="ico">❤️</div><h3>健康体征预警</h3><p>体温 / 血压 / 心率自动分级判定，异常即触发告警，优先处置，循证据留痕。</p></div>
       <div class="card"><div class="ico">✅</div><h3>护理任务闭环</h3><p>计划→任务→执行→打卡→交接，责任到人、进度可视、逾期自动提醒。</p></div>
       <div class="card"><div class="ico">🧾</div><h3>费用与排班</h3><p>按照护等级自动出账，缴费流水透明；班组排班与交接班一处管理。</p></div>
-      <div class="card"><div class="ico">👨‍👩‍👧</div><h3>家属端关怀</h3><p>专属账号仅见绑定老人：实时状态、健康记录、费用账单与告警推送，安心在握。</p></div>
+      <div class="card"><div class="ico">🤝</div><h3>机构协作闭环</h3><p>管理员、医师与护工按职责协作：任务、交班、消息与告警统一留痕，确保照护信息不断档。</p></div>
       <div class="card"><div class="ico">📊</div><h3>实时数据大屏</h3><p>护士站 / 管理墙挂载大屏：全院在住、设备、告警、收付费一屏总览。</p></div>
     </div>
   </div>
@@ -178,7 +178,7 @@
     <div class="arch">
       <div>
         <h2>感知 → 归一 → 规则 → 处置</h2>
-        <p>雷达等设备经 MQTT 汇入边缘与云端，字段归一化后写入统一信号池；规则引擎按阈值分级出警，经 WebSocket 实时推送到护工端、家属端与护士站大屏，形成完整处置闭环。</p>
+        <p>雷达等设备经 MQTT 汇入边缘与云端，字段归一化后写入统一信号池；规则引擎按阈值分级出警，经 WebSocket 实时推送到护工端、医师端、管理端与护士站大屏，形成完整处置闭环。</p>
         <ul>
           <li><b>✓</b>毫米波 / 床垫 / SOS 等物联网设备统一接入</li>
           <li><b>✓</b>疾病、事件、体征、告警一体化数据模型</li>
@@ -187,7 +187,7 @@
         </ul>
       </div>
       <div class="layers">
-        <div class="layer hot"><div class="k">展示层 · HarmonyOS 原生 + Web</div><div class="v">护工端 App · 家属端 App · 护士站数据大屏</div></div>
+        <div class="layer hot"><div class="k">展示层 · HarmonyOS 原生 + Web</div><div class="v">护工端 App · 医师/管理端 · 护士站数据大屏</div></div>
         <div class="layer"><div class="k">平台层 · Go 后端</div><div class="v">REST + WebSocket · 规则引擎 · RBAC · 审计</div></div>
         <div class="layer"><div class="k">接入层 · MQTT</div><div class="v">EMQX Broker · 设备—房间—长者台账 · 字段归一化</div></div>
         <div class="layer"><div class="k">感知层 · 60GHz 毫米波</div><div class="v">跌倒雷达 · 睡眠呼吸心率雷达 · 卧室 / 卫生间无感覆盖</div></div>

@@ -266,18 +266,8 @@ func (s *IotService) contextForDevice(deviceID string) context.Context {
 
 // ListDevices 设备列表。
 func (s *IotService) ListDevices(page, size int) ([]model.IotDevice, int64, error) {
-	return s.ListDevicesScoped(context.Background(), page, size, nil)
-}
-
-func (s *IotService) ListDevicesScoped(ctx context.Context, page, size int, allowed []uint) ([]model.IotDevice, int64, error) {
+	ctx := context.Background()
 	q := s.db.WithContext(ctx).Model(&model.IotDevice{})
-	if allowed != nil {
-		if len(allowed) == 0 {
-			q = q.Where("1 = 0")
-		} else {
-			q = q.Where("elder_id IN ?", allowed)
-		}
-	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -305,19 +295,8 @@ func (s *IotService) GetAlert(ctx context.Context, id uint) (*model.Alert, error
 
 // ListAlerts 告警列表（可按状态/级别筛）。
 func (s *IotService) ListAlerts(status, level string, page, size int) ([]model.Alert, int64, error) {
-	return s.ListAlertsScoped(context.Background(), status, level, page, size, nil)
-}
-
-// ListAlertsScoped 告警列表；allowed 非空时仅返回绑定长者告警（用于家属隔离）。
-func (s *IotService) ListAlertsScoped(ctx context.Context, status, level string, page, size int, allowed []uint) ([]model.Alert, int64, error) {
+	ctx := context.Background()
 	q := s.db.WithContext(ctx).Model(&model.Alert{})
-	if allowed != nil {
-		if len(allowed) == 0 {
-			q = q.Where("1 = 0")
-		} else {
-			q = q.Where("elder_id IN ?", allowed)
-		}
-	}
 	if status != "" {
 		q = q.Where("status = ?", status)
 	}

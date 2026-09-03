@@ -15,7 +15,7 @@
 
 ### 目标
 1. 建成**可运行的 Go 后端 + MySQL 数据库 + 真实鉴权 + IoT 直连**。
-2. 覆盖**完整机构业务**：入院/长者/床位/护理/体征/用药/排班交接/费用/餐饮/权限/家属端/告警。
+2. 覆盖**完整机构业务**：入院/长者/床位/护理/体征/用药/排班交接/费用/餐饮/权限/机构协作/告警。
 3. HarmonyOS 端以 `@ohos.net.http` + WebSocket 对接，替换 mock；AI 走可插拔网关。
 4. 真实雷达数据经 EMQX 流入后端并驱动分级告警。
 
@@ -30,7 +30,7 @@
 │     ├─ REST  → @ohos.net.http   (业务/长者/护理/费用/权限)                │
 │     └─ 实时  → @ohos.net.webSocket (告警/任务/实时体征/护士站)             │
 │                                                                          │
-│  HarmonyOS 家属端（选配，后期）                                            │
+│  HarmonyOS 工作人员端（管理员/医师/护工）                                   │
 │                                                                          │
 └──────────────┬───────────────────────────────────┬──────────────────────┘
                │ HTTPS(网关)                        │ WSS
@@ -103,7 +103,7 @@ kangxiaoban-service/
 
 ### 3.1 组织与权限（RBAC）
 ```
-sys_user(员工账号)  sys_role(角色: 护工/医师/管理员/财务/护士长/家属)
+sys_user(员工账号)  sys_role(角色: 管理员/医师/护工)
 sys_user_role  sys_menu  sys_role_menu  sys_dept(部门/科室)
 audit_log(审计: user/action/module/target/ip/time)
 ```
@@ -119,7 +119,7 @@ bed(bed_no, room_id, status[free/occupied/maintenance], elder_id)
 ```
 elder(id, name, id_card, gender, birth, phone, care_level, status[登记/入住/退住], bed_id,
         emergency_contact(JSON), image, remark)   -- 高频冗余 bed/care_level，避免频繁 JOIN
-family(elder_id, user_id, relation, is_authorized)   -- 家属绑定长者
+elder_contact(elder_id, name, relation, phone)       -- 长者联系人资料
 contract(elder_id, member_id, start/end, fee_terms, signed_url)
 check_in(申请→评估→审批→配置→签约 状态机, config 含 nursing_level/bed/costs)
 check_out(退住 状态机 + 结算)
@@ -178,7 +178,7 @@ alert(elder_id, device_id, type, level[emergency/important/info],
 | # | 模块 | 后端要点 | 前端（KangxiaobanAI）对应 |
 |---|---|---|---|
 | 1 | 认证与 RBAC | JWT + casbin + 审计 | 登录(任意非空→真实校验)、角色路由 |
-| 2 | 长者档案 | CRUD + 搜索 + 家属绑定 | 长者列表/画像/详情 |
+| 2 | 长者档案 | CRUD + 搜索 + 联系人资料 | 长者列表/画像/详情 |
 | 3 | 房间床位 | 层级资源 + 状态可视化 |（可在后台/新增面板）|
 | 4 | 入院/退院 | 状态机 + 评估 + 签约 | WideDoctorAdmission 四步接入真实提交 |
 | 5 | 护理计划/任务 | 模板→执行 + 打卡 | 任务闭环、值班主页 |
@@ -192,7 +192,7 @@ alert(elder_id, device_id, type, level[emergency/important/info],
 | 13 | IoT/告警 | 订阅雷达+规则引擎+分级处置 | 告警列表、实时体征 |
 | 14 | AI 助手 | 网关(可插拔)+审计+人工确认 | AiChatPage 接真实 model API |
 
-> 家属端（微信小程序/鸿蒙）列为**选配**，不在首期硬性范围。
+> 外部联系人客户端不属于当前交付范围；当前仅提供机构工作人员之间的协作消息和通知。
 
 ---
 
@@ -270,7 +270,7 @@ alert(elder_id, device_id, type, level[emergency/important/info],
 - **部署目标机未到**：M0-M4 全部本机可做；M5 依赖新服务器，到时再落地。
 - **全模块范围大**：先保证 M0-M3（可跑可演示的闭环），再逐模块增补费用/餐饮等，避免一次性过大。
 - **雷达真数据不稳定**：需台账正确 + 字段归一化覆盖；M3 前先保留 mock 兜底。
-- **无家属端**：列为选配，首期不做，避免范围失控。
+- **工作人员端边界**：当前仅交付管理员、医师和护工，其他角色与外部联系人客户端不在范围内。
 - **安全/合规**：整体走等保 2.0 思路；敏感体征加密、审计、不泄露令牌。
 
 ---

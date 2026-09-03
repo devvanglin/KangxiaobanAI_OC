@@ -97,6 +97,9 @@ func AutoMigrateAndSeed(db *gorm.DB, seedBusiness bool) error {
 	if err := ensureDefaultTenant(db); err != nil {
 		return fmt.Errorf("ensure default tenant: %w", err)
 	}
+	if err := removeRetiredFamilyArtifacts(db); err != nil {
+		return fmt.Errorf("remove retired family artifacts: %w", err)
+	}
 	if err := ensureAIPromptSuggestionConstraint(db); err != nil {
 		return fmt.Errorf("ensure AI prompt suggestion constraint: %w", err)
 	}
@@ -243,12 +246,99 @@ func ensureDefaultTenant(db *gorm.DB) error {
 	// private migration context so the tenant callback does not turn the
 	// predicate into `tenant_id = 0 AND tenant_id = 1`.
 	backfillDB := db.WithContext(withoutTenantScope(context.Background()))
-	for _, table := range []interface{}{&model.User{}, &model.Role{}, &model.Permission{}, &model.AuditLog{}, &model.Elder{}, &model.Room{}, &model.Bed{}, &model.CareTask{}, &model.HealthRecord{}, &model.HealthThreshold{}, &model.Assessment{}, &model.CarePlan{}, &model.CarePlanItem{}, &model.CareExecution{}, &model.Incident{}, &model.AssessmentTemplate{}, &model.AssessmentQuestion{}, &model.AssessmentOption{}, &model.AdmissionDictionaryItem{}, &model.AdmissionCarePlanTemplate{}, &model.AdmissionAssessment{}, &model.AdmissionAssessmentAnswer{}, &model.AdmissionScreening{}, &model.AdmissionScreeningAnswer{}, &model.AdmissionIntake{}, &model.AdmissionIntakePhoto{}, &model.IotDevice{}, &model.SignalRecord{}, &model.Alert{}, &model.AlertAction{}, &model.Notification{}, &model.Schedule{}, &model.ShiftHandover{}, &model.BillingRate{}, &model.Bill{}, &model.FundFlow{}, &model.MedicationRecord{}, &model.MedicineStock{}, &model.DiningOrder{}, &model.FamilyElder{}, &model.Message{}, &model.OperationPolicy{}, &model.AIPromptSuggestion{}, &model.AIConversation{}, &model.AIMessage{}} {
+	for _, table := range []interface{}{&model.User{}, &model.Role{}, &model.Permission{}, &model.AuditLog{}, &model.Elder{}, &model.Room{}, &model.Bed{}, &model.CareTask{}, &model.HealthRecord{}, &model.HealthThreshold{}, &model.Assessment{}, &model.CarePlan{}, &model.CarePlanItem{}, &model.CareExecution{}, &model.Incident{}, &model.AssessmentTemplate{}, &model.AssessmentQuestion{}, &model.AssessmentOption{}, &model.AdmissionDictionaryItem{}, &model.AdmissionCarePlanTemplate{}, &model.AdmissionAssessment{}, &model.AdmissionAssessmentAnswer{}, &model.AdmissionScreening{}, &model.AdmissionScreeningAnswer{}, &model.AdmissionIntake{}, &model.AdmissionIntakePhoto{}, &model.IotDevice{}, &model.SignalRecord{}, &model.Alert{}, &model.AlertAction{}, &model.Notification{}, &model.Schedule{}, &model.ShiftHandover{}, &model.BillingRate{}, &model.Bill{}, &model.FundFlow{}, &model.MedicationRecord{}, &model.MedicineStock{}, &model.DiningOrder{}, &model.Message{}, &model.OperationPolicy{}, &model.AIPromptSuggestion{}, &model.AIConversation{}, &model.AIMessage{}} {
 		if err := backfillDB.Model(table).Where("tenant_id = 0").Update("tenant_id", 1).Error; err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// removeRetiredFamilyArtifacts removes the retired family role and its accounts from
+// existing databases. Resident contact fields remain part of the admission
+// record, but family accounts and account-to-elder bindings are no longer an
+// application capability.
+func removeRetiredFamilyArtifacts(db *gorm.DB) error {
+	// This is a startup migration, so it must inspect every tenant. Using the
+	// request-scoped tenant callback here would leave retired accounts and
+	// their persisted records behind in non-default tenants.
+	migrationDB := db.WithContext(withoutTenantScope(context.Background()))
+	return migrationDB.Transaction(func(tx *gorm.DB) error {
+		userIDs := make([]uint, 0)
+		seenUserIDs := make(map[uint]struct{})
+		addUserIDs := func(ids ...uint) {
+			for _, id := range ids {
+				if id > 0 {
+					if _, ok := seenUserIDs[id]; !ok {
+						seenUserIDs[id] = struct{}{}
+						userIDs = append(userIDs, id)
+					}
+				}
+			}
+		}
+		var role model.Role
+		if err := tx.Where("code = ?", "family").First(&role).Error; err == nil {
+			var roleUserIDs []uint
+			if err := tx.Table("sys_user_role").Where("role_id = ?", role.ID).Pluck("user_id", &roleUserIDs).Error; err != nil {
+				return err
+			}
+			addUserIDs(roleUserIDs...)
+			if err := tx.Exec("DELETE FROM sys_user_role WHERE role_id = ?", role.ID).Error; err != nil {
+				return err
+			}
+			if err := tx.Exec("DELETE FROM sys_role_permission WHERE role_id = ?", role.ID).Error; err != nil {
+				return err
+			}
+			if err := tx.Delete(&role).Error; err != nil {
+				return err
+			}
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		var retiredUsers []model.User
+		if err := tx.Where("username IN ?", []string{"family", "family_demo"}).Find(&retiredUsers).Error; err != nil {
+			return err
+		}
+		for _, user := range retiredUsers {
+			addUserIDs(user.ID)
+		}
+		// The retired table may have foreign keys to users or elders. Remove
+		// its rows before deleting the accounts so old schemas migrate cleanly
+		// with foreign-key enforcement enabled.
+		if len(userIDs) > 0 && tx.Migrator().HasTable("family_elders") {
+			if err := tx.Exec("DELETE FROM family_elders WHERE user_id IN ?", userIDs).Error; err != nil {
+				return err
+			}
+		}
+		if len(userIDs) > 0 {
+			for _, ref := range []struct {
+				model  interface{}
+				column string
+			}{
+				{&model.Message{}, "sender_id"},
+				{&model.Message{}, "receiver_id"},
+				{&model.Notification{}, "user_id"},
+				{&model.AIConversation{}, "user_id"},
+				{&model.AIMessage{}, "user_id"},
+			} {
+				if err := tx.Model(ref.model).Where(ref.column+" IN ?", userIDs).Delete(ref.model).Error; err != nil {
+					return err
+				}
+			}
+			if err := tx.Exec("DELETE FROM sys_user_role WHERE user_id IN ?", userIDs).Error; err != nil {
+				return err
+			}
+			if err := tx.Where("id IN ?", userIDs).Delete(&model.User{}).Error; err != nil {
+				return err
+			}
+		}
+		if tx.Migrator().HasTable("family_elders") {
+			if err := tx.Migrator().DropTable("family_elders"); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func seed(db *gorm.DB) error {
@@ -292,8 +382,6 @@ func seed(db *gorm.DB) error {
 		{"caregiver", "护工", "现场护理", []string{
 			"dash:read", "elder:read", "health:read", "health:write",
 			"task:read", "task:write", "alert:read"}},
-		{"family", "家属", "仅查看绑定长者", []string{
-			"elder:read", "health:read", "task:read", "alert:read"}},
 	}
 	for _, r := range roles {
 		var role model.Role
@@ -332,38 +420,6 @@ func seed(db *gorm.DB) error {
 	}
 	_ = admin
 
-	// 正式家属账号 family / 123456，角色 family
-	var family model.User
-	if err := db.Where("username = ?", "family").First(&family).Error; err != nil {
-		hash, err2 := bcrypt.GenerateFromPassword([]byte(defaultAccountPassword), bcrypt.DefaultCost)
-		if err2 != nil {
-			return err2
-		}
-		family = model.User{Username: "family", PasswordHash: string(hash), RealName: "张伟", Phone: "13800000001", Status: 1}
-		if err := db.Create(&family).Error; err != nil {
-			return err
-		}
-		var famRole model.Role
-		if err := db.Where("code = ?", "family").First(&famRole).Error; err != nil {
-			return err
-		}
-		if err := db.Model(&family).Association("Roles").Replace([]model.Role{famRole}); err != nil {
-			return err
-		}
-	}
-	if strings.TrimSpace(family.Phone) == "" {
-		if err := db.Model(&family).Update("phone", "13800000001").Error; err != nil {
-			return err
-		}
-		family.Phone = "13800000001"
-	}
-	_ = family
-	if strings.TrimSpace(family.Phone) == "" {
-		if err := db.Model(&family).Update("phone", "13800000001").Error; err != nil {
-			return err
-		}
-	}
-
 	// 客户端支持的正式账号；生产环境请按机构策略修改密码。
 	formalUsers := []struct {
 		username, password, realName, roleCode string
@@ -399,7 +455,7 @@ func seed(db *gorm.DB) error {
 
 // migrateLegacyAccountNames 将旧版本的 *_demo 账号改为正式账号，并合并重复账号。
 // 迁移保留旧账号的密码和业务历史；当正式账号已存在时，先将所有 user_id
-// 引用合并到正式账号，再删除旧账号，避免家属绑定、消息和审计记录悬挂。
+// 引用合并到正式账号，再删除旧账号，避免消息和审计记录悬挂。
 func migrateLegacyAccountNames(db *gorm.DB) error {
 	return db.Transaction(func(tx *gorm.DB) error {
 		rename := func(oldName, newName string) error {
@@ -427,7 +483,6 @@ func migrateLegacyAccountNames(db *gorm.DB) error {
 		for _, names := range [][2]string{
 			{"caregiver_demo", "xiaoli"},
 			{"doctor_demo", "xiaomo"},
-			{"family_demo", "family"},
 			{"caregiver", "xiaoli"},
 			{"doctor", "xiaomo"},
 		} {
@@ -467,7 +522,6 @@ func migrateLegacyAccountNames(db *gorm.DB) error {
 		}{
 			{username: "xiaoli", aliases: []string{"演示护工", "演示护理员", "Demo Caregiver"}, formal: "护理员"},
 			{username: "xiaomo", aliases: []string{"演示医师", "演示医生", "Demo Doctor"}, formal: "医师"},
-			{username: "family", aliases: []string{"演示家属", "Demo Family"}, formal: "家属"},
 		} {
 			var user model.User
 			if err := tx.Where("username = ?", item.username).First(&user).Error; err != nil {
@@ -509,26 +563,6 @@ func rebindUserReferences(tx *gorm.DB, oldID, newID uint) error {
 			continue
 		}
 		if err := tx.Table("sys_user_role").Where("user_id = ? AND role_id = ?", oldID, roleID).Update("user_id", newID).Error; err != nil {
-			return err
-		}
-	}
-
-	// FamilyElder has a unique (user_id, elder_id) key, so merge duplicate
-	// bindings one row at a time before changing the user ID.
-	var familyBindings []model.FamilyElder
-	if err := tx.Where("user_id = ?", oldID).Find(&familyBindings).Error; err != nil {
-		return err
-	}
-	for _, binding := range familyBindings {
-		var existing int64
-		if err := tx.Model(&model.FamilyElder{}).Where("user_id = ? AND elder_id = ?", newID, binding.ElderID).Count(&existing).Error; err != nil {
-			return err
-		}
-		if existing > 0 {
-			if err := tx.Delete(&binding).Error; err != nil {
-				return err
-			}
-		} else if err := tx.Model(&model.FamilyElder{}).Where("id = ?", binding.ID).Update("user_id", newID).Error; err != nil {
 			return err
 		}
 	}
@@ -639,16 +673,6 @@ func seedCoreBusinessDataTx(db *gorm.DB) error {
 		tasks = append(tasks, model.CareTask{ElderID: binding[1].ID, Title: "服用降压药", Kind: "medication", Category: "medication", Priority: "warning", Assignee: caregiverName, DueAt: &secondDueAt, Status: "todo", Remark: bootstrapMedicationInstructions})
 	}
 	if err := db.Create(&tasks).Error; err != nil {
-		return err
-	}
-
-	// 家属绑定：family 仅绑定长者1，用于验证数据隔离
-	var fam model.User
-	if err := db.Where("username = ?", "family").First(&fam).Error; err == nil {
-		if err := db.FirstOrCreate(&model.FamilyElder{UserID: fam.ID, ElderID: binding[0].ID}, model.FamilyElder{UserID: fam.ID, ElderID: binding[0].ID}).Error; err != nil {
-			return err
-		}
-	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
@@ -970,12 +994,12 @@ func seedBusinessDataTx(db *gorm.DB) error {
 	if err := db.Model(&model.Assessment{}).Count(&assessmentCount).Error; err != nil {
 		return err
 	}
-	var doctorID, caregiverID, familyID uint
+	var doctorID, caregiverID uint
 	for _, item := range []struct {
 		name string
 		dest *uint
 	}{
-		{"xiaomo", &doctorID}, {"xiaoli", &caregiverID}, {"family", &familyID},
+		{"xiaomo", &doctorID}, {"xiaoli", &caregiverID},
 	} {
 		var u model.User
 		if err := db.Where("username = ?", item.name).First(&u).Error; err == nil {
@@ -1029,7 +1053,6 @@ func seedBusinessDataTx(db *gorm.DB) error {
 		notifications := []model.Notification{
 			{Role: "caregiver", Channel: "in_app", Type: "task", Title: "护理任务提醒", Content: "张素英的早间翻身任务待处理", Severity: "info", SentAt: &sent},
 			{Role: "doctor", Channel: "in_app", Type: "alert", Title: "风险评估待复核", Content: "王建国存在跌倒风险，请查看评估记录", Severity: "warning", SentAt: &sent},
-			{UserID: familyID, Channel: "in_app", Type: "health", Title: "家人健康更新", Content: "张素英今日体征已记录，请查看长者状态", Severity: "info", SentAt: &sent},
 		}
 		if err := db.Create(&notifications).Error; err != nil {
 			return err
@@ -1040,12 +1063,9 @@ func seedBusinessDataTx(db *gorm.DB) error {
 	if err := db.Model(&model.Message{}).Count(&messageCount).Error; err != nil {
 		return err
 	}
-	if messageCount == 0 && caregiverID > 0 && familyID > 0 && len(elders) > 0 {
+	if messageCount == 0 && caregiverID > 0 && len(elders) > 0 {
 		firstElder := elders[0].ID
-		messages := []model.Message{
-			{SenderID: familyID, ReceiverID: caregiverID, ElderID: &firstElder, Content: "您好，想了解一下张素英今天的状态。", Type: "chat", SentAt: now.Add(-35 * time.Minute)},
-			{SenderID: caregiverID, ReceiverID: familyID, ElderID: &firstElder, Content: "您好，今天体征平稳，早间护理已完成，午休前会继续观察。", Type: "chat", SentAt: now.Add(-30 * time.Minute)},
-		}
+		messages := []model.Message{}
 		if doctorID > 0 {
 			messages = append(messages,
 				model.Message{SenderID: caregiverID, ReceiverID: doctorID, ElderID: &firstElder, Content: "张素英今日体征已录入，请协助关注左膝酸胀情况。", Type: "care_handoff", SentAt: now.Add(-18 * time.Minute)},

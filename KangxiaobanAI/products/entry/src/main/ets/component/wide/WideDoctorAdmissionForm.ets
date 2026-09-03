@@ -1969,15 +1969,15 @@ export struct WideDoctorAdmissionForm {
         Row({ space: 6 }) {
           SymbolGlyph($r('sys.symbol.plus')).fontSize(16)
             .fontColor([$r('app.color.brand_blue')])
-          Text('添加家属').fontSize(13).fontColor($r('app.color.brand_blue'))
+          Text('添加联系人').fontSize(13).fontColor($r('app.color.brand_blue'))
         }
       }
       .height(38)
       .padding({ left: 10, right: 10 })
       .borderRadius(19)
       .backgroundColor($r('sys.color.comp_background_secondary'))
-      .accessibilityText('添加家属')
-      .onClick(() => this.showToast('家属信息可继续添加'))
+      .accessibilityText('添加联系人')
+      .onClick(() => this.showToast('联系人信息可继续添加'))
       Button({ type: ButtonType.Normal, stateEffect: true }) {
         SymbolGlyph($r('sys.symbol.minus')).fontSize(16)
           .fontColor([$r('sys.color.font_secondary')])
@@ -1987,7 +1987,7 @@ export struct WideDoctorAdmissionForm {
       .padding(0)
       .borderRadius(19)
       .backgroundColor($r('sys.color.comp_background_secondary'))
-      .accessibilityText('删除家属')
+      .accessibilityText('删除联系人')
       .onClick(() => this.showToast('当前至少保留一位联系人'))
     }
     .width(144)
@@ -1999,7 +1999,7 @@ export struct WideDoctorAdmissionForm {
   private familyGroupCard() {
     Column({ space: 0 }) {
       Row() {
-        Text('家属信息')
+        Text('联系人信息')
           .fontSize(16)
           .fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.font_primary'))
@@ -2084,9 +2084,9 @@ export struct WideDoctorAdmissionForm {
   private familyFields() {
     if (this.compactWidth) {
       Column({ space: 12 }) {
-        this.stackedTextField('家属姓名', '请输入主要联系人姓名', this.familyName,
+        this.stackedTextField('联系人姓名', '请输入主要联系人姓名', this.familyName,
           (value: string) => this.familyName = value)
-        this.stackedTextField('家属联系方式', '请输入手机号或其他联系方式', this.familyPhone,
+        this.stackedTextField('联系人联系方式', '请输入手机号或其他联系方式', this.familyPhone,
           (value: string) => this.familyPhone = value, false, true)
         this.stackedChoiceField('与长者关系', ['子女', '配偶', '亲属', '其他'], this.familyRelation,
           (value: string) => this.familyRelation = value, false, 72)
@@ -2094,11 +2094,11 @@ export struct WideDoctorAdmissionForm {
     } else {
       GridRow({ columns: 12, gutter: { x: 18, y: 14 } }) {
         GridCol({ span: 4 }) {
-          this.familyStackedTextField('家属姓名', '请输入主要联系人姓名', this.familyName,
+          this.familyStackedTextField('联系人姓名', '请输入主要联系人姓名', this.familyName,
             (value: string) => this.familyName = value)
         }
         GridCol({ span: 4 }) {
-          this.familyStackedTextField('家属联系方式', '请输入手机号或其他联系方式', this.familyPhone,
+          this.familyStackedTextField('联系人联系方式', '请输入手机号或其他联系方式', this.familyPhone,
             (value: string) => this.familyPhone = value, true)
         }
         GridCol({ span: 4 }) {

@@ -274,9 +274,9 @@ func TestLegacyDuplicateAccountMergePreservesUserReferences(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var formalFamily, formalCaregiver, formalDoctor model.User
+	var formalCaregiver, formalDoctor model.User
 	for username, target := range map[string]*model.User{
-		"family": &formalFamily, "xiaoli": &formalCaregiver, "xiaomo": &formalDoctor,
+		"xiaoli": &formalCaregiver, "xiaomo": &formalDoctor,
 	} {
 		if err := db.Where("username = ?", username).First(target).Error; err != nil {
 			t.Fatal(err)
@@ -287,10 +287,6 @@ func TestLegacyDuplicateAccountMergePreservesUserReferences(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	legacyFamily := model.User{Username: "family_demo", PasswordHash: "legacy-family-hash", RealName: "演示家属", Status: 1}
-	if err := db.Create(&legacyFamily).Error; err != nil {
-		t.Fatal(err)
-	}
 	legacyCaregiver := model.User{Username: "caregiver_demo", PasswordHash: "legacy-caregiver-hash", RealName: "演示护工", Status: 1}
 	if err := db.Create(&legacyCaregiver).Error; err != nil {
 		t.Fatal(err)
@@ -302,14 +298,11 @@ func TestLegacyDuplicateAccountMergePreservesUserReferences(t *testing.T) {
 	if err := db.Model(&legacyCaregiver).Association("Roles").Replace([]model.Role{caregiverRole}); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Create(&model.FamilyElder{UserID: legacyFamily.ID, ElderID: elder.ID}).Error; err != nil {
-		t.Fatal(err)
-	}
 	legacyTask := model.CareTask{ElderID: elder.ID, Title: "重复账号关联任务", Kind: "round", AssigneeID: &legacyCaregiver.ID, Assignee: "演示护工", Status: "todo"}
 	if err := db.Create(&legacyTask).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Create(&model.Message{SenderID: legacyFamily.ID, ReceiverID: formalDoctor.ID, ElderID: &elder.ID, Content: "历史消息", SentAt: time.Now()}).Error; err != nil {
+	if err := db.Create(&model.Message{SenderID: legacyCaregiver.ID, ReceiverID: formalDoctor.ID, ElderID: &elder.ID, Content: "历史消息", SentAt: time.Now()}).Error; err != nil {
 		t.Fatal(err)
 	}
 
@@ -327,24 +320,10 @@ func TestLegacyDuplicateAccountMergePreservesUserReferences(t *testing.T) {
 	if err := db.Where("content = ?", "历史消息").First(&message).Error; err != nil {
 		t.Fatal(err)
 	}
-	if message.SenderID != formalFamily.ID {
+	if message.SenderID != formalCaregiver.ID {
 		t.Fatalf("message sender reference was not rebound: %+v", message)
 	}
-	var familyBindingCount int64
-	if err := db.Model(&model.FamilyElder{}).Where("user_id = ? AND elder_id = ?", formalFamily.ID, elder.ID).Count(&familyBindingCount).Error; err != nil {
-		t.Fatal(err)
-	}
-	if familyBindingCount != 1 {
-		t.Fatalf("formal family binding count = %d, want 1", familyBindingCount)
-	}
-	var oldBindingCount int64
-	if err := db.Model(&model.FamilyElder{}).Where("user_id = ?", legacyFamily.ID).Count(&oldBindingCount).Error; err != nil {
-		t.Fatal(err)
-	}
-	if oldBindingCount != 0 {
-		t.Fatalf("legacy family binding remains: %d", oldBindingCount)
-	}
-	for username := range map[string]struct{}{"family_demo": {}, "caregiver_demo": {}} {
+	for username := range map[string]struct{}{"caregiver_demo": {}} {
 		var user model.User
 		if err := db.Where("username = ?", username).First(&user).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
 			t.Fatalf("legacy account %q remains queryable: %+v err=%v", username, user, err)

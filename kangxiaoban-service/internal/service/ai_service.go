@@ -325,14 +325,12 @@ func (s *AIService) localAnswer(ctx context.Context, q string) string {
 		return "跌倒属于高风险事件：请先保持现场、评估长者意识与伤情，勿贸然搬动疑似骨折/头颈部伤者，立即呼叫值班医师并按 SOP 处置，同时在系统标记处置状态。建议关注跌倒高发时段（起身/如厕）并核对离床告警。以上仅为系统建议，具体处置遵循医嘱与机构流程。"
 	case strings.Contains(qq, "呼吸") || strings.Contains(qq, "心率"):
 		return s.vitalThresholdAnswer(ctx)
-	case strings.Contains(qq, "家属") || strings.Contains(qq, "家属端"):
-		return "家属端支持独立账号登录，仅可查看绑定长者：实时状态、健康记录、月度账单与告警提醒。管理员可在「家属管理」为家属建号并绑定长者，数据按绑定范围隔离。"
 	case strings.Contains(qq, "费用") || strings.Contains(qq, "账单") || strings.Contains(qq, "缴费"):
 		return "机构按要求为在院长者按床费+护理费+餐费生成月度账单；缴费后系统自动更新已缴金额与账单状态，并写资金流水。账单与缴费数据可在费用账单页查看与操作。"
 	case strings.Contains(qq, "排班") || strings.Contains(qq, "交接"):
 		return "系统支持按日期/班次维护排班，并记录交接班摘要与待办问题，确保责任到人、信息不断档。"
 	default:
-		return "您好，我是康小伴照护助理。您可以问我比如：跌倒如何处理、毫米波监测的呼吸/心率指标、家属端如何使用、账单与缴费、排班与交接等日常照护问题。我的回答仅作参考，紧急情况请联系值班人员。"
+		return "您好，我是康小伴照护助理。您可以问我比如：跌倒如何处理、毫米波监测的呼吸/心率指标、账单与缴费、排班与交接等日常照护问题。我的回答仅作参考，紧急情况请联系值班人员。"
 	}
 }
 

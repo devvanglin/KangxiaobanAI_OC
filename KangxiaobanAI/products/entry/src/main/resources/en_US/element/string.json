@@ -154,11 +154,11 @@
     },
     {
       "name": "page_home_section_2_item_2_title",
-      "value": "Family visit reception"
+      "value": "Visitor reception"
     },
     {
       "name": "page_home_section_2_item_2_subtitle",
-      "value": "Prepare visit room and guest record"
+      "value": "Prepare visit room and visitor record"
     },
     {
       "name": "page_home_section_2_item_2_tag",
@@ -238,7 +238,7 @@
     },
     {
       "name": "page_elder_section_1_item_3_subtitle",
-      "value": "Family callback due before 16:00"
+      "value": "Contact callback due before 16:00"
     },
     {
       "name": "page_elder_section_1_item_3_tag",
@@ -598,7 +598,7 @@
     },
     {
       "name": "check_in_ready_1_subtitle",
-      "value": "Includes intake form, orders, family authorization and ID"
+      "value": "Includes intake form, orders, contact confirmation and ID"
     },
     {
       "name": "check_in_ready_1_tag",
@@ -622,7 +622,7 @@
     },
     {
       "name": "check_in_ready_3_subtitle",
-      "value": "Explain schedule, visits and care contacts to resident and family"
+      "value": "Explain schedule, visits and care contacts to resident and contact person"
     },
     {
       "name": "check_in_ready_3_tag",

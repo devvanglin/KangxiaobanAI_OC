@@ -16,19 +16,7 @@ type ElderRepository struct{ db *gorm.DB }
 func NewElderRepository(db *gorm.DB) *ElderRepository { return &ElderRepository{db: db} }
 
 func (r *ElderRepository) List(ctx context.Context, keyword string, status, careLevel int, page, size int) ([]model.Elder, int64, error) {
-	return r.ListScoped(ctx, keyword, status, careLevel, page, size, nil)
-}
-
-// ListScoped 列表，可限制仅返回 allowed 内的长者；allowed 为空表示不限。
-func (r *ElderRepository) ListScoped(ctx context.Context, keyword string, status, careLevel int, page, size int, allowed []uint) ([]model.Elder, int64, error) {
 	q := r.db.WithContext(ctx).Model(&model.Elder{})
-	if allowed != nil {
-		if len(allowed) == 0 {
-			q = q.Where("1 = 0")
-		} else {
-			q = q.Where("id IN ?", allowed)
-		}
-	}
 	if keyword != "" {
 		q = q.Where("(name LIKE ? OR id_card LIKE ? OR contact_phone LIKE ?)", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
 	}

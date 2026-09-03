@@ -12,12 +12,11 @@ import (
 
 // SupplyHandler 药物库存 + 餐饮订餐。
 type SupplyHandler struct {
-	svc    *service.SupplyService
-	family *service.FamilyService
+	svc *service.SupplyService
 }
 
-func NewSupplyHandler(svc *service.SupplyService, family *service.FamilyService) *SupplyHandler {
-	return &SupplyHandler{svc: svc, family: family}
+func NewSupplyHandler(svc *service.SupplyService) *SupplyHandler {
+	return &SupplyHandler{svc: svc}
 }
 
 // ---- 药物库存 ----
@@ -68,20 +67,6 @@ func (h *SupplyHandler) AdjustStock(c *gin.Context) {
 func (h *SupplyHandler) ListDining(c *gin.Context) {
 	page, size := parsePage(c)
 	elderID := uint(parseUint(c, "elder_id"))
-	if isFamilyUser(c) {
-		allowed := boundElderIDs(c, h.family)
-		if elderID > 0 && !contains(elderID, allowed) {
-			Fail(c, http.StatusForbidden, 403, "无权限查看该长者订餐")
-			return
-		}
-		if elderID == 0 {
-			if len(allowed) == 0 {
-				OK(c, gin.H{"list": []model.DiningOrder{}, "page": page, "size": size, "total": 0})
-				return
-			}
-			elderID = allowed[0]
-		}
-	}
 	items, total, err := h.svc.ListDining(c.Request.Context(), elderID, c.Query("meal_time"), page, size)
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "查询订餐失败")
@@ -94,9 +79,6 @@ func (h *SupplyHandler) CreateDining(c *gin.Context) {
 	var req model.DiningOrder
 	if err := c.ShouldBindJSON(&req); err != nil || req.ElderID == 0 && req.Items == "" {
 		Fail(c, http.StatusBadRequest, 400, "参数错误: elder_id 与 items 必填")
-		return
-	}
-	if !requireElderAccess(c, h.family, req.ElderID) {
 		return
 	}
 	req.Base = model.Base{}

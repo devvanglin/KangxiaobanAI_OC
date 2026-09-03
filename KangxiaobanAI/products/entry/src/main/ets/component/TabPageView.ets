@@ -60,8 +60,8 @@ import { PhoneLocalMessageRecord, PhoneMessageChatPage } from './PhoneMessageCha
 
 type TaskSource = 'ai' | 'elder' | 'staff' | 'plan';
 type TaskStatus = 'todo' | 'doing' | 'done';
-type EventType = 'ai' | 'alert' | 'care' | 'family';
-type MessageKind = 'handoff' | 'family' | 'notice';
+type EventType = 'ai' | 'alert' | 'care';
+type MessageKind = 'handoff' | 'notice';
 type MessageFilter = 'all' | 'unread' | MessageKind;
 
 interface InboxMessage {
@@ -399,9 +399,6 @@ export struct TabPageView {
     if (task.category === 'medication' || task.kind === 'medication') {
       return 'plan';
     }
-    if (task.category === 'family') {
-      return 'staff';
-    }
     return 'elder';
   }
 
@@ -458,32 +455,6 @@ export struct TabPageView {
       return '进行中';
     }
     return '已完成';
-  }
-
-  private eventTypeIcon(type: EventType): Resource {
-    if (type === 'ai') {
-      return $r('sys.symbol.ellipsis_message_fill');
-    }
-    if (type === 'alert') {
-      return $r('sys.symbol.exclamationmark_triangle_fill');
-    }
-    if (type === 'care') {
-      return $r('sys.symbol.heart_fill');
-    }
-    return $r('sys.symbol.phone_fill');
-  }
-
-  private eventTypeColor(type: EventType): ResourceColor {
-    if (type === 'ai') {
-      return $r('app.color.brand_blue');
-    }
-    if (type === 'alert') {
-      return $r('app.color.status_danger');
-    }
-    if (type === 'care') {
-      return $r('app.color.event_care');
-    }
-    return $r('app.color.event_family');
   }
 
   // ---------------- home data ----------------
@@ -631,43 +602,6 @@ export struct TabPageView {
           tag: statusText,
           tagColor: this.statusColor(statusLevel),
           tagBg: this.statusBg(statusLevel)
-        };
-      });
-  }
-
-  private familyItems(): QuickListRow[] {
-    if (!this.businessStore.loaded) {
-      return [];
-    }
-    const currentUserId: number | undefined = AuthStore.getUser()?.id;
-    return this.businessStore.messages
-      .filter((message: UserMessage) => currentUserId === undefined ||
-        message.sender_id === currentUserId || message.receiver_id === currentUserId)
-      .filter((message: UserMessage) => {
-        const peerId: number = currentUserId !== undefined && message.sender_id === currentUserId ?
-          message.receiver_id : message.sender_id;
-        const peer: MessageContact | undefined = this.businessStore.messageContacts
-          .find((contact: MessageContact) => contact.id === peerId);
-        return peer?.roles.some((role) => role.code === 'family') ?? false;
-      })
-      .sort((left: UserMessage, right: UserMessage): number => right.sent_at.localeCompare(left.sent_at))
-      .map((message: UserMessage): QuickListRow => {
-        const peerId: number = currentUserId !== undefined && message.sender_id === currentUserId ?
-          message.receiver_id : message.sender_id;
-        const peer: MessageContact | undefined = this.businessStore.messageContacts
-          .find((contact: MessageContact) => contact.id === peerId);
-        const elder: Elder | undefined = message.elder_id === undefined ? undefined :
-          this.businessStore.elders.find((item: Elder) => item.id === message.elder_id);
-        const incomingUnread: boolean = currentUserId !== undefined && message.receiver_id === currentUserId &&
-          (message.read_at === undefined || message.read_at.trim().length === 0);
-        return {
-          id: `message-${message.id}`,
-          title: peer?.real_name || peer?.username || '家属消息',
-          sub: `${elder?.name ?? '未关联长者'} · ${message.content.trim().length > 0 ? message.content : '服务器未提供消息内容'}`,
-          time: this.recordTime(message.sent_at),
-          tag: incomingUnread ? '未读' : '已读',
-          tagColor: incomingUnread ? $r('app.color.status_warning') : $r('sys.color.font_tertiary'),
-          tagBg: incomingUnread ? $r('app.color.status_warning_bg') : $r('sys.color.comp_background_tertiary')
         };
       });
   }
@@ -1273,7 +1207,7 @@ export struct TabPageView {
   // ---------------- home: quick actions ----------------
 
   private quickActionLabels(): string[] {
-    return ['待办任务', '用药', '记录', '家属', '上报'];
+    return ['待办任务', '用药', '记录', '上报'];
   }
 
   @Builder
@@ -1326,8 +1260,6 @@ export struct TabPageView {
       } else if (this.selectedQuickActionIndex === 2) {
         this.quickListPage('服务记录', this.recordItems())
       } else if (this.selectedQuickActionIndex === 3) {
-        this.quickListPage('家属联系', this.familyItems())
-      } else if (this.selectedQuickActionIndex === 4) {
         this.quickListPage('上报事项', this.reportItems())
       }
     }
@@ -1464,7 +1396,6 @@ export struct TabPageView {
       ...this.taskListRows(),
       ...this.medicationItems(),
       ...this.recordItems(),
-      ...this.familyItems(),
       ...this.reportItems()
     ];
     return all.find((item: QuickListRow) => item.id === this.selectedQuickRowId);
@@ -2219,7 +2150,7 @@ export struct TabPageView {
             (message.sender_id === currentUserId && message.receiver_id === contact.id) ||
             (message.sender_id === contact.id && message.receiver_id === currentUserId));
         const latest: UserMessage | undefined = related.length > 0 ? related[related.length - 1] : undefined;
-        const kind: MessageKind = contact.roles.some((role) => role.code === 'family') ? 'family' : 'handoff';
+        const kind: MessageKind = 'handoff';
         return { id: `user-${contact.id}`, kind: kind,
           sender: contact.real_name || contact.username, preview: latest?.content ?? '暂无消息',
           content: latest?.content ?? '暂无消息', time: latest ? latest.sent_at.slice(11, 16) : '--',
@@ -2234,7 +2165,6 @@ export struct TabPageView {
       { label: '全部', value: 'all' },
       { label: '未读', value: 'unread' },
       { label: '交接', value: 'handoff' },
-      { label: '家属', value: 'family' },
       { label: '通知', value: 'notice' }
     ];
   }
@@ -2276,9 +2206,6 @@ export struct TabPageView {
     if (kind === 'handoff') {
       return '交接消息';
     }
-    if (kind === 'family') {
-      return '家属沟通';
-    }
     return '通知';
   }
 
@@ -2286,16 +2213,10 @@ export struct TabPageView {
     if (kind === 'handoff') {
       return $r('sys.symbol.person_2_fill');
     }
-    if (kind === 'family') {
-      return $r('sys.symbol.phone_fill');
-    }
     return $r('sys.symbol.bell_fill');
   }
 
   private messageIconColor(kind: MessageKind): ResourceColor {
-    if (kind === 'family') {
-      return $r('app.color.status_normal');
-    }
     if (kind === 'notice') {
       return $r('app.color.status_warning');
     }
@@ -2303,9 +2224,6 @@ export struct TabPageView {
   }
 
   private messageIconBackground(kind: MessageKind): ResourceColor {
-    if (kind === 'family') {
-      return 0xFFE9F7EF;
-    }
     if (kind === 'notice') {
       return 0xFFFFF4DC;
     }
@@ -2398,16 +2316,9 @@ export struct TabPageView {
     Row({ space: 12 }) {
       Stack({ alignContent: Alignment.BottomEnd }) {
         Row() {
-          if (item.kind === 'family') {
-            Text(item.sender.substring(0, 1))
-              .fontSize(15)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(this.messageIconColor(item.kind))
-          } else {
-            SymbolGlyph($r('sys.symbol.bell_fill'))
-              .fontSize(20)
-              .fontColor([this.messageIconColor(item.kind)])
-          }
+          SymbolGlyph($r('sys.symbol.bell_fill'))
+            .fontSize(20)
+            .fontColor([this.messageIconColor(item.kind)])
         }
         .width(44)
         .height(44)

@@ -26,7 +26,7 @@ func TestAIPromptSuggestionSeedIsTenantScopedAndPreservesEdits(t *testing.T) {
 	}
 
 	ctx1 := context.WithValue(context.Background(), model.TenantContextKey, uint(1))
-	assertAIPromptSuggestionCount(t, db.WithContext(ctx1), 9)
+	assertAIPromptSuggestionCount(t, db.WithContext(ctx1), 7)
 	if err := db.WithContext(ctx1).Model(&model.AIPromptSuggestion{}).
 		Where("code = ?", "care-summary").
 		Updates(map[string]interface{}{"title": "机构自定义照护摘要", "enabled": false}).Error; err != nil {
@@ -42,8 +42,8 @@ func TestAIPromptSuggestionSeedIsTenantScopedAndPreservesEdits(t *testing.T) {
 	}
 
 	ctx2 := context.WithValue(context.Background(), model.TenantContextKey, uint(2))
-	assertAIPromptSuggestionCount(t, db.WithContext(ctx1), 9)
-	assertAIPromptSuggestionCount(t, db.WithContext(ctx2), 9)
+	assertAIPromptSuggestionCount(t, db.WithContext(ctx1), 7)
+	assertAIPromptSuggestionCount(t, db.WithContext(ctx2), 7)
 	var edited model.AIPromptSuggestion
 	if err := db.WithContext(ctx1).Where("code = ?", "care-summary").First(&edited).Error; err != nil {
 		t.Fatal(err)
@@ -66,7 +66,7 @@ func TestAIPromptSuggestionSeedIsTenantScopedAndPreservesEdits(t *testing.T) {
 	if err := AutoMigrateAndSeed(db, false); err != nil {
 		t.Fatal(err)
 	}
-	assertAIPromptSuggestionCount(t, db.WithContext(ctx1), 9)
+	assertAIPromptSuggestionCount(t, db.WithContext(ctx1), 7)
 }
 
 func assertAIPromptSuggestionCount(t *testing.T, db *gorm.DB, want int64) {

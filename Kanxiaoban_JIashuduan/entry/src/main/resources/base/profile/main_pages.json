@@ -1,7 +1,0 @@
-{
-  "src": [
-    "pages/LoginPage",
-    "pages/MainPage",
-    "pages/ElderDetailPage"
-  ]
-}

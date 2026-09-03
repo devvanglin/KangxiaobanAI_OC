@@ -2,7 +2,7 @@ package model
 
 import "time"
 
-// ElderContact 长者紧急/家属联系人（随 elder.emergency_contact 以 JSON 序列化存储）。
+// ElderContact 长者紧急联系人（随 elder.emergency_contact 以 JSON 序列化存储）。
 type ElderContact struct {
 	Name        string `json:"name"`
 	Relation    string `json:"relation"`
@@ -57,7 +57,7 @@ type CareTask struct {
 	Title      string        `gorm:"size:128;not null" json:"title"`
 	Kind       string        `gorm:"size:32" json:"kind"`                    // feeding/bath/medication/turnover/rehab...
 	Priority   string        `gorm:"size:16;default:normal" json:"priority"` // normal/warning/danger
-	Category   string        `gorm:"size:32;default:todo" json:"category"`   // todo/medication/record/family/report
+	Category   string        `gorm:"size:32;default:todo" json:"category"`   // todo/medication/record/report
 	AssigneeID *uint         `gorm:"index" json:"assignee_id,omitempty"`
 	Assignee   string        `gorm:"size:64" json:"assignee"`
 	DueAt      *time.Time    `json:"due_at"`

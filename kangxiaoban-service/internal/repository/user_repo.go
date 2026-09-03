@@ -57,10 +57,13 @@ func (r *UserRepository) FindByID(id uint) (*model.User, error) {
 	return &u, nil
 }
 
-// ListContacts 返回当前租户可用于护理沟通的正式账号，不包含密码哈希。
+// ListContacts 返回当前租户可用于机构协作的三类正式账号，不包含密码哈希。
 func (r *UserRepository) ListContacts(tenantID, excludeID uint) ([]model.User, error) {
 	var users []model.User
-	err := r.db.Preload("Roles").Where("tenant_id = ? AND id <> ? AND deleted_at IS NULL AND status = 1", tenantID, excludeID).Order("id asc").Find(&users).Error
+	err := r.db.Preload("Roles").
+		Where("tenant_id = ? AND id <> ? AND deleted_at IS NULL AND status = 1", tenantID, excludeID).
+		Where("EXISTS (SELECT 1 FROM sys_user_role sur JOIN roles sr ON sr.id = sur.role_id WHERE sur.user_id = users.id AND sr.code IN ?)", []string{"admin", "doctor", "caregiver"}).
+		Order("id asc").Find(&users).Error
 	for i := range users {
 		users[i].PasswordHash = ""
 	}

@@ -21,7 +21,7 @@ import AuthStore from '../../network/AuthStore';
 import { MessageContact, UserMessage } from '../../network/Dto';
 import { WsClient } from '../../network/WsClient';
 
-type WideConversationKind = 'family' | 'work' | 'system';
+type WideConversationKind = 'work' | 'system';
 type WideMessageFilter = 'all' | 'unread' | WideConversationKind;
 type WideChatRole = 'incoming' | 'outgoing' | 'system';
 
@@ -50,12 +50,11 @@ interface WideChatRecord {
 const MESSAGE_FILTER_ITEMS: WideSlidingCapsuleItem[] = [
   { title: '全部', index: 0 },
   { title: '未读', index: 1 },
-  { title: '家属', index: 2 },
-  { title: '工作', index: 3 },
-  { title: '系统', index: 4 }
+  { title: '工作', index: 2 },
+  { title: '系统', index: 3 }
 ];
 
-const MESSAGE_FILTER_VALUES: WideMessageFilter[] = ['all', 'unread', 'family', 'work', 'system'];
+const MESSAGE_FILTER_VALUES: WideMessageFilter[] = ['all', 'unread', 'work', 'system'];
 
 
 @ComponentV2
@@ -139,14 +138,13 @@ export struct WideMessagePage {
     const unreadIdsByConversation: Map<string, number[]> = new Map<string, number[]>();
     const unreadConversationIds: string[] = [];
     const conversations: WideConversationData[] = resp.data.list.map((contact: MessageContact): WideConversationData => {
-      const role: string = contact.roles.length > 0 ? contact.roles[0].code : 'work';
-      const kind: WideConversationKind = role === 'family' ? 'family' : 'work';
+      const kind: WideConversationKind = 'work';
       return {
         id: `user-${contact.id}`,
         peerId: contact.id,
         kind: kind,
         title: contact.real_name.length > 0 ? contact.real_name : contact.username,
-        subtitle: `${contact.username} · ${kind === 'family' ? '家属沟通' : '工作协作'}`,
+        subtitle: `${contact.username} · 工作协作`,
         avatar: (contact.real_name.length > 0 ? contact.real_name : contact.username).slice(0, 1),
         preview: '暂无消息',
         time: '--',
@@ -311,9 +309,6 @@ export struct WideMessagePage {
   }
 
   private kindLabel(kind: WideConversationKind): string {
-    if (kind === 'family') {
-      return '家属沟通';
-    }
     if (kind === 'work') {
       return '工作协作';
     }
@@ -321,9 +316,6 @@ export struct WideMessagePage {
   }
 
   private avatarColor(kind: WideConversationKind): ResourceColor {
-    if (kind === 'family') {
-      return $r('app.color.status_normal');
-    }
     if (kind === 'system') {
       return $r('app.color.status_warning');
     }
@@ -331,9 +323,6 @@ export struct WideMessagePage {
   }
 
   private avatarBackground(kind: WideConversationKind): ResourceColor {
-    if (kind === 'family') {
-      return $r('app.color.status_normal_bg');
-    }
     if (kind === 'system') {
       return $r('app.color.status_warning_bg');
     }
@@ -448,16 +437,9 @@ export struct WideMessagePage {
   @Builder
   private conversationAvatar(item: WideConversationData, size: number) {
     Row() {
-      if (item.kind === 'family') {
-        Text(item.avatar)
-          .fontSize(size >= 40 ? 16 : 13)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.avatarColor(item.kind))
-      } else {
-        SymbolGlyph($r('sys.symbol.bell_fill'))
-          .fontSize(size >= 40 ? 20 : 16)
-          .fontColor([this.avatarColor(item.kind)])
-      }
+      SymbolGlyph($r('sys.symbol.bell_fill'))
+        .fontSize(size >= 40 ? 20 : 16)
+        .fontColor([this.avatarColor(item.kind)])
     }
     .width(size)
     .height(size)

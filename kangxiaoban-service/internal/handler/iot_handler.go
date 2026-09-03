@@ -9,13 +9,11 @@ import (
 	"kangxiaoban-service/internal/iot"
 	"kangxiaoban-service/internal/middleware"
 	"kangxiaoban-service/internal/model"
-	"kangxiaoban-service/internal/service"
 )
 
 // IotHandler 物联网设备与告警。
 type IotHandler struct {
-	svc    *iot.IotService
-	family *service.FamilyService
+	svc *iot.IotService
 }
 
 type deviceCreateReq struct {
@@ -48,14 +46,14 @@ func (h *IotHandler) DeleteDevice(c *gin.Context) {
 	OK(c, gin.H{"deleted": true})
 }
 
-func NewIotHandler(svc *iot.IotService, family *service.FamilyService) *IotHandler {
-	return &IotHandler{svc: svc, family: family}
+func NewIotHandler(svc *iot.IotService) *IotHandler {
+	return &IotHandler{svc: svc}
 }
 
 // ListDevices GET /api/v1/iot/devices
 func (h *IotHandler) ListDevices(c *gin.Context) {
 	page, size := parsePage(c)
-	items, total, err := h.svc.ListDevicesScoped(c.Request.Context(), page, size, boundElderIDs(c, h.family))
+	items, total, err := h.svc.ListDevices(page, size)
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "查询设备失败")
 		return
@@ -66,8 +64,7 @@ func (h *IotHandler) ListDevices(c *gin.Context) {
 // ListAlerts GET /api/v1/alerts?status=&level=
 func (h *IotHandler) ListAlerts(c *gin.Context) {
 	page, size := parsePage(c)
-	bound := boundElderIDs(c, h.family)
-	items, total, err := h.svc.ListAlertsScoped(c.Request.Context(), c.Query("status"), c.Query("level"), page, size, bound)
+	items, total, err := h.svc.ListAlerts(c.Query("status"), c.Query("level"), page, size)
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "查询告警失败")
 		return
@@ -78,9 +75,6 @@ func (h *IotHandler) ListAlerts(c *gin.Context) {
 // HandleAlert PATCH /api/v1/alerts/:id/handle?close=1|0
 func (h *IotHandler) HandleAlert(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	if a, err := h.svc.GetAlert(c.Request.Context(), uint(id)); err == nil && a.ElderID != nil && !requireElderAccess(c, h.family, *a.ElderID) {
-		return
-	}
 	closeIt := c.Query("close") == "1"
 	by := "admin" // M3：处置人后续接当前用户
 	if err := h.svc.HandleAlert(c.Request.Context(), uint(id), by, closeIt); err != nil {
@@ -93,9 +87,6 @@ func (h *IotHandler) HandleAlert(c *gin.Context) {
 // ListAlertActions GET /api/v1/alerts/:id/actions
 func (h *IotHandler) ListAlertActions(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	if a, err := h.svc.GetAlert(c.Request.Context(), uint(id)); err == nil && a.ElderID != nil && !requireElderAccess(c, h.family, *a.ElderID) {
-		return
-	}
 	page, size := parsePage(c)
 	items, total, err := h.svc.ListAlertActions(c.Request.Context(), uint(id), page, size)
 	if err != nil {
@@ -113,9 +104,6 @@ type alertActionReq struct {
 // CreateAlertAction POST /api/v1/alerts/:id/actions
 func (h *IotHandler) CreateAlertAction(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	if a, err := h.svc.GetAlert(c.Request.Context(), uint(id)); err == nil && a.ElderID != nil && !requireElderAccess(c, h.family, *a.ElderID) {
-		return
-	}
 	var req alertActionReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		Fail(c, 400, 400, "参数错误")

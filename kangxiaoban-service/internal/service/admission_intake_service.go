@@ -314,29 +314,12 @@ func (s *AdmissionService) CreateIntake(ctx context.Context, actor AdmissionActo
 			}
 		}
 
-		// Only an explicitly supplied family phone may authorize a family
-		// account binding.  ContactPhone belongs to the resident and can be
-		// shared with a relative; using it as an implicit family credential
-		// would grant that account access without the operator's intent.
-		familyUserIDs, err := bindMatchingFamilyUsers(tx, elder.ID, normalized.FamilyPhone)
-		if err != nil {
-			return err
-		}
 		notification := model.Notification{
 			Role: "caregiver", Channel: "in_app", Type: "admission_intake_completed", Severity: "important",
 			Title: "新长者已办理入住", Content: fmt.Sprintf("%s 已完成办理入住并分配床位，请执行照护计划。", normalized.ResidentName), SentAt: &now,
 		}
 		if err := tx.Create(&notification).Error; err != nil {
 			return err
-		}
-		for _, familyUserID := range familyUserIDs {
-			familyNotification := model.Notification{
-				UserID: familyUserID, Channel: "in_app", Type: "admission_intake_completed", Severity: "important",
-				Title: "入住办理完成", Content: fmt.Sprintf("%s 已完成入住和床位分配。", normalized.ResidentName), SentAt: &now,
-			}
-			if err := tx.Create(&familyNotification).Error; err != nil {
-				return err
-			}
 		}
 
 		intake := model.AdmissionIntake{

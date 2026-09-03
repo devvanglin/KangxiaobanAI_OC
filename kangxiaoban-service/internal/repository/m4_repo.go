@@ -55,16 +55,7 @@ type FinanceRepository struct{ db *gorm.DB }
 func NewFinanceRepository(db *gorm.DB) *FinanceRepository { return &FinanceRepository{db: db} }
 
 func (r *FinanceRepository) ListBills(ctx context.Context, elderID uint, month string, page, size int) ([]model.Bill, int64, error) {
-	return r.ListBillsScoped(ctx, elderID, month, page, size, nil)
-}
-
-// ListBillsScoped 账单列表；allowed 非空时仅返回其中长者（用于家属隔离）。
-func (r *FinanceRepository) ListBillsScoped(ctx context.Context, elderID uint, month string, page, size int, allowed []uint) ([]model.Bill, int64, error) {
 	q := r.db.WithContext(ctx).Model(&model.Bill{})
-	if len(allowed) > 0 {
-		q = q.Where("elder_id IN ?", allowed)
-		elderID = 0 // 家属不按任意 elder_id 过滤
-	}
 	if elderID > 0 {
 		q = q.Where("elder_id = ?", elderID)
 	}

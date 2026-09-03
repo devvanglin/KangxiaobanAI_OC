@@ -67,7 +67,7 @@ export struct WideUserManagement {
         TextInput({ placeholder: '姓名', text: $$this.realName }).width('100%').height(42).margin({ top: 10 })
         TextInput({ placeholder: '手机号', text: $$this.phone }).width('100%').height(42).margin({ top: 10 })
         Row({ space: 10 }) {
-          ForEach([{ code: 'admin', name: '管理员' }, { code: 'doctor', name: '医师' }, { code: 'caregiver', name: '护工' }, { code: 'family', name: '家属' }], (role: UserRole) => {
+          ForEach([{ code: 'admin', name: '管理员' }, { code: 'doctor', name: '医师' }, { code: 'caregiver', name: '护工' }], (role: UserRole) => {
             Button(role.name).height(34).fontSize(11).borderRadius(17).backgroundColor(this.roleCode === role.code ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary')).fontColor(this.roleCode === role.code ? Color.White : $r('sys.color.font_secondary')).onClick(() => this.roleCode = role.code)
           }, (role: UserRole) => role.code)
         }.width('100%').margin({ top: 12 })

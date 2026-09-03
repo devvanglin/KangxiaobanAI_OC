@@ -113,9 +113,6 @@ export struct PhoneMessageChatPage {
   }
 
   private avatarColor(): ResourceColor {
-    if (this.kind === 'family') {
-      return $r('app.color.status_normal');
-    }
     if (this.kind === 'notice') {
       return $r('app.color.status_warning');
     }
@@ -123,9 +120,6 @@ export struct PhoneMessageChatPage {
   }
 
   private avatarBackground(): ResourceColor {
-    if (this.kind === 'family') {
-      return $r('app.color.status_normal_bg');
-    }
     if (this.kind === 'notice') {
       return $r('app.color.status_warning_bg');
     }
@@ -227,16 +221,9 @@ export struct PhoneMessageChatPage {
   @Builder
   private avatar(size: number) {
     Row() {
-      if (this.kind === 'family') {
-        Text(this.title.substring(0, 1))
-          .fontSize(size >= 36 ? 14 : 12)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.avatarColor())
-      } else {
-        SymbolGlyph($r('sys.symbol.bell_fill'))
-          .fontSize(size >= 36 ? 18 : 15)
-          .fontColor([this.avatarColor()])
-      }
+      SymbolGlyph($r('sys.symbol.bell_fill'))
+        .fontSize(size >= 36 ? 18 : 15)
+        .fontColor([this.avatarColor()])
     }
     .width(size)
     .height(size)

@@ -12,9 +12,8 @@ import (
 )
 
 type MessageHandler struct {
-	svc    *service.MessageService
-	family *service.FamilyService
-	hub    interface {
+	svc *service.MessageService
+	hub interface {
 		SendToUser(uint, string, interface{})
 	}
 	users interface {
@@ -22,12 +21,12 @@ type MessageHandler struct {
 	}
 }
 
-func NewMessageHandler(svc *service.MessageService, family *service.FamilyService, hub interface {
+func NewMessageHandler(svc *service.MessageService, hub interface {
 	SendToUser(uint, string, interface{})
 }, users interface {
 	ListContacts(uint, uint) ([]model.User, error)
 }) *MessageHandler {
-	return &MessageHandler{svc: svc, family: family, hub: hub, users: users}
+	return &MessageHandler{svc: svc, hub: hub, users: users}
 }
 
 func (h *MessageHandler) Contacts(c *gin.Context) {
@@ -65,9 +64,6 @@ func (h *MessageHandler) List(c *gin.Context) {
 		}
 		v := uint(id)
 		elderID = &v
-		if !requireElderAccess(c, h.family, v) {
-			return
-		}
 	}
 	items, total, err := h.svc.List(c.Request.Context(), cl.UserID, uint(peer), elderID, page, size)
 	if err != nil {
@@ -101,9 +97,6 @@ func (h *MessageHandler) Send(c *gin.Context) {
 	}
 	if req.ReceiverID == cl.UserID {
 		Fail(c, 400, 400, "不能给自己发送消息")
-		return
-	}
-	if req.ElderID != nil && !requireElderAccess(c, h.family, *req.ElderID) {
 		return
 	}
 	msg, err := h.svc.Send(c.Request.Context(), cl.UserID, req.ReceiverID, req.ElderID, req.Content, req.Type)

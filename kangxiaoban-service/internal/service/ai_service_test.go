@@ -74,10 +74,10 @@ func TestAIListPromptSuggestionsReturnsEnabledTenantConfiguration(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(items) != 9 {
-		t.Fatalf("suggestions = %d, want 9", len(items))
+	if len(items) != 7 {
+		t.Fatalf("suggestions = %d, want 7", len(items))
 	}
-	if items[0].Code != "care-summary" || items[3].Code != "shift-records" || items[6].Code != "shift-plan" {
+	if items[0].Code != "care-summary" || items[3].Code != "shift-records" || items[5].Code != "shift-plan" {
 		t.Fatalf("unexpected suggestion order: %+v", items)
 	}
 	if err := db.WithContext(ctx).Model(&model.AIPromptSuggestion{}).
@@ -88,8 +88,8 @@ func TestAIListPromptSuggestionsReturnsEnabledTenantConfiguration(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(items) != 8 {
-		t.Fatalf("enabled suggestions = %d, want 8", len(items))
+	if len(items) != 6 {
+		t.Fatalf("enabled suggestions = %d, want 6", len(items))
 	}
 	for _, item := range items {
 		if item.Code == "health-change" {

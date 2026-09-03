@@ -32,7 +32,7 @@ const HOME_XL_MAX_CONTENT_WIDTH: number = 1600;
 
 type CarePriority = 'danger' | 'warning' | 'normal';
 type CareTaskState = 'pending' | 'doing' | 'done';
-type CareTaskCategory = 'todo' | 'medication' | 'record' | 'family' | 'report';
+type CareTaskCategory = 'todo' | 'medication' | 'record' | 'report';
 type CareWorkFilter = CareTaskCategory | 'priority' | 'completed';
 type CareCardSize = 'long' | 'short';
 type TodayPlanFilter = 'all' | CareTaskCategory | 'completed';
@@ -171,7 +171,7 @@ export struct WideHomePage {
 
   private serverTaskCategory(task: BackendCareTask): CareTaskCategory {
     const value: string = task.category ?? '';
-    if (value === 'medication' || value === 'record' || value === 'family' || value === 'report') {
+    if (value === 'medication' || value === 'record' || value === 'report') {
       return value;
     }
     return task.kind === 'medication' ? 'medication' : 'todo';
@@ -392,20 +392,19 @@ export struct WideHomePage {
         this.effectiveTaskState(task) !== 'done').length.toString() },
       { title: '用药', index: 2, badgeText: all.filter((task: CareTaskData) => task.category === 'medication').length.toString() },
       { title: '记录', index: 3, badgeText: all.filter((task: CareTaskData) => task.category === 'record').length.toString() },
-      { title: '家属', index: 4, badgeText: all.filter((task: CareTaskData) => task.category === 'family').length.toString() },
-      { title: '上报', index: 5, badgeText: all.filter((task: CareTaskData) => task.category === 'report').length.toString() },
-      { title: '完成', index: 6, badgeText: all.filter((task: CareTaskData) =>
+      { title: '上报', index: 4, badgeText: all.filter((task: CareTaskData) => task.category === 'report').length.toString() },
+      { title: '完成', index: 5, badgeText: all.filter((task: CareTaskData) =>
         this.effectiveTaskState(task) === 'done').length.toString() }
     ];
   }
 
   private todayPlanFilterIndex(): number {
-    const filters: TodayPlanFilter[] = ['all', 'todo', 'medication', 'record', 'family', 'report', 'completed'];
+    const filters: TodayPlanFilter[] = ['all', 'todo', 'medication', 'record', 'report', 'completed'];
     return filters.indexOf(this.todayPlanFilter);
   }
 
   private selectTodayPlanFilter(index: number): void {
-    const filters: TodayPlanFilter[] = ['all', 'todo', 'medication', 'record', 'family', 'report', 'completed'];
+    const filters: TodayPlanFilter[] = ['all', 'todo', 'medication', 'record', 'report', 'completed'];
     this.todayPlanFilter = filters[index] ?? 'all';
   }
 
@@ -430,9 +429,6 @@ export struct WideHomePage {
     }
     if (category === 'record') {
       return '护理记录';
-    }
-    if (category === 'family') {
-      return '家属沟通';
     }
     if (category === 'report') {
       return '异常上报';
@@ -702,9 +698,6 @@ export struct WideHomePage {
     if (task.category === 'medication' || task.category === 'record' || task.category === 'report') {
       return 112;
     }
-    if (task.category === 'family') {
-      return 100;
-    }
     return 92;
   }
 
@@ -761,19 +754,18 @@ export struct WideHomePage {
       { title: '优先', index: 1, badgeText: this.tasksForFilter('priority').length.toString() },
       { title: '用药', index: 2, badgeText: this.tasksForFilter('medication').length.toString() },
       { title: '记录', index: 3, badgeText: this.tasksForFilter('record').length.toString() },
-      { title: '家属', index: 4, badgeText: this.tasksForFilter('family').length.toString() },
-      { title: '上报', index: 5, badgeText: this.tasksForFilter('report').length.toString() },
-      { title: '完成', index: 6, badgeText: this.tasksForFilter('completed').length.toString() }
+      { title: '上报', index: 4, badgeText: this.tasksForFilter('report').length.toString() },
+      { title: '完成', index: 5, badgeText: this.tasksForFilter('completed').length.toString() }
     ];
   }
 
   private filterIndex(): number {
-    const filters: CareWorkFilter[] = ['todo', 'priority', 'medication', 'record', 'family', 'report', 'completed'];
+    const filters: CareWorkFilter[] = ['todo', 'priority', 'medication', 'record', 'report', 'completed'];
     return filters.indexOf(this.activeFilter);
   }
 
   private selectFilter(index: number): void {
-    const filters: CareWorkFilter[] = ['todo', 'priority', 'medication', 'record', 'family', 'report', 'completed'];
+    const filters: CareWorkFilter[] = ['todo', 'priority', 'medication', 'record', 'report', 'completed'];
     this.activeFilter = filters[index] ?? 'todo';
     this.taskPageIndex = 0;
   }
@@ -832,9 +824,6 @@ export struct WideHomePage {
     }
     if (category === 'record') {
       return $r('app.color.status_normal');
-    }
-    if (category === 'family') {
-      return $r('app.color.event_family');
     }
     if (category === 'report') {
       return $r('app.color.status_danger');

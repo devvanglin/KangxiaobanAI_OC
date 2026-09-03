@@ -52,7 +52,7 @@ Treat the current application as a **backend-connected product under integration
 
 - ArkUI/HDS presentation and responsive behavior are substantial.
 - Login calls the Go backend, stores a JWT session, and derives the visible role from the authenticated account.
-- The main, family, and cockpit clients read their core resident, bed, task, health, device, alert, billing, schedule,
+- The main and cockpit clients read their core resident, bed, task, health, device, alert, billing, schedule,
   message, AI, and assessment records from tenant-scoped APIs. Empty optional views remain empty rather than inventing
   local records.
 - AI conversations, messages, and starter prompts are persisted per tenant and user. A local provider remains an
@@ -259,8 +259,10 @@ bar dynamically binds the visible Home/task, resident master/detail, or message 
 the binding to the pane the user selects or scrolls. Wide scroll content uses a title-bar-aware initial inset and can
 then scroll behind the HDS material surface. Do not replace this with a custom blur Row, an opaque structural panel, or
 another nested navigation destination.
-The home root is an on-shift workbench with shift status, advisory AI priorities, task summaries, a compact task queue,
-and an on-demand detail pane. Resident and message roots use an open shared canvas with independent work surfaces: at
+The home root is an on-shift workbench with four shift metric cards and a responsive modular card grid that separates
+daily tasks, medication care, care records, contact communication, exception reporting, and server-backed risk reminders;
+each populated card opens the existing on-demand task or reminder detail surface, while the care-rhythm card remains a
+separate timeline. Resident and message roots use an open shared canvas with independent work surfaces: at
 1180vp and above they retain side-by-side master/detail interaction; below 1180vp they use a full-width list followed by
 a full-width detail view whose return action is the native root HDS title-bar back control, not a page-wide return row.
 Wide doctor layouts use the shared management title shell and `WideAdminWorkspace` only for the workbench
@@ -428,7 +430,7 @@ submission. Their output is screening/advisory information, not a diagnosis.
 
 The admission dirty guard still protects explicit in-workbench navigation. Drafts are persisted on step transitions,
 so component destruction no longer destroys saved work. A successful submit transaction creates/links the elder, bed,
-assessment, care plan/items, tasks, family binding/notifications, and audit trail.
+assessment, care plan/items, tasks, notifications, and audit trail.
 
 Responsive behavior remains asymmetric: MD/LG use stacked compact sections while XL enables wider assessment and plan
 layouts. Current-step context and previous/next actions stay in the fixed footer, including the live navigation-indicator

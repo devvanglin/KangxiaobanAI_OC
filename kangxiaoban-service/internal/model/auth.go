@@ -26,7 +26,7 @@ type Tenant struct {
 	Status int8   `gorm:"default:1" json:"status"`
 }
 
-// User 员工账号（护工/医师/管理员/其他）。
+// User 员工账号（管理员/医师/护工）。
 type User struct {
 	Base
 	Username     string `gorm:"size:64;uniqueIndex;not null" json:"username"`
@@ -37,7 +37,7 @@ type User struct {
 	Roles        []Role `gorm:"many2many:sys_user_role;joinForeignKey:UserID;joinReferences:RoleID" json:"roles,omitempty"`
 }
 
-// Role 角色（护工/医师/管理员…）。
+// Role 角色（管理员/医师/护工）。
 type Role struct {
 	Base
 	Code         string       `gorm:"size:32;uniqueIndex;not null" json:"code"`
@@ -81,6 +81,6 @@ func AutoMigrateAll(db *gorm.DB) error {
 		&AdmissionScreening{}, &AdmissionScreeningAnswer{}, &AdmissionIntake{}, &AdmissionIntakePhoto{},
 		&IotDevice{}, &SignalRecord{}, &Alert{}, &AlertAction{}, &Notification{},
 		&Schedule{}, &ShiftHandover{}, &BillingRate{}, &Bill{}, &FundFlow{}, &MedicationRecord{},
-		&MedicineStock{}, &DiningOrder{}, &FamilyElder{}, &Message{}, &OperationPolicy{},
+		&MedicineStock{}, &DiningOrder{}, &Message{}, &OperationPolicy{},
 		&AIPromptSuggestion{}, &AIConversation{}, &AIMessage{})
 }

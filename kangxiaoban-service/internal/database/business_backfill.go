@@ -238,8 +238,6 @@ func taskCategoryForKind(kind string) string {
 		return "medication"
 	case "health", "vital", "assessment":
 		return "record"
-	case "family":
-		return "family"
 	case "report":
 		return "report"
 	default:

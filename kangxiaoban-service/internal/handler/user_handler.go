@@ -54,6 +54,7 @@ func (h *UserHandler) Create(c *gin.Context) {
 		Fail(c, 400, 400, "用户名、密码和角色必填")
 		return
 	}
+	input.RoleCode = strings.TrimSpace(input.RoleCode)
 	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 	if err != nil {
 		Fail(c, 500, 500, "密码处理失败")
@@ -61,6 +62,10 @@ func (h *UserHandler) Create(c *gin.Context) {
 	}
 	var role model.Role
 	db := h.db.WithContext(c.Request.Context())
+	if !isSupportedRoleCode(input.RoleCode) {
+		Fail(c, 400, 400, "仅支持管理员、医师或护工角色")
+		return
+	}
 	if err := db.Where("code = ?", input.RoleCode).First(&role).Error; err != nil {
 		Fail(c, 400, 400, "角色不存在")
 		return

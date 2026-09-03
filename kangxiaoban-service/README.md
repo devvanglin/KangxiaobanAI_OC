@@ -35,7 +35,7 @@ GET  /api/v1/admission-intakes/:id
 ```
 
 提交时必须提供 `resident_name`、`gender`、`birth_date`（YYYY-MM-DD）、`age`、`id_card`、
-`admission_start_date`（YYYY-MM-DD）、`care_level` 和真实可用的 `bed_id`。费用、家属和结束日期为可选项；
+`admission_start_date`（YYYY-MM-DD）、`care_level` 和真实可用的 `bed_id`。费用、联系人和结束日期为可选项；
 `idempotency_key` 为必填项，用于安全重试和并发去重。成功后服务端在一个事务中创建/关联长者、占用床位、护理计划与任务，
 按填写费用生成账单、按填写押金生成资金流水，并返回入住单及关联记录。床位冲突、重复身份证和跨租户访问会分别返回
 409/403，不会留下半成品数据。
@@ -73,7 +73,6 @@ Goroutine 数。该接口受 `admin:all` 保护；CPU、主机内存和磁盘指
 管理员：admin / 123456
 护工：xiaoli / 123456
 医师：xiaomo / 123456
-家属：family / 123456
 ```
 
 ## 验证

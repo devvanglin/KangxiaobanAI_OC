@@ -404,26 +404,12 @@ func (s *AdmissionService) Submit(ctx context.Context, actor AdmissionActor, id 
 		if err := createAdmissionTasks(tx, elder.ID, caregiverID, caregiverName, carePlan.Items); err != nil {
 			return err
 		}
-		familyUserIDs, err := bindMatchingFamilyUsers(tx, elder.ID, admission.ContactPhone)
-		if err != nil {
-			return err
-		}
-
 		notification := model.Notification{
 			Role: "caregiver", Channel: "in_app", Type: "admission_completed", Severity: "important",
 			Title: "新长者入住", Content: fmt.Sprintf("%s 已完成入住评估并分配床位，请执行%s。", admission.ResidentName, planTemplate.Name), SentAt: &now,
 		}
 		if err := tx.Create(&notification).Error; err != nil {
 			return err
-		}
-		for _, familyUserID := range familyUserIDs {
-			familyNotification := model.Notification{
-				UserID: familyUserID, Channel: "in_app", Type: "admission_completed", Severity: "important",
-				Title: "入住办理完成", Content: fmt.Sprintf("%s 已完成入住评估和床位分配。", admission.ResidentName), SentAt: &now,
-			}
-			if err := tx.Create(&familyNotification).Error; err != nil {
-				return err
-			}
 		}
 		audit := model.AuditLog{
 			UserID: actor.UserID, Action: "submit", Module: "admission_assessment", Method: "POST",
@@ -1098,40 +1084,6 @@ func firstAvailableCaregiver(tx *gorm.DB) (*model.User, error) {
 		return nil, err
 	}
 	return &caregiver, nil
-}
-
-func bindMatchingFamilyUsers(tx *gorm.DB, elderID uint, contactPhone string) ([]uint, error) {
-	phone := strings.TrimSpace(contactPhone)
-	if phone == "" {
-		return nil, nil
-	}
-	var role model.Role
-	if err := tx.Where("code = ?", "family").First(&role).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	var roleUserIDs []uint
-	if err := tx.Table("sys_user_role").Where("role_id = ?", role.ID).Pluck("user_id", &roleUserIDs).Error; err != nil {
-		return nil, err
-	}
-	if len(roleUserIDs) == 0 {
-		return nil, nil
-	}
-	var users []model.User
-	if err := tx.Where("id IN ? AND phone = ? AND status = ?", roleUserIDs, phone, 1).Order("id asc").Find(&users).Error; err != nil {
-		return nil, err
-	}
-	userIDs := make([]uint, 0, len(users))
-	for _, user := range users {
-		binding := model.FamilyElder{UserID: user.ID, ElderID: elderID}
-		if err := tx.Where("user_id = ? AND elder_id = ?", user.ID, elderID).FirstOrCreate(&binding).Error; err != nil {
-			return nil, err
-		}
-		userIDs = append(userIDs, user.ID)
-	}
-	return userIDs, nil
 }
 
 func truncateRunes(value string, max int) string {

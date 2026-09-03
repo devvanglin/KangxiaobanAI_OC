@@ -211,7 +211,6 @@ func TestAdmissionPermissions(t *testing.T) {
 		{"xiaomo", []string{"doctor"}, http.StatusNoContent},
 		{"admin", []string{"admin"}, http.StatusNoContent},
 		{"xiaoli", []string{"caregiver"}, http.StatusForbidden},
-		{"family", []string{"family"}, http.StatusForbidden},
 	} {
 		t.Run(tt.username, func(t *testing.T) {
 			var user model.User
@@ -421,32 +420,6 @@ func assertAdmissionAppendixAFamilyFields(t *testing.T, got *model.AdmissionAsse
 	}
 }
 
-func TestAdmissionSubmitBindsFamilyByContactPhone(t *testing.T) {
-	svc, db, doctorID, ctx := newAdmissionTestService(t)
-	input := validAdmissionInput(t, svc, db, ctx)
-	var family model.User
-	if err := db.Where("username = ?", "family").First(&family).Error; err != nil {
-		t.Fatal(err)
-	}
-	if err := db.Model(&family).Update("phone", input.ContactPhone).Error; err != nil {
-		t.Fatal(err)
-	}
-	draft, err := svc.Create(ctx, AdmissionActor{UserID: doctorID}, input)
-	if err != nil {
-		t.Fatal(err)
-	}
-	completePrimaryScreenings(t, svc, db, doctorID, ctx, draft.ID, 5)
-	result, err := svc.Submit(ctx, AdmissionActor{UserID: doctorID}, draft.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Admission.ElderID == nil {
-		t.Fatal("submitted admission has no elder")
-	}
-	assertCount(t, db, &model.FamilyElder{}, "user_id = ? AND elder_id = ?", 1, family.ID, *result.Admission.ElderID)
-	assertCount(t, db, &model.Notification{}, "user_id = ? AND type = ?", 1, family.ID, "admission_completed")
-}
-
 func TestAdmissionSubmitKeepsTasksUnassignedWithoutCaregiver(t *testing.T) {
 	svc, db, doctorID, ctx := newAdmissionTestService(t)
 	if err := db.Model(&model.User{}).Where("username = ?", "xiaoli").Update("status", 0).Error; err != nil {
@@ -578,7 +551,7 @@ func TestAdmissionTenantIsolation(t *testing.T) {
 		t.Fatalf("tenant two saw tenant one admissions: total=%d items=%d", total, len(items))
 	}
 	careSvc := NewCareService(repository.NewCareRepository(db))
-	plans, planTotal, err := careSvc.ListPlans(ctx2, 0, 1, 20, nil)
+	plans, planTotal, err := careSvc.ListPlans(ctx2, 0, 1, 20)
 	if err != nil {
 		t.Fatal(err)
 	}

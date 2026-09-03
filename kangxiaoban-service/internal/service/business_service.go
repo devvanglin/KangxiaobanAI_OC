@@ -20,9 +20,6 @@ func NewElderService(repo *repository.ElderRepository) *ElderService {
 func (s *ElderService) List(ctx context.Context, keyword string, status, careLevel, page, size int) ([]model.Elder, int64, error) {
 	return s.repo.List(ctx, keyword, status, careLevel, page, size)
 }
-func (s *ElderService) ListScoped(ctx context.Context, keyword string, status, careLevel, page, size int, allowed []uint) ([]model.Elder, int64, error) {
-	return s.repo.ListScoped(ctx, keyword, status, careLevel, page, size, allowed)
-}
 func (s *ElderService) Get(ctx context.Context, id uint) (*model.Elder, error) {
 	return s.repo.Get(ctx, id)
 }
@@ -140,7 +137,7 @@ func (s *HealthService) Create(ctx context.Context, hr *model.HealthRecord) erro
 
 func normalizeTaskCategory(category, kind string) string {
 	switch category {
-	case "todo", "medication", "record", "family", "report":
+	case "todo", "medication", "record", "report":
 		return category
 	}
 	switch kind {
@@ -148,8 +145,6 @@ func normalizeTaskCategory(category, kind string) string {
 		return "medication"
 	case "health", "vital", "assessment":
 		return "record"
-	case "family":
-		return "family"
 	case "report":
 		return "report"
 	default:

@@ -25,7 +25,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	healthSvc *service.HealthService, scheduleSvc *service.ScheduleService,
 	financeSvc *service.FinanceService, medicationSvc *service.MedicationService,
 	auditSvc *service.AuditService, auditRepo *repository.AuditRepository,
-	supplySvc *service.SupplyService, familySvc *service.FamilyService,
+	supplySvc *service.SupplyService,
 	careSvc *service.CareService,
 	admissionSvc *service.AdmissionService,
 	notificationSvc *service.NotificationService,
@@ -65,21 +65,20 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 
 	authHandler := handler.NewAuthHandler(authSvc)
 	dashboardHandler := handler.NewDashboardHandler(db)
-	elderHandler := handler.NewElderHandler(elderSvc, familySvc)
-	resourceHandler := handler.NewResourceHandler(resourceSvc, familySvc)
-	taskHandler := handler.NewTaskHandler(taskSvc, hub, familySvc)
-	healthHandler := handler.NewHealthHandler(healthSvc, hub, familySvc)
+	elderHandler := handler.NewElderHandler(elderSvc)
+	resourceHandler := handler.NewResourceHandler(resourceSvc)
+	taskHandler := handler.NewTaskHandler(taskSvc, hub)
+	healthHandler := handler.NewHealthHandler(healthSvc, hub)
 	wsHandler := handler.NewWSHandler(hub, cfg.JWT.Secret)
-	iotHandler := handler.NewIotHandler(iotSvc, familySvc)
-	m4Handler := handler.NewM4Handler(scheduleSvc, financeSvc, medicationSvc, auditSvc, familySvc)
-	supplyHandler := handler.NewSupplyHandler(supplySvc, familySvc)
-	familyHandler := handler.NewFamilyManageHandler(familySvc)
+	iotHandler := handler.NewIotHandler(iotSvc)
+	m4Handler := handler.NewM4Handler(scheduleSvc, financeSvc, medicationSvc, auditSvc)
+	supplyHandler := handler.NewSupplyHandler(supplySvc)
 	aiHandler := handler.NewAIHandler(aiSvc)
-	careHandler := handler.NewCareHandler(careSvc, familySvc)
+	careHandler := handler.NewCareHandler(careSvc)
 	photoSvc := service.NewAdmissionPhotoService(db, cfg.Server.UploadDir)
 	admissionHandler := handler.NewAdmissionHandler(admissionSvc, photoSvc)
 	notificationHandler := handler.NewNotificationHandler(notificationSvc)
-	messageHandler := handler.NewMessageHandler(messageSvc, familySvc, hub, userRepo)
+	messageHandler := handler.NewMessageHandler(messageSvc, hub, userRepo)
 	systemHandler := handler.NewSystemHandler()
 	roleHandler := handler.NewRoleHandler(db)
 	userHandler := handler.NewUserHandler(db)
@@ -214,11 +213,6 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		// ---- M5 餐饮订餐 ----
 		authed.GET("/dining", perm("elder:read"), supplyHandler.ListDining)
 		authed.POST("/dining", perm("task:write"), supplyHandler.CreateDining)
-
-		// ---- 家属账号管理（管理员）----
-		authed.POST("/families", perm("admin:all"), familyHandler.CreateMember)
-		authed.GET("/families", perm("admin:all"), familyHandler.ListBindings)
-		authed.DELETE("/families", perm("admin:all"), familyHandler.Unbind)
 
 		// ---- 照护 AI（登录即可问）----
 		authed.POST("/ai/chat", aiHandler.Chat)

@@ -14,11 +14,9 @@ var defaultAIPromptSuggestions = []model.AIPromptSuggestion{
 	{Code: "health-change", GroupIndex: 0, Title: "健康：解读晨间健康指标变化", Prompt: "请解读今天晨间健康指标的变化和关注重点", SortOrder: 20, Enabled: true},
 	{Code: "care-priority", GroupIndex: 0, Title: "如何安排今天的护理优先级", Prompt: "请根据风险和时间节点安排今天的护理优先级", SortOrder: 30, Enabled: true},
 	{Code: "shift-records", GroupIndex: 1, Title: "交班：整理下午班重点记录", Prompt: "请帮我整理下午班新增的重点交班记录", SortOrder: 10, Enabled: true},
-	{Code: "family-follow-up", GroupIndex: 1, Title: "家属：准备今日回访沟通提纲", Prompt: "请生成今天家属回访的沟通提纲", SortOrder: 20, Enabled: true},
 	{Code: "rehab-progress", GroupIndex: 1, Title: "分享一下近期康复训练的完成情况", Prompt: "请总结近期康复训练完成情况并给出后续建议", SortOrder: 30, Enabled: true},
 	{Code: "shift-plan", GroupIndex: 2, Title: "帮我整理一份当班护理工作计划", Prompt: "请帮我整理一份清晰可执行的当班护理工作计划", SortOrder: 10, Enabled: true},
 	{Code: "health-trend", GroupIndex: 2, Title: "解读本周异常健康数据趋势", Prompt: "请深度解读本周异常健康数据的变化趋势", SortOrder: 20, Enabled: true},
-	{Code: "family-script", GroupIndex: 2, Title: "生成一段专业的家属沟通话术", Prompt: "请生成一段专业、温和的家属沟通话术", SortOrder: 30, Enabled: true},
 }
 
 // ensureAIPromptSuggestionConstraint keeps one active suggestion code per tenant.
@@ -56,6 +54,12 @@ func ensureAIPromptSuggestionConstraint(db *gorm.DB) error {
 // seedAIPromptSuggestions creates only missing defaults. Institution changes,
 // including disabled rows, remain untouched on subsequent starts.
 func seedAIPromptSuggestions(db *gorm.DB) error {
+	// Retired family prompts are removed globally during startup migration;
+	// a normal tenant-scoped context would only clean the default tenant.
+	migrationDB := db.WithContext(withoutTenantScope(context.Background()))
+	if err := migrationDB.Where("code IN ?", []string{"family-follow-up", "family-script"}).Delete(&model.AIPromptSuggestion{}).Error; err != nil {
+		return err
+	}
 	var tenants []model.Tenant
 	if err := db.Order("id").Find(&tenants).Error; err != nil {
 		return err

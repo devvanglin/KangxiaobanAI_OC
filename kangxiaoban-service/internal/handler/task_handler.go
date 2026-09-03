@@ -16,13 +16,12 @@ import (
 
 // TaskHandler 护理任务。
 type TaskHandler struct {
-	svc    *service.TaskService
-	hub    *ws.Hub
-	family *service.FamilyService
+	svc *service.TaskService
+	hub *ws.Hub
 }
 
-func NewTaskHandler(svc *service.TaskService, hub *ws.Hub, family *service.FamilyService) *TaskHandler {
-	return &TaskHandler{svc: svc, hub: hub, family: family}
+func NewTaskHandler(svc *service.TaskService, hub *ws.Hub) *TaskHandler {
+	return &TaskHandler{svc: svc, hub: hub}
 }
 
 func (h *TaskHandler) List(c *gin.Context) {
@@ -32,20 +31,6 @@ func (h *TaskHandler) List(c *gin.Context) {
 	var assigneeID uint
 	if cl != nil && hasRole(cl.Roles, "caregiver") {
 		assigneeID = cl.UserID
-	}
-	allowed := boundElderIDs(c, h.family)
-	if isFamilyUser(c) && elderID > 0 && !contains(elderID, allowed) {
-		Fail(c, http.StatusForbidden, 403, "无权限访问该长者任务")
-		return
-	}
-	if isFamilyUser(c) && elderID == 0 {
-		// Repository 当前支持单 elder 过滤，逐个绑定长者合并由后续分页查询完善；
-		// 至少避免家属在未指定 elder_id 时看到全院任务。
-		if len(allowed) == 0 {
-			OK(c, gin.H{"list": []model.CareTask{}, "page": page, "size": size, "total": 0})
-			return
-		}
-		elderID = allowed[0]
 	}
 	items, total, err := h.svc.List(c.Request.Context(), elderID, c.Query("status"), assigneeID, page, size)
 	if err != nil {
@@ -63,9 +48,6 @@ func (h *TaskHandler) Create(c *gin.Context) {
 	}
 	if req.ElderID == 0 || req.Title == "" {
 		Fail(c, http.StatusBadRequest, 400, "elder_id 与 title 必填")
-		return
-	}
-	if !requireElderAccess(c, h.family, req.ElderID) {
 		return
 	}
 	req.Base = model.Base{}
