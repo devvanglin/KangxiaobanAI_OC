@@ -65,6 +65,26 @@ GET /api/v1/system/monitor
 Goroutine 数。该接口受 `admin:all` 保护；CPU、主机内存和磁盘指标按运行平台采集，无法提供时会返回
 `available=false`，不会伪造资源数值。
 
+## 区域、护理套餐、AI 与设备
+
+新增的服务端接口：
+
+```text
+GET/POST/PUT/DELETE /api/v1/areas
+GET/POST             /api/v1/care-package-templates
+POST                 /api/v1/care-package-templates/:id/items
+GET/POST             /api/v1/elders/:id/care-package-subscriptions
+GET/POST/PUT/DELETE  /api/v1/admin/ai/configs
+GET                  /api/v1/ai/models
+PATCH                /api/v1/iot/devices/:id
+GET                  /api/v1/iot/devices/:id/signals
+POST                 /api/v1/iot/devices/:id/probe
+```
+
+区域接口保留历史 `rooms`/`beds` 数据；启动时会把既有房间镜像为房间区域。护理套餐订阅会在一个事务中创建
+运行中的护理计划、项目和任务。AI 配置按护工/医师区分，API Key 加密存储且不会通过查询接口返回。毫米波
+使用 MQTT，摄像头使用管理员配置的 RTSP 地址；行为识别仍待视觉适配。
+
 ## 登录账号
 
 首次启动会创建以下基础账号，密码可在生产环境按机构策略修改：
