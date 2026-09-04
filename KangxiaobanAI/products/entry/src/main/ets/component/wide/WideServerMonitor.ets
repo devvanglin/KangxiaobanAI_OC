@@ -49,6 +49,7 @@ export struct WideServerMonitor {
   @Param statusBarHeight: number = 0;
   @Param naviIndicatorHeight: number = 0;
   @Param compactWidth: boolean = false;
+  @Param embedded: boolean = false;
   @Param managementScroller: Scroller = new Scroller();
   @Local cpuCores: number = 0;
   @Local cpuUsage: number = 0;
@@ -298,8 +299,8 @@ export struct WideServerMonitor {
       .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
-  build() {
-    Scroll(this.managementScroller) {
+  @Builder
+  private monitorContent() {
       Column({ space: 10 }) {
         Blank().height(4)
         if (this.error.length > 0) {
@@ -317,8 +318,17 @@ export struct WideServerMonitor {
       }
       .width('100%')
       .padding({ left: this.compactWidth ? 14 : 20, right: this.compactWidth ? 14 : 20,
-        top: 58, bottom: 16 + this.naviIndicatorHeight })
+        top: this.embedded ? 0 : 58, bottom: this.embedded ? 0 : 16 + this.naviIndicatorHeight })
       .alignItems(HorizontalAlign.Start)
-    }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
+  }
+
+  build() {
+    if (this.embedded) {
+      this.monitorContent()
+    } else {
+      Scroll(this.managementScroller) {
+        this.monitorContent()
+      }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
+    }
   }
 }
