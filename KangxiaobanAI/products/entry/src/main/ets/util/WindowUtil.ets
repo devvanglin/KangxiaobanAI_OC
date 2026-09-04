@@ -24,15 +24,31 @@ const TAG: string = '[WindowUtil]';
 
 export class WindowUtil {
   private static windowClass?: window.Window;
-  private static uiContext: UIContext;
+  private static uiContext?: UIContext;
   private static windowUpdateTask: Promise<void> = Promise.resolve();
   private static requestedImmersiveMode?: boolean;
   private static darkSystemBarBackground: boolean = false;
+  private static initializationToken: number = 0;
+  private static readonly INITIALIZATION_RETRY_LIMIT: number = 20;
+  private static readonly INITIALIZATION_RETRY_DELAY_MS: number = 50;
 
-  public static initialize(windowStage: window.WindowStage) {
+  public static initialize(windowStage: window.WindowStage): void {
+    const token: number = ++WindowUtil.initializationToken;
+    WindowUtil.tryInitialize(windowStage, token, 0);
+  }
+
+  public static getUIContext(): UIContext | undefined {
+    return WindowUtil.uiContext as UIContext | undefined;
+  }
+
+  private static tryInitialize(windowStage: window.WindowStage, token: number, attempt: number): void {
     try {
-      WindowUtil.windowClass = windowStage.getMainWindowSync();
-      const uiContext: UIContext = WindowUtil.windowClass.getUIContext();
+      const mainWindow: window.Window = windowStage.getMainWindowSync();
+      const uiContext: UIContext = mainWindow.getUIContext();
+      if (token !== WindowUtil.initializationToken) {
+        return;
+      }
+      WindowUtil.windowClass = mainWindow;
       WindowUtil.uiContext = uiContext;
       AppStorageV2.connect(UIContext, StorageKey.UI_CONTEXT, () => uiContext);
       WindowUtil.windowUpdateTask = Promise.resolve();
@@ -41,7 +57,12 @@ export class WindowUtil {
       WindowUtil.setImmersiveMode(false);
       WindowUtil.registerBreakpoint(WindowUtil.windowClass);
     } catch (err) {
-      Logger.error(TAG, `WindowUtil initialize failed. Cause: ${err.code} ${err.message}`);
+      if (token === WindowUtil.initializationToken && attempt < WindowUtil.INITIALIZATION_RETRY_LIMIT) {
+        setTimeout(() => WindowUtil.tryInitialize(windowStage, token, attempt + 1),
+          WindowUtil.INITIALIZATION_RETRY_DELAY_MS);
+        return;
+      }
+      Logger.error(TAG, `WindowUtil initialize failed after retry. Cause: ${err.code} ${err.message}`);
     }
   }
 
@@ -122,8 +143,12 @@ export class WindowUtil {
 
   private static isSystemDarkMode(): boolean {
     try {
+      const uiContext: UIContext | undefined = WindowUtil.uiContext;
+      if (!uiContext) {
+        return false;
+      }
       const hostContext: common.UIAbilityContext | undefined =
-        WindowUtil.uiContext.getHostContext() as common.UIAbilityContext | undefined;
+        uiContext.getHostContext() as common.UIAbilityContext | undefined;
       return hostContext?.config.colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
     } catch (error) {
       const err: BusinessError = error as BusinessError;
@@ -145,15 +170,19 @@ export class WindowUtil {
 
   private static registerBreakpoint(windowClass: window.Window) {
     try {
+      const uiContext: UIContext | undefined = WindowUtil.uiContext;
+      if (!uiContext) {
+        return;
+      }
       WindowUtil.getDeviceSize();
       const globalInfoModel: GlobalInfoModel =
         AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO, () => new GlobalInfoModel()) ??
           new GlobalInfoModel();
       const systemAvoidArea: window.AvoidArea = windowClass.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
-      globalInfoModel.statusBarHeight = WindowUtil.uiContext.px2vp(systemAvoidArea?.topRect?.height ?? 0);
+      globalInfoModel.statusBarHeight = uiContext.px2vp(systemAvoidArea?.topRect?.height ?? 0);
       const bottomArea: window.AvoidArea =
         windowClass.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
-      globalInfoModel.naviIndicatorHeight = WindowUtil.uiContext.px2vp(bottomArea?.bottomRect?.height ?? 0);
+      globalInfoModel.naviIndicatorHeight = uiContext.px2vp(bottomArea?.bottomRect?.height ?? 0);
       AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO, () => globalInfoModel);
       windowClass.on('windowSizeChange', (windowSize: window.Size) => WindowUtil.setWindowSize(windowSize));
       windowClass.on('avoidAreaChange', (avoidAreaOption) => {
@@ -164,7 +193,7 @@ export class WindowUtil {
           const globalInfoModel: GlobalInfoModel =
             AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO, () => new GlobalInfoModel()) ??
               new GlobalInfoModel();
-          globalInfoModel.keyboardHeight = WindowUtil.uiContext.px2vp(avoidAreaOption.area?.bottomRect?.height ?? 0);
+          globalInfoModel.keyboardHeight = uiContext.px2vp(avoidAreaOption.area?.bottomRect?.height ?? 0);
           AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO, () => globalInfoModel);
         }
       });
@@ -175,32 +204,40 @@ export class WindowUtil {
 
   // Get status bar height and indicator height.
   public static setAvoidArea(type: window.AvoidAreaType, area: window.AvoidArea) {
+    const uiContext: UIContext | undefined = WindowUtil.uiContext;
+    if (!uiContext) {
+      return;
+    }
     const globalInfoModel: GlobalInfoModel =
       AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO, () => new GlobalInfoModel()) ??
         new GlobalInfoModel();
     if (type === window.AvoidAreaType.TYPE_SYSTEM) {
-      globalInfoModel.statusBarHeight = WindowUtil.uiContext.px2vp(area?.topRect?.height ?? 0);
+      globalInfoModel.statusBarHeight = uiContext.px2vp(area?.topRect?.height ?? 0);
     } else {
-      globalInfoModel.naviIndicatorHeight = WindowUtil.uiContext.px2vp(area?.bottomRect?.height ?? 0);
+      globalInfoModel.naviIndicatorHeight = uiContext.px2vp(area?.bottomRect?.height ?? 0);
     }
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO, () => globalInfoModel);
   }
 
   public static setWindowSize(windowSize?: window.Size | window.Rect) {
+    const uiContext: UIContext | undefined = WindowUtil.uiContext;
+    if (!uiContext) {
+      return;
+    }
     const globalInfoModel: GlobalInfoModel =
       AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO, () => new GlobalInfoModel()) ??
         new GlobalInfoModel();
     if (windowSize) {
-      const vpHeight = WindowUtil.uiContext.px2vp(windowSize.height);
-      const vpWidth = WindowUtil.uiContext.px2vp(windowSize.width);
+      const vpHeight = uiContext.px2vp(windowSize.height);
+      const vpWidth = uiContext.px2vp(windowSize.width);
       globalInfoModel.deviceHeight = vpHeight;
       globalInfoModel.deviceWidth = vpWidth;
       if (vpHeight > 0) {
         globalInfoModel.aspectRatio = vpWidth / vpHeight;
       }
     }
-    globalInfoModel.widthBreakpoint = WindowUtil.uiContext.getWindowWidthBreakpoint();
-    globalInfoModel.heightBreakpoint = WindowUtil.uiContext.getWindowHeightBreakpoint();
+    globalInfoModel.widthBreakpoint = uiContext.getWindowWidthBreakpoint();
+    globalInfoModel.heightBreakpoint = uiContext.getWindowHeightBreakpoint();
     if ((globalInfoModel.widthBreakpoint === WidthBreakpoint.WIDTH_SM &&
       (globalInfoModel.aspectRatio > CommonConstants.ASPECT_SQUARE_PORTRAIT)) ||
       (globalInfoModel.widthBreakpoint === WidthBreakpoint.WIDTH_MD &&

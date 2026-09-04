@@ -18,6 +18,7 @@ import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { StorageKey } from '../common/CommonConstants';
 import Logger from '../util/Logger';
 import { WindowUtil } from '../util/WindowUtil';
+import { BreakpointUtil } from '../util/BreakpointSystem';
 import ApiClient from '../network/ApiClient';
 import AuthStore from '../network/AuthStore';
 import { LoginResp, RoleInfo } from '../network/Dto';
@@ -46,6 +47,7 @@ struct LoginPage {
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO, () => new GlobalInfoModel()) ?? new GlobalInfoModel();
 
   aboutToAppear(): void {
+    this.syncLayoutBreakpoint();
     WindowUtil.setImmersiveMode(false);
     const rememberedAccount: string = this.preferenceManager.getValue<string>(
       LOGIN_REMEMBERED_ACCOUNT_KEY, JSON.stringify('')) ?? '';
@@ -74,10 +76,22 @@ struct LoginPage {
   }
 
   private isWideLayout(): boolean {
-    const widthBreakpoint: WidthBreakpoint = this.globalInfoModel.widthBreakpoint;
-    return widthBreakpoint === WidthBreakpoint.WIDTH_MD ||
-      widthBreakpoint === WidthBreakpoint.WIDTH_LG ||
-      widthBreakpoint === WidthBreakpoint.WIDTH_XL;
+    try {
+      // LoginPage can be built before WindowUtil finishes publishing its
+      // AppStorageV2 context. Read the component context directly so a
+      // tablet/2-in-1 never falls back to the phone full-width form.
+      return BreakpointUtil.isWide(this.getUIContext().getWindowWidthBreakpoint());
+    } catch (_error) {
+      return BreakpointUtil.isWide(this.globalInfoModel.widthBreakpoint);
+    }
+  }
+
+  private syncLayoutBreakpoint(): void {
+    try {
+      this.globalInfoModel.widthBreakpoint = this.getUIContext().getWindowWidthBreakpoint();
+    } catch (_error) {
+      // WindowUtil will publish the breakpoint once the main window is ready.
+    }
   }
 
   private contentWidth(): string | number {

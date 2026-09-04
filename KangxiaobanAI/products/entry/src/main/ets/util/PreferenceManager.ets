@@ -14,10 +14,10 @@
  */
 
 import { preferences, ValueType } from '@kit.ArkData';
-import { AppStorageV2, UIContext } from '@kit.ArkUI';
+import { UIContext } from '@kit.ArkUI';
 import type { BusinessError } from '@kit.BasicServicesKit';
-import { StorageKey } from '../common/CommonConstants';
 import Logger from './Logger';
+import { WindowUtil } from './WindowUtil';
 
 const PREFERENCES_NAME: string = 'KanxiaobanStore';
 const TAG: string = '[PreferenceManager]';
@@ -27,7 +27,6 @@ export class PreferenceManager {
   private static instance: PreferenceManager;
 
   private constructor() {
-    this.initPreference(PREFERENCES_NAME);
   }
 
   public static getInstance(): PreferenceManager {
@@ -38,10 +37,9 @@ export class PreferenceManager {
   }
 
   private initPreference(storeName: string): void {
-    const uiContext: UIContext | undefined = AppStorageV2.connect(UIContext, StorageKey.UI_CONTEXT);
+    const uiContext: UIContext | undefined = WindowUtil.getUIContext();
     try {
       if (!uiContext) {
-        Logger.error(TAG, `initPreference failed, cause uiContext is undefined.`);
         return;
       }
       this.preferences = preferences.getPreferencesSync(uiContext.getHostContext() as Context, { name: storeName });
@@ -51,6 +49,9 @@ export class PreferenceManager {
   }
 
   public setValue<T>(key: string, value: T, retry: boolean = true): void {
+    if (!this.preferences) {
+      this.initPreference(PREFERENCES_NAME);
+    }
     if (this.preferences) {
       try {
         this.preferences.putSync(key, JSON.stringify(value));
@@ -67,6 +68,9 @@ export class PreferenceManager {
   }
 
   public getValue<T>(key: string, defaultValue?: ValueType, retry: boolean = true): T | null {
+    if (!this.preferences) {
+      this.initPreference(PREFERENCES_NAME);
+    }
     if (this.preferences) {
       try {
         const res = this.preferences.getSync(key, defaultValue)
@@ -89,6 +93,9 @@ export class PreferenceManager {
   }
 
   public hasValue(key: string): boolean {
+    if (!this.preferences) {
+      this.initPreference(PREFERENCES_NAME);
+    }
     if (this.preferences) {
       try {
         return this.preferences.hasSync(key);
@@ -97,12 +104,14 @@ export class PreferenceManager {
         return false;
       }
     } else {
-      this.initPreference(PREFERENCES_NAME);
-      return this.hasValue(key);
+      return false;
     }
   }
 
   public deleteValue(key: string, retry: boolean = true): void {
+    if (!this.preferences) {
+      this.initPreference(PREFERENCES_NAME);
+    }
     if (this.preferences) {
       try {
         this.preferences.deleteSync(key);
