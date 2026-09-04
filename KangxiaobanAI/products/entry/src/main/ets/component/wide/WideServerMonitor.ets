@@ -85,6 +85,7 @@ struct ServerMetricRow {
   @Param @Require label: string;
   @Param @Require value: string;
   @Param note: string = '';
+  @Param showBottomDivider: boolean = true;
 
   build() {
     Row({ space: 10 }) {
@@ -97,7 +98,10 @@ struct ServerMetricRow {
       Text(this.value).fontSize(11).fontColor($r('sys.color.font_primary'))
         .textAlign(TextAlign.End).maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
     }.width('100%').height(34).padding({ left: 0, right: 0, top: 3, bottom: 3 })
-      .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
+      .border({
+        width: { bottom: this.showBottomDivider ? 0.5 : 0 },
+        color: { bottom: $r('sys.color.comp_divider') }
+      })
   }
 }
 
@@ -399,45 +403,6 @@ export struct WideServerMonitor {
   }
 
   @Builder
-  private diskCard() {
-    Column() {
-      this.sectionTitle('磁盘状态')
-      if (this.disks.length === 0) {
-          Text('当前运行环境未提供磁盘统计').fontSize(11).fontColor($r('sys.color.font_secondary'))
-          .width('100%').padding({ top: 10, bottom: 10 })
-      } else {
-        List() {
-          ForEach(this.disks, (disk: SystemDiskStat) => {
-            ListItem() {
-              Column({ space: 7 }) {
-                Row() {
-                  Text(disk.mount).fontSize(13).fontWeight(FontWeight.Medium)
-                    .fontColor($r('sys.color.font_primary'))
-                  Blank()
-                  Text(this.percent(disk.used_percent)).fontSize(13).fontWeight(FontWeight.Bold)
-                    .fontColor($r('sys.color.font_primary'))
-                }.width('100%')
-                Row() {
-                  Text(`可用 ${this.bytes(disk.free_bytes)} · ${disk.filesystem}`).fontSize(10)
-                    .fontColor($r('sys.color.font_secondary')).layoutWeight(1)
-                  Text(`${this.bytes(disk.used_bytes)} / ${this.bytes(disk.total_bytes)}`).fontSize(10)
-                    .fontColor($r('sys.color.font_secondary'))
-                }.width('100%')
-                Progress({ value: disk.used_percent, total: 100, type: ProgressType.Linear })
-                  .width('100%').height(5).color($r('app.color.brand_blue'))
-                  .backgroundColor($r('sys.color.comp_background_secondary'))
-              }.width('100%').padding({ top: 8, bottom: 8 })
-                .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
-            }
-          }, (disk: SystemDiskStat) => disk.mount)
-        }.width('100%').height(Math.min(330, Math.max(72, this.disks.length * 72))).scrollBar(BarState.Off)
-      }
-    }.width('100%').padding({ left: 12, right: 12, bottom: 4 }).borderRadius(8)
-      .backgroundColor($r('sys.color.comp_background_primary'))
-      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-  }
-
-  @Builder
   private statusPanel() {
     Column() {
       this.sectionTitle('状态')
@@ -495,9 +460,8 @@ export struct WideServerMonitor {
           ServerMetricRow({ label: '操作系统', value: `${this.currentServer().os} · ${this.currentServer().arch}` })
           ServerMetricRow({ label: '进程 ID', value: this.currentServer().pid > 0 ? this.currentServer().pid.toString() : '--' })
           ServerMetricRow({ label: '架构', value: this.currentServer().arch })
-          ServerMetricRow({ label: '主机名', value: this.currentServer().hostname })
+          ServerMetricRow({ label: '主机名', value: this.currentServer().hostname, showBottomDivider: false })
         }.width('100%').alignItems(HorizontalAlign.Start)
-        Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
         Column() {
           Text('运行时信息').fontSize(11).fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary')).width('100%').height(28)
@@ -506,7 +470,7 @@ export struct WideServerMonitor {
           ServerMetricRow({ label: '运行时长', value: this.currentServer().uptime_text })
           ServerMetricRow({ label: 'Goroutine 数', value: this.currentServer().goroutines.toString() })
           ServerMetricRow({ label: '应用版本', value: '1.0.0' })
-          ServerMetricRow({ label: '部署模式', value: '生产环境' })
+          ServerMetricRow({ label: '部署模式', value: '生产环境', showBottomDivider: false })
         }.width('100%').alignItems(HorizontalAlign.Start)
       }.width('100%').padding({ left: 12, right: 12, bottom: 6 })
     }.width('100%').borderRadius(8)
@@ -574,7 +538,6 @@ export struct WideServerMonitor {
             this.systemInfoPanel()
           }
         }.width('100%')
-        this.diskCard()
       }
       .width('100%')
       .padding({ left: this.compactWidth ? 14 : 8, right: this.compactWidth ? 14 : 8,
