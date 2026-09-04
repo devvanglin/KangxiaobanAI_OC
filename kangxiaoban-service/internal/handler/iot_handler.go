@@ -86,11 +86,13 @@ func (h *IotHandler) ListDevices(c *gin.Context) {
 func (h *IotHandler) UpdateDevice(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	var req struct {
+		DeviceType      string `json:"device_type"`
 		AreaID          *uint  `json:"area_id"`
 		Building        string `json:"building"`
 		Room            string `json:"room"`
 		Bed             string `json:"bed"`
 		ElderID         *uint  `json:"elder_id"`
+		StreamURL       string `json:"stream_url"`
 		DiscoveryStatus string `json:"discovery_status"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -98,6 +100,26 @@ func (h *IotHandler) UpdateDevice(c *gin.Context) {
 		return
 	}
 	updates := map[string]interface{}{"area_id": req.AreaID, "building": strings.TrimSpace(req.Building), "room": strings.TrimSpace(req.Room), "bed": strings.TrimSpace(req.Bed), "elder_id": req.ElderID}
+	if deviceType := strings.TrimSpace(req.DeviceType); deviceType != "" {
+		if deviceType != "camera" && deviceType != "millimeter_wave" && deviceType != "other" {
+			Fail(c, 400, 400, "不支持的设备类型")
+			return
+		}
+		updates["device_type"] = deviceType
+		if deviceType == "camera" {
+			updates["protocol"] = "RTSP"
+		} else {
+			updates["protocol"] = "MQTT"
+			updates["stream_url"] = ""
+			updates["stream_status"] = "unknown"
+		}
+	}
+	if streamURL := strings.TrimSpace(req.StreamURL); streamURL != "" {
+		updates["stream_url"] = streamURL
+		updates["protocol"] = "RTSP"
+		updates["device_type"] = "camera"
+		updates["stream_status"] = "unknown"
+	}
 	if value := strings.TrimSpace(req.DiscoveryStatus); value != "" {
 		updates["discovery_status"] = value
 	}

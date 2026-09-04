@@ -3,6 +3,7 @@ import { Area, IotDevice, Room } from '../../network/Dto';
 import ApiClient from '../../network/ApiClient';
 
 interface DeviceCreateRequest { device_id: string; product: string; device_type: string; room: string; building: string; bed: string; area_id?: number; stream_url?: string; }
+interface DeviceUpdateRequest { device_type: string; room: string; building: string; bed: string; area_id?: number; stream_url?: string; }
 interface AreaPage { list: Area[]; }
 interface SignalRecord { id: number; type: string; value: string; ts: string; }
 interface SignalPage { list: SignalRecord[]; }
@@ -16,6 +17,7 @@ export struct WideDeviceManagement {
   @Local businessStore: BusinessStore = BusinessStore.getShared();
   @Local areas: Area[] = [];
   @Local showCreate: boolean = false;
+  @Local editingDeviceId: number = 0;
   @Local deviceId: string = '';
   @Local deviceType: string = '毫米波雷达';
   @Local room: string = '';
@@ -53,6 +55,69 @@ export struct WideDeviceManagement {
     if (!request.device_id) { this.error = '设备编号不能为空'; return; }
     if (isCamera && this.cameraIp.trim().length === 0) { this.error = '摄像头 IP 不能为空'; return; }
     try { const response = await ApiClient.post<IotDevice>('/iot/devices', request); if (response.code !== 0) throw new Error(response.msg); this.showCreate = false; this.deviceId = ''; this.room = ''; this.bed = ''; this.cameraIp = ''; this.areaId = 0; await this.businessStore.load(true); } catch (_error) { this.error = '设备添加失败'; }
+  }
+
+  private extractCameraIp(streamUrl: string | null | undefined): string {
+    const value: string = streamUrl ?? '';
+    if (!value.startsWith('rtsp://')) {
+      return '';
+    }
+    const hostPart: string = value.substring(7).split('/')[0];
+    return hostPart.split(':')[0];
+  }
+
+  private openEdit(device: IotDevice): void {
+    this.editingDeviceId = device.id;
+    this.deviceId = device.device_id ?? '';
+    this.deviceType = device.device_type === 'camera' ? '摄像头' : device.device_type === 'other' ? '其他' : '毫米波雷达';
+    this.room = device.room ?? '';
+    this.bed = device.bed ?? '';
+    this.areaId = device.area_id ?? 0;
+    this.cameraIp = this.extractCameraIp(device.stream_url);
+    this.error = '';
+    this.showCreate = true;
+  }
+
+  private resetEditor(): void {
+    this.editingDeviceId = 0;
+    this.deviceId = '';
+    this.deviceType = '毫米波雷达';
+    this.room = '';
+    this.bed = '';
+    this.cameraIp = '';
+    this.areaId = 0;
+  }
+
+  private async saveDevice(): Promise<void> {
+    if (this.editingDeviceId === 0) {
+      await this.createDevice();
+      return;
+    }
+    const isCamera: boolean = this.deviceType === '摄像头';
+    if (isCamera && this.cameraIp.trim().length === 0) {
+      this.error = '摄像头 IP 不能为空';
+      return;
+    }
+    const target: Room | undefined = this.businessStore.rooms.find((item: Room) => item.room_no === this.room);
+    const request: DeviceUpdateRequest = {
+      device_type: isCamera ? 'camera' : this.deviceType === '其他' ? 'other' : 'millimeter_wave',
+      room: this.room.trim(),
+      building: target?.building ?? '',
+      bed: this.bed.trim(),
+      area_id: this.areaId > 0 ? this.areaId : undefined,
+      stream_url: isCamera ? `rtsp://${this.cameraIp.trim()}:8554/stream0` : ''
+    };
+    try {
+      const response = await ApiClient.patch<IotDevice>(`/iot/devices/${this.editingDeviceId}`, request);
+      if (response.code !== 0) {
+        throw new Error(response.msg);
+      }
+      this.showCreate = false;
+      this.resetEditor();
+      await this.businessStore.load(true);
+    } catch (_error) {
+      this.error = '设备更新失败';
+    }
   }
 
   private openPreview(device: IotDevice): void { this.previewUrl = device.stream_url ?? ''; }
@@ -145,7 +210,7 @@ export struct WideDeviceManagement {
         if (device.device_type !== 'camera') {
           Button('查看信号').layoutWeight(1).height(32).fontSize(11).onClick(() => this.openSignals(device))
         }
-        Button('设备详情').layoutWeight(1).height(32).fontSize(11).enabled(false)
+        Button('编辑').layoutWeight(1).height(32).fontSize(11).onClick(() => this.openEdit(device))
       }.width('100%')
     }.width('100%').padding(16).backgroundColor($r('sys.color.comp_background_primary')).borderRadius(14).border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
@@ -154,8 +219,8 @@ export struct WideDeviceManagement {
   private createDialog() {
     if (this.showCreate) {
       Column({ space: 12 }) {
-        Text('添加设备').fontSize(20).fontWeight(FontWeight.Medium)
-        TextInput({ placeholder: '设备编号', text: $$this.deviceId }).height(42)
+        Text(this.editingDeviceId > 0 ? '编辑设备' : '添加设备').fontSize(20).fontWeight(FontWeight.Medium)
+        TextInput({ placeholder: '设备编号', text: $$this.deviceId }).height(42).enabled(this.editingDeviceId === 0)
         Row({ space: 8 }) {
           Button({ type: ButtonType.Normal, stateEffect: true }) {
             Row({ space: 6 }) {
@@ -182,7 +247,7 @@ export struct WideDeviceManagement {
         TextInput({ placeholder: '床位号，可选，例如 1', text: $$this.bed }).height(42)
         Text('绑定区域（可选）').fontSize(12).fontColor($r('sys.color.font_secondary'))
         ForEach(this.areas, (area: Area) => Button(area.name).width('100%').height(32).fontSize(11).backgroundColor(this.areaId === area.id ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary')).fontColor(this.areaId === area.id ? Color.White : $r('sys.color.font_secondary')).onClick(() => this.areaId = area.id), (area: Area) => `device-area-${area.id}`)
-        Row({ space: 10 }) { Button('取消').layoutWeight(1).height(40).onClick(() => this.showCreate = false); Button('保存').layoutWeight(1).height(40).fontColor(Color.White).backgroundColor($r('app.color.brand_blue')).onClick(() => this.createDevice()) }.width('100%')
+        Row({ space: 10 }) { Button('取消').layoutWeight(1).height(40).onClick(() => { this.showCreate = false; this.resetEditor(); }); Button('保存').layoutWeight(1).height(40).fontColor(Color.White).backgroundColor($r('app.color.brand_blue')).onClick(() => this.saveDevice()) }.width('100%')
       }.width(this.compactWidth ? '90%' : 440).padding(24).backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
     }
   }

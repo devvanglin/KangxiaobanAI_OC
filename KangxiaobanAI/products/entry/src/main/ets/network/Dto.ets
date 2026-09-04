@@ -319,7 +319,7 @@ export interface IotDevice {
   battery?: number;
   last_seen?: string | null;
   protocol: string;
-  stream_url?: string;
+  stream_url?: string | null;
   stream_status?: string;
   discovery_status?: string;
 }
