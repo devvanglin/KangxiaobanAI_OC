@@ -384,7 +384,7 @@ struct MainPage {
     }
     if (this.isManagementWideWorkspace()) {
       const content: TitleBarContentOptions = {
-        title: { mainTitle: this.globalInfoModel.role === '医师' ? this.doctorCurrentTime : '管理端' },
+        title: { mainTitle: this.globalInfoModel.role === '医师' ? this.doctorCurrentTime : '总览' },
         menu: { value: [] },
         stackBuilder: (): void => this.wideDoctorTitleActions()
       };

@@ -55,6 +55,20 @@ interface AdminOccupancy {
   percent: number;
 }
 
+interface AdminDeviceSummary {
+  id: string;
+  label: string;
+  total: number;
+  online: number;
+  offline: number;
+  warning: number;
+}
+
+interface AdminDeviceCategory {
+  id: string;
+  label: string;
+}
+
 interface AlertHandleRequest {
   note?: string;
 }
@@ -601,20 +615,6 @@ export struct WideAdminWorkspace {
     .alignItems(HorizontalAlign.Start)
   }
 
-  private deviceProductLabel(product: string): string {
-    if (product === 'fall_radar') return '跌倒雷达';
-    if (product === 'breath_radar') return '呼吸雷达';
-    if (product === 'camera') return '摄像头';
-    return product.length > 0 ? product : '未命名设备';
-  }
-
-  private deviceLocationLabel(device: IotDevice): string {
-    if (device.building.length > 0 || device.room.length > 0) {
-      return `${device.building}${device.building.length > 0 && device.room.length > 0 ? ' · ' : ''}${device.room}`;
-    }
-    return '未分配区域';
-  }
-
   private overviewDevices(): IotDevice[] {
     return this.coreLoadReady ? this.businessStore.devices : [];
   }
@@ -623,53 +623,136 @@ export struct WideAdminWorkspace {
     return this.overviewDevices().filter((device: IotDevice) => device.online === 1).length;
   }
 
-  private overviewOnlinePercent(): number {
+  private deviceCategoryKey(device: IotDevice): string {
+    if (device.product === 'breath_radar') return 'vital';
+    if (device.product === 'fall_radar') return 'fall';
+    if (device.product === 'call') return 'call';
+    if (device.product === 'access') return 'access';
+    if (device.product === 'camera') return 'camera';
+    if (device.product === 'environment') return 'environment';
+    return 'other';
+  }
+
+  private deviceCategoryItems(): AdminDeviceCategory[] {
+    const categories: AdminDeviceCategory[] = [
+      { id: 'vital', label: '生命体征监测' },
+      { id: 'fall', label: '跌倒监测' },
+      { id: 'call', label: '床旁呼叫设备' },
+      { id: 'access', label: '门禁与定位' },
+      { id: 'camera', label: '摄像头' },
+      { id: 'environment', label: '环境传感设备' }
+    ];
+    if (this.overviewDevices().some((device: IotDevice) => this.deviceCategoryKey(device) === 'other')) {
+      categories.push({ id: 'other', label: '其他设备' });
+    }
+    return categories;
+  }
+
+  private isOpenAlert(alert: Alert): boolean {
+    return alert.status !== 'handled' && alert.status !== 'closed';
+  }
+
+  private deviceSummaryItems(): AdminDeviceSummary[] {
     const devices: IotDevice[] = this.overviewDevices();
-    return devices.length > 0 ? Math.round(this.overviewOnlineCount() / devices.length * 100) : 0;
+    const alerts: Alert[] = this.coreLoadReady ? this.businessStore.alerts : [];
+    return this.deviceCategoryItems().map((category: AdminDeviceCategory): AdminDeviceSummary => {
+      const categoryDevices: IotDevice[] = devices.filter((device: IotDevice) =>
+        this.deviceCategoryKey(device) === category.id);
+      const warning: number = categoryDevices.filter((device: IotDevice) =>
+        device.elder_id !== undefined && alerts.some((alert: Alert) =>
+          alert.elder_id === device.elder_id && this.isOpenAlert(alert))).length;
+      const online: number = categoryDevices.filter((device: IotDevice) => device.online === 1).length;
+      return {
+        id: category.id,
+        label: category.label,
+        total: categoryDevices.length,
+        online: online,
+        offline: Math.max(0, categoryDevices.length - online),
+        warning: warning
+      };
+    });
+  }
+
+  private overviewWarningCount(): number {
+    return this.deviceSummaryItems().reduce((sum: number, item: AdminDeviceSummary) => sum + item.warning, 0);
+  }
+
+  private overviewOfflineCount(): number {
+    return Math.max(0, this.overviewDevices().length - this.overviewOnlineCount());
+  }
+
+  private overviewDeviceTotal(): number {
+    return this.overviewDevices().length;
+  }
+
+  private deviceStatusColor(status: string): ResourceColor {
+    if (status === 'online') return $r('app.color.doctor_workspace_success');
+    if (status === 'warning') return $r('app.color.doctor_workspace_danger');
+    return $r('app.color.doctor_workspace_text_secondary');
+  }
+
+  @Builder
+  private deviceOverviewStat(label: string, value: string, status: string) {
+    Column({ space: 5 }) {
+      Text(value).fontSize(23).fontWeight(FontWeight.Bold).fontColor(this.deviceStatusColor(status))
+      Text(label).fontSize(10).fontColor($r('app.color.doctor_workspace_text_secondary'))
+    }.layoutWeight(1).alignItems(HorizontalAlign.Center)
+  }
+
+  @Builder
+  private deviceSummaryCell(item: AdminDeviceSummary) {
+    Column({ space: 7 }) {
+      Row() {
+        Text(item.label).fontSize(12).fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.doctor_workspace_text_primary')).layoutWeight(1)
+        Text(`${item.total} 台`).fontSize(10).fontColor($r('app.color.doctor_workspace_text_secondary'))
+      }.width('100%')
+      Row({ space: 8 }) {
+        Text(`在线 ${item.online}`).fontSize(10).fontColor(this.deviceStatusColor('online'))
+        Text(`离线 ${item.offline}`).fontSize(10).fontColor(this.deviceStatusColor('offline'))
+        Text(`告警 ${item.warning}`).fontSize(10).fontColor(this.deviceStatusColor('warning'))
+      }.width('100%')
+      Progress({ value: item.total > 0 ? item.online / item.total * 100 : 0, total: 100, type: ProgressType.Linear })
+        .width('100%').height(4).color($r('app.color.doctor_workspace_success'))
+        .backgroundColor($r('app.color.doctor_workspace_surface_hover'))
+    }.width('100%').padding({ top: 14, bottom: 14, left: 14, right: 14 })
+      .border({ width: { bottom: 0.5 }, color: { bottom: $r('app.color.doctor_workspace_border_soft') } })
+      .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
   private deviceOverviewPanel() {
-    Column({ space: 14 }) {
+    Column() {
       Row() {
-        Text('设备状态').fontSize(16).fontWeight(FontWeight.Bold)
+        Text('IoT 设备总览').fontSize(16).fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.doctor_workspace_text_primary'))
         Blank()
-        Text(this.isDataLoading() ? '加载中' : `${this.overviewOnlineCount()}/${this.overviewDevices().length} 在线`)
-          .fontSize(10).fontColor($r('app.color.doctor_workspace_text_tertiary'))
-      }.width('100%')
-      if (this.overviewDevices().length === 0) {
-        Text(this.isDataLoading() ? '正在加载设备数据' : '暂无设备数据')
-          .width('100%').padding({ top: 42, bottom: 42 }).fontSize(11)
-          .fontColor($r('app.color.doctor_workspace_text_tertiary')).textAlign(TextAlign.Center)
+        Text('查看全部').fontSize(10).fontColor($r('app.color.doctor_workspace_focus'))
+          .accessibilityText('查看全部设备').onClick(() => this.onManagementNavSelect(6))
+      }.width('100%').height(40).padding({ left: 14, right: 14 })
+        .border({ width: { bottom: 0.5 }, color: { bottom: $r('app.color.doctor_workspace_border_soft') } })
+      Row({ space: 8 }) {
+        this.deviceOverviewStat('设备总数', this.overviewDeviceTotal().toString(), 'neutral')
+        Divider().vertical(true).height(34).strokeWidth(0.5).color($r('app.color.doctor_workspace_border_soft'))
+        this.deviceOverviewStat('在线', this.overviewOnlineCount().toString(), 'online')
+        Divider().vertical(true).height(34).strokeWidth(0.5).color($r('app.color.doctor_workspace_border_soft'))
+        this.deviceOverviewStat('离线', this.overviewOfflineCount().toString(), 'offline')
+        Divider().vertical(true).height(34).strokeWidth(0.5).color($r('app.color.doctor_workspace_border_soft'))
+        this.deviceOverviewStat('告警', this.overviewWarningCount().toString(), 'warning')
+      }.width('100%').height(64).padding({ top: 8, bottom: 8, left: 8, right: 8 })
+      if (this.isDataLoading()) {
+        Text('正在加载设备数据').width('100%').padding({ top: 28, bottom: 28 })
+          .fontSize(11).fontColor($r('app.color.doctor_workspace_text_tertiary')).textAlign(TextAlign.Center)
       } else {
-        Text(`在线比例 ${this.overviewOnlinePercent()}%`).fontSize(11)
-          .fontColor($r('app.color.doctor_workspace_text_secondary')).width('100%')
-        Progress({ value: this.overviewOnlinePercent(), total: 100, type: ProgressType.Linear })
-          .width('100%').height(6).color($r('app.color.doctor_workspace_focus'))
-          .backgroundColor($r('app.color.doctor_workspace_surface_hover'))
-        ForEach(this.overviewDevices().slice(0, 6), (device: IotDevice) => {
-          Row({ space: 10 }) {
-            Column({ space: 3 }) {
-              Text(this.deviceProductLabel(device.product)).fontSize(12)
-                .fontColor($r('app.color.doctor_workspace_text_primary'))
-              Text(`${device.device_id} · ${this.deviceLocationLabel(device)}`).fontSize(10)
-                .fontColor($r('app.color.doctor_workspace_text_tertiary'))
-                .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-            }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-            Text(device.discovery_status === 'pending' ? '待认领' : (device.online === 1 ? '在线' : '离线'))
-              .fontSize(11).fontColor(device.online === 1 ? $r('app.color.doctor_workspace_success') :
-                $r('app.color.doctor_workspace_text_tertiary'))
-          }.width('100%').height(42)
-            .border({ width: { bottom: 0.5 }, color: { bottom: $r('app.color.doctor_workspace_border_soft') } })
-        }, (device: IotDevice) => `overview-device-${device.id}`)
-        if (this.overviewDevices().length > 6) {
-          Text(`还有 ${this.overviewDevices().length - 6} 台设备`).fontSize(10)
-            .fontColor($r('app.color.doctor_workspace_text_tertiary')).width('100%')
-            .textAlign(TextAlign.End)
-        }
+        GridRow({ columns: 12, gutter: { x: 0, y: 0 } }) {
+          ForEach(this.deviceSummaryItems(), (item: AdminDeviceSummary) => {
+            GridCol({ span: this.compactWidth ? 12 : 4 }) {
+              this.deviceSummaryCell(item)
+            }.border({ width: { right: 0.5 }, color: { right: $r('app.color.doctor_workspace_border_soft') } })
+          }, (item: AdminDeviceSummary) => `device-summary-${item.id}`)
+        }.width('100%')
       }
-    }.width('100%').padding(18).borderRadius(16)
+    }.width('100%').padding({ top: 0, bottom: 0 }).borderRadius(8)
       .backgroundColor($r('app.color.doctor_workspace_surface'))
       .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
       .alignItems(HorizontalAlign.Start)
@@ -679,33 +762,9 @@ export struct WideAdminWorkspace {
   private adminOverview() {
     Scroll(this.managementScroller) {
       Column({ space: 16 }) {
-        Row() {
-          Column({ space: 5 }) {
-            Text('总览').fontSize(this.compactWidth ? 26 : 30).fontWeight(FontWeight.Bold)
-              .fontColor($r('app.color.doctor_workspace_text_primary'))
-            Text('服务器监控、床位使用与设备状态').fontSize(11)
-              .fontColor($r('app.color.doctor_workspace_text_secondary'))
-          }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-        }.width('100%').alignItems(VerticalAlign.Center)
-        WideServerMonitor({ compactWidth: this.compactWidth, overviewMode: true }).width('100%')
-        GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
-          GridCol({ span: this.compactWidth ? 12 : 6 }) { this.occupancyPanel() }
-          GridCol({ span: this.compactWidth ? 12 : 6 }) { this.deviceOverviewPanel() }
-        }.width('100%')
-        if (this.events().length > 0) {
-          Column({ space: 0 }) {
-            Row() {
-              Text('需要关注').fontSize(16).fontWeight(FontWeight.Bold)
-                .fontColor($r('app.color.doctor_workspace_text_primary'))
-              Blank()
-              Text(`${this.events().length} 项`).fontSize(10)
-                .fontColor($r('app.color.doctor_workspace_text_tertiary'))
-            }.width('100%').height(52).padding({ left: 16, right: 16 })
-            ForEach(this.events(), (item: AdminEvent) => this.eventRow(item), (item: AdminEvent) => item.id)
-          }.width('100%').borderRadius(16).backgroundColor($r('app.color.doctor_workspace_surface'))
-            .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
-        }
-      }.width('100%').padding({ left: this.compactWidth ? 20 : 28, right: this.compactWidth ? 20 : 28,
+        WideServerMonitor({ compactWidth: this.compactWidth, embedded: true }).width('100%')
+        this.deviceOverviewPanel()
+      }.width('100%').padding({ left: this.compactWidth ? 14 : 8, right: this.compactWidth ? 14 : 8,
         top: this.contentTopPadding(), bottom: this.dashboardBottomPadding() }).alignItems(HorizontalAlign.Start)
     }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
   }

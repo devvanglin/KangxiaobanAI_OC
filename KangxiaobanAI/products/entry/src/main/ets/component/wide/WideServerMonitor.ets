@@ -16,14 +16,14 @@ struct ServerMetricRow {
   build() {
     Row({ space: 10 }) {
       Column({ space: 2 }) {
-        Text(this.label).fontSize(13).fontColor($r('sys.color.font_primary'))
+      Text(this.label).fontSize(12).fontColor($r('sys.color.font_primary'))
         if (this.note.length > 0) {
           Text(this.note).fontSize(10).fontColor($r('sys.color.font_secondary'))
         }
       }.alignItems(HorizontalAlign.Start).layoutWeight(1)
-      Text(this.value).fontSize(12).fontColor($r('sys.color.font_primary'))
+      Text(this.value).fontSize(11).fontColor($r('sys.color.font_primary'))
         .textAlign(TextAlign.End).maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
-    }.width('100%').height(42).padding({ left: 0, right: 0, top: 4, bottom: 4 })
+    }.width('100%').height(36).padding({ left: 0, right: 0, top: 4, bottom: 4 })
       .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
   }
 }
@@ -50,7 +50,6 @@ export struct WideServerMonitor {
   @Param naviIndicatorHeight: number = 0;
   @Param compactWidth: boolean = false;
   @Param embedded: boolean = false;
-  @Param overviewMode: boolean = false;
   @Param managementScroller: Scroller = new Scroller();
   @Local cpuCores: number = 0;
   @Local cpuUsage: number = 0;
@@ -190,96 +189,110 @@ export struct WideServerMonitor {
 
   @Builder
   private sectionTitle(title: string) {
-    Row({ space: 8 }) {
-      Column({ space: 2 }) {
-        Text(title).fontSize(16).fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-      }.alignItems(HorizontalAlign.Start)
-      Blank()
-    }.width('100%').alignItems(VerticalAlign.Center)
+    Row() {
+      Text(title).fontSize(12).fontWeight(FontWeight.Bold)
+        .fontColor($r('sys.color.font_primary'))
+    }.width('100%').height(40).padding({ left: 14, right: 14 })
+      .alignItems(VerticalAlign.Center)
+      .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
   }
 
   @Builder
   private cpuCard() {
-    Column({ space: 8 }) {
+    Column() {
       this.sectionTitle('CPU')
-      Column({ space: 3 }) {
-        Text(this.cpuState(this.currentCpu())).fontSize(26).fontWeight(FontWeight.Bold)
+      Column({ space: 8 }) {
+        Text(this.cpuState(this.currentCpu())).fontSize(30).fontWeight(FontWeight.Bold)
           .fontColor(this.currentCpu().available ? $r('app.color.brand_blue') : $r('sys.color.font_tertiary'))
         Text(this.currentCpu().available ? `${this.currentCpu().cores} 个逻辑核心 · 用户 ${this.percent(this.currentCpu().user_percent)} · 系统 ${this.percent(this.currentCpu().system_percent)}` :
           '当前运行环境未提供主机 CPU 采样')
-          .fontSize(9).fontColor($r('sys.color.font_secondary'))
+          .fontSize(10).fontColor($r('sys.color.font_secondary'))
       }.alignItems(HorizontalAlign.Start).width('100%')
       Progress({ value: this.currentCpu().available ? this.currentCpu().usage_percent : 0, total: 100, type: ProgressType.Linear })
         .width('100%').height(5).color($r('app.color.brand_blue'))
         .backgroundColor($r('sys.color.comp_background_secondary'))
-      Column() {
-        ServerMetricRow({ label: '用户使用率', value: this.currentCpu().available ? this.percent(this.currentCpu().user_percent) : '--' })
-        ServerMetricRow({ label: '系统使用率', value: this.currentCpu().available ? this.percent(this.currentCpu().system_percent) : '--' })
-        ServerMetricRow({ label: '当前空闲率', value: this.currentCpu().available ? this.percent(this.currentCpu().idle_percent) : '--' })
+      GridRow({ columns: 12, gutter: { x: 8, y: 0 } }) {
+        GridCol({ span: 4 }) { this.detailCell('用户使用率', this.currentCpu().available ? this.percent(this.currentCpu().user_percent) : '--') }
+        GridCol({ span: 4 }) { this.detailCell('系统使用率', this.currentCpu().available ? this.percent(this.currentCpu().system_percent) : '--') }
+        GridCol({ span: 4 }) { this.detailCell('空闲率', this.currentCpu().available ? this.percent(this.currentCpu().idle_percent) : '--') }
       }.width('100%')
-    }.width('100%').padding(14).borderRadius(14)
+    }.width('100%').padding({ left: 14, right: 14, bottom: 6 }).borderRadius(8)
       .backgroundColor($r('sys.color.comp_background_primary'))
       .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   @Builder
   private memoryCard() {
-    Column({ space: 8 }) {
+    Column() {
       this.sectionTitle('内存')
-      Column({ space: 3 }) {
-        Text(this.memoryState(this.currentMemory())).fontSize(26).fontWeight(FontWeight.Bold)
+      Column({ space: 8 }) {
+        Text(this.memoryState(this.currentMemory())).fontSize(30).fontWeight(FontWeight.Bold)
           .fontColor(this.currentMemory().available ? $r('app.color.brand_blue') : $r('sys.color.font_tertiary'))
         Text(this.currentMemory().available ? `已用 ${this.bytes(this.currentMemory().used_bytes)} · 剩余 ${this.bytes(this.currentMemory().free_bytes)}` :
           `Go 进程 ${this.bytes(this.currentMemory().process_bytes)}`)
-          .fontSize(9).fontColor($r('sys.color.font_secondary'))
+          .fontSize(10).fontColor($r('sys.color.font_secondary'))
       }.alignItems(HorizontalAlign.Start).width('100%')
       Progress({ value: this.currentMemory().available ? this.currentMemory().used_percent : 0, total: 100, type: ProgressType.Linear })
         .width('100%').height(5).color($r('app.color.brand_blue'))
         .backgroundColor($r('sys.color.comp_background_secondary'))
-      Column() {
-        ServerMetricRow({ label: '总内存', value: this.bytes(this.currentMemory().total_bytes) })
-        ServerMetricRow({ label: '已用内存', value: this.bytes(this.currentMemory().used_bytes) })
-        ServerMetricRow({ label: 'Go 进程内存', value: this.bytes(this.currentMemory().process_bytes), note: this.currentMemory().available ? this.percent(this.currentMemory().process_percent) : '' })
+      GridRow({ columns: 12, gutter: { x: 8, y: 0 } }) {
+        GridCol({ span: 4 }) { this.detailCell('总内存', this.bytes(this.currentMemory().total_bytes)) }
+        GridCol({ span: 4 }) { this.detailCell('已用内存', this.bytes(this.currentMemory().used_bytes)) }
+        GridCol({ span: 4 }) { this.detailCell('Go 进程', this.bytes(this.currentMemory().process_bytes)) }
       }.width('100%')
-    }.width('100%').padding(14).borderRadius(14)
+    }.width('100%').padding({ left: 14, right: 14, bottom: 6 }).borderRadius(8)
       .backgroundColor($r('sys.color.comp_background_primary'))
       .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   @Builder
   private serverInfoCard() {
-    Column({ space: 8 }) {
+    Column() {
       this.sectionTitle('服务器信息')
-      Column() {
-        ServerMetricRow({ label: '服务器名称', value: this.currentServer().hostname })
-        ServerMetricRow({ label: '服务器 IP', value: this.currentServer().ip })
-        ServerMetricRow({ label: '操作系统', value: `${this.currentServer().os} · ${this.currentServer().arch}` })
-        ServerMetricRow({ label: '进程 ID', value: this.currentServer().pid > 0 ? this.currentServer().pid.toString() : '--' })
+      GridRow({ columns: 12, gutter: { x: 8, y: 0 } }) {
+        GridCol({ span: 4 }) { this.detailCell('服务器名称', this.currentServer().hostname) }
+        GridCol({ span: 4 }) { this.detailCell('服务器 IP', this.currentServer().ip) }
+        GridCol({ span: 4 }) { this.detailCell('操作系统', `${this.currentServer().os} · ${this.currentServer().arch}`) }
+        GridCol({ span: 4 }) { this.detailCell('进程 ID', this.currentServer().pid > 0 ? this.currentServer().pid.toString() : '--') }
+        GridCol({ span: 4 }) { this.detailCell('架构', this.currentServer().arch) }
+        GridCol({ span: 4 }) { this.detailCell('主机名', this.currentServer().hostname) }
       }.width('100%')
-    }.width('100%').padding(14).borderRadius(14)
+    }.width('100%').padding({ left: 14, right: 14, bottom: 6 }).borderRadius(8)
       .backgroundColor($r('sys.color.comp_background_primary'))
       .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   @Builder
   private runtimeCard() {
-    Column({ space: 8 }) {
-      this.sectionTitle('Go 运行时信息')
-      Column() {
-        ServerMetricRow({ label: 'Go 版本', value: this.currentServer().go_version })
-        ServerMetricRow({ label: '启动时间', value: this.formatTime(this.currentServer().started_at) })
-        ServerMetricRow({ label: '运行时长', value: this.currentServer().uptime_text })
-        ServerMetricRow({ label: 'Goroutine 数', value: this.currentServer().goroutines.toString() })
+    Column() {
+      this.sectionTitle('运行时信息')
+      GridRow({ columns: 12, gutter: { x: 8, y: 0 } }) {
+        GridCol({ span: 4 }) { this.detailCell('Go 版本', this.currentServer().go_version) }
+        GridCol({ span: 4 }) { this.detailCell('启动时间', this.formatTime(this.currentServer().started_at)) }
+        GridCol({ span: 4 }) { this.detailCell('运行时长', this.currentServer().uptime_text) }
+        GridCol({ span: 4 }) { this.detailCell('Goroutine 数', this.currentServer().goroutines.toString()) }
+        GridCol({ span: 4 }) { this.detailCell('应用版本', '1.0.0') }
+        GridCol({ span: 4 }) { this.detailCell('部署模式', '生产环境') }
       }.width('100%')
-    }.width('100%').padding(14).borderRadius(14)
+    }.width('100%').padding({ left: 14, right: 14, bottom: 6 }).borderRadius(8)
       .backgroundColor($r('sys.color.comp_background_primary'))
       .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   @Builder
+  private detailCell(label: string, value: string) {
+    Column({ space: 5 }) {
+      Text(label).fontSize(10).fontColor($r('sys.color.font_secondary'))
+      Text(value).fontSize(11).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+        .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+    }.width('100%').height(48).padding({ top: 9, bottom: 7 })
+      .alignItems(HorizontalAlign.Start)
+      .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
+  }
+
+  @Builder
   private diskCard() {
-    Column({ space: 8 }) {
+    Column() {
       this.sectionTitle('磁盘状态')
       if (this.disks.length === 0) {
           Text('当前运行环境未提供磁盘统计').fontSize(11).fontColor($r('sys.color.font_secondary'))
@@ -288,22 +301,38 @@ export struct WideServerMonitor {
         List() {
           ForEach(this.disks, (disk: SystemDiskStat) => {
             ListItem() {
-              ServerMetricRow({ label: disk.mount,
-                value: `${this.percent(disk.used_percent)} · ${this.bytes(disk.used_bytes)}/${this.bytes(disk.total_bytes)}`,
-                note: `可用 ${this.bytes(disk.free_bytes)} · ${disk.filesystem}` })
+              Column({ space: 7 }) {
+                Row() {
+                  Text(disk.mount).fontSize(13).fontWeight(FontWeight.Medium)
+                    .fontColor($r('sys.color.font_primary'))
+                  Blank()
+                  Text(this.percent(disk.used_percent)).fontSize(13).fontWeight(FontWeight.Bold)
+                    .fontColor($r('sys.color.font_primary'))
+                }.width('100%')
+                Row() {
+                  Text(`可用 ${this.bytes(disk.free_bytes)} · ${disk.filesystem}`).fontSize(10)
+                    .fontColor($r('sys.color.font_secondary')).layoutWeight(1)
+                  Text(`${this.bytes(disk.used_bytes)} / ${this.bytes(disk.total_bytes)}`).fontSize(10)
+                    .fontColor($r('sys.color.font_secondary'))
+                }.width('100%')
+                Progress({ value: disk.used_percent, total: 100, type: ProgressType.Linear })
+                  .width('100%').height(5).color($r('app.color.brand_blue'))
+                  .backgroundColor($r('sys.color.comp_background_secondary'))
+              }.width('100%').padding({ top: 10, bottom: 10 })
+                .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
             }
           }, (disk: SystemDiskStat) => disk.mount)
-        }.width('100%').height(Math.min(220, this.disks.length * 42)).scrollBar(BarState.Off)
+        }.width('100%').height(Math.min(360, Math.max(78, this.disks.length * 78))).scrollBar(BarState.Off)
       }
-    }.width('100%').padding(14).borderRadius(14)
+    }.width('100%').padding({ left: 14, right: 14, bottom: 6 }).borderRadius(8)
       .backgroundColor($r('sys.color.comp_background_primary'))
       .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   @Builder
   private monitorContent() {
-      Column({ space: 10 }) {
-        Blank().height(4)
+      Column({ space: 12 }) {
+        Blank().height(0)
         if (this.error.length > 0) {
           Text(this.error).fontSize(11).fontColor($r('app.color.doctor_workspace_danger'))
             .width('100%').padding(12).borderRadius(10)
@@ -318,85 +347,13 @@ export struct WideServerMonitor {
         }.width('100%')
       }
       .width('100%')
-      .padding({ left: this.compactWidth ? 14 : 20, right: this.compactWidth ? 14 : 20,
+      .padding({ left: this.compactWidth ? 14 : 8, right: this.compactWidth ? 14 : 8,
         top: this.embedded ? 0 : 58, bottom: this.embedded ? 0 : 16 + this.naviIndicatorHeight })
       .alignItems(HorizontalAlign.Start)
   }
 
-  private diskUsagePercent(): number {
-    if (this.disks.length === 0) {
-      return 0;
-    }
-    return Math.max(0, Math.min(100, this.disks[0].used_percent));
-  }
-
-  private diskUsageLabel(): string {
-    if (this.disks.length === 0) {
-      return '暂无磁盘数据';
-    }
-    return `${this.percent(this.diskUsagePercent())} · ${this.disks[0].mount}`;
-  }
-
-  @Builder
-  private overviewMetric(label: string, value: string, progress: number) {
-    Column({ space: 8 }) {
-      Row() {
-        Text(label).fontSize(12).fontColor($r('sys.color.font_secondary'))
-        Blank()
-        Text(value).fontSize(21).fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
-      }.width('100%')
-      Progress({ value: Math.max(0, Math.min(100, progress)), total: 100, type: ProgressType.Linear })
-        .width('100%').height(6).color($r('app.color.brand_blue'))
-        .backgroundColor($r('sys.color.comp_background_secondary'))
-    }.width('100%').alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  private overviewContent() {
-    Column({ space: 16 }) {
-      Row() {
-        Column({ space: 4 }) {
-          Text('服务器监控').fontSize(17).fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-          Text(this.lastUpdated === '--' ? '等待服务器数据' : `最近更新 ${this.lastUpdated}`)
-            .fontSize(10).fontColor($r('sys.color.font_secondary'))
-        }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-        Text(this.error.length > 0 ? '暂不可用' : '运行正常').fontSize(11)
-          .fontColor(this.error.length > 0 ? $r('app.color.doctor_workspace_danger') :
-            $r('app.color.doctor_workspace_success'))
-      }.width('100%')
-      GridRow({ columns: 12, gutter: { x: 20, y: 16 } }) {
-        GridCol({ span: this.compactWidth ? 12 : 4 }) {
-          this.overviewMetric('CPU', this.cpuAvailable ? this.percent(this.cpuUsage) : '--',
-            this.cpuAvailable ? this.cpuUsage : 0)
-        }
-        GridCol({ span: this.compactWidth ? 12 : 4 }) {
-          this.overviewMetric('内存', this.memoryAvailable ? this.percent(this.memoryUsage) : '--',
-            this.memoryAvailable ? this.memoryUsage : 0)
-        }
-        GridCol({ span: this.compactWidth ? 12 : 4 }) {
-          this.overviewMetric('磁盘', this.diskUsageLabel(), this.diskUsagePercent())
-        }
-      }.width('100%')
-      Row({ space: 20 }) {
-        Text(this.serverHostname === '--' ? '服务器信息等待同步' :
-          `${this.serverHostname} · ${this.serverIp}`).fontSize(10)
-          .fontColor($r('sys.color.font_tertiary')).layoutWeight(1)
-          .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(this.serverUptime === '--' ? '运行时长 --' : `运行时长 ${this.serverUptime}`)
-          .fontSize(10).fontColor($r('sys.color.font_tertiary'))
-      }.width('100%')
-    }.width('100%').padding(20).borderRadius(16)
-      .backgroundColor($r('sys.color.comp_background_primary'))
-      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-      .alignItems(HorizontalAlign.Start)
-  }
-
   build() {
-    if (this.overviewMode) {
-      this.overviewContent()
-    } else if (this.embedded) {
+    if (this.embedded) {
       this.monitorContent()
     } else {
       Scroll(this.managementScroller) {
