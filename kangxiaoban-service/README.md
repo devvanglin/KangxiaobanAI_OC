@@ -61,9 +61,9 @@ GET    /api/v1/admission-intake-photos/:id/content      # 认证后读取照片�
 GET /api/v1/system/monitor
 ```
 
-接口返回当前后端进程所在主机的 CPU、内存、磁盘、操作系统、IP、Go 版本、启动时间、运行时长和
-Goroutine 数。该接口受 `admin:all` 保护；CPU、主机内存和磁盘指标按运行平台采集，无法提供时会返回
-`available=false`，不会伪造资源数值。
+接口返回当前后端进程所在主机的 CPU、内存、磁盘、网络收发、操作系统、IP、Go 版本、启动时间、运行时长和
+Goroutine 数。网络字段包含非回环网卡的累计收发字节和相邻采样间计算出的速率。该接口受 `admin:all`
+保护；CPU、主机内存、磁盘和网络指标按运行平台采集，无法提供时会返回 `available=false`，不会伪造资源数值。
 
 ## 区域、护理套餐、AI 与设备
 

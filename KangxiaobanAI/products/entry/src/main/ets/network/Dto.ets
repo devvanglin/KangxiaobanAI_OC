@@ -462,12 +462,31 @@ export interface SystemServerInfo {
   goroutines: number;
 }
 
+export interface SystemNetworkInterfaceStat {
+  name: string;
+  receive_bytes: number;
+  transmit_bytes: number;
+  receive_rate_bps: number;
+  transmit_rate_bps: number;
+}
+
+export interface SystemNetworkStat {
+  available: boolean;
+  interface: string;
+  receive_bytes: number;
+  transmit_bytes: number;
+  receive_rate_bps: number;
+  transmit_rate_bps: number;
+  interfaces: SystemNetworkInterfaceStat[];
+}
+
 export interface SystemMonitorSnapshot {
   collected_at: string;
   cpu: SystemCPUStat;
   memory: SystemMemoryStat;
   server: SystemServerInfo;
   disks: SystemDiskStat[];
+  network?: SystemNetworkStat;
 }
 
 export interface MedicationTimePeriod {

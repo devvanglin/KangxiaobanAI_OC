@@ -1,11 +1,84 @@
 import ApiClient from '../../network/ApiClient';
-import {
-  SystemCPUStat,
-  SystemDiskStat,
-  SystemMemoryStat,
-  SystemMonitorSnapshot,
-  SystemServerInfo
-} from '../../network/Dto';
+import { SystemDiskStat, SystemMonitorSnapshot, SystemNetworkStat, SystemServerInfo } from '../../network/Dto';
+
+interface NetworkSample {
+  receiveRateBps: number;
+  transmitRateBps: number;
+  time: string;
+}
+
+const NETWORK_HISTORY_LIMIT: number = 24;
+const NETWORK_UPLOAD_COLOR: string = '#72B89B';
+const NETWORK_DOWNLOAD_COLOR: string = '#E9BF72';
+const NETWORK_GRID_COLOR: string = '#E5E8ED';
+const NETWORK_MUTED_COLOR: string = '#8A919D';
+
+@ComponentV2
+struct MonitorStatusRing {
+  @Param @Require value: number;
+  @Param @Require label: string;
+  @Param valueText: string = '--';
+  @Param detail: string = '';
+  @Param secondaryDetail: string = '';
+  @Param available: boolean = true;
+  @Param accentColor: string = '#2864F0';
+  private context: CanvasRenderingContext2D = new CanvasRenderingContext2D(new RenderingContextSettings(true));
+
+  @Monitor('value', 'available')
+  onValueChange(): void {
+    setTimeout((): void => this.draw(), 0);
+  }
+
+  private draw(): void {
+    const width: number = this.context.width;
+    const height: number = this.context.height;
+    if (width <= 0 || height <= 0) {
+      return;
+    }
+    this.context.clearRect(0, 0, width, height);
+    const centerX: number = width / 2;
+    const centerY: number = height / 2;
+    const radius: number = Math.min(width, height) * 0.38;
+    const strokeWidth: number = Math.max(8, Math.min(14, width * 0.075));
+    this.context.lineWidth = strokeWidth;
+    this.context.lineCap = 'round';
+    this.context.beginPath();
+    this.context.strokeStyle = '#EDF2FA';
+    this.context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    this.context.stroke();
+    if (this.available) {
+      const clamped: number = Math.max(0, Math.min(100, this.value));
+      this.context.beginPath();
+      this.context.strokeStyle = this.accentColor;
+      this.context.arc(centerX, centerY, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * clamped / 100);
+      this.context.stroke();
+    }
+  }
+
+  build() {
+    Column({ space: 8 }) {
+      Stack({ alignContent: Alignment.Center }) {
+        Canvas(this.context)
+          .width(144)
+          .height(144)
+          .onReady(() => this.draw())
+          .onAreaChange(() => this.draw())
+        Column({ space: 2 }) {
+          Text(this.valueText).fontSize(23).fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+          Text(this.label).fontSize(12).fontColor($r('sys.color.font_secondary'))
+        }.alignItems(HorizontalAlign.Center)
+      }.width(144).height(144)
+      Text(this.detail).fontSize(10).fontColor($r('sys.color.font_secondary'))
+        .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+      if (this.secondaryDetail.length > 0) {
+        Text(this.secondaryDetail).fontSize(9).fontColor($r('sys.color.font_tertiary'))
+          .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+    }.width('100%').alignItems(HorizontalAlign.Center)
+      .accessibilityText(`${this.label} ${this.valueText} ${this.detail} ${this.secondaryDetail}`)
+  }
+}
 
 @ComponentV2
 struct ServerMetricRow {
@@ -23,7 +96,7 @@ struct ServerMetricRow {
       }.alignItems(HorizontalAlign.Start).layoutWeight(1)
       Text(this.value).fontSize(11).fontColor($r('sys.color.font_primary'))
         .textAlign(TextAlign.End).maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
-    }.width('100%').height(36).padding({ left: 0, right: 0, top: 4, bottom: 4 })
+    }.width('100%').height(34).padding({ left: 0, right: 0, top: 3, bottom: 3 })
       .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
   }
 }
@@ -40,7 +113,16 @@ function emptyMonitor(): SystemMonitorSnapshot {
       hostname: '--', ip: '--', os: '--', arch: '--', pid: 0, go_version: '--',
       started_at: '', uptime_seconds: 0, uptime_text: '--', goroutines: 0
     },
-    disks: []
+    disks: [],
+    network: {
+      available: false,
+      interface: 'all',
+      receive_bytes: 0,
+      transmit_bytes: 0,
+      receive_rate_bps: 0,
+      transmit_rate_bps: 0,
+      interfaces: []
+    }
   };
 }
 
@@ -74,9 +156,18 @@ export struct WideServerMonitor {
   @Local serverUptime: string = '--';
   @Local serverGoroutines: number = 0;
   @Local disks: SystemDiskStat[] = [];
+  @Local networkAvailable: boolean = false;
+  @Local networkInterface: string = 'all';
+  @Local networkReceiveBytes: number = 0;
+  @Local networkTransmitBytes: number = 0;
+  @Local networkReceiveRateBps: number = 0;
+  @Local networkTransmitRateBps: number = 0;
+  @Local networkSamples: NetworkSample[] = [];
+  @Local networkSampleVersion: number = 0;
   @Local loading: boolean = false;
   @Local error: string = '';
   @Local lastUpdated: string = '--';
+  private networkContext: CanvasRenderingContext2D = new CanvasRenderingContext2D(new RenderingContextSettings(true));
   private refreshTimer: number = -1;
 
   aboutToAppear(): void {
@@ -127,6 +218,7 @@ export struct WideServerMonitor {
       this.serverUptime = response.data.server.uptime_text;
       this.serverGoroutines = response.data.server.goroutines;
       this.disks = response.data.disks ?? [];
+      this.applyNetwork(response.data.network);
       this.lastUpdated = this.formatTime(response.data.collected_at);
       this.error = '';
     } catch (_error) {
@@ -135,6 +227,30 @@ export struct WideServerMonitor {
       }
     }
     this.loading = false;
+  }
+
+  private applyNetwork(network?: SystemNetworkStat): void {
+    if (network === undefined) {
+      this.networkAvailable = false;
+      return;
+    }
+    this.networkAvailable = network.available;
+    this.networkInterface = network.interface || 'all';
+    this.networkReceiveBytes = network.receive_bytes;
+    this.networkTransmitBytes = network.transmit_bytes;
+    this.networkReceiveRateBps = network.receive_rate_bps;
+    this.networkTransmitRateBps = network.transmit_rate_bps;
+    if (!network.available) {
+      return;
+    }
+    const samples: NetworkSample[] = this.networkSamples.slice();
+    samples.push({
+      receiveRateBps: network.receive_rate_bps,
+      transmitRateBps: network.transmit_rate_bps,
+      time: this.formatTime(new Date().toISOString())
+    });
+    this.networkSamples = samples.slice(Math.max(0, samples.length - NETWORK_HISTORY_LIMIT));
+    this.networkSampleVersion += 1;
   }
 
   private formatTime(value: string): string {
@@ -162,23 +278,108 @@ export struct WideServerMonitor {
     return `${amount.toFixed(index === 0 ? 0 : 2)} ${units[index]}`;
   }
 
-  private memoryState(memory: SystemMemoryStat): string {
-    return memory.available ? this.percent(memory.used_percent) : '主机内存不可用';
+  private rate(value: number): string {
+    if (!Number.isFinite(value) || value < 0) {
+      return '--';
+    }
+    if (value >= 1024 * 1024) {
+      return `${(value / 1024 / 1024).toFixed(2)} MB/s`;
+    }
+    if (value >= 1024) {
+      return `${(value / 1024).toFixed(2)} KB/s`;
+    }
+    return `${value.toFixed(0)} B/s`;
   }
 
-  private cpuState(cpu: SystemCPUStat): string {
-    return cpu.available ? this.percent(cpu.usage_percent) : '主机 CPU 不可用';
+  @Monitor('networkSampleVersion')
+  onNetworkSampleChange(): void {
+    setTimeout((): void => this.drawNetworkChart(), 0);
   }
 
-  private currentCpu(): SystemCPUStat {
-    return { cores: this.cpuCores, usage_percent: this.cpuUsage, user_percent: this.cpuUser,
-      system_percent: this.cpuSystem, idle_percent: this.cpuIdle, available: this.cpuAvailable };
+  private diskUsage(): number {
+    return this.disks.length > 0 ? Math.max(0, Math.min(100, this.disks[0].used_percent)) : 0;
   }
 
-  private currentMemory(): SystemMemoryStat {
-    return { total_bytes: this.memoryTotal, used_bytes: this.memoryUsed, free_bytes: this.memoryFree,
-      used_percent: this.memoryUsage, process_bytes: this.memoryProcess,
-      process_percent: this.memoryProcessUsage, available: this.memoryAvailable };
+  private diskUsageText(): string {
+    return this.disks.length > 0 ? this.percent(this.diskUsage()) : '--';
+  }
+
+  private drawNetworkChart(): void {
+    const width: number = this.networkContext.width;
+    const height: number = this.networkContext.height;
+    if (width <= 0 || height <= 0) {
+      return;
+    }
+    this.networkContext.clearRect(0, 0, width, height);
+    const samples: NetworkSample[] = this.networkSamples;
+    if (samples.length === 0 || !this.networkAvailable) {
+      this.networkContext.fillStyle = NETWORK_MUTED_COLOR;
+      this.networkContext.font = '16px sans-serif';
+      this.networkContext.textAlign = 'center';
+      this.networkContext.textBaseline = 'middle';
+      this.networkContext.fillText('暂无网络采样', width / 2, height / 2);
+      return;
+    }
+    const left: number = 46;
+    const right: number = 18;
+    const top: number = 18;
+    const bottom: number = 30;
+    const plotWidth: number = Math.max(1, width - left - right);
+    const plotHeight: number = Math.max(1, height - top - bottom);
+    let maxRate: number = 0;
+    samples.forEach((sample: NetworkSample): void => {
+      maxRate = Math.max(maxRate, sample.receiveRateBps, sample.transmitRateBps);
+    });
+    maxRate = Math.max(1024, maxRate);
+    this.networkContext.strokeStyle = NETWORK_GRID_COLOR;
+    this.networkContext.lineWidth = 1;
+    this.networkContext.fillStyle = NETWORK_MUTED_COLOR;
+    this.networkContext.font = '12px sans-serif';
+    this.networkContext.textAlign = 'right';
+    this.networkContext.textBaseline = 'middle';
+    for (let line: number = 0; line <= 3; line++) {
+      const y: number = top + plotHeight * line / 3;
+      this.networkContext.beginPath();
+      this.networkContext.moveTo(left, y);
+      this.networkContext.lineTo(width - right, y);
+      this.networkContext.stroke();
+      this.networkContext.fillText(this.rate(maxRate * (3 - line) / 3), left - 8, y);
+    }
+    const pointX = (index: number): number => samples.length === 1 ? left + plotWidth / 2 :
+      left + plotWidth * index / (samples.length - 1);
+    const pointY = (value: number): number => top + plotHeight - plotHeight * value / maxRate;
+    const drawSeries = (receive: boolean, fillColor: string, lineColor: string): void => {
+      this.networkContext.beginPath();
+      this.networkContext.moveTo(pointX(0), top + plotHeight);
+      samples.forEach((sample: NetworkSample, index: number): void => {
+        this.networkContext.lineTo(pointX(index), pointY(receive ? sample.receiveRateBps : sample.transmitRateBps));
+      });
+      this.networkContext.lineTo(pointX(samples.length - 1), top + plotHeight);
+      this.networkContext.closePath();
+      this.networkContext.fillStyle = fillColor;
+      this.networkContext.globalAlpha = 0.28;
+      this.networkContext.fill();
+      this.networkContext.globalAlpha = 1;
+      this.networkContext.beginPath();
+      samples.forEach((sample: NetworkSample, index: number): void => {
+        const y: number = pointY(receive ? sample.receiveRateBps : sample.transmitRateBps);
+        if (index === 0) this.networkContext.moveTo(pointX(index), y);
+        else this.networkContext.lineTo(pointX(index), y);
+      });
+      this.networkContext.strokeStyle = lineColor;
+      this.networkContext.lineWidth = 2;
+      this.networkContext.stroke();
+    };
+    drawSeries(false, '#B9DEC9', NETWORK_UPLOAD_COLOR);
+    drawSeries(true, '#F8E7B8', NETWORK_DOWNLOAD_COLOR);
+    this.networkContext.fillStyle = NETWORK_MUTED_COLOR;
+    this.networkContext.font = '11px sans-serif';
+    this.networkContext.textAlign = 'center';
+    this.networkContext.textBaseline = 'alphabetic';
+    if (samples.length > 0) {
+      this.networkContext.fillText(samples[0].time, left, height - 8);
+      this.networkContext.fillText(samples[samples.length - 1].time, width - right, height - 8);
+    }
   }
 
   private currentServer(): SystemServerInfo {
@@ -192,72 +393,24 @@ export struct WideServerMonitor {
     Row() {
       Text(title).fontSize(12).fontWeight(FontWeight.Bold)
         .fontColor($r('sys.color.font_primary'))
-    }.width('100%').height(40).padding({ left: 14, right: 14 })
+    }.width('100%').height(36).padding({ left: 14, right: 14 })
       .alignItems(VerticalAlign.Center)
       .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
-  }
-
-  @Builder
-  private cpuCard() {
-    Column() {
-      this.sectionTitle('CPU')
-      Column({ space: 8 }) {
-        Text(this.cpuState(this.currentCpu())).fontSize(30).fontWeight(FontWeight.Bold)
-          .fontColor(this.currentCpu().available ? $r('app.color.brand_blue') : $r('sys.color.font_tertiary'))
-        Text(this.currentCpu().available ? `${this.currentCpu().cores} 个逻辑核心 · 用户 ${this.percent(this.currentCpu().user_percent)} · 系统 ${this.percent(this.currentCpu().system_percent)}` :
-          '当前运行环境未提供主机 CPU 采样')
-          .fontSize(10).fontColor($r('sys.color.font_secondary'))
-      }.alignItems(HorizontalAlign.Start).width('100%')
-      Progress({ value: this.currentCpu().available ? this.currentCpu().usage_percent : 0, total: 100, type: ProgressType.Linear })
-        .width('100%').height(5).color($r('app.color.brand_blue'))
-        .backgroundColor($r('sys.color.comp_background_secondary'))
-      GridRow({ columns: 12, gutter: { x: 8, y: 0 } }) {
-        GridCol({ span: 4 }) { MonitorDetailCell({ label: '用户使用率', value: this.currentCpu().available ? this.percent(this.currentCpu().user_percent) : '--' }) }
-        GridCol({ span: 4 }) { MonitorDetailCell({ label: '系统使用率', value: this.currentCpu().available ? this.percent(this.currentCpu().system_percent) : '--' }) }
-        GridCol({ span: 4 }) { MonitorDetailCell({ label: '空闲率', value: this.currentCpu().available ? this.percent(this.currentCpu().idle_percent) : '--' }) }
-      }.width('100%')
-    }.width('100%').padding({ left: 14, right: 14, bottom: 6 }).borderRadius(8)
-      .backgroundColor($r('sys.color.comp_background_primary'))
-      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-  }
-
-  @Builder
-  private memoryCard() {
-    Column() {
-      this.sectionTitle('内存')
-      Column({ space: 8 }) {
-        Text(this.memoryState(this.currentMemory())).fontSize(30).fontWeight(FontWeight.Bold)
-          .fontColor(this.currentMemory().available ? $r('app.color.brand_blue') : $r('sys.color.font_tertiary'))
-        Text(this.currentMemory().available ? `已用 ${this.bytes(this.currentMemory().used_bytes)} · 剩余 ${this.bytes(this.currentMemory().free_bytes)}` :
-          `Go 进程 ${this.bytes(this.currentMemory().process_bytes)}`)
-          .fontSize(10).fontColor($r('sys.color.font_secondary'))
-      }.alignItems(HorizontalAlign.Start).width('100%')
-      Progress({ value: this.currentMemory().available ? this.currentMemory().used_percent : 0, total: 100, type: ProgressType.Linear })
-        .width('100%').height(5).color($r('app.color.brand_blue'))
-        .backgroundColor($r('sys.color.comp_background_secondary'))
-      GridRow({ columns: 12, gutter: { x: 8, y: 0 } }) {
-        GridCol({ span: 4 }) { MonitorDetailCell({ label: '总内存', value: this.bytes(this.currentMemory().total_bytes) }) }
-        GridCol({ span: 4 }) { MonitorDetailCell({ label: '已用内存', value: this.bytes(this.currentMemory().used_bytes) }) }
-        GridCol({ span: 4 }) { MonitorDetailCell({ label: 'Go 进程', value: this.bytes(this.currentMemory().process_bytes) }) }
-      }.width('100%')
-    }.width('100%').padding({ left: 14, right: 14, bottom: 6 }).borderRadius(8)
-      .backgroundColor($r('sys.color.comp_background_primary'))
-      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   @Builder
   private serverInfoCard() {
     Column() {
       this.sectionTitle('服务器信息')
-      GridRow({ columns: 12, gutter: { x: 8, y: 0 } }) {
-        GridCol({ span: 4 }) { MonitorDetailCell({ label: '服务器名称', value: this.currentServer().hostname }) }
-        GridCol({ span: 4 }) { MonitorDetailCell({ label: '服务器 IP', value: this.currentServer().ip }) }
-        GridCol({ span: 4 }) { MonitorDetailCell({ label: '操作系统', value: `${this.currentServer().os} · ${this.currentServer().arch}` }) }
-        GridCol({ span: 4 }) { MonitorDetailCell({ label: '进程 ID', value: this.currentServer().pid > 0 ? this.currentServer().pid.toString() : '--' }) }
-        GridCol({ span: 4 }) { MonitorDetailCell({ label: '架构', value: this.currentServer().arch }) }
-        GridCol({ span: 4 }) { MonitorDetailCell({ label: '主机名', value: this.currentServer().hostname }) }
+      Column() {
+        ServerMetricRow({ label: '服务器名称', value: this.currentServer().hostname })
+        ServerMetricRow({ label: '服务器 IP', value: this.currentServer().ip })
+        ServerMetricRow({ label: '操作系统', value: `${this.currentServer().os} · ${this.currentServer().arch}` })
+        ServerMetricRow({ label: '进程 ID', value: this.currentServer().pid > 0 ? this.currentServer().pid.toString() : '--' })
+        ServerMetricRow({ label: '架构', value: this.currentServer().arch })
+        ServerMetricRow({ label: '主机名', value: this.currentServer().hostname })
       }.width('100%')
-    }.width('100%').padding({ left: 14, right: 14, bottom: 6 }).borderRadius(8)
+    }.width('100%').padding({ left: 12, right: 12, bottom: 4 }).borderRadius(8)
       .backgroundColor($r('sys.color.comp_background_primary'))
       .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
@@ -266,15 +419,15 @@ export struct WideServerMonitor {
   private runtimeCard() {
     Column() {
       this.sectionTitle('运行时信息')
-      GridRow({ columns: 12, gutter: { x: 8, y: 0 } }) {
-        GridCol({ span: 4 }) { MonitorDetailCell({ label: 'Go 版本', value: this.currentServer().go_version }) }
-        GridCol({ span: 4 }) { MonitorDetailCell({ label: '启动时间', value: this.formatTime(this.currentServer().started_at) }) }
-        GridCol({ span: 4 }) { MonitorDetailCell({ label: '运行时长', value: this.currentServer().uptime_text }) }
-        GridCol({ span: 4 }) { MonitorDetailCell({ label: 'Goroutine 数', value: this.currentServer().goroutines.toString() }) }
-        GridCol({ span: 4 }) { MonitorDetailCell({ label: '应用版本', value: '1.0.0' }) }
-        GridCol({ span: 4 }) { MonitorDetailCell({ label: '部署模式', value: '生产环境' }) }
+      Column() {
+        ServerMetricRow({ label: 'Go 版本', value: this.currentServer().go_version })
+        ServerMetricRow({ label: '启动时间', value: this.formatTime(this.currentServer().started_at) })
+        ServerMetricRow({ label: '运行时长', value: this.currentServer().uptime_text })
+        ServerMetricRow({ label: 'Goroutine 数', value: this.currentServer().goroutines.toString() })
+        ServerMetricRow({ label: '应用版本', value: '1.0.0' })
+        ServerMetricRow({ label: '部署模式', value: '生产环境' })
       }.width('100%')
-    }.width('100%').padding({ left: 14, right: 14, bottom: 6 }).borderRadius(8)
+    }.width('100%').padding({ left: 12, right: 12, bottom: 4 }).borderRadius(8)
       .backgroundColor($r('sys.color.comp_background_primary'))
       .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
@@ -307,29 +460,113 @@ export struct WideServerMonitor {
                 Progress({ value: disk.used_percent, total: 100, type: ProgressType.Linear })
                   .width('100%').height(5).color($r('app.color.brand_blue'))
                   .backgroundColor($r('sys.color.comp_background_secondary'))
-              }.width('100%').padding({ top: 10, bottom: 10 })
+              }.width('100%').padding({ top: 8, bottom: 8 })
                 .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
             }
           }, (disk: SystemDiskStat) => disk.mount)
-        }.width('100%').height(Math.min(360, Math.max(78, this.disks.length * 78))).scrollBar(BarState.Off)
+        }.width('100%').height(Math.min(330, Math.max(72, this.disks.length * 72))).scrollBar(BarState.Off)
       }
-    }.width('100%').padding({ left: 14, right: 14, bottom: 6 }).borderRadius(8)
+    }.width('100%').padding({ left: 12, right: 12, bottom: 4 }).borderRadius(8)
       .backgroundColor($r('sys.color.comp_background_primary'))
       .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   @Builder
+  private statusPanel() {
+    Column() {
+      this.sectionTitle('状态')
+      GridRow({ columns: 12, gutter: { x: 8, y: 0 } }) {
+        GridCol({ span: 4 }) {
+          MonitorStatusRing({
+            value: this.cpuAvailable ? this.cpuUsage : 0,
+            valueText: this.cpuAvailable ? this.percent(this.cpuUsage) : '--',
+            label: 'CPU',
+            detail: this.cpuAvailable ? `${this.cpuCores} 个逻辑核心` : '主机 CPU 不可用',
+            secondaryDetail: this.cpuAvailable ?
+              `用户 ${this.percent(this.cpuUser)} · 系统 ${this.percent(this.cpuSystem)} · 空闲 ${this.percent(this.cpuIdle)}` : '',
+            available: this.cpuAvailable
+          })
+        }
+        GridCol({ span: 4 }) {
+          MonitorStatusRing({
+            value: this.memoryAvailable ? this.memoryUsage : 0,
+            valueText: this.memoryAvailable ? this.percent(this.memoryUsage) : '--',
+            label: '内存',
+            detail: this.memoryAvailable ? `${this.bytes(this.memoryUsed)} / ${this.bytes(this.memoryTotal)}` : '主机内存不可用',
+            secondaryDetail: this.memoryAvailable ?
+              `剩余 ${this.bytes(this.memoryFree)} · Go 进程 ${this.bytes(this.memoryProcess)}` : '',
+            available: this.memoryAvailable
+          })
+        }
+        GridCol({ span: 4 }) {
+          MonitorStatusRing({
+            value: this.disks.length > 0 ? this.diskUsage() : 0,
+            valueText: this.disks.length > 0 ? this.diskUsageText() : '--',
+            label: this.disks.length > 0 ? this.disks[0].mount : '磁盘',
+            detail: this.disks.length > 0 ? `${this.bytes(this.disks[0].used_bytes)} / ${this.bytes(this.disks[0].total_bytes)}` : '磁盘数据不可用',
+            secondaryDetail: this.disks.length > 0 ?
+              `可用 ${this.bytes(this.disks[0].free_bytes)} · ${this.disks[0].filesystem}` : '',
+            available: this.disks.length > 0
+          })
+        }
+      }.width('100%').padding({ top: 16, bottom: 16 })
+    }.width('100%').borderRadius(8)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+      .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private networkLegend(color: string, label: string, value: string) {
+    Row({ space: 6 }) {
+      Row().width(8).height(8).borderRadius(4).backgroundColor(color)
+      Text(`${label} ${value}`).fontSize(11).fontColor($r('sys.color.font_secondary'))
+    }
+  }
+
+  @Builder
+  private networkCard() {
+    Column() {
+      Row() {
+        Text('网络监控').fontSize(12).fontWeight(FontWeight.Bold)
+          .fontColor($r('sys.color.font_primary'))
+        Blank()
+        Text(this.networkAvailable ? (this.networkInterface === 'all' ? '全部网卡' : this.networkInterface) :
+          '网络数据不可用').fontSize(10)
+          .fontColor(this.networkAvailable ? $r('sys.color.font_secondary') : $r('sys.color.font_tertiary'))
+      }.width('100%').height(40).padding({ left: 14, right: 14 })
+        .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
+      Row({ space: 10 }) {
+        this.networkLegend(NETWORK_UPLOAD_COLOR, '上行', this.rate(this.networkTransmitRateBps))
+        this.networkLegend(NETWORK_DOWNLOAD_COLOR, '下行', this.rate(this.networkReceiveRateBps))
+        Text(`总发送 ${this.networkAvailable ? this.bytes(this.networkTransmitBytes) : '--'}`).fontSize(10)
+          .fontColor($r('sys.color.font_secondary'))
+        Text(`总接收 ${this.networkAvailable ? this.bytes(this.networkReceiveBytes) : '--'}`).fontSize(10)
+          .fontColor($r('sys.color.font_secondary'))
+      }.width('100%').padding({ left: 14, right: 14, top: 12, bottom: 4 })
+        .alignItems(VerticalAlign.Center)
+      Canvas(this.networkContext)
+        .width('100%').height(190)
+        .padding({ left: 14, right: 14, bottom: 4 })
+        .onAreaChange(() => this.drawNetworkChart())
+        .onReady(() => this.drawNetworkChart())
+    }.width('100%').borderRadius(8)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+      .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
   private monitorContent() {
-      Column({ space: 12 }) {
-        Blank().height(0)
+      Column({ space: 10 }) {
         if (this.error.length > 0) {
           Text(this.error).fontSize(11).fontColor($r('app.color.doctor_workspace_danger'))
             .width('100%').padding(12).borderRadius(10)
             .backgroundColor($r('app.color.doctor_workspace_accent_soft'))
         }
-        GridRow({ columns: 12, gutter: { x: 12, y: 12 } }) {
-          GridCol({ span: this.compactWidth ? 12 : 6 }) { this.cpuCard() }
-          GridCol({ span: this.compactWidth ? 12 : 6 }) { this.memoryCard() }
+        this.statusPanel()
+        this.networkCard()
+        GridRow({ columns: 12, gutter: { x: 12, y: 10 } }) {
           GridCol({ span: this.compactWidth ? 12 : 6 }) { this.serverInfoCard() }
           GridCol({ span: this.compactWidth ? 12 : 6 }) { this.runtimeCard() }
           GridCol({ span: 12 }) { this.diskCard() }
@@ -349,21 +586,5 @@ export struct WideServerMonitor {
         this.monitorContent()
       }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
     }
-  }
-}
-
-@ComponentV2
-struct MonitorDetailCell {
-  @Param @Require label: string;
-  @Param @Require value: string;
-
-  build() {
-    Column({ space: 5 }) {
-      Text(this.label).fontSize(10).fontColor($r('sys.color.font_secondary'))
-      Text(this.value).fontSize(11).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
-        .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-    }.width('100%').height(48).padding({ top: 9, bottom: 7 })
-      .alignItems(HorizontalAlign.Start)
-      .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
   }
 }

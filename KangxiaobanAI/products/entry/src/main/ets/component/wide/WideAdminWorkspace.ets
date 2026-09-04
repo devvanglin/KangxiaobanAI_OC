@@ -342,6 +342,10 @@ export struct WideAdminWorkspace {
     return WIDE_TITLE_BAR_HEIGHT + this.statusBarHeight + 20;
   }
 
+  private adminOverviewTopPadding(): number {
+    return WIDE_TITLE_BAR_HEIGHT + this.statusBarHeight + 12;
+  }
+
   /**
    * Keep only the live gesture/navigation inset below the dashboard cards.
    * The dashboard already owns a full-height scroll viewport, so an extra
@@ -750,7 +754,7 @@ export struct WideAdminWorkspace {
       Progress({ value: item.total > 0 ? item.online / item.total * 100 : 0, total: 100, type: ProgressType.Linear })
         .width('100%').height(4).color($r('app.color.doctor_workspace_success'))
         .backgroundColor($r('app.color.doctor_workspace_surface_hover'))
-    }.width('100%').padding({ top: 14, bottom: 14, left: 14, right: 14 })
+    }.width('100%').padding({ top: 10, bottom: 10, left: 12, right: 12 })
       .border({ width: { bottom: 0.5 }, color: { bottom: $r('app.color.doctor_workspace_border_soft') } })
       .alignItems(HorizontalAlign.Start)
   }
@@ -775,7 +779,7 @@ export struct WideAdminWorkspace {
           this.deviceOverviewStat('离线', this.overviewOfflineCount().toString(), 'offline')
           Divider().vertical(true).height(34).strokeWidth(0.5).color($r('app.color.doctor_workspace_border_soft'))
           this.deviceOverviewStat('告警', this.overviewWarningCount().toString(), 'warning')
-        }.width('100%').height(64).padding({ top: 8, bottom: 8, left: 8, right: 8 })
+        }.width('100%').height(56).padding({ top: 6, bottom: 6, left: 8, right: 8 })
       } else {
         Text('正在加载设备数据').width('100%').height(64).padding({ top: 22, bottom: 22 })
           .fontSize(11).fontColor($r('app.color.doctor_workspace_text_tertiary')).textAlign(TextAlign.Center)
@@ -798,11 +802,11 @@ export struct WideAdminWorkspace {
   @Builder
   private adminOverview() {
     Scroll(this.managementScroller) {
-      Column({ space: 16 }) {
+      Column({ space: 12 }) {
         WideServerMonitor({ compactWidth: this.compactWidth, embedded: true }).width('100%')
         this.deviceOverviewPanel()
       }.width('100%').padding({ left: this.compactWidth ? 14 : 8, right: this.compactWidth ? 14 : 8,
-        top: this.contentTopPadding(), bottom: this.dashboardBottomPadding() }).alignItems(HorizontalAlign.Start)
+        top: this.adminOverviewTopPadding(), bottom: this.dashboardBottomPadding() }).alignItems(HorizontalAlign.Start)
     }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
   }
 
