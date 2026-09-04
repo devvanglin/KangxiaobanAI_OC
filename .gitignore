@@ -25,6 +25,10 @@ kangxiaoban-service/uploads/
 
 .claude/settings.local.json
 
+# Agent-local connection credentials. Tracked AGENTS.md may reference files in
+# this directory, but their contents must never be committed or printed.
+.codex/private/
+
 # Hvigor-generated files and dependency locks from local sample builds.
 MusicHome/**/BuildProfile.ets
 MusicHome/**/oh-package-lock.json5

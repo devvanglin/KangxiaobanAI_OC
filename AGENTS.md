@@ -126,6 +126,19 @@ contain masked placeholders. Never print, copy, quote, summarize, or commit secr
 rotate exposed material, remove it from tracked history, and replace it with local/CI-injected signing configuration.
 Deleting only the current value is not a complete remediation.
 
+### 3.1 Local backend administration access
+
+The currently configured institution backend is hosted at `10.10.1.12`. Its SSH user is `api`, and the corresponding
+password-based connection details are stored locally in `.codex/private/backend-ssh.json`. Before asking the user for
+backend SSH credentials, future agents must first read that local file and try the configured connection. Ask again only
+when the file is absent or authentication has actually failed.
+
+The local credentials file is deliberately Git-ignored. Never print, quote, summarize, stage, commit, or copy its
+password into this handbook, source code, scripts, command output, logs, reports, or chat. Deployment work must first
+inspect the remote service, process, container, paths, mounts, and effective environment read-only. Preserve database,
+uploads, configuration, and rollback material; back up the exact deployed binary or image before replacement, then
+verify service health and the authenticated business endpoint after restart.
+
 ## 4. Required discovery workflow
 
 Before changing a HarmonyOS project:
