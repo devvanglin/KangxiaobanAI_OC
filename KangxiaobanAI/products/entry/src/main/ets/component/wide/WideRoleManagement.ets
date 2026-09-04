@@ -116,7 +116,8 @@ export struct WideRoleManagement {
         Button('导出').height(36).fontSize(12).borderRadius(6).fontColor($r('sys.color.font_secondary'))
           .backgroundColor($r('sys.color.comp_background_secondary')).onClick(() => this.hint('导出角色'))
       }.width('100%')
-    }.width('100%').alignItems(HorizontalAlign.Start)
+    }.width('100%').padding(16).backgroundColor($r('sys.color.comp_background_primary')).borderRadius(14)
+      .border({ width: 0.5, color: $r('sys.color.comp_divider') }).alignItems(HorizontalAlign.Start)
   }
 
   @Builder
@@ -135,24 +136,34 @@ export struct WideRoleManagement {
 
   @Builder
   private roleRow(role: RoleRecord) {
-    Row() {
-      Text(role.id.toString()).width(100).fontSize(13).fontColor($r('sys.color.font_secondary'))
-      Text(role.name || '--').width(160).fontSize(13).fontColor($r('sys.color.font_primary'))
-      Text(role.code || '--').width(190).fontSize(13).fontColor($r('sys.color.font_secondary'))
-      Text((role.display_order ?? 0).toString()).width(130).fontSize(13).fontColor($r('sys.color.font_secondary'))
-      Button(role.status === 1 ? '正常' : '停用').width(62).height(28).fontSize(11).borderRadius(14)
-        .fontColor(Color.White).backgroundColor(role.status === 1 ? $r('app.color.doctor_workspace_success') : $r('sys.color.font_tertiary'))
-        .onClick(() => this.toggleStatus(role))
-      Text(this.formatCreatedAt(role.created_at)).width(190).fontSize(12).fontColor($r('sys.color.font_secondary'))
+    Column({ space: 12 }) {
+      Row({ space: 10 }) {
+        Column() {
+          SymbolGlyph($r('sys.symbol.key_shield_badge_person_crop_circle_fill')).fontSize(22).fontColor([$r('app.color.brand_blue')])
+        }.width(42).height(42).justifyContent(FlexAlign.Center).backgroundColor($r('sys.color.comp_background_secondary')).borderRadius(12)
+        Column({ space: 4 }) {
+          Text(role.name || '--').fontSize(16).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+          Text(role.code || '--').fontSize(11).fontColor($r('sys.color.font_secondary'))
+        }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+        Button(role.status === 1 ? '正常' : '停用').height(28).fontSize(11).borderRadius(14)
+          .fontColor(Color.White).backgroundColor(role.status === 1 ? $r('app.color.doctor_workspace_success') : $r('sys.color.font_tertiary'))
+          .onClick(() => this.toggleStatus(role))
+      }.width('100%')
+      Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
+      Row({ space: 12 }) {
+        Column({ space: 4 }) { Text('角色编号').fontSize(11).fontColor($r('sys.color.font_tertiary')); Text(role.id.toString()).fontSize(13) }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+        Column({ space: 4 }) { Text('显示顺序').fontSize(11).fontColor($r('sys.color.font_tertiary')); Text((role.display_order ?? 0).toString()).fontSize(13) }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+        Column({ space: 4 }) { Text('创建时间').fontSize(11).fontColor($r('sys.color.font_tertiary')); Text(this.formatCreatedAt(role.created_at)).fontSize(12) }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+      }.width('100%')
       Row({ space: 18 }) {
         Text('编辑').fontSize(12).fontColor($r('app.color.brand_blue')).onClick(() => this.hint('编辑角色'))
         Text('分配数据权限').fontSize(12).fontColor($r('app.color.brand_blue')).onClick(() => this.hint('分配数据权限'))
-      }.width(220).justifyContent(FlexAlign.Center)
-    }.constraintSize({ minWidth: 1100 }).width('100%').height(54).padding({ left: 18, right: 18 })
-      .backgroundColor(this.hoveredRoleId === role.id || this.selectedRoleId === role.id ? $r('sys.color.comp_background_secondary') : Color.Transparent)
+      }.width('100%').justifyContent(FlexAlign.End)
+    }.width('100%').padding(16)
+      .backgroundColor(this.hoveredRoleId === role.id || this.selectedRoleId === role.id ? $r('sys.color.comp_background_secondary') : $r('sys.color.comp_background_primary'))
+      .borderRadius(14).border({ width: 0.5, color: $r('sys.color.comp_divider') })
       .onHover((hover: boolean) => this.hoveredRoleId = hover ? role.id : 0)
       .onClick(() => this.selectedRoleId = role.id)
-      .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
   }
 
   @Builder
@@ -175,13 +186,16 @@ export struct WideRoleManagement {
       Column({ space: 18 }) {
         this.roleToolbar()
         if (this.error.length > 0) Text(this.error).fontSize(12).fontColor($r('app.color.doctor_workspace_danger'))
-        this.tableHeader()
         if (this.loading) {
           LoadingProgress().width(32).height(32)
         } else if (this.roles.length === 0) {
           Text('暂无角色数据').fontSize(13).fontColor($r('sys.color.font_tertiary')).padding({ top: 48, bottom: 48 })
         } else {
-          ForEach(this.roles, (role: RoleRecord) => this.roleRow(role), (role: RoleRecord) => `role-${role.id}`)
+          GridRow({ columns: 12, gutter: { x: 14, y: 14 } }) {
+            ForEach(this.roles, (role: RoleRecord) => {
+              GridCol({ span: this.compactWidth ? 12 : 6 }) { this.roleRow(role) }
+            }, (role: RoleRecord) => `role-${role.id}`)
+          }.width('100%')
         }
         Text(`共 ${this.roles.length} 条`).fontSize(11).fontColor($r('sys.color.font_tertiary')).width('100%').textAlign(TextAlign.End)
       }.width('100%').padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28,

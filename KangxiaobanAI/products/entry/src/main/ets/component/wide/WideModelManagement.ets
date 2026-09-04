@@ -64,10 +64,28 @@ export struct WideModelManagement {
       Row({ space: 8 }) { Button(this.ragEnabled ? 'RAG 已启用' : 'RAG 未启用').height(34).fontSize(12).onClick(() => this.ragEnabled = !this.ragEnabled); Text('Dify RAG 先保留配置，检索适配后启用').fontSize(11).fontColor($r('sys.color.font_tertiary')) }.width('100%').alignItems(VerticalAlign.Center)
       if (this.ragEnabled) { TextInput({ placeholder: 'Dify RAG URL', text: $$this.ragBaseUrl }).height(42); TextInput({ placeholder: '知识库 ID', text: $$this.ragDatasetId }).height(42) }
       Row() { Button(this.saved ? '已保存' : '保存配置').height(38).fontSize(13).fontColor(Color.White).backgroundColor($r('app.color.brand_blue')).onClick(() => this.save()); Blank().layoutWeight(1); Text(this.configId > 0 ? '已连接服务端配置' : '尚未创建此角色配置').fontSize(10).fontColor($r('sys.color.font_tertiary')) }.width('100%')
-    }.width('100%')
+    }.width('100%').padding(18).backgroundColor($r('sys.color.comp_background_primary')).borderRadius(14).border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   build() {
-    Scroll(this.scroller) { Column({ space: 26 }) { this.configSection(); if (this.error.length > 0) Text(this.error).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')); Divider().strokeWidth(0.5).color($r('sys.color.comp_divider')); Text('当前已配置模型').fontSize(18).fontWeight(FontWeight.Medium); ForEach(this.configs, (item: AIModelConfig) => Row() { Text(item.role_scope === 'doctor' ? '医师 AI' : '护工 AI').width(90).fontSize(13); Text(`${item.name} · ${item.provider}/${item.model}`).layoutWeight(1).fontSize(12).fontColor($r('sys.color.font_secondary')); Text(item.api_key_configured ? '密钥已配置' : '未配置密钥').fontSize(11).fontColor(item.api_key_configured ? $r('app.color.doctor_workspace_success') : $r('sys.color.font_tertiary')) }.width('100%').height(44).padding({ left: 12, right: 12 }), (item: AIModelConfig) => `ai-config-${item.id}`) }.width('100%').padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28, top: 56 + this.statusBarHeight, bottom: 24 + this.naviIndicatorHeight }) }.width('100%').height('100%').scrollBar(BarState.Off)
+    Scroll(this.scroller) { Column({ space: 20 }) {
+      this.configSection()
+      if (this.error.length > 0) Text(this.error).fontSize(12).fontColor($r('app.color.doctor_workspace_danger'))
+      Column({ space: 12 }) {
+        Text('当前已配置模型').fontSize(18).fontWeight(FontWeight.Medium)
+        if (this.configs.length === 0) {
+          Text('暂无模型配置，请先选择护工 AI 或医师 AI 保存配置。').fontSize(12).fontColor($r('sys.color.font_secondary')).padding(16).width('100%').backgroundColor($r('sys.color.comp_background_primary')).borderRadius(12)
+        } else {
+          ForEach(this.configs, (item: AIModelConfig) => Column({ space: 8 }) {
+            Row({ space: 10 }) {
+              Column() { SymbolGlyph($r('sys.symbol.AI_model')).fontSize(20).fontColor([$r('app.color.brand_blue')]) }.width(38).height(38).justifyContent(FlexAlign.Center).backgroundColor($r('sys.color.comp_background_secondary')).borderRadius(10)
+              Column({ space: 3 }) { Text(item.role_scope === 'doctor' ? '医师 AI' : '护工 AI').fontSize(14).fontWeight(FontWeight.Medium); Text(item.name).fontSize(11).fontColor($r('sys.color.font_secondary')) }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+              Text(item.api_key_configured ? '密钥已配置' : '未配置密钥').fontSize(11).fontColor(item.api_key_configured ? $r('app.color.doctor_workspace_success') : $r('sys.color.font_tertiary'))
+            }.width('100%')
+            Text(`${item.provider} / ${item.model}`).fontSize(12).fontColor($r('sys.color.font_secondary'))
+          }.width('100%').padding(14).backgroundColor($r('sys.color.comp_background_primary')).borderRadius(12).border({ width: 0.5, color: $r('sys.color.comp_divider') }), (item: AIModelConfig) => `ai-config-${item.id}`)
+        }
+      }.width('100%').padding(16).backgroundColor($r('sys.color.comp_background_secondary')).borderRadius(14)
+    }.width('100%').padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28, top: 56 + this.statusBarHeight, bottom: 24 + this.naviIndicatorHeight }) }.width('100%').height('100%').scrollBar(BarState.Off)
   }
 }

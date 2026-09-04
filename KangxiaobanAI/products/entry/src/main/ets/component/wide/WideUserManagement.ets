@@ -73,6 +73,34 @@ export struct WideUserManagement {
   private formatTime(value?: string): string { return value === undefined || value.length < 16 ? '--' : value.slice(0, 19).replace('T', ' '); }
 
   @Builder
+  private userCard(user: UserRecord) {
+    Column({ space: 12 }) {
+      Row({ space: 10 }) {
+        Column() {
+          SymbolGlyph($r('sys.symbol.person_crop_circle_fill')).fontSize(22).fontColor([$r('app.color.brand_blue')])
+        }.width(42).height(42).justifyContent(FlexAlign.Center).backgroundColor($r('sys.color.comp_background_secondary')).borderRadius(12)
+        Column({ space: 4 }) {
+          Text(user.real_name || user.username).fontSize(16).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+          Text(`账号：${user.username}`).fontSize(11).fontColor($r('sys.color.font_secondary'))
+        }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+        Button(user.status === 1 ? '正常' : '停用').height(28).fontSize(11).borderRadius(14)
+          .fontColor(Color.White).backgroundColor(user.status === 1 ? $r('app.color.doctor_workspace_success') : $r('sys.color.font_tertiary'))
+          .onClick(() => this.toggleStatus(user))
+      }.width('100%')
+      Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
+      Row({ space: 12 }) {
+        Column({ space: 4 }) { Text('角色').fontSize(11).fontColor($r('sys.color.font_tertiary')); Text(user.roles?.map((role: UserRole) => role.name).join('、') || '--').fontSize(13).maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis }) }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+        Column({ space: 4 }) { Text('手机号').fontSize(11).fontColor($r('sys.color.font_tertiary')); Text(user.phone || '--').fontSize(13) }.width(110).alignItems(HorizontalAlign.Start)
+        Column({ space: 4 }) { Text('创建时间').fontSize(11).fontColor($r('sys.color.font_tertiary')); Text(this.formatTime(user.created_at)).fontSize(11) }.width(135).alignItems(HorizontalAlign.Start)
+      }.width('100%')
+      Row({ space: 18 }) {
+        Text('修改').fontSize(12).fontColor($r('sys.color.font_tertiary'))
+        Text('角色分配').fontSize(12).fontColor($r('app.color.brand_blue')).onClick(() => this.error = '角色分配入口已准备，使用后端多角色接口')
+      }.width('100%').justifyContent(FlexAlign.End)
+    }.width('100%').padding(16).backgroundColor($r('sys.color.comp_background_primary')).borderRadius(14).border({ width: 0.5, color: $r('sys.color.comp_divider') })
+  }
+
+  @Builder
   private createDialog() {
     if (this.showCreate) {
       Column() {
@@ -98,6 +126,7 @@ export struct WideUserManagement {
     Stack() {
       Scroll(this.scroller) {
         Column({ space: 16 }) {
+          Column({ space: 10 }) {
           Row({ space: 22 }) {
             TextInput({ placeholder: '请输入用户名/姓名/手机号', text: $$this.keyword }).width(this.compactWidth ? 220 : 300).height(38).borderRadius(6)
             Text('状态').fontSize(12).fontColor($r('sys.color.font_secondary'))
@@ -112,27 +141,18 @@ export struct WideUserManagement {
             Button('导入').height(36).fontSize(12).borderRadius(6).enabled(false)
             Button('导出').height(36).fontSize(12).borderRadius(6).enabled(false)
           }.width('100%')
-          Row() {
-            Text('用户编号').width(100).fontSize(12).fontWeight(FontWeight.Medium)
-            Text('用户名称').width(160).fontSize(12).fontWeight(FontWeight.Medium)
-            Text('用户昵称').width(150).fontSize(12).fontWeight(FontWeight.Medium)
-            Text('角色').width(120).fontSize(12).fontWeight(FontWeight.Medium)
-            Text('手机号').width(170).fontSize(12).fontWeight(FontWeight.Medium)
-            Text('状态').width(100).fontSize(12).fontWeight(FontWeight.Medium).textAlign(TextAlign.Center)
-            Text('创建时间').width(190).fontSize(12).fontWeight(FontWeight.Medium)
-          }.constraintSize({ minWidth: 990 }).width('100%').height(42).padding({ left: 18, right: 18 }).backgroundColor($r('sys.color.comp_background_secondary'))
+          }.width('100%').padding(16).backgroundColor($r('sys.color.comp_background_primary')).borderRadius(14)
+            .border({ width: 0.5, color: $r('sys.color.comp_divider') })
           if (this.loading) { LoadingProgress().width(32).height(32) }
-          ForEach(this.users, (user: UserRecord) => {
-            Row() {
-              Text(user.id.toString()).width(100).fontSize(13)
-              Text(user.username).width(160).fontSize(13)
-              Text(user.real_name || '--').width(150).fontSize(13)
-              Text(user.roles?.map((role: UserRole) => role.name).join('、') || '--').width(120).fontSize(13)
-              Text(user.phone || '--').width(170).fontSize(13)
-              Button(user.status === 1 ? '正常' : '停用').width(62).height(28).fontSize(11).borderRadius(14).fontColor(Color.White).backgroundColor(user.status === 1 ? $r('app.color.doctor_workspace_success') : $r('sys.color.font_tertiary')).onClick(() => this.toggleStatus(user))
-              Text(this.formatTime(user.created_at)).width(190).fontSize(12)
-            }.constraintSize({ minWidth: 990 }).width('100%').height(54).padding({ left: 18, right: 18 }).border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
-          }, (user: UserRecord) => `user-${user.id}`)
+          if (this.users.length > 0) {
+            GridRow({ columns: 12, gutter: { x: 14, y: 14 } }) {
+              ForEach(this.users, (user: UserRecord) => {
+                GridCol({ span: this.compactWidth ? 12 : 6 }) { this.userCard(user) }
+              }, (user: UserRecord) => `user-${user.id}`)
+            }.width('100%')
+          } else if (!this.loading) {
+            Text('暂无用户数据').fontSize(13).fontColor($r('sys.color.font_tertiary')).padding({ top: 48, bottom: 48 })
+          }
           Text(`共 ${this.users.length} 条`).fontSize(11).fontColor($r('sys.color.font_tertiary')).width('100%').textAlign(TextAlign.End)
         }.width('100%').padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28, top: 56 + this.statusBarHeight, bottom: 24 + this.naviIndicatorHeight })
       }.width('100%').height('100%')
