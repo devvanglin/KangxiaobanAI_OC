@@ -62,6 +62,7 @@ export class BusinessStore {
   @Trace tasks: CareTask[] = [];
   @Trace careExecutions: CareExecution[] = [];
   @Trace devices: IotDevice[] = [];
+  @Trace devicesLoaded: boolean = false;
   @Trace alerts: Alert[] = [];
   @Trace medications: MedicationRecord[] = [];
   @Trace notifications: NotificationRecord[] = [];
@@ -187,6 +188,7 @@ export class BusinessStore {
     this.refreshing = hadCoreData;
     if (!hadCoreData) {
       this.eldersLoaded = false;
+      this.devicesLoaded = false;
     }
     this.error = '';
     const failed: string[] = [];
@@ -286,6 +288,16 @@ export class BusinessStore {
     try {
       const executionPromise: Promise<LoadResult<CareExecution>> = this.fetchAll<CareExecution>('/care-executions');
       const devicePromise: Promise<LoadResult<IotDevice>> = this.fetchAll<IotDevice>('/iot/devices');
+      const deviceReadyPromise: Promise<LoadResult<IotDevice>> = devicePromise.then(
+        (result: LoadResult<IotDevice>): LoadResult<IotDevice> => {
+          if (this.isCurrent(generation)) {
+            if (result.ok) {
+              this.devices = result.value;
+            }
+            this.devicesLoaded = true;
+          }
+          return result;
+        });
       const medicationPromise: Promise<LoadResult<MedicationRecord>> = this.fetchAll<MedicationRecord>('/medications');
       const notificationPromise: Promise<LoadResult<NotificationRecord>> = this.fetchAll<NotificationRecord>('/notifications');
       const billPromise: Promise<LoadResult<Bill>> = this.fetchAll<Bill>('/bills');
@@ -293,7 +305,7 @@ export class BusinessStore {
       const assessmentPromise: Promise<LoadResult<Assessment>> = this.fetchAll<Assessment>('/assessments');
       const secondaryResults: LoadResult<Object>[] = await Promise.all([
         executionPromise as Promise<LoadResult<Object>>,
-        devicePromise as Promise<LoadResult<Object>>,
+        deviceReadyPromise as Promise<LoadResult<Object>>,
         medicationPromise as Promise<LoadResult<Object>>,
         notificationPromise as Promise<LoadResult<Object>>,
         billPromise as Promise<LoadResult<Object>>,
@@ -309,7 +321,7 @@ export class BusinessStore {
       const diningResult: LoadResult<DiningOrder> = secondaryResults[5] as LoadResult<DiningOrder>;
       const assessmentResult: LoadResult<Assessment> = secondaryResults[6] as LoadResult<Assessment>;
       if (executionResult.ok) this.careExecutions = executionResult.value; else failed.push('护理执行记录');
-      if (deviceResult.ok) this.devices = deviceResult.value; else failed.push('设备');
+      if (!deviceResult.ok) failed.push('设备');
       if (medicationResult.ok) this.medications = medicationResult.value; else failed.push('用药记录');
       if (notificationResult.ok) this.notifications = notificationResult.value; else failed.push('通知');
       if (billResult.ok) this.bills = billResult.value; else failed.push('账单');
@@ -327,6 +339,7 @@ export class BusinessStore {
       this.requestInFlight = false;
       this.refreshing = false;
       this.error = failed.length > 0 ? `部分数据加载失败：${failed.join('、')}` : '';
+      Logger.info('[BusinessStore]', `secondary loaded devices=${this.devices.length}`);
       // Optional resources can be forbidden for a role or temporarily absent;
       // retry the full snapshot only when a core request actually failed.
       if (this.coreLoadFailed) {
@@ -413,6 +426,7 @@ export class BusinessStore {
     this.tasks = [];
     this.careExecutions = [];
     this.devices = [];
+    this.devicesLoaded = false;
     this.alerts = [];
     this.medications = [];
     this.notifications = [];

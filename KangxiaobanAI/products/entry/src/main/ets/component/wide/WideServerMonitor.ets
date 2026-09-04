@@ -16,7 +16,7 @@ struct ServerMetricRow {
   build() {
     Row({ space: 10 }) {
       Column({ space: 2 }) {
-      Text(this.label).fontSize(12).fontColor($r('sys.color.font_primary'))
+        Text(this.label).fontSize(12).fontColor($r('sys.color.font_primary'))
         if (this.note.length > 0) {
           Text(this.note).fontSize(10).fontColor($r('sys.color.font_secondary'))
         }
@@ -212,9 +212,9 @@ export struct WideServerMonitor {
         .width('100%').height(5).color($r('app.color.brand_blue'))
         .backgroundColor($r('sys.color.comp_background_secondary'))
       GridRow({ columns: 12, gutter: { x: 8, y: 0 } }) {
-        GridCol({ span: 4 }) { this.detailCell('用户使用率', this.currentCpu().available ? this.percent(this.currentCpu().user_percent) : '--') }
-        GridCol({ span: 4 }) { this.detailCell('系统使用率', this.currentCpu().available ? this.percent(this.currentCpu().system_percent) : '--') }
-        GridCol({ span: 4 }) { this.detailCell('空闲率', this.currentCpu().available ? this.percent(this.currentCpu().idle_percent) : '--') }
+        GridCol({ span: 4 }) { MonitorDetailCell({ label: '用户使用率', value: this.currentCpu().available ? this.percent(this.currentCpu().user_percent) : '--' }) }
+        GridCol({ span: 4 }) { MonitorDetailCell({ label: '系统使用率', value: this.currentCpu().available ? this.percent(this.currentCpu().system_percent) : '--' }) }
+        GridCol({ span: 4 }) { MonitorDetailCell({ label: '空闲率', value: this.currentCpu().available ? this.percent(this.currentCpu().idle_percent) : '--' }) }
       }.width('100%')
     }.width('100%').padding({ left: 14, right: 14, bottom: 6 }).borderRadius(8)
       .backgroundColor($r('sys.color.comp_background_primary'))
@@ -236,9 +236,9 @@ export struct WideServerMonitor {
         .width('100%').height(5).color($r('app.color.brand_blue'))
         .backgroundColor($r('sys.color.comp_background_secondary'))
       GridRow({ columns: 12, gutter: { x: 8, y: 0 } }) {
-        GridCol({ span: 4 }) { this.detailCell('总内存', this.bytes(this.currentMemory().total_bytes)) }
-        GridCol({ span: 4 }) { this.detailCell('已用内存', this.bytes(this.currentMemory().used_bytes)) }
-        GridCol({ span: 4 }) { this.detailCell('Go 进程', this.bytes(this.currentMemory().process_bytes)) }
+        GridCol({ span: 4 }) { MonitorDetailCell({ label: '总内存', value: this.bytes(this.currentMemory().total_bytes) }) }
+        GridCol({ span: 4 }) { MonitorDetailCell({ label: '已用内存', value: this.bytes(this.currentMemory().used_bytes) }) }
+        GridCol({ span: 4 }) { MonitorDetailCell({ label: 'Go 进程', value: this.bytes(this.currentMemory().process_bytes) }) }
       }.width('100%')
     }.width('100%').padding({ left: 14, right: 14, bottom: 6 }).borderRadius(8)
       .backgroundColor($r('sys.color.comp_background_primary'))
@@ -250,12 +250,12 @@ export struct WideServerMonitor {
     Column() {
       this.sectionTitle('服务器信息')
       GridRow({ columns: 12, gutter: { x: 8, y: 0 } }) {
-        GridCol({ span: 4 }) { this.detailCell('服务器名称', this.currentServer().hostname) }
-        GridCol({ span: 4 }) { this.detailCell('服务器 IP', this.currentServer().ip) }
-        GridCol({ span: 4 }) { this.detailCell('操作系统', `${this.currentServer().os} · ${this.currentServer().arch}`) }
-        GridCol({ span: 4 }) { this.detailCell('进程 ID', this.currentServer().pid > 0 ? this.currentServer().pid.toString() : '--') }
-        GridCol({ span: 4 }) { this.detailCell('架构', this.currentServer().arch) }
-        GridCol({ span: 4 }) { this.detailCell('主机名', this.currentServer().hostname) }
+        GridCol({ span: 4 }) { MonitorDetailCell({ label: '服务器名称', value: this.currentServer().hostname }) }
+        GridCol({ span: 4 }) { MonitorDetailCell({ label: '服务器 IP', value: this.currentServer().ip }) }
+        GridCol({ span: 4 }) { MonitorDetailCell({ label: '操作系统', value: `${this.currentServer().os} · ${this.currentServer().arch}` }) }
+        GridCol({ span: 4 }) { MonitorDetailCell({ label: '进程 ID', value: this.currentServer().pid > 0 ? this.currentServer().pid.toString() : '--' }) }
+        GridCol({ span: 4 }) { MonitorDetailCell({ label: '架构', value: this.currentServer().arch }) }
+        GridCol({ span: 4 }) { MonitorDetailCell({ label: '主机名', value: this.currentServer().hostname }) }
       }.width('100%')
     }.width('100%').padding({ left: 14, right: 14, bottom: 6 }).borderRadius(8)
       .backgroundColor($r('sys.color.comp_background_primary'))
@@ -267,27 +267,16 @@ export struct WideServerMonitor {
     Column() {
       this.sectionTitle('运行时信息')
       GridRow({ columns: 12, gutter: { x: 8, y: 0 } }) {
-        GridCol({ span: 4 }) { this.detailCell('Go 版本', this.currentServer().go_version) }
-        GridCol({ span: 4 }) { this.detailCell('启动时间', this.formatTime(this.currentServer().started_at)) }
-        GridCol({ span: 4 }) { this.detailCell('运行时长', this.currentServer().uptime_text) }
-        GridCol({ span: 4 }) { this.detailCell('Goroutine 数', this.currentServer().goroutines.toString()) }
-        GridCol({ span: 4 }) { this.detailCell('应用版本', '1.0.0') }
-        GridCol({ span: 4 }) { this.detailCell('部署模式', '生产环境') }
+        GridCol({ span: 4 }) { MonitorDetailCell({ label: 'Go 版本', value: this.currentServer().go_version }) }
+        GridCol({ span: 4 }) { MonitorDetailCell({ label: '启动时间', value: this.formatTime(this.currentServer().started_at) }) }
+        GridCol({ span: 4 }) { MonitorDetailCell({ label: '运行时长', value: this.currentServer().uptime_text }) }
+        GridCol({ span: 4 }) { MonitorDetailCell({ label: 'Goroutine 数', value: this.currentServer().goroutines.toString() }) }
+        GridCol({ span: 4 }) { MonitorDetailCell({ label: '应用版本', value: '1.0.0' }) }
+        GridCol({ span: 4 }) { MonitorDetailCell({ label: '部署模式', value: '生产环境' }) }
       }.width('100%')
     }.width('100%').padding({ left: 14, right: 14, bottom: 6 }).borderRadius(8)
       .backgroundColor($r('sys.color.comp_background_primary'))
       .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-  }
-
-  @Builder
-  private detailCell(label: string, value: string) {
-    Column({ space: 5 }) {
-      Text(label).fontSize(10).fontColor($r('sys.color.font_secondary'))
-      Text(value).fontSize(11).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
-        .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-    }.width('100%').height(48).padding({ top: 9, bottom: 7 })
-      .alignItems(HorizontalAlign.Start)
-      .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
   }
 
   @Builder
@@ -360,5 +349,21 @@ export struct WideServerMonitor {
         this.monitorContent()
       }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
     }
+  }
+}
+
+@ComponentV2
+struct MonitorDetailCell {
+  @Param @Require label: string;
+  @Param @Require value: string;
+
+  build() {
+    Column({ space: 5 }) {
+      Text(this.label).fontSize(10).fontColor($r('sys.color.font_secondary'))
+      Text(this.value).fontSize(11).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+        .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+    }.width('100%').height(48).padding({ top: 9, bottom: 7 })
+      .alignItems(HorizontalAlign.Start)
+      .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
   }
 }

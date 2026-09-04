@@ -104,11 +104,16 @@ export struct WideAdminWorkspace {
   @Local coreLoadReady: boolean = false;
   @Local metricSnapshot: AdminMetric[] = [];
   @Local metricSnapshotVersion: number = 0;
+  @Local deviceSnapshot: IotDevice[] = [];
+  @Local deviceSnapshotVersion: number = 0;
+  @Local deviceSnapshotReady: boolean = false;
   @Local chartEldersSnapshot: Elder[] = [];
   @Local chartHealthSnapshot: HealthRecord[] = [];
   @Local dashboardHeight: number = 0;
   @Local metricsHeight: number = 0;
   @Local doctorQuickModule: string = '';
+  private deviceSnapshotSignature: string = '';
+  private deviceSyncTimer: number = -1;
 
   private navItemsForRole(): AdminNavItem[] {
     if (this.isDoctor) {
@@ -143,7 +148,28 @@ export struct WideAdminWorkspace {
   @Monitor('businessStore.coreVersion', 'businessStore.loaded')
   onBusinessDataChange(): void {
     this.coreLoadReady = this.businessStore.loaded;
+    this.deviceSnapshot = this.businessStore.devices.slice();
+    this.deviceSnapshotVersion += 1;
     this.refreshMetricSnapshot();
+  }
+
+  @Monitor('businessStore.devices', 'businessStore.devicesLoaded')
+  onDeviceDataChange(): void {
+    this.refreshDeviceSnapshot();
+  }
+
+  private refreshDeviceSnapshot(): void {
+    const devices: IotDevice[] = this.businessStore.devices.slice();
+    const signature: string = devices.map((device: IotDevice) =>
+      `${device.id}:${device.online}:${device.product}:${device.discovery_status}`).join('|');
+    const ready: boolean = this.businessStore.devicesLoaded;
+    if (signature === this.deviceSnapshotSignature && ready === this.deviceSnapshotReady) {
+      return;
+    }
+    this.deviceSnapshotSignature = signature;
+    this.deviceSnapshot = devices;
+    this.deviceSnapshotReady = ready;
+    this.deviceSnapshotVersion += 1;
   }
 
   private async awaitCoreLoad(): Promise<void> {
@@ -156,7 +182,16 @@ export struct WideAdminWorkspace {
     this.onManagementNavIndexChange();
     this.coreLoadReady = this.businessStore.loaded;
     this.refreshMetricSnapshot();
+    this.refreshDeviceSnapshot();
+    this.deviceSyncTimer = setInterval(() => this.refreshDeviceSnapshot(), 300);
     void this.awaitCoreLoad();
+  }
+
+  aboutToDisappear(): void {
+    if (this.deviceSyncTimer !== -1) {
+      clearInterval(this.deviceSyncTimer);
+      this.deviceSyncTimer = -1;
+    }
   }
 
   private isDataLoading(): boolean {
@@ -616,7 +651,7 @@ export struct WideAdminWorkspace {
   }
 
   private overviewDevices(): IotDevice[] {
-    return this.coreLoadReady ? this.businessStore.devices : [];
+    return this.coreLoadReady ? this.deviceSnapshot : [];
   }
 
   private overviewOnlineCount(): number {
@@ -731,19 +766,21 @@ export struct WideAdminWorkspace {
           .accessibilityText('查看全部设备').onClick(() => this.onManagementNavSelect(6))
       }.width('100%').height(40).padding({ left: 14, right: 14 })
         .border({ width: { bottom: 0.5 }, color: { bottom: $r('app.color.doctor_workspace_border_soft') } })
-      Row({ space: 8 }) {
-        this.deviceOverviewStat('设备总数', this.overviewDeviceTotal().toString(), 'neutral')
-        Divider().vertical(true).height(34).strokeWidth(0.5).color($r('app.color.doctor_workspace_border_soft'))
-        this.deviceOverviewStat('在线', this.overviewOnlineCount().toString(), 'online')
-        Divider().vertical(true).height(34).strokeWidth(0.5).color($r('app.color.doctor_workspace_border_soft'))
-        this.deviceOverviewStat('离线', this.overviewOfflineCount().toString(), 'offline')
-        Divider().vertical(true).height(34).strokeWidth(0.5).color($r('app.color.doctor_workspace_border_soft'))
-        this.deviceOverviewStat('告警', this.overviewWarningCount().toString(), 'warning')
-      }.width('100%').height(64).padding({ top: 8, bottom: 8, left: 8, right: 8 })
-      if (this.isDataLoading()) {
-        Text('正在加载设备数据').width('100%').padding({ top: 28, bottom: 28 })
-          .fontSize(11).fontColor($r('app.color.doctor_workspace_text_tertiary')).textAlign(TextAlign.Center)
+      if (this.deviceSnapshotReady) {
+        Row({ space: 8 }) {
+          this.deviceOverviewStat('设备总数', this.overviewDeviceTotal().toString(), 'neutral')
+          Divider().vertical(true).height(34).strokeWidth(0.5).color($r('app.color.doctor_workspace_border_soft'))
+          this.deviceOverviewStat('在线', this.overviewOnlineCount().toString(), 'online')
+          Divider().vertical(true).height(34).strokeWidth(0.5).color($r('app.color.doctor_workspace_border_soft'))
+          this.deviceOverviewStat('离线', this.overviewOfflineCount().toString(), 'offline')
+          Divider().vertical(true).height(34).strokeWidth(0.5).color($r('app.color.doctor_workspace_border_soft'))
+          this.deviceOverviewStat('告警', this.overviewWarningCount().toString(), 'warning')
+        }.width('100%').height(64).padding({ top: 8, bottom: 8, left: 8, right: 8 })
       } else {
+        Text('正在加载设备数据').width('100%').height(64).padding({ top: 22, bottom: 22 })
+          .fontSize(11).fontColor($r('app.color.doctor_workspace_text_tertiary')).textAlign(TextAlign.Center)
+      }
+      if (this.deviceSnapshotReady && !this.isDataLoading()) {
         GridRow({ columns: 12, gutter: { x: 0, y: 0 } }) {
           ForEach(this.deviceSummaryItems(), (item: AdminDeviceSummary) => {
             GridCol({ span: this.compactWidth ? 12 : 4 }) {
