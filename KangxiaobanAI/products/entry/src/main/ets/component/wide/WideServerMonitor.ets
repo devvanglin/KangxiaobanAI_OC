@@ -50,6 +50,7 @@ export struct WideServerMonitor {
   @Param naviIndicatorHeight: number = 0;
   @Param compactWidth: boolean = false;
   @Param embedded: boolean = false;
+  @Param overviewMode: boolean = false;
   @Param managementScroller: Scroller = new Scroller();
   @Local cpuCores: number = 0;
   @Local cpuUsage: number = 0;
@@ -322,8 +323,80 @@ export struct WideServerMonitor {
       .alignItems(HorizontalAlign.Start)
   }
 
+  private diskUsagePercent(): number {
+    if (this.disks.length === 0) {
+      return 0;
+    }
+    return Math.max(0, Math.min(100, this.disks[0].used_percent));
+  }
+
+  private diskUsageLabel(): string {
+    if (this.disks.length === 0) {
+      return '暂无磁盘数据';
+    }
+    return `${this.percent(this.diskUsagePercent())} · ${this.disks[0].mount}`;
+  }
+
+  @Builder
+  private overviewMetric(label: string, value: string, progress: number) {
+    Column({ space: 8 }) {
+      Row() {
+        Text(label).fontSize(12).fontColor($r('sys.color.font_secondary'))
+        Blank()
+        Text(value).fontSize(21).fontWeight(FontWeight.Bold)
+          .fontColor($r('sys.color.font_primary'))
+      }.width('100%')
+      Progress({ value: Math.max(0, Math.min(100, progress)), total: 100, type: ProgressType.Linear })
+        .width('100%').height(6).color($r('app.color.brand_blue'))
+        .backgroundColor($r('sys.color.comp_background_secondary'))
+    }.width('100%').alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private overviewContent() {
+    Column({ space: 16 }) {
+      Row() {
+        Column({ space: 4 }) {
+          Text('服务器监控').fontSize(17).fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+          Text(this.lastUpdated === '--' ? '等待服务器数据' : `最近更新 ${this.lastUpdated}`)
+            .fontSize(10).fontColor($r('sys.color.font_secondary'))
+        }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+        Text(this.error.length > 0 ? '暂不可用' : '运行正常').fontSize(11)
+          .fontColor(this.error.length > 0 ? $r('app.color.doctor_workspace_danger') :
+            $r('app.color.doctor_workspace_success'))
+      }.width('100%')
+      GridRow({ columns: 12, gutter: { x: 20, y: 16 } }) {
+        GridCol({ span: this.compactWidth ? 12 : 4 }) {
+          this.overviewMetric('CPU', this.cpuAvailable ? this.percent(this.cpuUsage) : '--',
+            this.cpuAvailable ? this.cpuUsage : 0)
+        }
+        GridCol({ span: this.compactWidth ? 12 : 4 }) {
+          this.overviewMetric('内存', this.memoryAvailable ? this.percent(this.memoryUsage) : '--',
+            this.memoryAvailable ? this.memoryUsage : 0)
+        }
+        GridCol({ span: this.compactWidth ? 12 : 4 }) {
+          this.overviewMetric('磁盘', this.diskUsageLabel(), this.diskUsagePercent())
+        }
+      }.width('100%')
+      Row({ space: 20 }) {
+        Text(this.serverHostname === '--' ? '服务器信息等待同步' :
+          `${this.serverHostname} · ${this.serverIp}`).fontSize(10)
+          .fontColor($r('sys.color.font_tertiary')).layoutWeight(1)
+          .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(this.serverUptime === '--' ? '运行时长 --' : `运行时长 ${this.serverUptime}`)
+          .fontSize(10).fontColor($r('sys.color.font_tertiary'))
+      }.width('100%')
+    }.width('100%').padding(20).borderRadius(16)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+      .alignItems(HorizontalAlign.Start)
+  }
+
   build() {
-    if (this.embedded) {
+    if (this.overviewMode) {
+      this.overviewContent()
+    } else if (this.embedded) {
       this.monitorContent()
     } else {
       Scroll(this.managementScroller) {

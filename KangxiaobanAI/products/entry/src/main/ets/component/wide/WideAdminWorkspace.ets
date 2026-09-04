@@ -225,6 +225,11 @@ export struct WideAdminWorkspace {
       })
   }
 
+  private overviewMetricTone(metric: AdminMetric): ResourceColor {
+    return metric.tone === 'danger' ? $r('app.color.doctor_workspace_danger') :
+      $r('app.color.doctor_workspace_text_primary');
+  }
+
   private events(): AdminEvent[] {
     const alerts: Alert[] = this.coreLoadReady ? this.businessStore.alerts : [];
     return alerts.map((item: Alert): AdminEvent => ({
@@ -521,20 +526,12 @@ export struct WideAdminWorkspace {
   @Builder
   private metricCard(metric: AdminMetric) {
     Column({ space: this.isDoctor ? 6 : 8 }) {
-      if (!this.isDoctor) {
-        Row() {
-          Text(metric.label).fontSize(12).fontColor($r('app.color.doctor_workspace_text_secondary'))
-            .layoutWeight(1)
-          Text('实时').fontSize(9).fontColor($r('app.color.doctor_workspace_text_tertiary'))
-        }.width('100%')
-      }
-      if (this.isDoctor) {
-        Text(metric.label).fontSize(16).fontColor($r('app.color.doctor_workspace_text_secondary')).width('100%')
-      }
+      Text(metric.label).fontSize(this.isDoctor ? 16 : 12)
+        .fontColor($r('app.color.doctor_workspace_text_secondary')).width('100%')
       Text(metric.value).fontSize(this.isDoctor ? 40 : 30).fontWeight(FontWeight.Bold)
         .fontColor($r('app.color.doctor_workspace_text_primary')).width('100%')
       if (!this.isDoctor) {
-        Text(metric.note).fontSize(13).fontColor(this.toneColor(metric.tone)).width('100%')
+        Text(metric.note).fontSize(12).fontColor(this.overviewMetricTone(metric)).width('100%')
       }
     }
     .width('100%').height(this.isDoctor ? 108 : 144).padding(16).borderRadius(14)
@@ -689,39 +686,25 @@ export struct WideAdminWorkspace {
             Text('服务器监控、床位使用与设备状态').fontSize(11)
               .fontColor($r('app.color.doctor_workspace_text_secondary'))
           }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-          Text('实时数据').fontSize(10).fontColor($r('app.color.doctor_workspace_text_secondary'))
-            .padding({ left: 12, right: 12, top: 8, bottom: 8 }).borderRadius(10)
-            .backgroundColor($r('app.color.doctor_workspace_surface'))
         }.width('100%').alignItems(VerticalAlign.Center)
-        this.metricsGrid(this.coreLoadReady)
-        Column({ space: 12 }) {
-          Text('服务器监控').fontSize(16).fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.doctor_workspace_text_primary')).width('100%')
-          WideServerMonitor({ compactWidth: this.compactWidth, embedded: true }).width('100%')
-        }.width('100%').padding(18).borderRadius(16)
-          .backgroundColor($r('app.color.doctor_workspace_surface'))
-          .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
+        WideServerMonitor({ compactWidth: this.compactWidth, overviewMode: true }).width('100%')
         GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
           GridCol({ span: this.compactWidth ? 12 : 6 }) { this.occupancyPanel() }
           GridCol({ span: this.compactWidth ? 12 : 6 }) { this.deviceOverviewPanel() }
         }.width('100%')
-        Column({ space: 0 }) {
-          Row() {
-            Text('今日运营关注').fontSize(16).fontWeight(FontWeight.Bold)
-              .fontColor($r('app.color.doctor_workspace_text_primary'))
-            Blank()
-            Text(`${this.events().length} 项`).fontSize(10)
-              .fontColor($r('app.color.doctor_workspace_text_tertiary'))
-          }.width('100%').height(52).padding({ left: 16, right: 16 })
-          if (this.events().length === 0) {
-            Text(this.isDataLoading() ? '正在加载告警数据' : '暂无运营关注事项').width('100%')
-              .padding({ top: 46, bottom: 46 }).fontSize(11)
-              .fontColor($r('app.color.doctor_workspace_text_tertiary')).textAlign(TextAlign.Center)
-          } else {
+        if (this.events().length > 0) {
+          Column({ space: 0 }) {
+            Row() {
+              Text('需要关注').fontSize(16).fontWeight(FontWeight.Bold)
+                .fontColor($r('app.color.doctor_workspace_text_primary'))
+              Blank()
+              Text(`${this.events().length} 项`).fontSize(10)
+                .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+            }.width('100%').height(52).padding({ left: 16, right: 16 })
             ForEach(this.events(), (item: AdminEvent) => this.eventRow(item), (item: AdminEvent) => item.id)
-          }
-        }.width('100%').borderRadius(16).backgroundColor($r('app.color.doctor_workspace_surface'))
-          .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
+          }.width('100%').borderRadius(16).backgroundColor($r('app.color.doctor_workspace_surface'))
+            .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
+        }
       }.width('100%').padding({ left: this.compactWidth ? 20 : 28, right: this.compactWidth ? 20 : 28,
         top: this.contentTopPadding(), bottom: this.dashboardBottomPadding() }).alignItems(HorizontalAlign.Start)
     }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
