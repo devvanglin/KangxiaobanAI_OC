@@ -71,8 +71,10 @@ export struct WideDeviceManagement {
     if (area !== undefined) {
       return area.name;
     }
-    if (device.building.length > 0 || device.room.length > 0) {
-      return `${device.building}${device.building.length > 0 && device.room.length > 0 ? ' · ' : ''}${device.room}`;
+    const building: string = device.building ?? '';
+    const room: string = device.room ?? '';
+    if (building.length > 0 || room.length > 0) {
+      return `${building}${building.length > 0 && room.length > 0 ? ' · ' : ''}${room}`;
     }
     return '未分配区域';
   }
@@ -91,6 +93,18 @@ export struct WideDeviceManagement {
     return device.online === 1 ? $r('app.color.doctor_workspace_success') : $r('sys.color.font_tertiary');
   }
 
+  private streamValue(device: IotDevice): string {
+    return device.stream_url ?? '';
+  }
+
+  private deviceIdValue(device: IotDevice): string {
+    return device.device_id ?? '--';
+  }
+
+  private batteryValue(device: IotDevice): string {
+    return device.battery === undefined || device.battery === null ? '毫米波信号等待上报' : `电量 ${device.battery}% · 毫米波信号`;
+  }
+
   @Builder
   private deviceCard(device: IotDevice) {
     Column({ space: 12 }) {
@@ -100,7 +114,7 @@ export struct WideDeviceManagement {
         }.width(44).height(44).justifyContent(FlexAlign.Center).backgroundColor($r('sys.color.comp_background_secondary')).borderRadius(12)
         Column({ space: 4 }) {
           Text(this.productName(device.product)).fontSize(15).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
-          Text(device.device_id).fontSize(11).fontColor($r('sys.color.font_secondary')).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text(this.deviceIdValue(device)).fontSize(11).fontColor($r('sys.color.font_secondary')).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
         }.layoutWeight(1).alignItems(HorizontalAlign.Start)
         Text(this.deviceStatus(device)).fontSize(11).fontColor(this.deviceStatusColor(device)).padding({ left: 9, right: 9, top: 5, bottom: 5 }).backgroundColor(device.online === 1 ? $r('app.color.status_normal_bg') : $r('sys.color.comp_background_secondary')).borderRadius(12)
       }.width('100%')
@@ -116,16 +130,16 @@ export struct WideDeviceManagement {
         }.width(82).alignItems(HorizontalAlign.Start)
         Column({ space: 5 }) {
           Text('最近上报').fontSize(11).fontColor($r('sys.color.font_tertiary'))
-          Text(device.last_seen === undefined ? '--' : device.last_seen.slice(11, 19)).fontSize(13).fontColor($r('sys.color.font_primary'))
+          Text(device.last_seen === undefined || device.last_seen === null ? '--' : device.last_seen.slice(11, 19)).fontSize(13).fontColor($r('sys.color.font_primary'))
         }.width(82).alignItems(HorizontalAlign.Start)
       }.width('100%')
       if (device.device_type === 'camera') {
-        Text(device.stream_url === undefined || device.stream_url.length === 0 ? '未配置 RTSP 流地址' : device.stream_url).fontSize(11).fontColor($r('sys.color.font_secondary')).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(this.streamValue(device).length === 0 ? '未配置 RTSP 流地址' : this.streamValue(device)).fontSize(11).fontColor($r('sys.color.font_secondary')).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
       } else {
-        Text(device.battery === undefined ? '毫米波信号等待上报' : `电量 ${device.battery}% · 毫米波信号`).fontSize(11).fontColor($r('sys.color.font_secondary'))
+        Text(this.batteryValue(device)).fontSize(11).fontColor($r('sys.color.font_secondary'))
       }
       Row({ space: 8 }) {
-        if (device.device_type === 'camera' && device.stream_url !== undefined && device.stream_url.length > 0) {
+        if (device.device_type === 'camera' && this.streamValue(device).length > 0) {
           Button('预览').layoutWeight(1).height(32).fontSize(11).onClick(() => this.openPreview(device))
         }
         if (device.device_type !== 'camera') {

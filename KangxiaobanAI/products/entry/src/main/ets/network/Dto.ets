@@ -317,7 +317,7 @@ export interface IotDevice {
   elder_id?: number;
   online: number;
   battery?: number;
-  last_seen?: string;
+  last_seen?: string | null;
   protocol: string;
   stream_url?: string;
   stream_status?: string;
