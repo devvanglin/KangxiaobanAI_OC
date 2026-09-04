@@ -13,7 +13,7 @@ export struct WideDoctorTitleActions {
   private navigationItems(): WideSlidingCapsuleItem[] {
     if (!this.isDoctor) {
       return [
-        { title: '服务器', symbol: $r('sys.symbol.desktop_fill'), index: 0 },
+        { title: '总览', symbol: $r('sys.symbol.square_grid_2x2'), index: 0 },
         { title: '角色', symbol: $r('sys.symbol.key_shield_badge_person_crop_circle_fill'), index: 1 },
         { title: '用户', symbol: $r('sys.symbol.person_crop_circle_fill'), index: 2 },
         { title: '区域', symbol: $r('sys.symbol.square_grid_2x2'), index: 3 },

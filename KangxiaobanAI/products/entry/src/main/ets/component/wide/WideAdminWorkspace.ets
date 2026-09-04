@@ -2,7 +2,6 @@ import { KeyCode } from '@kit.InputKit';
 import ApiClient from '../../network/ApiClient';
 import { BusinessStore } from '../../network/BusinessStore';
 import { Alert, Bed, CareTask, Elder, HealthRecord, Room, Schedule } from '../../network/Dto';
-import { WideServerMonitor } from './WideServerMonitor';
 import { WideRoleManagement } from './WideRoleManagement';
 import { WideUserManagement } from './WideUserManagement';
 import { WideAreaManagement } from './WideAreaManagement';
@@ -105,7 +104,7 @@ export struct WideAdminWorkspace {
       ];
     }
     return [
-      { id: 'overview', label: '服务器监控', symbol: $r('sys.symbol.desktop_fill') },
+      { id: 'overview', label: '总览', symbol: $r('sys.symbol.square_grid_2x2') },
       { id: 'roles', label: '角色管理', symbol: $r('sys.symbol.key_shield_badge_person_crop_circle_fill') },
       { id: 'users', label: '用户', symbol: $r('sys.symbol.person_crop_circle_fill') },
       { id: 'areas', label: '区域', symbol: $r('sys.symbol.square_grid_2x2') },
@@ -349,16 +348,16 @@ export struct WideAdminWorkspace {
 
   private title(): string {
     return this.navItemsForRole().find((item: AdminNavItem) => item.id === this.selectedNavId)?.label ??
-      (this.isDoctor ? '临床工作台' : '服务器监控');
+      (this.isDoctor ? '临床工作台' : '总览');
   }
 
   private workspaceTitle(): string {
-    return this.isDoctor ? '医师工作台' : '服务器监控';
+    return this.isDoctor ? '医师工作台' : '总览';
   }
 
   private workspaceSubtitle(): string {
     return this.isDoctor ? '围绕长者档案与康小伴 AI 开展今日工作' :
-      '查看当前后端主机、进程与磁盘资源状态';
+      '掌握机构运营、床位使用与实时风险';
   }
 
   private doctorQuickFunctions(): DoctorQuickFunction[] {
@@ -520,27 +519,26 @@ export struct WideAdminWorkspace {
 
   @Builder
   private metricCard(metric: AdminMetric) {
-    Column({ space: this.isDoctor ? 6 : 12 }) {
+    Column({ space: this.isDoctor ? 6 : 8 }) {
       if (!this.isDoctor) {
         Row() {
           Stack({ alignContent: Alignment.Center }) {
-            Row().width(38).height(38).borderRadius(12).backgroundColor($r('app.color.doctor_workspace_surface_hover'))
-            SymbolGlyph(metric.symbol).fontSize(20).fontColor([this.toneColor(metric.tone)])
+            Row().width(32).height(32).borderRadius(10).backgroundColor($r('app.color.doctor_workspace_surface_hover'))
+            SymbolGlyph(metric.symbol).fontSize(17).fontColor([this.toneColor(metric.tone)])
           }
           Blank()
-          Text('服务器数据').fontSize(9)
-            .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+          Text('实时').fontSize(9).fontColor($r('app.color.doctor_workspace_text_tertiary'))
         }.width('100%')
       }
       Text(metric.label).fontSize(this.isDoctor ? 16 : 12)
         .fontColor($r('app.color.doctor_workspace_text_secondary')).width('100%')
-      Text(metric.value).fontSize(this.isDoctor ? 40 : 28).fontWeight(FontWeight.Bold)
+      Text(metric.value).fontSize(this.isDoctor ? 40 : 30).fontWeight(FontWeight.Bold)
         .fontColor($r('app.color.doctor_workspace_text_primary')).width('100%')
       if (!this.isDoctor) {
         Text(metric.note).fontSize(13).fontColor(this.toneColor(metric.tone)).width('100%')
       }
     }
-    .width('100%').height(this.isDoctor ? 108 : 176).padding(this.isDoctor ? 16 : 16).borderRadius(16)
+    .width('100%').height(this.isDoctor ? 108 : 144).padding(16).borderRadius(14)
     .backgroundColor($r('app.color.doctor_workspace_surface'))
     .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
     .alignItems(HorizontalAlign.Start)
@@ -550,9 +548,6 @@ export struct WideAdminWorkspace {
   @Builder
   private eventRow(item: AdminEvent) {
     Row({ space: 12 }) {
-      if (!this.isDoctor) {
-        Row().width(4).height(42).borderRadius(2).backgroundColor(this.toneColor(item.tone))
-      }
       Column({ space: 4 }) {
         Text(item.title).fontSize(13).fontWeight(FontWeight.Medium)
           .fontColor($r('app.color.doctor_workspace_text_primary')).maxLines(1).width('100%')
@@ -791,9 +786,9 @@ export struct WideAdminWorkspace {
         .fontSize(42).fontColor([$r('app.color.doctor_workspace_accent')])
       Text(this.title()).fontSize(26).fontWeight(FontWeight.Bold)
         .fontColor($r('app.color.doctor_workspace_text_primary'))
-      Text(this.isDoctor ? '该医师工作模块尚未开放服务器业务接口。' : '该模块尚未开放服务器业务接口。')
+      Text(this.isDoctor ? '该医师工作模块尚未开放服务器业务接口。' : '该模块尚未开放业务接口。')
         .fontSize(12).fontColor($r('app.color.doctor_workspace_text_secondary'))
-      Button(this.isDoctor ? '返回医师工作台' : '返回服务器监控').height(40).borderRadius(12).fontSize(12)
+      Button(this.isDoctor ? '返回医师工作台' : '返回总览').height(40).borderRadius(12).fontSize(12)
         .fontColor($r('app.color.doctor_workspace_background'))
         .backgroundColor($r('app.color.doctor_workspace_text_primary'))
         .onClick(() => this.selectedNavId = 'overview')
@@ -811,12 +806,7 @@ export struct WideAdminWorkspace {
             this.dashboard()
           }
         } else {
-          WideServerMonitor({
-            statusBarHeight: this.statusBarHeight,
-            naviIndicatorHeight: this.naviIndicatorHeight,
-            compactWidth: this.compactWidth,
-            managementScroller: this.managementScroller
-          })
+          this.dashboard()
         }
       } else if (!this.isDoctor && this.selectedNavId === 'roles') {
         WideRoleManagement({
