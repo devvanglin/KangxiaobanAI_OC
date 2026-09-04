@@ -70,7 +70,8 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	taskHandler := handler.NewTaskHandler(taskSvc, hub)
 	healthHandler := handler.NewHealthHandler(healthSvc, hub)
 	wsHandler := handler.NewWSHandler(hub, cfg.JWT.Secret)
-	iotHandler := handler.NewIotHandler(iotSvc)
+	streamMgr := iot.NewStreamManager(cfg.Stream, cfg.JWT.Secret)
+	iotHandler := handler.NewIotHandler(iotSvc, streamMgr)
 	m4Handler := handler.NewM4Handler(scheduleSvc, financeSvc, medicationSvc, auditSvc)
 	supplyHandler := handler.NewSupplyHandler(supplySvc)
 	aiHandler := handler.NewAIHandler(aiSvc)
@@ -95,6 +96,8 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	r.GET("/api/v1/public/dashboard", dashboardHandler.PublicSummary)
 	// WebSocket 实时推送：token 经 query 或 Authorization 头，由 WSHandler 自行校验
 	r.GET("/api/v1/ws", wsHandler.Serve)
+	// 摄像头 HLS 预览分片：播放器不带 Authorization 头，改用签名令牌（放在路径里，随相对分片请求自动携带）
+	r.GET("/api/v1/iot/preview/:id/:token/:file", iotHandler.ServeStream)
 
 	// 需认证
 	authed := r.Group("/api/v1")
@@ -203,6 +206,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		authed.POST("/iot/devices", perm("admin:all"), iotHandler.CreateDevice)
 		authed.PATCH("/iot/devices/:id", perm("admin:all"), iotHandler.UpdateDevice)
 		authed.GET("/iot/devices/:id/signals", perm("alert:read"), iotHandler.ListSignals)
+		authed.GET("/iot/devices/:id/preview", perm("admin:all"), iotHandler.Preview)
 		authed.POST("/iot/devices/:id/probe", perm("admin:all"), iotHandler.Probe)
 		authed.DELETE("/iot/devices/:id", perm("admin:all"), iotHandler.DeleteDevice)
 		authed.GET("/alerts", perm("alert:read"), iotHandler.ListAlerts)

@@ -14,7 +14,8 @@ import (
 
 // IotHandler 物联网设备与告警。
 type IotHandler struct {
-	svc *iot.IotService
+	svc    *iot.IotService
+	ffmpeg *iot.StreamManager
 }
 
 type deviceCreateReq struct {
@@ -68,8 +69,8 @@ func (h *IotHandler) DeleteDevice(c *gin.Context) {
 	OK(c, gin.H{"deleted": true})
 }
 
-func NewIotHandler(svc *iot.IotService) *IotHandler {
-	return &IotHandler{svc: svc}
+func NewIotHandler(svc *iot.IotService, ffmpeg *iot.StreamManager) *IotHandler {
+	return &IotHandler{svc: svc, ffmpeg: ffmpeg}
 }
 
 // ListDevices GET /api/v1/iot/devices
@@ -128,6 +129,42 @@ func (h *IotHandler) UpdateDevice(c *gin.Context) {
 		return
 	}
 	OK(c, gin.H{"id": id, "updated": true})
+}
+
+// Preview GET /api/v1/iot/devices/:id/preview —— 返回该摄像头可播放的 HLS 地址。
+func (h *IotHandler) Preview(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	device, err := h.svc.GetDevice(c.Request.Context(), uint(id))
+	if err != nil {
+		Fail(c, 404, 404, "设备不存在")
+		return
+	}
+	if device.DeviceType != "camera" || device.StreamURL == "" {
+		Fail(c, 400, 400, "该设备不是摄像头或未配置 RTSP 地址")
+		return
+	}
+	if h.ffmpeg == nil || !h.ffmpeg.Enabled() {
+		Fail(c, 503, 503, "转码服务未启用，请检查 KXB_STREAM_ENABLED")
+		return
+	}
+	url, err := h.ffmpeg.Preview(uint(id), device.StreamURL)
+	if err != nil {
+		_ = h.svc.UpdateDevice(c.Request.Context(), uint(id), map[string]interface{}{"stream_status": "error"})
+		Fail(c, 503, 503, "RTSP 转码启动失败: "+err.Error())
+		return
+	}
+	_ = h.svc.UpdateDevice(c.Request.Context(), uint(id), map[string]interface{}{"stream_status": "online"})
+	OK(c, gin.H{"id": id, "url": url, "stream_url": device.StreamURL})
+}
+
+// ServeStream GET /api/v1/iot/preview/:id/:token/:file —— 供播放器（不带 Authorization 头）拉取 HLS 分片。
+func (h *IotHandler) ServeStream(c *gin.Context) {
+	if h.ffmpeg == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"code": 503, "msg": "转码服务不可用"})
+		return
+	}
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	h.ffmpeg.Serve(uint(id), c.Param("file"), c.Param("token"), c.Writer, c.Request)
 }
 
 func (h *IotHandler) ListSignals(c *gin.Context) {

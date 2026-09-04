@@ -1,6 +1,9 @@
 import { BusinessStore } from '../../network/BusinessStore';
 import { Area, IotDevice, Room } from '../../network/Dto';
 import ApiClient from '../../network/ApiClient';
+import { ApiConfig } from '../../network/ApiConfig';
+
+interface PreviewResult { id: number; url: string; stream_url: string; }
 
 interface DeviceCreateRequest { device_id: string; product: string; device_type: string; room: string; building: string; bed: string; area_id?: number; stream_url?: string; }
 interface DeviceUpdateRequest { device_type: string; room: string; building: string; bed: string; area_id?: number; stream_url?: string; }
@@ -120,7 +123,20 @@ export struct WideDeviceManagement {
     }
   }
 
-  private openPreview(device: IotDevice): void { this.previewUrl = device.stream_url ?? ''; }
+  private async openPreview(device: IotDevice): Promise<void> {
+    this.error = '';
+    this.videoController.pause();
+    try {
+      const response = await ApiClient.get<PreviewResult>(`/iot/devices/${device.id}/preview`);
+      if (response.code !== 0 || response.data === undefined) {
+        throw new Error(response.msg);
+      }
+      // 后端把 RTSP 转成 HLS，这里播放 HLS 地址（HarmonyOS Video 不直接支持 RTSP）。
+      this.previewUrl = ApiConfig.API_BASE + response.data.url;
+    } catch (_error) {
+      this.error = '视频预览启动失败：请确认后端已部署 ffmpeg 且摄像头 RTSP 可达';
+    }
+  }
 
   private async openSignals(device: IotDevice): Promise<void> {
     try {

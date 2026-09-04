@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -13,6 +14,7 @@ type Config struct {
 	JWT      JWTConfig
 	MQTT     MQTTConfig
 	AI       AIConfig
+	Stream   StreamConfig
 }
 
 type ServerConfig struct {
@@ -47,6 +49,15 @@ type DBConfig struct {
 type JWTConfig struct {
 	Secret string
 	Expire int64 // 秒
+}
+
+// StreamConfig 摄像头 RTSP→HLS 转码预览配置。
+type StreamConfig struct {
+	Enabled    bool
+	FfmpegPath string        // ffmpeg 可执行文件路径；为空则用 PATH 中的 ffmpeg
+	Dir        string        // HLS 分片输出根目录
+	TokenTTL   time.Duration // 预览令牌有效期
+	IdleTTL    time.Duration // 会话空闲多久后自动回收转码进程
 }
 
 // MQTTConfig 物联网 Broker 接入（雷达等设备）。
@@ -95,6 +106,13 @@ func Load() *Config {
 			APIKey:       os.Getenv("KXB_AI_API_KEY"),
 			ConfigKey:    env("KXB_AI_CONFIG_KEY", env("KXB_JWT_SECRET", "change-me-in-production")),
 			SystemPrompt: env("KXB_AI_SYSTEM_PROMPT", "你是康小伴智慧康养护理平台的照护助理，回答须谨慎、贴题、仅作参考，不做临床诊断。"),
+		},
+		Stream: StreamConfig{
+			Enabled:    env("KXB_STREAM_ENABLED", "true") == "true",
+			FfmpegPath: env("KXB_FFMPEG_PATH", ""),
+			Dir:        env("KXB_STREAM_DIR", "streams"),
+			TokenTTL:   time.Duration(envInt("KXB_STREAM_TOKEN_TTL_SECONDS", 7200)) * time.Second,
+			IdleTTL:    time.Duration(envInt("KXB_STREAM_IDLE_TTL_SECONDS", 120)) * time.Second,
 		},
 	}
 }
