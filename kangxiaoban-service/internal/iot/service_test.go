@@ -1,6 +1,7 @@
 package iot
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -126,5 +127,37 @@ func TestIotEvaluationUsesDatabaseCooldownPolicy(t *testing.T) {
 	}
 	if count != 2 {
 		t.Fatalf("alert count = %d, want 2 from one-second database cooldown", count)
+	}
+}
+
+func TestListDevicesHidesDisabledSeedRows(t *testing.T) {
+	dsn := fmt.Sprintf("file:iot_list_%d?mode=memory&cache=shared", time.Now().UnixNano())
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.RegisterTenantScope(db); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.Tenant{}, &model.IotDevice{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.Tenant{Base: model.Base{ID: 1, TenantID: 1}, Code: "default", Name: "测试机构", Status: 1}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&[]model.IotDevice{
+		{DeviceID: "disabled-seed", DeviceType: "millimeter_wave", Protocol: "MQTT", DiscoveryStatus: "disabled"},
+		{DeviceID: "real-camera", DeviceType: "camera", Protocol: "RTSP", DiscoveryStatus: "claimed"},
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	service := NewIotService(db, ws.NewHub())
+	devices, total, err := service.ListDevices(context.Background(), 1, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 1 || len(devices) != 1 || devices[0].DeviceID != "real-camera" {
+		t.Fatalf("list = %+v, total = %d; disabled device should be hidden", devices, total)
 	}
 }

@@ -104,6 +104,9 @@ func (s *IotService) IngestContext(ctx context.Context, deviceID, product string
 		}
 	} else {
 		updates := map[string]interface{}{"online": 1, "last_seen": now}
+		if dev.DiscoveryStatus == "disabled" {
+			updates["discovery_status"] = "pending"
+		}
 		if product != "" && dev.Product == "" {
 			updates["product"] = product
 		}
@@ -293,6 +296,7 @@ func (s *IotService) contextForDevice(deviceID string) context.Context {
 // ListDevices 设备列表。
 func (s *IotService) ListDevices(ctx context.Context, page, size int) ([]model.IotDevice, int64, error) {
 	q := s.db.WithContext(ctx).Model(&model.IotDevice{})
+	q = q.Where("discovery_status <> ? OR discovery_status IS NULL", "disabled")
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err

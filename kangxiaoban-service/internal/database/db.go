@@ -149,6 +149,9 @@ func AutoMigrateAndSeed(db *gorm.DB, seedBusiness bool) error {
 	if err := backfillAreas(db); err != nil {
 		return fmt.Errorf("backfill areas: %w", err)
 	}
+	if err := removeLegacySeedIotData(db); err != nil {
+		return fmt.Errorf("remove legacy IoT seed data: %w", err)
+	}
 	if seedBusiness {
 		if err := seedBusinessData(db); err != nil {
 			return err
@@ -835,62 +838,15 @@ func seedBusinessData(db *gorm.DB) error {
 }
 
 func seedBusinessDataTx(db *gorm.DB) error {
-	var devCount int64
-	if err := db.Model(&model.IotDevice{}).Count(&devCount).Error; err != nil {
-		return err
-	}
 	now := time.Now()
 	caregiverName := formalUserDisplayName(db, "xiaoli", "护理员")
 	doctorName := formalUserDisplayName(db, "xiaomo", "医师")
 
-	// 设备（绑定在院长者）
+	// 设备只由 MQTT 自动发现或管理员手动添加，不再写入演示设备。
 	var elders []model.Elder
 	if err := db.Preload("Bed.Room").Where("status = 2").Order("id").Find(&elders).Error; err != nil {
 		return err
 	}
-	bind := func(i int) *uint {
-		if i < len(elders) {
-			id := elders[i].ID
-			return &id
-		}
-		return nil
-	}
-	if devCount == 0 {
-		devices := []model.IotDevice{{DeviceID: "E438192587C3", Product: "fall_radar", Online: 0, Protocol: "MQTT"}}
-		if elder := bind(0); elder != nil {
-			device := model.IotDevice{DeviceID: "E438192584AA", Product: "fall_radar", Online: 1, ElderID: elder, Protocol: "MQTT", Battery: pi(87), LastSeen: &now}
-			applyDevicePlacement(&device, elders[0])
-			devices = append([]model.IotDevice{device}, devices...)
-		}
-		if elder := bind(1); elder != nil {
-			device := model.IotDevice{DeviceID: "E438192584F5", Product: "breath_radar", Online: 1, ElderID: elder, Protocol: "MQTT", Battery: pi(76), LastSeen: &now}
-			applyDevicePlacement(&device, elders[1])
-			devices = append([]model.IotDevice{device}, devices...)
-		}
-		for i := range devices {
-			if err := db.Create(&devices[i]).Error; err != nil {
-				return err
-			}
-		}
-
-		// 告警分级与状态，仅为实际绑定的长者生成关联告警。
-		alerts := make([]model.Alert, 0, 3)
-		if elder := bind(0); elder != nil {
-			alerts = append(alerts,
-				model.Alert{ElderID: elder, DeviceID: "E438192584AA", Type: "fall", Level: "emergency", Content: "长者[" + elderName(db, elder) + "] 检测到跌倒", Status: "new", CreateTime: now},
-				model.Alert{ElderID: elder, DeviceID: "E438192584AA", Type: "offline", Level: "info", Content: "设备离线(超过60s无上报)", Status: "handled", HandledBy: "系统自动处置", CreateTime: now.Add(-3 * time.Hour)},
-			)
-		}
-		if elder := bind(1); elder != nil {
-			alerts = append(alerts, model.Alert{ElderID: elder, DeviceID: "E438192584F5", Type: "breath_abnormal", Level: "important", Content: "长者[" + elderName(db, elder) + "] 呼吸异常(次/分=28)", Status: "new", CreateTime: now.Add(-2 * time.Minute)})
-		}
-		for i := range alerts {
-			if err := db.Create(&alerts[i]).Error; err != nil {
-				return err
-			}
-		}
-	}
-
 	// 当月账单（在院长者）
 	month := now.Format("2006-01")
 	for _, e := range elders {
@@ -925,16 +881,6 @@ func seedBusinessDataTx(db *gorm.DB) error {
 			return err
 		}
 	}
-	var iotHealthCount int64
-	if err := db.Model(&model.HealthRecord{}).Where("source = ?", "iot").Count(&iotHealthCount).Error; err != nil {
-		return err
-	}
-	if iotHealthCount == 0 && len(elders) > 0 {
-		if err := db.Create(&model.HealthRecord{ElderID: elders[0].ID, Temperature: fp(36.6), Systolic: pi(132), Diastolic: pi(82), HeartRate: pi(78), Spo2: fp(97), RespiratoryRate: pi(18), Steps: pi(3860), SleepHours: fp(6.8), Source: "iot", RecordTime: now}).Error; err != nil {
-			return err
-		}
-	}
-
 	// 其余业务模块按表为空时初始化，重复启动不会重复插入。
 	var flowCount int64
 	if err := db.Model(&model.FundFlow{}).Count(&flowCount).Error; err != nil {

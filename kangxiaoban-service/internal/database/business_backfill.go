@@ -145,6 +145,11 @@ func backfillHealthRecords(db *gorm.DB) error {
 }
 
 func applyBootstrapHealthMetrics(record *model.HealthRecord, elderName string) {
+	// IoT records are projections of real MQTT frames. Never fill missing
+	// metrics with the caregiver demo values during startup backfill.
+	if record.Source == "iot" {
+		return
+	}
 	if record.RespiratoryRate != nil || record.Steps != nil || record.SleepHours != nil {
 		return
 	}
@@ -165,14 +170,8 @@ func backfillIotDevices(db *gorm.DB) error {
 	if err := db.Find(&devices).Error; err != nil {
 		return err
 	}
-	bootstrapBattery := map[string]int{"E438192584AA": 87, "E438192584F5": 76}
 	for i := range devices {
 		updates := make(map[string]interface{})
-		if devices[i].Battery == nil {
-			if value, ok := bootstrapBattery[devices[i].DeviceID]; ok {
-				updates["battery"] = value
-			}
-		}
 		if devices[i].ElderID != nil && (devices[i].Building == "" || devices[i].Room == "" || devices[i].Bed == "") {
 			var elder model.Elder
 			if err := db.Preload("Bed.Room").First(&elder, *devices[i].ElderID).Error; err == nil && elder.Bed != nil {

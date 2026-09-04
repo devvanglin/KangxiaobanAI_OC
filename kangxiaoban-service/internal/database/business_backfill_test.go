@@ -412,12 +412,12 @@ func assertBusinessSeed(t *testing.T, db *gorm.DB) {
 		t.Fatalf("health business fields incomplete: %+v", health)
 	}
 
-	var device model.IotDevice
-	if err := db.Where("elder_id = ?", elder.ID).First(&device).Error; err != nil {
+	var deviceCount int64
+	if err := db.Model(&model.IotDevice{}).Count(&deviceCount).Error; err != nil {
 		t.Fatal(err)
 	}
-	if device.Battery == nil || device.Building == "" || device.Room == "" || device.Bed == "" {
-		t.Fatalf("device business fields or relation incomplete: %+v", device)
+	if deviceCount != 0 {
+		t.Fatalf("business seed unexpectedly created IoT devices: %d", deviceCount)
 	}
 
 	var medication model.MedicationRecord

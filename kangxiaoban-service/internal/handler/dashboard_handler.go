@@ -38,8 +38,8 @@ func (h *DashboardHandler) Summary(c *gin.Context) {
 	db.Model(&model.Elder{}).Count(&eldersTotal)
 	db.Model(&model.Elder{}).Where("status = 2").Count(&eldersInBed)
 	// 设备
-	db.Model(&model.IotDevice{}).Count(&devicesTotal)
-	db.Model(&model.IotDevice{}).Where("online = 1").Count(&devicesOnline)
+	db.Model(&model.IotDevice{}).Where("discovery_status <> ? OR discovery_status IS NULL", "disabled").Count(&devicesTotal)
+	db.Model(&model.IotDevice{}).Where("(discovery_status <> ? OR discovery_status IS NULL) AND online = 1", "disabled").Count(&devicesOnline)
 	// 告警
 	db.Model(&model.Alert{}).Count(&alertsTotal)
 	db.Model(&model.Alert{}).Where("status = 'new'").Count(&alertsNew)
@@ -74,8 +74,8 @@ func (h *DashboardHandler) PublicSummary(c *gin.Context) {
 		return
 	}
 	db.Model(&model.Elder{}).Where("status = 2").Count(&eldersInBed)
-	db.Model(&model.IotDevice{}).Count(&devicesTotal)
-	db.Model(&model.IotDevice{}).Where("online = 1").Count(&devicesOnline)
+	db.Model(&model.IotDevice{}).Where("discovery_status <> ? OR discovery_status IS NULL", "disabled").Count(&devicesTotal)
+	db.Model(&model.IotDevice{}).Where("(discovery_status <> ? OR discovery_status IS NULL) AND online = 1", "disabled").Count(&devicesOnline)
 	db.Model(&model.Alert{}).Where("status = 'new'").Count(&alertsNew)
 	db.Model(&model.Alert{}).Where("level = 'emergency' AND status != 'closed'").Count(&alertsEmergency)
 	db.Model(&model.CareTask{}).Where("status = 'todo'").Count(&tasksTodo)
@@ -103,7 +103,7 @@ func (h *DashboardHandler) PublicSummary(c *gin.Context) {
 	}
 
 	var devices []model.IotDevice
-	if err := db.Order("online desc, last_seen desc, id desc").Limit(12).Find(&devices).Error; err != nil {
+	if err := db.Where("discovery_status <> ? OR discovery_status IS NULL", "disabled").Order("online desc, last_seen desc, id desc").Limit(12).Find(&devices).Error; err != nil {
 		Fail(c, 500, 500, "查询公开设备数据失败")
 		return
 	}
@@ -293,7 +293,7 @@ func (h *DashboardHandler) Cockpit(c *gin.Context) {
 		db.Where("status = ?", 2).Order("id").Find(&elders).Error,
 		db.Order("due_at, id").Find(&tasks).Error,
 		db.Order("create_time desc, id desc").Find(&alerts).Error,
-		db.Order("building, room, bed").Find(&devices).Error,
+		db.Where("discovery_status <> ? OR discovery_status IS NULL", "disabled").Order("building, room, bed").Find(&devices).Error,
 		db.Where("work_date = ?", time.Now().Format("2006-01-02")).Order("staff").Find(&schedules).Error,
 		db.Order("record_time desc, id desc").Find(&records).Error,
 		db.Order("executed_at desc, id desc").Find(&executions).Error,

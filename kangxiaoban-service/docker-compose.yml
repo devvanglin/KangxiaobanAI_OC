@@ -26,6 +26,7 @@ services:
       KXB_AI_ENABLED: "true"
       KXB_AI_PROVIDER: "local"
       # 空库首启写入一套互相关联的业务初始数据；已有正式数据时可设为 false。
-      KXB_SEED_BUSINESS: "true"
+      # 真实部署不写入演示设备、告警和健康数据；开发演示环境可在 .env 中显式改为 true。
+      KXB_SEED_BUSINESS: "${KXB_SEED_BUSINESS:-false}"
     volumes:
       - ./data:/data
