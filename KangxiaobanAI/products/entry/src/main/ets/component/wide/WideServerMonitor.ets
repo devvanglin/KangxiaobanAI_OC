@@ -399,40 +399,6 @@ export struct WideServerMonitor {
   }
 
   @Builder
-  private serverInfoCard() {
-    Column() {
-      this.sectionTitle('服务器信息')
-      Column() {
-        ServerMetricRow({ label: '服务器名称', value: this.currentServer().hostname })
-        ServerMetricRow({ label: '服务器 IP', value: this.currentServer().ip })
-        ServerMetricRow({ label: '操作系统', value: `${this.currentServer().os} · ${this.currentServer().arch}` })
-        ServerMetricRow({ label: '进程 ID', value: this.currentServer().pid > 0 ? this.currentServer().pid.toString() : '--' })
-        ServerMetricRow({ label: '架构', value: this.currentServer().arch })
-        ServerMetricRow({ label: '主机名', value: this.currentServer().hostname })
-      }.width('100%')
-    }.width('100%').padding({ left: 12, right: 12, bottom: 4 }).borderRadius(8)
-      .backgroundColor($r('sys.color.comp_background_primary'))
-      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-  }
-
-  @Builder
-  private runtimeCard() {
-    Column() {
-      this.sectionTitle('运行时信息')
-      Column() {
-        ServerMetricRow({ label: 'Go 版本', value: this.currentServer().go_version })
-        ServerMetricRow({ label: '启动时间', value: this.formatTime(this.currentServer().started_at) })
-        ServerMetricRow({ label: '运行时长', value: this.currentServer().uptime_text })
-        ServerMetricRow({ label: 'Goroutine 数', value: this.currentServer().goroutines.toString() })
-        ServerMetricRow({ label: '应用版本', value: '1.0.0' })
-        ServerMetricRow({ label: '部署模式', value: '生产环境' })
-      }.width('100%')
-    }.width('100%').padding({ left: 12, right: 12, bottom: 4 }).borderRadius(8)
-      .backgroundColor($r('sys.color.comp_background_primary'))
-      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-  }
-
-  @Builder
   private diskCard() {
     Column() {
       this.sectionTitle('磁盘状态')
@@ -476,7 +442,7 @@ export struct WideServerMonitor {
     Column() {
       this.sectionTitle('状态')
       GridRow({ columns: 12, gutter: { x: 8, y: 0 } }) {
-        GridCol({ span: 4 }) {
+        GridCol({ span: this.compactWidth ? 12 : 4 }) {
           MonitorStatusRing({
             value: this.cpuAvailable ? this.cpuUsage : 0,
             valueText: this.cpuAvailable ? this.percent(this.cpuUsage) : '--',
@@ -487,7 +453,7 @@ export struct WideServerMonitor {
             available: this.cpuAvailable
           })
         }
-        GridCol({ span: 4 }) {
+        GridCol({ span: this.compactWidth ? 12 : 4 }) {
           MonitorStatusRing({
             value: this.memoryAvailable ? this.memoryUsage : 0,
             valueText: this.memoryAvailable ? this.percent(this.memoryUsage) : '--',
@@ -498,7 +464,7 @@ export struct WideServerMonitor {
             available: this.memoryAvailable
           })
         }
-        GridCol({ span: 4 }) {
+        GridCol({ span: this.compactWidth ? 12 : 4 }) {
           MonitorStatusRing({
             value: this.disks.length > 0 ? this.diskUsage() : 0,
             valueText: this.disks.length > 0 ? this.diskUsageText() : '--',
@@ -510,6 +476,39 @@ export struct WideServerMonitor {
           })
         }
       }.width('100%').padding({ top: 16, bottom: 16 })
+    }.width('100%').borderRadius(8)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+      .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private systemInfoPanel() {
+    Column() {
+      this.sectionTitle('系统信息')
+      Column({ space: 8 }) {
+        Column() {
+          Text('服务器信息').fontSize(11).fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary')).width('100%').height(28)
+          ServerMetricRow({ label: '服务器名称', value: this.currentServer().hostname })
+          ServerMetricRow({ label: '服务器 IP', value: this.currentServer().ip })
+          ServerMetricRow({ label: '操作系统', value: `${this.currentServer().os} · ${this.currentServer().arch}` })
+          ServerMetricRow({ label: '进程 ID', value: this.currentServer().pid > 0 ? this.currentServer().pid.toString() : '--' })
+          ServerMetricRow({ label: '架构', value: this.currentServer().arch })
+          ServerMetricRow({ label: '主机名', value: this.currentServer().hostname })
+        }.width('100%').alignItems(HorizontalAlign.Start)
+        Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
+        Column() {
+          Text('运行时信息').fontSize(11).fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary')).width('100%').height(28)
+          ServerMetricRow({ label: 'Go 版本', value: this.currentServer().go_version })
+          ServerMetricRow({ label: '启动时间', value: this.formatTime(this.currentServer().started_at) })
+          ServerMetricRow({ label: '运行时长', value: this.currentServer().uptime_text })
+          ServerMetricRow({ label: 'Goroutine 数', value: this.currentServer().goroutines.toString() })
+          ServerMetricRow({ label: '应用版本', value: '1.0.0' })
+          ServerMetricRow({ label: '部署模式', value: '生产环境' })
+        }.width('100%').alignItems(HorizontalAlign.Start)
+      }.width('100%').padding({ left: 12, right: 12, bottom: 6 })
     }.width('100%').borderRadius(8)
       .backgroundColor($r('sys.color.comp_background_primary'))
       .border({ width: 0.5, color: $r('sys.color.comp_divider') })
@@ -564,13 +563,18 @@ export struct WideServerMonitor {
             .width('100%').padding(12).borderRadius(10)
             .backgroundColor($r('app.color.doctor_workspace_accent_soft'))
         }
-        this.statusPanel()
-        this.networkCard()
         GridRow({ columns: 12, gutter: { x: 12, y: 10 } }) {
-          GridCol({ span: this.compactWidth ? 12 : 6 }) { this.serverInfoCard() }
-          GridCol({ span: this.compactWidth ? 12 : 6 }) { this.runtimeCard() }
-          GridCol({ span: 12 }) { this.diskCard() }
+          GridCol({ span: this.compactWidth ? 12 : 7 }) {
+            Column({ space: 10 }) {
+              this.statusPanel()
+              this.networkCard()
+            }.width('100%')
+          }
+          GridCol({ span: this.compactWidth ? 12 : 5 }) {
+            this.systemInfoPanel()
+          }
         }.width('100%')
+        this.diskCard()
       }
       .width('100%')
       .padding({ left: this.compactWidth ? 14 : 8, right: this.compactWidth ? 14 : 8,
