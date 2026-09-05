@@ -1,3 +1,4 @@
+import { HdsSnackBar, SnackBarOperationType } from '@kit.UIDesignKit';
 import { BusinessStore } from '../../network/BusinessStore';
 import { Area, IotDevice, Room } from '../../network/Dto';
 import ApiClient from '../../network/ApiClient';
@@ -36,6 +37,23 @@ export struct WideDeviceManagement {
   @Local previewUrl: string = '';
   private videoController: VideoController = new VideoController();
   @Local error: string = '';
+  private snackBar?: HdsSnackBar;
+
+  @Monitor('error')
+  onErrorChange(): void {
+    if (this.error.length > 0) {
+      this.notify(this.error);
+    }
+  }
+
+  private notify(message: string): void {
+    if (this.snackBar === undefined) {
+      this.snackBar = new HdsSnackBar(this.getUIContext());
+    }
+    this.snackBar.show({}, { content: message }, {
+      operationType: SnackBarOperationType.TEXT_ONLY, content: '知道了'
+    });
+  }
   @Local searchQuery: string = '';
   @Local typeFilter: string = '全部';
   private readonly typeFilters: string[] = ['全部', '毫米波雷达', '摄像头', '其他'];
@@ -469,7 +487,6 @@ export struct WideDeviceManagement {
             .onClick(() => { this.resetEditor(); this.showCreate = true; })
         }.width('100%').alignItems(VerticalAlign.Center)
         this.typeChipsRow()
-        if (this.error.length > 0) Text(this.error).fontSize(12).fontColor($r('app.color.doctor_workspace_danger'))
         this.statCards()
         this.deviceTable()
       }.width('100%').constraintSize({ minHeight: '100%' }).padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28, top: 56 + this.statusBarHeight, bottom: 24 + this.naviIndicatorHeight }) }.width('100%').height('100%').align(Alignment.Top).scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
