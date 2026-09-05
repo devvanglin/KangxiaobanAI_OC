@@ -56,6 +56,21 @@ export struct WideRoleManagement {
     return this.roles.find((role: RoleRecord) => role.id === this.selectedRoleId);
   }
 
+  private selectedPermissionCount(): number {
+    const role: RoleRecord | undefined = this.selectedRole();
+    return role === undefined ? 0 : this.permissionCountOf(role);
+  }
+
+  private selectedUserCountValue(): number {
+    const role: RoleRecord | undefined = this.selectedRole();
+    return role === undefined ? 0 : this.userCount(role);
+  }
+
+  private selectedPermissionGroups(): PermissionGroup[] {
+    const role: RoleRecord | undefined = this.selectedRole();
+    return role === undefined ? [] : this.permissionGroups(role);
+  }
+
   /** 两张卡片的稳定高度：视口减去页边距与页脚，加载前后不跳变。 */
   private roleCardMinHeight(): number {
     const viewport: number = this.globalInfo.deviceHeight > 0 ? this.globalInfo.deviceHeight : 800;
@@ -321,26 +336,25 @@ export struct WideRoleManagement {
   }
 
   @Builder
-  private roleDetailContent(role: RoleRecord | undefined) {
-    if (role !== undefined) {
-      Column({ space: 14 }) {
-        Text(role.name || '--').fontSize(20).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
-        Text(role.description || '暂无描述').fontSize(13).fontColor($r('sys.color.font_secondary'))
-        Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
-        Row() {
-          this.detailStat(this.permissionCountOf(role), '权限数量')
-          this.detailStat(this.userCount(role), '用户数量')
-        }.width('100%')
-        Repeat(this.permissionGroups(role))
-          .each((ri: RepeatItem<PermissionGroup>) => {
-            this.permissionGroupBlock(ri.item)
-          })
-          .key((group: PermissionGroup) => `group-${group.title}`)
-      }.width('100%').padding(18).alignItems(HorizontalAlign.Start)
-    } else {
+  private roleDetailContent() {
+    if (this.selectedRole() === undefined) {
       Column() {
         Text('请选择左侧角色查看详情').fontSize(13).fontColor($r('sys.color.font_tertiary'))
       }.width('100%').padding({ top: 44, bottom: 44 })
+    } else {
+      Column({ space: 14 }) {
+        Text(this.selectedRole()?.name ?? '--').fontSize(20).fontWeight(FontWeight.Bold)
+          .fontColor($r('sys.color.font_primary'))
+        Text(this.selectedRole()?.description ?? '暂无描述').fontSize(13).fontColor($r('sys.color.font_secondary'))
+        Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
+        Row() {
+          this.detailStat(this.selectedPermissionCount(), '权限数量')
+          this.detailStat(this.selectedUserCountValue(), '用户数量')
+        }.width('100%')
+        ForEach(this.selectedPermissionGroups(), (group: PermissionGroup) => {
+          this.permissionGroupBlock(group)
+        }, (group: PermissionGroup) => `group-${group.title}-${group.items.map((item: RolePermission): string => item.code).join(',')}`)
+      }.width('100%').padding(18).alignItems(HorizontalAlign.Start)
     }
   }
 
@@ -348,7 +362,7 @@ export struct WideRoleManagement {
   private roleDetailCard() {
     Column() {
       this.cardHeader('角色详情')
-      this.roleDetailContent(this.roles.find((role: RoleRecord) => role.id === this.selectedRoleId))
+      this.roleDetailContent()
     }.width('100%').backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius(8).border({ width: 0.5, color: $r('sys.color.comp_divider') })
       .alignItems(HorizontalAlign.Start)
