@@ -1039,7 +1039,8 @@ export struct WideAdminWorkspace {
         WideCarePackageManagement({
           compactWidth: this.compactWidth,
           statusBarHeight: this.statusBarHeight,
-          naviIndicatorHeight: this.naviIndicatorHeight
+          naviIndicatorHeight: this.naviIndicatorHeight,
+          managementScroller: this.managementScroller
         })
       } else if (!this.isDoctor && this.selectedNavId === 'models') {
         WideModelManagement({
