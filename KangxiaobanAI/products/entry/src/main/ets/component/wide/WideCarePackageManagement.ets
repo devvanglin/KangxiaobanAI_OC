@@ -9,7 +9,7 @@ interface SubscriptionRequest { template_id: number; start_date: string; }
 interface PackageItemRequest { title: string; frequency: string; enabled: boolean; }
 
 const DARK_BUTTON_BG: string = '#1F1F1F';
-const CARD_HEIGHT: number = 470;
+const CARD_HEIGHT: number = 380;
 const CARE_LEVEL_NAMES: string[] = ['不限', '一级护理', '二级护理', '三级护理', '四级护理', '特级护理'];
 const CARE_LEVEL_FG: string[] = ['#5A6B85', '#C0392B', '#B7791F', '#2E8B57', '#5A6B85', '#FFFFFF'];
 const CARE_LEVEL_BG: string[] = ['#EEF1F5', '#FDECEC', '#FDF3E0', '#E8F5EE', '#EEF1F5', '#1F1F1F'];
