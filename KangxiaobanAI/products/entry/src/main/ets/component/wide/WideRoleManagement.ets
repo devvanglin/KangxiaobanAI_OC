@@ -1,4 +1,4 @@
-import { HdsListItemCard, HdsSnackBar, SuffixCustomBuilder } from '@kit.UIDesignKit';
+import { HdsSnackBar } from '@kit.UIDesignKit';
 import { LengthMetrics } from '@kit.ArkUI';
 import ApiClient from '../../network/ApiClient';
 
@@ -213,7 +213,7 @@ export struct WideRoleManagement {
       this.listStat(this.permissionCountOf(role), '权限数')
       this.listStat(this.userCount(role), '用户数')
       Text('编辑').fontSize(14).fontColor($r('sys.color.font_primary'))
-        .padding({ left: 2, right: 2, top: 8, bottom: 8 })
+        .padding({ left: 8, right: 8, top: 8, bottom: 8 })
         .onClick(() => { this.selectedRoleId = role.id; this.openEdit(role); })
     }
   }
@@ -221,23 +221,22 @@ export struct WideRoleManagement {
   @Builder
   private roleRow(role: RoleRecord, isLast: boolean) {
     Column() {
-      Row() {
-        Column().width(3).alignSelf(ItemAlign.Stretch)
+      Row({ space: 14 }) {
+        Column().width(3).height(52)
+          .borderRadius(2)
           .backgroundColor(this.selectedRoleId === role.id ? ACTION_BUTTON_BG : Color.Transparent)
-        HdsListItemCard({
-          textItem: {
-            primaryText: { text: role.name || '--' },
-            secondaryText: { text: role.description || '暂无描述' }
-          },
-          suffixItem: new SuffixCustomBuilder((): void => { this.roleRowSuffix(role); }),
-          onClick: (): void => { this.selectedRoleId = role.id; },
-          cardBorderRadius: 0,
-          hoverBorderRadius: 0,
-          cardBackgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
-          cardHeight: 96
-        }).layoutWeight(1)
-      }.width('100%')
+        Column({ space: 5 }) {
+          Text(role.name || '--').fontSize(15).fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+          Text(role.description || '暂无描述').fontSize(13).fontColor($r('sys.color.font_secondary'))
+            .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+        }.alignItems(HorizontalAlign.Start).layoutWeight(1)
+        this.roleRowSuffix(role)
+      }.width('100%').height(96).padding({ left: 18, right: 18 })
+        .alignItems(VerticalAlign.Center)
+        .hoverEffect(HoverEffect.None)
         .backgroundColor(this.selectedRoleId === role.id ? $r('sys.color.comp_background_secondary') : Color.Transparent)
+        .onClick(() => { this.selectedRoleId = role.id; })
       if (!isLast) {
         Divider().strokeWidth(0.5).color($r('sys.color.comp_divider')).margin({ left: 18, right: 18 })
       }
