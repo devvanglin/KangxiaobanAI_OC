@@ -1,11 +1,9 @@
 import { HdsListItemCard, HdsSnackBar, SnackBarOperationType, SuffixButton } from '@kit.UIDesignKit';
 import ApiClient from '../../network/ApiClient';
-import { CarePackageItem, CarePackageTemplate, Elder } from '../../network/Dto';
+import { CarePackageItem, CarePackageTemplate } from '../../network/Dto';
 
 interface PackagePage { list: CarePackageTemplate[]; }
 interface PackageSaveRequest { code: string; name: string; description: string; applicable_care_level?: number; monthly_price: number; status: string; currency: string; }
-interface ElderPage { list: Elder[]; }
-interface SubscriptionRequest { template_id: number; start_date: string; }
 interface PackageItemRequest { title: string; frequency: string; enabled: boolean; }
 
 const DARK_BUTTON_BG: string = '#1F1F1F';
@@ -31,10 +29,6 @@ export struct WideCarePackageManagement {
   @Local price: string = '';
   @Local description: string = '';
   @Local careLevelIndex: number = 0;
-  @Local elders: Elder[] = [];
-  @Local showAssign: boolean = false;
-  @Local assignTemplateId: number = 0;
-  @Local assignElderId: number = 0;
   @Local showItemCreate: boolean = false;
   @Local itemTemplateId: number = 0;
   @Local itemTitle: string = '';
@@ -43,7 +37,7 @@ export struct WideCarePackageManagement {
   @Local detailTemplate: CarePackageTemplate | undefined = undefined;
   private snackBar?: HdsSnackBar;
 
-  aboutToAppear(): void { this.load(); this.loadElders(); }
+  aboutToAppear(): void { this.load(); }
 
   private notify(message: string): void {
     if (this.snackBar === undefined) {
@@ -62,10 +56,6 @@ export struct WideCarePackageManagement {
       this.templates = response.data.list ?? [];
     } catch (_error) { this.error = '护理套餐加载失败'; }
     this.loading = false;
-  }
-
-  private async loadElders(): Promise<void> {
-    try { const response = await ApiClient.get<ElderPage>('/elders?page=1&size=100'); if (response.code === 0 && response.data !== undefined) this.elders = response.data.list ?? []; } catch (_error) { }
   }
 
   private filteredTemplates(): CarePackageTemplate[] {
@@ -119,17 +109,6 @@ export struct WideCarePackageManagement {
     this.error = '';
     await this.load();
     this.notify(this.editingId > 0 ? '套餐已保存' : '套餐已创建');
-  }
-
-  private openAssign(template: CarePackageTemplate): void { this.assignTemplateId = template.id; this.assignElderId = this.elders[0]?.id ?? 0; this.showAssign = true; }
-
-  private async assign(): Promise<void> {
-    if (this.assignTemplateId === 0 || this.assignElderId === 0) { this.error = '请先选择长者'; return; }
-    const request: SubscriptionRequest = { template_id: this.assignTemplateId, start_date: new Date().toISOString().slice(0, 10) };
-    const response = await ApiClient.post<Object>(`/elders/${this.assignElderId}/care-package-subscriptions`, request);
-    if (response.code !== 0) { this.error = response.msg || '套餐分配失败'; return; }
-    this.showAssign = false;
-    this.notify('套餐已分配，护理计划和任务已生成');
   }
 
   private openItemCreate(template: CarePackageTemplate): void { this.itemTemplateId = template.id; this.itemTitle = ''; this.itemFrequency = ''; this.showItemCreate = true; }
@@ -303,18 +282,13 @@ export struct WideCarePackageManagement {
         }
       }.width('100%').height(260).scrollBar(BarState.Off)
       Row({ space: 10 }) {
-        Button('取消').layoutWeight(1).height(40).fontSize(13)
+        Button('取消').layoutWeight(1).height(40).fontSize(13).borderRadius(8)
           .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))
           .onClick(() => this.showDetail = false)
         Button('添加项目').layoutWeight(1).height(40).fontSize(13).borderRadius(8)
           .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
           .onClick(() => {
             if (this.detailTemplate !== undefined) { this.openItemCreate(this.detailTemplate); }
-          })
-        Button('分配给长者').layoutWeight(1).height(40).fontSize(13).borderRadius(8)
-          .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
-          .onClick(() => {
-            if (this.detailTemplate !== undefined) { this.openAssign(this.detailTemplate); }
           })
       }.width('100%')
     }.width(this.compactWidth ? '92%' : 560).padding(24)
@@ -406,33 +380,6 @@ export struct WideCarePackageManagement {
       if (this.showDetail) {
         Row() { this.detailDialog() }.width('100%').height('100%')
           .backgroundColor('#66000000').justifyContent(FlexAlign.Center)
-      }
-      if (this.showAssign) {
-        Row() {
-          Column({ space: 12 }) {
-            Text('分配护理套餐').fontSize(20).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
-            Text('选择长者').fontSize(12).fontColor($r('sys.color.font_secondary'))
-            Scroll() {
-              Column({ space: 8 }) {
-                ForEach(this.elders, (elder: Elder) => {
-                  Button(elder.name).width('100%').height(36).fontSize(12).borderRadius(8)
-                    .backgroundColor(this.assignElderId === elder.id ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
-                    .fontColor(this.assignElderId === elder.id ? Color.White : $r('sys.color.font_secondary'))
-                    .onClick(() => this.assignElderId = elder.id)
-                }, (elder: Elder) => `assign-elder-${elder.id}`)
-              }.width('100%')
-            }.height(280).scrollBar(BarState.Off)
-            Row({ space: 10 }) {
-              Button('取消').layoutWeight(1).height(40).fontSize(13)
-                .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))
-                .onClick(() => this.showAssign = false)
-              Button('确认分配').layoutWeight(1).height(40).fontSize(13)
-                .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
-                .onClick(() => this.assign())
-            }.width('100%')
-          }.width(this.compactWidth ? '90%' : 420).padding(24)
-            .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
-        }.width('100%').height('100%').backgroundColor('#66000000').justifyContent(FlexAlign.Center)
       }
       if (this.showItemCreate) {
         Row() {
