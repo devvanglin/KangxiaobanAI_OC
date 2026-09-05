@@ -55,7 +55,7 @@ export struct WideDoctorTitleActions {
           .fontSize(22)
           .fontColor([$r('sys.color.icon_primary')])
       } else {
-        Text('账户').fontSize(13).fontColor($r('sys.color.font_primary'))
+        Text('账户').fontSize(15).fontColor($r('sys.color.font_primary'))
       }
     }
     .width(this.isDoctor ? 42 : 58)

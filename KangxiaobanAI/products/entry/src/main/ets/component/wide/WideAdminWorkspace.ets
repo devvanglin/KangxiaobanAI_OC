@@ -1,7 +1,7 @@
 import { KeyCode } from '@kit.InputKit';
 import ApiClient from '../../network/ApiClient';
 import { BusinessStore } from '../../network/BusinessStore';
-import { Alert, Bed, CareTask, Elder, HealthRecord, IotDevice, Room, Schedule } from '../../network/Dto';
+import { Alert, Bed, CareTask, Elder, HealthRecord, Room, Schedule } from '../../network/Dto';
 import { WideServerMonitor } from './WideServerMonitor';
 import { WideRoleManagement } from './WideRoleManagement';
 import { WideUserManagement } from './WideUserManagement';
@@ -55,18 +55,30 @@ interface AdminOccupancy {
   percent: number;
 }
 
-interface AdminDeviceSummary {
-  id: string;
-  label: string;
-  total: number;
-  online: number;
-  offline: number;
-  warning: number;
+interface AdminAuditLog {
+  id: number;
+  created_at: string;
+  user_id: number;
+  action: string;
+  module: string;
+  method: string;
+  path: string;
+  ip: string;
 }
 
-interface AdminDeviceCategory {
-  id: string;
-  label: string;
+interface AdminAuditPage {
+  list: AdminAuditLog[];
+  total: number;
+}
+
+interface AdminAuditUser {
+  id: number;
+  username: string;
+  real_name: string;
+}
+
+interface AdminAuditUserPage {
+  list: AdminAuditUser[];
 }
 
 interface AlertHandleRequest {
@@ -104,17 +116,16 @@ export struct WideAdminWorkspace {
   @Local coreLoadReady: boolean = false;
   @Local metricSnapshot: AdminMetric[] = [];
   @Local metricSnapshotVersion: number = 0;
-  @Local deviceSnapshot: IotDevice[] = [];
-  @Local deviceSnapshotVersion: number = 0;
-  @Local deviceSnapshotReady: boolean = false;
+  @Local auditLogs: AdminAuditLog[] = [];
+  @Local auditUsers: AdminAuditUser[] = [];
+  @Local auditTotal: number = 0;
+  @Local auditLoading: boolean = false;
+  @Local auditError: string = '';
   @Local chartEldersSnapshot: Elder[] = [];
   @Local chartHealthSnapshot: HealthRecord[] = [];
   @Local dashboardHeight: number = 0;
   @Local metricsHeight: number = 0;
   @Local doctorQuickModule: string = '';
-  private deviceSnapshotSignature: string = '';
-  private deviceSyncTimer: number = -1;
-
   private navItemsForRole(): AdminNavItem[] {
     if (this.isDoctor) {
       return [
@@ -142,34 +153,16 @@ export struct WideAdminWorkspace {
     if (this.managementNavIndex >= 0 && this.managementNavIndex < ids.length) {
       this.selectedNavId = ids[this.managementNavIndex];
       setTimeout((): void => { this.managementScroller.scrollEdge(Edge.Top); }, 0);
+      if (!this.isDoctor && this.managementNavIndex === 0) {
+        void this.loadAuditLogs();
+      }
     }
   }
 
   @Monitor('businessStore.coreVersion', 'businessStore.loaded')
   onBusinessDataChange(): void {
     this.coreLoadReady = this.businessStore.loaded;
-    this.deviceSnapshot = this.businessStore.devices.slice();
-    this.deviceSnapshotVersion += 1;
     this.refreshMetricSnapshot();
-  }
-
-  @Monitor('businessStore.devices', 'businessStore.devicesLoaded')
-  onDeviceDataChange(): void {
-    this.refreshDeviceSnapshot();
-  }
-
-  private refreshDeviceSnapshot(): void {
-    const devices: IotDevice[] = this.businessStore.devices.slice();
-    const signature: string = devices.map((device: IotDevice) =>
-      `${device.id}:${device.online}:${device.product}:${device.discovery_status}`).join('|');
-    const ready: boolean = this.businessStore.devicesLoaded;
-    if (signature === this.deviceSnapshotSignature && ready === this.deviceSnapshotReady) {
-      return;
-    }
-    this.deviceSnapshotSignature = signature;
-    this.deviceSnapshot = devices;
-    this.deviceSnapshotReady = ready;
-    this.deviceSnapshotVersion += 1;
   }
 
   private async awaitCoreLoad(): Promise<void> {
@@ -182,16 +175,36 @@ export struct WideAdminWorkspace {
     this.onManagementNavIndexChange();
     this.coreLoadReady = this.businessStore.loaded;
     this.refreshMetricSnapshot();
-    this.refreshDeviceSnapshot();
-    this.deviceSyncTimer = setInterval(() => this.refreshDeviceSnapshot(), 300);
     void this.awaitCoreLoad();
   }
 
-  aboutToDisappear(): void {
-    if (this.deviceSyncTimer !== -1) {
-      clearInterval(this.deviceSyncTimer);
-      this.deviceSyncTimer = -1;
+  private async loadAuditLogs(): Promise<void> {
+    if (this.auditLoading) {
+      return;
     }
+    this.auditLoading = true;
+    this.auditError = '';
+    try {
+      const auditResponse = await ApiClient.get<AdminAuditPage>('/audits?page=1&size=6');
+      if (auditResponse.code !== 0 || auditResponse.data === undefined || auditResponse.data === null) {
+        throw new Error(auditResponse.msg || '操作日志加载失败');
+      }
+      this.auditLogs = auditResponse.data.list ?? [];
+      this.auditTotal = auditResponse.data.total ?? this.auditLogs.length;
+      try {
+        const userResponse = await ApiClient.get<AdminAuditUserPage>('/users?page=1&size=100');
+        if (userResponse.code === 0 && userResponse.data !== undefined && userResponse.data !== null) {
+          this.auditUsers = userResponse.data.list ?? [];
+        }
+      } catch (_error) {
+        this.auditUsers = [];
+      }
+    } catch (_error) {
+      this.auditLogs = [];
+      this.auditTotal = 0;
+      this.auditError = '操作日志加载失败，请稍后重试';
+    }
+    this.auditLoading = false;
   }
 
   private isDataLoading(): boolean {
@@ -654,144 +667,132 @@ export struct WideAdminWorkspace {
     .alignItems(HorizontalAlign.Start)
   }
 
-  private overviewDevices(): IotDevice[] {
-    return this.coreLoadReady ? this.deviceSnapshot : [];
-  }
-
-  private overviewOnlineCount(): number {
-    return this.overviewDevices().filter((device: IotDevice) => device.online === 1).length;
-  }
-
-  private deviceCategoryKey(device: IotDevice): string {
-    if (device.product === 'breath_radar') return 'vital';
-    if (device.product === 'fall_radar') return 'fall';
-    if (device.product === 'call') return 'call';
-    if (device.product === 'access') return 'access';
-    if (device.product === 'camera') return 'camera';
-    if (device.product === 'environment') return 'environment';
-    return 'other';
-  }
-
-  private deviceCategoryItems(): AdminDeviceCategory[] {
-    const categories: AdminDeviceCategory[] = [
-      { id: 'vital', label: '生命体征监测' },
-      { id: 'fall', label: '跌倒监测' },
-      { id: 'call', label: '床旁呼叫设备' },
-      { id: 'access', label: '门禁与定位' },
-      { id: 'camera', label: '摄像头' },
-      { id: 'environment', label: '环境传感设备' }
-    ];
-    if (this.overviewDevices().some((device: IotDevice) => this.deviceCategoryKey(device) === 'other')) {
-      categories.push({ id: 'other', label: '其他设备' });
+  private auditTime(value: string): string {
+    const date: Date = new Date(value);
+    if (!Number.isFinite(date.getTime())) {
+      return '--';
     }
-    return categories;
+    const month: string = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day: string = date.getDate().toString().padStart(2, '0');
+    const hour: string = date.getHours().toString().padStart(2, '0');
+    const minute: string = date.getMinutes().toString().padStart(2, '0');
+    const second: string = date.getSeconds().toString().padStart(2, '0');
+    return `${month}-${day} ${hour}:${minute}:${second}`;
   }
 
-  private isOpenAlert(alert: Alert): boolean {
-    return alert.status !== 'handled' && alert.status !== 'closed';
+  private auditUserName(userId: number): string {
+    const user: AdminAuditUser | undefined = this.auditUsers.find((item: AdminAuditUser) => item.id === userId);
+    if (user === undefined) {
+      return `用户 ${userId}`;
+    }
+    return user.real_name.trim().length > 0 ? user.real_name : user.username;
   }
 
-  private deviceSummaryItems(): AdminDeviceSummary[] {
-    const devices: IotDevice[] = this.overviewDevices();
-    const alerts: Alert[] = this.coreLoadReady ? this.businessStore.alerts : [];
-    return this.deviceCategoryItems().map((category: AdminDeviceCategory): AdminDeviceSummary => {
-      const categoryDevices: IotDevice[] = devices.filter((device: IotDevice) =>
-        this.deviceCategoryKey(device) === category.id);
-      const warning: number = categoryDevices.filter((device: IotDevice) =>
-        device.elder_id !== undefined && alerts.some((alert: Alert) =>
-          alert.elder_id === device.elder_id && this.isOpenAlert(alert))).length;
-      const online: number = categoryDevices.filter((device: IotDevice) => device.online === 1).length;
-      return {
-        id: category.id,
-        label: category.label,
-        total: categoryDevices.length,
-        online: online,
-        offline: Math.max(0, categoryDevices.length - online),
-        warning: warning
-      };
-    });
+  private auditAction(item: AdminAuditLog): string {
+    if (item.action.length > 0) {
+      switch (item.action) {
+        case 'create': return '创建';
+        case 'update': return '更新';
+        case 'delete': return '删除';
+        case 'submit': return '提交';
+        case 'handle': return '处理';
+        default: return item.action;
+      }
+    }
+    const method: string = item.method.toUpperCase();
+    switch (method) {
+      case 'POST': return '新增';
+      case 'PUT':
+      case 'PATCH': return '更新';
+      case 'DELETE': return '删除';
+      default: return method;
+    }
   }
 
-  private overviewWarningCount(): number {
-    return this.deviceSummaryItems().reduce((sum: number, item: AdminDeviceSummary) => sum + item.warning, 0);
-  }
-
-  private overviewOfflineCount(): number {
-    return Math.max(0, this.overviewDevices().length - this.overviewOnlineCount());
-  }
-
-  private overviewDeviceTotal(): number {
-    return this.overviewDevices().length;
-  }
-
-  private deviceStatusColor(status: string): ResourceColor {
-    if (status === 'online') return $r('app.color.doctor_workspace_success');
-    if (status === 'warning') return $r('app.color.doctor_workspace_danger');
-    return $r('app.color.doctor_workspace_text_secondary');
-  }
-
-  @Builder
-  private deviceOverviewStat(label: string, value: string, status: string) {
-    Column({ space: 5 }) {
-      Text(value).fontSize(23).fontWeight(FontWeight.Bold).fontColor(this.deviceStatusColor(status))
-      Text(label).fontSize(10).fontColor($r('app.color.doctor_workspace_text_secondary'))
-    }.layoutWeight(1).alignItems(HorizontalAlign.Center)
-  }
-
-  @Builder
-  private deviceSummaryCell(item: AdminDeviceSummary) {
-    Column({ space: 7 }) {
-      Row() {
-        Text(item.label).fontSize(12).fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.doctor_workspace_text_primary')).layoutWeight(1)
-        Text(`${item.total} 台`).fontSize(10).fontColor($r('app.color.doctor_workspace_text_secondary'))
-      }.width('100%')
-      Row({ space: 8 }) {
-        Text(`在线 ${item.online}`).fontSize(10).fontColor(this.deviceStatusColor('online'))
-        Text(`离线 ${item.offline}`).fontSize(10).fontColor(this.deviceStatusColor('offline'))
-        Text(`告警 ${item.warning}`).fontSize(10).fontColor(this.deviceStatusColor('warning'))
-      }.width('100%')
-      Progress({ value: item.total > 0 ? item.online / item.total * 100 : 0, total: 100, type: ProgressType.Linear })
-        .width('100%').height(4).color($r('app.color.doctor_workspace_success'))
-        .backgroundColor($r('app.color.doctor_workspace_surface_hover'))
-    }.width('100%').padding({ top: 10, bottom: 10, left: 12, right: 12 })
-      .border({ width: { bottom: 0.5 }, color: { bottom: $r('app.color.doctor_workspace_border_soft') } })
-      .alignItems(HorizontalAlign.Start)
+  private auditModule(item: AdminAuditLog): string {
+    const module: string = item.module.trim().length > 0 ? item.module : item.path.split('/').filter(
+      (part: string): boolean => part.length > 0 && part !== 'api' && part !== 'v1')[0] ?? '';
+    switch (module) {
+      case 'admission_assessment': return '入住评估';
+      case 'admission_intake': return '入住办理';
+      case 'alerts': return '预警';
+      case 'users': return '用户';
+      case 'roles': return '角色';
+      case 'areas': return '区域';
+      case 'care-package-templates':
+      case 'elder-care-packages': return '照护计划';
+      case 'iot': return '设备';
+      case 'admin': return '系统配置';
+      case 'tasks': return '任务';
+      case 'health-records': return '健康记录';
+      default: return module.length > 0 ? module : '系统';
+    }
   }
 
   @Builder
-  private deviceOverviewPanel() {
+  private auditLogRow(item: AdminAuditLog, isLast: boolean) {
+    Row({ space: 12 }) {
+      Text(this.auditTime(item.created_at)).fontSize(12)
+        .fontColor($r('app.color.doctor_workspace_text_secondary')).width(this.compactWidth ? 112 : 150)
+      Text(this.auditUserName(item.user_id)).fontSize(12)
+        .fontColor($r('app.color.doctor_workspace_text_primary')).width(this.compactWidth ? 92 : 160)
+        .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+      Column({ space: 2 }) {
+        Text(this.auditAction(item)).fontSize(12).fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.doctor_workspace_text_primary')).width('100%')
+        Text(item.path).fontSize(10).fontColor($r('app.color.doctor_workspace_text_tertiary'))
+          .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
+      }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+      Text(this.auditModule(item)).fontSize(12).fontColor($r('app.color.doctor_workspace_text_secondary'))
+        .width(this.compactWidth ? 92 : 150).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+      Text(item.ip.length > 0 ? item.ip : '--').fontSize(11)
+        .fontColor($r('app.color.doctor_workspace_text_tertiary')).width(this.compactWidth ? 108 : 150)
+        .textAlign(TextAlign.End).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+    }.width('100%').height(56).padding({ left: 14, right: 14 })
+      .border({
+        width: { bottom: isLast ? 0 : 0.5 },
+        color: { bottom: $r('app.color.doctor_workspace_border_soft') }
+      }).alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  private auditLogPanel() {
     Column() {
       Row() {
-        Text('IoT 设备总览').fontSize(16).fontWeight(FontWeight.Bold)
+        Text('操作日志').fontSize(18).fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.doctor_workspace_text_primary'))
         Blank()
-        Text('查看全部').fontSize(10).fontColor($r('app.color.doctor_workspace_focus'))
-          .accessibilityText('查看全部设备').onClick(() => this.onManagementNavSelect(6))
+        if (!this.auditLoading && this.auditError.length === 0) {
+          Text(`共 ${this.auditTotal} 条`).fontSize(12)
+            .fontColor($r('app.color.doctor_workspace_text_tertiary'))
+        }
       }.width('100%').height(40).padding({ left: 14, right: 14 })
         .border({ width: { bottom: 0.5 }, color: { bottom: $r('app.color.doctor_workspace_border_soft') } })
-      if (this.deviceSnapshotReady) {
-        Row({ space: 8 }) {
-          this.deviceOverviewStat('设备总数', this.overviewDeviceTotal().toString(), 'neutral')
-          Divider().vertical(true).height(34).strokeWidth(0.5).color($r('app.color.doctor_workspace_border_soft'))
-          this.deviceOverviewStat('在线', this.overviewOnlineCount().toString(), 'online')
-          Divider().vertical(true).height(34).strokeWidth(0.5).color($r('app.color.doctor_workspace_border_soft'))
-          this.deviceOverviewStat('离线', this.overviewOfflineCount().toString(), 'offline')
-          Divider().vertical(true).height(34).strokeWidth(0.5).color($r('app.color.doctor_workspace_border_soft'))
-          this.deviceOverviewStat('告警', this.overviewWarningCount().toString(), 'warning')
-        }.width('100%').height(56).padding({ top: 6, bottom: 6, left: 8, right: 8 })
+      if (this.auditLoading) {
+        Text('正在加载操作日志').width('100%').height(82).padding({ top: 30, bottom: 30 })
+          .fontSize(12).fontColor($r('app.color.doctor_workspace_text_tertiary')).textAlign(TextAlign.Center)
+      } else if (this.auditError.length > 0) {
+        Text(this.auditError).width('100%').height(82).padding({ top: 30, bottom: 30 })
+          .fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).textAlign(TextAlign.Center)
+      } else if (this.auditLogs.length === 0) {
+        Text('暂无操作日志').width('100%').height(82).padding({ top: 30, bottom: 30 })
+          .fontSize(12).fontColor($r('app.color.doctor_workspace_text_tertiary')).textAlign(TextAlign.Center)
       } else {
-        Text('正在加载设备数据').width('100%').height(64).padding({ top: 22, bottom: 22 })
-          .fontSize(11).fontColor($r('app.color.doctor_workspace_text_tertiary')).textAlign(TextAlign.Center)
-      }
-      if (this.deviceSnapshotReady && !this.isDataLoading()) {
-        GridRow({ columns: 12, gutter: { x: 0, y: 0 } }) {
-          ForEach(this.deviceSummaryItems(), (item: AdminDeviceSummary) => {
-            GridCol({ span: this.compactWidth ? 12 : 4 }) {
-              this.deviceSummaryCell(item)
-            }.border({ width: { right: 0.5 }, color: { right: $r('app.color.doctor_workspace_border_soft') } })
-          }, (item: AdminDeviceSummary) => `device-summary-${item.id}`)
-        }.width('100%')
+        Row({ space: 12 }) {
+          Text('时间').fontSize(12).fontColor($r('app.color.doctor_workspace_text_tertiary'))
+            .width(this.compactWidth ? 112 : 150)
+          Text('操作人').fontSize(12).fontColor($r('app.color.doctor_workspace_text_tertiary'))
+            .width(this.compactWidth ? 92 : 160)
+          Text('操作').fontSize(12).fontColor($r('app.color.doctor_workspace_text_tertiary')).layoutWeight(1)
+          Text('模块').fontSize(12).fontColor($r('app.color.doctor_workspace_text_tertiary'))
+            .width(this.compactWidth ? 92 : 150)
+          Text('来源 IP').fontSize(12).fontColor($r('app.color.doctor_workspace_text_tertiary'))
+            .width(this.compactWidth ? 108 : 150).textAlign(TextAlign.End)
+        }.width('100%').height(32).padding({ left: 14, right: 14 })
+          .backgroundColor($r('app.color.doctor_workspace_surface_hover'))
+        ForEach(this.auditLogs, (item: AdminAuditLog, index: number) => {
+          this.auditLogRow(item, index === this.auditLogs.length - 1)
+        }, (item: AdminAuditLog) => `audit-log-${item.id}`)
       }
     }.width('100%').padding({ top: 0, bottom: 0 }).borderRadius(8)
       .backgroundColor($r('app.color.doctor_workspace_surface'))
@@ -804,7 +805,7 @@ export struct WideAdminWorkspace {
     Scroll(this.managementScroller) {
       Column({ space: 12 }) {
         WideServerMonitor({ compactWidth: this.compactWidth, embedded: true }).width('100%')
-        this.deviceOverviewPanel()
+        this.auditLogPanel()
       }.width('100%').padding({ left: this.compactWidth ? 14 : 8, right: this.compactWidth ? 14 : 8,
         top: this.adminOverviewTopPadding(), bottom: this.dashboardBottomPadding() }).alignItems(HorizontalAlign.Start)
     }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)

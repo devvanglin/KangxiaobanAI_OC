@@ -174,7 +174,7 @@ export struct WideSlidingCapsule {
 
         if (!this.iconOnly) {
           Text(item.title)
-            .fontSize($r('sys.float.Body_M'))
+            .fontSize(16)
             .fontWeight(this.visualSelectedIndex === item.index ? FontWeight.Medium : FontWeight.Regular)
             .fontColor(this.visualSelectedIndex === item.index ? $r('app.color.brand_blue') :
               $r('sys.color.font_primary'))

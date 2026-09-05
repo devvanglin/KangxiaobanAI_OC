@@ -56,7 +56,7 @@ struct MonitorStatusRing {
   }
 
   build() {
-    Column({ space: 8 }) {
+    Column({ space: 9 }) {
       Stack({ alignContent: Alignment.Center }) {
         Canvas(this.context)
           .width(144)
@@ -64,15 +64,15 @@ struct MonitorStatusRing {
           .onReady(() => this.draw())
           .onAreaChange(() => this.draw())
         Column({ space: 2 }) {
-          Text(this.valueText).fontSize(23).fontWeight(FontWeight.Medium)
+          Text(this.valueText).fontSize(26).fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary'))
-          Text(this.label).fontSize(12).fontColor($r('sys.color.font_secondary'))
+          Text(this.label).fontSize(14).fontColor($r('sys.color.font_secondary'))
         }.alignItems(HorizontalAlign.Center)
       }.width(144).height(144)
-      Text(this.detail).fontSize(10).fontColor($r('sys.color.font_secondary'))
+      Text(this.detail).fontSize(11).fontColor($r('sys.color.font_secondary'))
         .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
       if (this.secondaryDetail.length > 0) {
-        Text(this.secondaryDetail).fontSize(9).fontColor($r('sys.color.font_tertiary'))
+        Text(this.secondaryDetail).fontSize(10).fontColor($r('sys.color.font_tertiary'))
           .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
       }
     }.width('100%').alignItems(HorizontalAlign.Center)
@@ -90,14 +90,14 @@ struct ServerMetricRow {
   build() {
     Row({ space: 10 }) {
       Column({ space: 2 }) {
-        Text(this.label).fontSize(12).fontColor($r('sys.color.font_primary'))
+        Text(this.label).fontSize(13).fontColor($r('sys.color.font_primary'))
         if (this.note.length > 0) {
-          Text(this.note).fontSize(10).fontColor($r('sys.color.font_secondary'))
+          Text(this.note).fontSize(11).fontColor($r('sys.color.font_secondary'))
         }
       }.alignItems(HorizontalAlign.Start).layoutWeight(1)
-      Text(this.value).fontSize(11).fontColor($r('sys.color.font_primary'))
+      Text(this.value).fontSize(12).fontColor($r('sys.color.font_primary'))
         .textAlign(TextAlign.End).maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
-    }.width('100%').height(34).padding({ left: 0, right: 0, top: 3, bottom: 3 })
+    }.width('100%').height(38).padding({ left: 0, right: 0, top: 4, bottom: 4 })
       .border({
         width: { bottom: this.showBottomDivider ? 0.5 : 0 },
         color: { bottom: $r('sys.color.comp_divider') }
@@ -338,7 +338,7 @@ export struct WideServerMonitor {
     this.networkContext.strokeStyle = NETWORK_GRID_COLOR;
     this.networkContext.lineWidth = 1;
     this.networkContext.fillStyle = NETWORK_MUTED_COLOR;
-    this.networkContext.font = '12px sans-serif';
+      this.networkContext.font = '14px sans-serif';
     this.networkContext.textAlign = 'right';
     this.networkContext.textBaseline = 'middle';
     for (let line: number = 0; line <= 3; line++) {
@@ -377,7 +377,7 @@ export struct WideServerMonitor {
     drawSeries(false, '#B9DEC9', NETWORK_UPLOAD_COLOR);
     drawSeries(true, '#F8E7B8', NETWORK_DOWNLOAD_COLOR);
     this.networkContext.fillStyle = NETWORK_MUTED_COLOR;
-    this.networkContext.font = '11px sans-serif';
+    this.networkContext.font = '12px sans-serif';
     this.networkContext.textAlign = 'center';
     this.networkContext.textBaseline = 'alphabetic';
     if (samples.length > 0) {
@@ -395,9 +395,9 @@ export struct WideServerMonitor {
   @Builder
   private sectionTitle(title: string) {
     Row() {
-      Text(title).fontSize(12).fontWeight(FontWeight.Bold)
+      Text(title).fontSize(14).fontWeight(FontWeight.Bold)
         .fontColor($r('sys.color.font_primary'))
-    }.width('100%').height(36).padding({ left: 14, right: 14 })
+    }.width('100%').height(40).padding({ left: 14, right: 14 })
       .alignItems(VerticalAlign.Center)
       .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
   }
@@ -453,8 +453,8 @@ export struct WideServerMonitor {
       this.sectionTitle('系统信息')
       Column({ space: 8 }) {
         Column() {
-          Text('服务器信息').fontSize(11).fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary')).width('100%').height(28)
+          Text('服务器信息').fontSize(13).fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary')).width('100%').height(30)
           ServerMetricRow({ label: '服务器名称', value: this.currentServer().hostname })
           ServerMetricRow({ label: '服务器 IP', value: this.currentServer().ip })
           ServerMetricRow({ label: '操作系统', value: `${this.currentServer().os} · ${this.currentServer().arch}` })
@@ -463,8 +463,8 @@ export struct WideServerMonitor {
           ServerMetricRow({ label: '主机名', value: this.currentServer().hostname, showBottomDivider: false })
         }.width('100%').alignItems(HorizontalAlign.Start)
         Column() {
-          Text('运行时信息').fontSize(11).fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary')).width('100%').height(28)
+          Text('运行时信息').fontSize(13).fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary')).width('100%').height(30)
           ServerMetricRow({ label: 'Go 版本', value: this.currentServer().go_version })
           ServerMetricRow({ label: '启动时间', value: this.formatTime(this.currentServer().started_at) })
           ServerMetricRow({ label: '运行时长', value: this.currentServer().uptime_text })
@@ -483,7 +483,7 @@ export struct WideServerMonitor {
   private networkLegend(color: string, label: string, value: string) {
     Row({ space: 6 }) {
       Row().width(8).height(8).borderRadius(4).backgroundColor(color)
-      Text(`${label} ${value}`).fontSize(11).fontColor($r('sys.color.font_secondary'))
+      Text(`${label} ${value}`).fontSize(12).fontColor($r('sys.color.font_secondary'))
     }
   }
 
@@ -491,20 +491,20 @@ export struct WideServerMonitor {
   private networkCard() {
     Column() {
       Row() {
-        Text('网络监控').fontSize(12).fontWeight(FontWeight.Bold)
+      Text('网络监控').fontSize(14).fontWeight(FontWeight.Bold)
           .fontColor($r('sys.color.font_primary'))
         Blank()
         Text(this.networkAvailable ? (this.networkInterface === 'all' ? '全部网卡' : this.networkInterface) :
-          '网络数据不可用').fontSize(10)
+          '网络数据不可用').fontSize(11)
           .fontColor(this.networkAvailable ? $r('sys.color.font_secondary') : $r('sys.color.font_tertiary'))
-      }.width('100%').height(40).padding({ left: 14, right: 14 })
+      }.width('100%').height(42).padding({ left: 14, right: 14 })
         .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
       Row({ space: 10 }) {
         this.networkLegend(NETWORK_UPLOAD_COLOR, '上行', this.rate(this.networkTransmitRateBps))
         this.networkLegend(NETWORK_DOWNLOAD_COLOR, '下行', this.rate(this.networkReceiveRateBps))
-        Text(`总发送 ${this.networkAvailable ? this.bytes(this.networkTransmitBytes) : '--'}`).fontSize(10)
+        Text(`总发送 ${this.networkAvailable ? this.bytes(this.networkTransmitBytes) : '--'}`).fontSize(11)
           .fontColor($r('sys.color.font_secondary'))
-        Text(`总接收 ${this.networkAvailable ? this.bytes(this.networkReceiveBytes) : '--'}`).fontSize(10)
+        Text(`总接收 ${this.networkAvailable ? this.bytes(this.networkReceiveBytes) : '--'}`).fontSize(11)
           .fontColor($r('sys.color.font_secondary'))
       }.width('100%').padding({ left: 14, right: 14, top: 12, bottom: 4 })
         .alignItems(VerticalAlign.Center)
@@ -523,7 +523,7 @@ export struct WideServerMonitor {
   private monitorContent() {
       Column({ space: 10 }) {
         if (this.error.length > 0) {
-          Text(this.error).fontSize(11).fontColor($r('app.color.doctor_workspace_danger'))
+          Text(this.error).fontSize(12).fontColor($r('app.color.doctor_workspace_danger'))
             .width('100%').padding(12).borderRadius(10)
             .backgroundColor($r('app.color.doctor_workspace_accent_soft'))
         }
@@ -540,7 +540,11 @@ export struct WideServerMonitor {
         }.width('100%')
       }
       .width('100%')
-      .padding({ left: this.compactWidth ? 14 : 8, right: this.compactWidth ? 14 : 8,
+      // The management overview already owns the shared horizontal inset.
+      // Avoid adding a second inset when this monitor is embedded beside the
+      // operation-log card so both cards share the same left and right edges.
+      .padding({ left: this.embedded ? 0 : (this.compactWidth ? 14 : 8),
+        right: this.embedded ? 0 : (this.compactWidth ? 14 : 8),
         top: this.embedded ? 0 : 58, bottom: this.embedded ? 0 : 16 + this.naviIndicatorHeight })
       .alignItems(HorizontalAlign.Start)
   }

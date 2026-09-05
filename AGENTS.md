@@ -297,9 +297,10 @@ modules read and write through authenticated server APIs.
 The current administrator capsule is `总览 / 角色 / 用户 / 区域 / 计划 / 大模型 / 设备`.
 `总览` is a server-backed monitoring surface: CPU, memory, and root-disk usage use responsive circular indicators;
 network monitoring shows real receive/transmit rates and cumulative bytes from the protected system-monitor API;
-server and runtime information remain compact label/value lists; disk details and the IoT device summary retain their
-existing data without local fallback records. A backend that predates the network contract renders an explicit
-unavailable state rather than a fabricated chart.
+server and runtime information remain compact label/value lists; and the lower card shows the latest tenant-scoped
+operation logs from the protected audit API with explicit loading, empty, and error states. Full IoT management remains
+under the `设备` entry. A backend that predates the network contract renders an explicit unavailable state rather than a
+fabricated chart.
 `区域` keeps the historical room/bed contract while adding floor, room, corridor, stair, common-area, and other
 spatial records. `计划` manages tenant-owned care-package templates and elder subscriptions that generate runtime
 care plans and tasks. The model page persists separate caregiver and doctor AI configurations through authenticated
