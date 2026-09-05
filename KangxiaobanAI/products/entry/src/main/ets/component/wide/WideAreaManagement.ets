@@ -472,7 +472,7 @@ export struct WideAreaManagement {
               })
               .key((floor: AreaDto) => `floor-${floor.id}`)
           }
-        }.layoutWeight(1).scrollable(ScrollDirection.Horizontal).scrollBar(BarState.Off)
+        }.layoutWeight(1).align(Alignment.Start).scrollable(ScrollDirection.Horizontal).scrollBar(BarState.Off)
         Button('编辑楼层').height(34).fontSize(12).borderRadius(8)
           .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
           .enabled(this.selectedFloorId > 0)
