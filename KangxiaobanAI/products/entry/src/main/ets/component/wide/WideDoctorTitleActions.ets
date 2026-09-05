@@ -49,16 +49,12 @@ export struct WideDoctorTitleActions {
 
   @Builder
   private accountEntry() {
-    Button({ type: this.isDoctor ? ButtonType.Circle : ButtonType.Normal, stateEffect: true }) {
-      if (this.isDoctor) {
-        SymbolGlyph($r('sys.symbol.person_crop_circle_fill'))
-          .fontSize(22)
-          .fontColor([$r('sys.color.icon_primary')])
-      } else {
-        Text('账户').fontSize(15).fontColor($r('sys.color.font_primary'))
-      }
+    Button({ type: ButtonType.Circle, stateEffect: true }) {
+      SymbolGlyph($r('sys.symbol.person_crop_circle_fill'))
+        .fontSize(22)
+        .fontColor([$r('sys.color.icon_primary')])
     }
-    .width(this.isDoctor ? 42 : 58)
+    .width(42)
     .height(42)
     .padding(0)
     .backgroundColor($r('sys.color.comp_background_primary'))
