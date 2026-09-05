@@ -177,15 +177,17 @@ export struct WideRoleManagement {
   }
 
   @Builder
-  private pageHeader() {
+  private roleListHeader() {
     Row() {
-      Text('角色管理').fontSize(24).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+      Text('角色列表').fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
       Blank()
-      Button('新增角色').height(40).fontSize(14).borderRadius(8)
+      Button('新增角色').height(34).fontSize(13).borderRadius(8)
         .fontColor(Color.White).backgroundColor(ACTION_BUTTON_BG)
-        .padding({ left: 20, right: 20 })
+        .padding({ left: 16, right: 16 })
         .onClick(() => this.openCreate())
-    }.width('100%').alignItems(VerticalAlign.Center)
+    }.width('100%').height(52).padding({ left: 18, right: 18 })
+      .alignItems(VerticalAlign.Center)
+      .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
   }
 
   @Builder
@@ -249,7 +251,7 @@ export struct WideRoleManagement {
   @Builder
   private roleListCard() {
     Column() {
-      this.cardHeader('角色列表')
+      this.roleListHeader()
       if (this.loading) {
         Column() {
           LoadingProgress().width(30).height(30)
@@ -397,7 +399,6 @@ export struct WideRoleManagement {
     Stack() {
       Scroll(this.managementScroller) {
         Column({ space: 16 }) {
-          this.pageHeader()
           if (this.error.length > 0) {
             Text(this.error).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
           }
