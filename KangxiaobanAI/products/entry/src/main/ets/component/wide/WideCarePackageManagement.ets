@@ -9,7 +9,7 @@ interface SubscriptionRequest { template_id: number; start_date: string; }
 interface PackageItemRequest { title: string; frequency: string; enabled: boolean; }
 
 const DARK_BUTTON_BG: string = '#1F1F1F';
-const CARD_HEIGHT: number = 380;
+const CARD_HEIGHT: number = 300;
 const CARE_LEVEL_NAMES: string[] = ['不限', '一级护理', '二级护理', '三级护理', '四级护理', '特级护理'];
 const CARE_LEVEL_FG: string[] = ['#5A6B85', '#C0392B', '#B7791F', '#2E8B57', '#5A6B85', '#FFFFFF'];
 const CARE_LEVEL_BG: string[] = ['#EEF1F5', '#FDECEC', '#FDF3E0', '#E8F5EE', '#EEF1F5', '#1F1F1F'];
@@ -220,22 +220,22 @@ export struct WideCarePackageManagement {
           .maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
       }
       Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
-      Column({ space: 6 }) {
-        Text('服务内容').fontSize(12).fontColor($r('sys.color.font_tertiary'))
-        if (this.enabledItems(item).length === 0) {
-          Text('尚未配置护理项目').fontSize(13).fontColor($r('sys.color.font_tertiary'))
-        } else {
-          ForEach(this.enabledItems(item).slice(0, 5), (serviceItem: CarePackageItem) => {
-            Text(`• ${serviceItem.title}${serviceItem.frequency !== undefined && serviceItem.frequency.length > 0 ? `（${serviceItem.frequency}）` : ''}`)
-              .fontSize(13).fontColor($r('sys.color.font_primary'))
-              .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-          }, (serviceItem: CarePackageItem) => `card-item-${item.id}-${serviceItem.id}`)
-          if (this.enabledItems(item).length > 5) {
-            Text(`等共 ${this.enabledItems(item).length} 项服务`).fontSize(12).fontColor($r('sys.color.font_tertiary'))
+      Scroll() {
+        Column({ space: 6 }) {
+          Text('服务内容').fontSize(12).fontColor($r('sys.color.font_tertiary'))
+          if (this.enabledItems(item).length === 0) {
+            Text('尚未配置护理项目').fontSize(13).fontColor($r('sys.color.font_tertiary'))
+          } else {
+            ForEach(this.enabledItems(item), (serviceItem: CarePackageItem) => {
+              Text(`• ${serviceItem.title}${serviceItem.frequency !== undefined && serviceItem.frequency.length > 0 ? `（${serviceItem.frequency}）` : ''}`)
+                .fontSize(13).fontColor($r('sys.color.font_primary'))
+                .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+            }, (serviceItem: CarePackageItem) => `card-item-${item.id}-${serviceItem.id}`)
           }
-        }
-      }.width('100%').alignItems(HorizontalAlign.Start)
-      Blank().layoutWeight(1)
+        }.width('100%').alignItems(HorizontalAlign.Start)
+      }.width('100%').layoutWeight(1).align(Alignment.TopStart)
+      .scrollBar(BarState.Auto)
+      .nestedScroll({ scrollForward: NestedScrollMode.SELF_FIRST, scrollBackward: NestedScrollMode.SELF_FIRST })
       Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
       Row() {
         Text(`共 ${this.enabledItems(item).length} 项服务 · v${item.version}`).fontSize(11).fontColor($r('sys.color.font_tertiary'))
