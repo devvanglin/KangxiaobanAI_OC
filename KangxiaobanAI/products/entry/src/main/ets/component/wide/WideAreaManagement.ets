@@ -498,10 +498,10 @@ export struct WideAreaManagement {
           .fontColor(Color.White).backgroundColor($r('app.color.brand_blue'))
           .onClick(() => this.openItemDialog('corridor'))
         Button('楼梯').height(34).fontSize(12).borderRadius(8)
-          .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
+          .fontColor(Color.White).backgroundColor($r('app.color.brand_blue'))
           .onClick(() => this.openItemDialog('stair'))
         Button('公共区').height(34).fontSize(12).borderRadius(8)
-          .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
+          .fontColor(Color.White).backgroundColor($r('app.color.brand_blue'))
           .onClick(() => this.openItemDialog('common'))
       }.width('100%').alignItems(VerticalAlign.Center)
       if (this.unplacedAreas().length > 0) {
