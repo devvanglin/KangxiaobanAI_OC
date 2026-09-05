@@ -10,6 +10,9 @@ interface DeviceUpdateRequest { device_type: string; room: string; building: str
 interface AreaPage { list: Area[]; }
 interface SignalRecord { id: number; type: string; value: string; ts: string; }
 interface SignalPage { list: SignalRecord[]; }
+interface StatCardParam { label: string; value: string; subtitle: string; valueColor?: string; }
+
+const DARK_BUTTON_BG: string = '#1F1F1F';
 
 @ComponentV2
 export struct WideDeviceManagement {
@@ -33,8 +36,80 @@ export struct WideDeviceManagement {
   @Local previewUrl: string = '';
   private videoController: VideoController = new VideoController();
   @Local error: string = '';
+  @Local searchQuery: string = '';
+  @Local typeFilter: string = '全部';
+  private readonly typeFilters: string[] = ['全部', '毫米波雷达', '摄像头', '其他'];
 
   aboutToAppear(): void { this.businessStore.load(); this.loadAreas(); }
+
+  private deviceTypeName(device: IotDevice): string {
+    if (device.device_type === 'camera' || device.product === 'camera') { return '摄像头'; }
+    if (device.device_type === 'other') { return '其他'; }
+    return this.productName(device.product);
+  }
+
+  private filteredDevices(): IotDevice[] {
+    const query: string = this.searchQuery.trim().toLowerCase();
+    return this.businessStore.devices.filter((device: IotDevice) => {
+      if (this.typeFilter === '毫米波雷达' && device.product !== 'fall_radar' && device.product !== 'breath_radar') { return false; }
+      if (this.typeFilter === '摄像头' && device.product !== 'camera' && device.device_type !== 'camera') { return false; }
+      if (this.typeFilter === '其他' && device.device_type !== 'other') { return false; }
+      if (query.length === 0) { return true; }
+      return (device.device_id ?? '').toLowerCase().includes(query) ||
+        this.productName(device.product).toLowerCase().includes(query) ||
+        this.deviceTypeName(device).toLowerCase().includes(query);
+    });
+  }
+
+  private onlineCount(): number {
+    return this.businessStore.devices.filter((device: IotDevice) => device.online === 1).length;
+  }
+
+  private offlineCount(): number {
+    return this.businessStore.devices.filter((device: IotDevice) => device.online !== 1).length;
+  }
+
+  private pendingCount(): number {
+    return this.businessStore.devices.filter((device: IotDevice) => device.discovery_status === 'pending').length;
+  }
+
+  private onlineRate(): string {
+    const total: number = this.businessStore.devices.length;
+    if (total === 0) { return '0%'; }
+    return String(Math.round(this.onlineCount() / total * 1000) / 10) + '%';
+  }
+
+  private relativeHeartbeat(lastSeen: string | null | undefined): string {
+    if (lastSeen === undefined || lastSeen === null || lastSeen.length === 0) { return '—'; }
+    const normalized: string = lastSeen.endsWith('Z') ? lastSeen : lastSeen + 'Z';
+    const ts: number = Date.parse(normalized);
+    if (Number.isNaN(ts)) { return lastSeen.slice(11, 19); }
+    const seconds: number = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+    if (seconds < 60) { return seconds + '秒前'; }
+    const minutes: number = Math.floor(seconds / 60);
+    if (minutes < 60) { return minutes + '分钟前'; }
+    const hours: number = Math.floor(minutes / 60);
+    if (hours < 24) { return hours + '小时前'; }
+    return Math.floor(hours / 24) + '天前';
+  }
+
+  private statusTintBg(device: IotDevice): string {
+    if (device.discovery_status === 'pending') { return '#FDF3E0'; }
+    return device.online === 1 ? '#E8F5EE' : '#FDECEC';
+  }
+
+  private statusTintFg(device: IotDevice): string {
+    if (device.discovery_status === 'pending') { return '#B7791F'; }
+    return device.online === 1 ? '#2E8B57' : '#C0392B';
+  }
+
+  private openDeviceDetail(device: IotDevice): void {
+    if (device.device_type === 'camera' || device.product === 'camera') {
+      this.openPreview(device);
+    } else {
+      this.openSignals(device);
+    }
+  }
 
   private async loadAreas(): Promise<void> { try { const response = await ApiClient.get<AreaPage>('/areas'); if (response.code === 0 && response.data !== undefined) this.areas = response.data.list ?? []; } catch (_error) {} }
 
@@ -187,48 +262,115 @@ export struct WideDeviceManagement {
   }
 
   @Builder
-  private deviceCard(device: IotDevice) {
-    Column({ space: 12 }) {
+  private statCard($$: StatCardParam) {
+    Column({ space: 6 }) {
+      Text($$.label).fontSize(12).fontColor($r('sys.color.font_secondary'))
+      Text($$.value).fontSize(24).fontWeight(FontWeight.Bold)
+        .fontColor($$.valueColor !== undefined && $$.valueColor.length > 0 ? $$.valueColor : $r('sys.color.font_primary'))
+      Text($$.subtitle).fontSize(11).fontColor($r('sys.color.font_tertiary'))
+    }.alignItems(HorizontalAlign.Start)
+      .layoutWeight(1).padding(14)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(12).border({ width: 0.5, color: $r('sys.color.comp_divider') })
+  }
+
+  @Builder
+  private statCards() {
+    Row({ space: 12 }) {
+      this.statCard({ label: '设备总数', value: String(this.businessStore.devices.length), subtitle: '毫米波雷达 + 摄像头' })
+      this.statCard({ label: '在线设备', value: String(this.onlineCount()), subtitle: '在线率 ' + this.onlineRate() })
+      this.statCard({ label: '离线设备', value: String(this.offlineCount()), subtitle: '需关注', valueColor: this.offlineCount() > 0 ? '#C0392B' : '' })
+      this.statCard({ label: '待认领设备', value: String(this.pendingCount()), subtitle: 'MQTT 自动发现后认领' })
+    }.width('100%')
+  }
+
+  @Builder
+  private typeChipsRow() {
+    Row({ space: 8 }) {
+      ForEach(this.typeFilters, (label: string) => {
+        Text(label)
+          .fontSize(13)
+          .fontColor(this.typeFilter === label ? Color.White : $r('sys.color.font_primary'))
+          .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+          .borderRadius(8)
+          .backgroundColor(this.typeFilter === label ? '#1F1F1F' : $r('sys.color.comp_background_secondary'))
+          .onClick(() => this.typeFilter = label)
+      }, (label: string) => 'type-chip-' + label)
+    }.width('100%')
+  }
+
+  @Builder
+  private tableHeaderCell(label: string, weight: number) {
+    Text(label).fontSize(12).fontColor($r('sys.color.font_tertiary')).layoutWeight(weight)
+  }
+
+  @Builder
+  private tableHeader() {
+    Row({ space: 12 }) {
+      this.tableHeaderCell('设备信息', 2.2)
+      this.tableHeaderCell('设备类型', 1.3)
+      this.tableHeaderCell('安装位置', 1.6)
+      this.tableHeaderCell('关联床位', 1)
+      this.tableHeaderCell('状态', 1)
+      this.tableHeaderCell('最后心跳', 1.3)
+      this.tableHeaderCell('操作', 1.4)
+    }.width('100%').padding({ top: 10, bottom: 10 })
+  }
+
+  @Builder
+  private tableRow(device: IotDevice) {
+    Row({ space: 12 }) {
+      Column({ space: 3 }) {
+        Text(this.productName(device.product)).fontSize(14).fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary')).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(this.deviceIdValue(device)).fontSize(11).fontColor($r('sys.color.font_tertiary'))
+          .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+      }.layoutWeight(2.2).alignItems(HorizontalAlign.Start)
+      Text(this.deviceTypeName(device)).fontSize(13).fontColor($r('sys.color.font_primary'))
+        .layoutWeight(1.3).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+      Text(this.deviceLocation(device)).fontSize(13).fontColor($r('sys.color.font_primary'))
+        .layoutWeight(1.6).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+      Text(device.bed !== undefined && device.bed.length > 0 ? device.bed + '床' : '—')
+        .fontSize(13).fontColor($r('sys.color.font_primary')).layoutWeight(1)
+      Text(this.deviceStatus(device))
+        .fontSize(11).fontColor(this.statusTintFg(device))
+        .padding({ left: 10, right: 10, top: 4, bottom: 4 }).borderRadius(8)
+        .backgroundColor(this.statusTintBg(device)).layoutWeight(1)
+      Text(this.relativeHeartbeat(device.last_seen)).fontSize(13).fontColor($r('sys.color.font_primary'))
+        .layoutWeight(1.3).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
       Row({ space: 10 }) {
-        Column() {
-          SymbolGlyph(this.productSymbol(device.product)).fontSize(24).fontColor([this.productTint(device.product)])
-        }.width(44).height(44).justifyContent(FlexAlign.Center).backgroundColor($r('sys.color.comp_background_secondary')).borderRadius(12)
-        Column({ space: 4 }) {
-          Text(this.productName(device.product)).fontSize(15).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
-          Text(this.deviceIdValue(device)).fontSize(11).fontColor($r('sys.color.font_secondary')).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-        }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-        Text(this.deviceStatus(device)).fontSize(11).fontColor(this.deviceStatusColor(device)).padding({ left: 9, right: 9, top: 5, bottom: 5 }).backgroundColor(device.online === 1 ? $r('app.color.status_normal_bg') : $r('sys.color.comp_background_secondary')).borderRadius(12)
-      }.width('100%')
+        Text('详情').fontSize(13).fontColor($r('sys.color.font_primary')).onClick(() => this.openDeviceDetail(device))
+        Text('配置').fontSize(13).fontColor($r('sys.color.font_primary')).onClick(() => this.openEdit(device))
+      }.layoutWeight(1.4)
+    }.width('100%').alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  private deviceTable() {
+    Column({ space: 0 }) {
+      this.tableHeader()
       Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
-      Row({ space: 12 }) {
-        Column({ space: 5 }) {
-          Text('绑定位置').fontSize(11).fontColor($r('sys.color.font_tertiary'))
-          Text(this.deviceLocation(device)).fontSize(13).fontColor($r('sys.color.font_primary')).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-        }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-        Column({ space: 5 }) {
-          Text('接入协议').fontSize(11).fontColor($r('sys.color.font_tertiary'))
-          Text(device.protocol === 'RTSP' ? 'RTSP' : 'MQTT').fontSize(13).fontColor($r('sys.color.font_primary'))
-        }.width(82).alignItems(HorizontalAlign.Start)
-        Column({ space: 5 }) {
-          Text('最近上报').fontSize(11).fontColor($r('sys.color.font_tertiary'))
-          Text(device.last_seen === undefined || device.last_seen === null ? '--' : device.last_seen.slice(11, 19)).fontSize(13).fontColor($r('sys.color.font_primary'))
-        }.width(82).alignItems(HorizontalAlign.Start)
-      }.width('100%')
-      if (device.device_type === 'camera') {
-        Text(this.streamValue(device).length === 0 ? '未配置 RTSP 流地址' : this.streamValue(device)).fontSize(11).fontColor($r('sys.color.font_secondary')).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+      if (this.filteredDevices().length === 0) {
+        Column({ space: 8 }) {
+          SymbolGlyph($r('sys.symbol.beacon_tower_fill')).fontSize(32).fontColor([$r('sys.color.icon_secondary')])
+          Text(this.searchQuery.length > 0 || this.typeFilter !== '全部' ? '没有符合条件的设备' : '暂无设备')
+            .fontSize(15).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+          Text('毫米波设备可通过 MQTT 自动发现，摄像头可手动添加。')
+            .fontSize(12).fontColor($r('sys.color.font_secondary'))
+        }.width('100%').padding({ top: 36, bottom: 36 }).alignItems(HorizontalAlign.Center)
       } else {
-        Text(this.batteryValue(device)).fontSize(11).fontColor($r('sys.color.font_secondary'))
+        ForEach(this.filteredDevices(), (device: IotDevice, index: number) => {
+          Column() {
+            this.tableRow(device)
+            if (index < this.filteredDevices().length - 1) {
+              Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
+            }
+          }.width('100%')
+        }, (device: IotDevice) => 'device-row-' + String(device.id) + '-' + String(device.online) + '-' + (device.last_seen ?? ''))
       }
-      Row({ space: 8 }) {
-        if (device.device_type === 'camera' && this.streamValue(device).length > 0) {
-          Button('预览').layoutWeight(1).height(32).fontSize(11).onClick(() => this.openPreview(device))
-        }
-        if (device.device_type !== 'camera') {
-          Button('查看信号').layoutWeight(1).height(32).fontSize(11).onClick(() => this.openSignals(device))
-        }
-        Button('编辑').layoutWeight(1).height(32).fontSize(11).onClick(() => this.openEdit(device))
-      }.width('100%')
-    }.width('100%').padding(16).backgroundColor($r('sys.color.comp_background_primary')).borderRadius(14).border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    }.width('100%').padding({ left: 16, right: 16 })
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(12).border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   @Builder
@@ -263,7 +405,7 @@ export struct WideDeviceManagement {
         TextInput({ placeholder: '床位号，可选，例如 1', text: $$this.bed }).height(42)
         Text('绑定区域（可选）').fontSize(12).fontColor($r('sys.color.font_secondary'))
         ForEach(this.areas, (area: Area) => Button(area.name).width('100%').height(32).fontSize(11).backgroundColor(this.areaId === area.id ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary')).fontColor(this.areaId === area.id ? Color.White : $r('sys.color.font_secondary')).onClick(() => this.areaId = area.id), (area: Area) => `device-area-${area.id}`)
-        Row({ space: 10 }) { Button('取消').layoutWeight(1).height(40).onClick(() => { this.showCreate = false; this.resetEditor(); }); Button('保存').layoutWeight(1).height(40).fontColor(Color.White).backgroundColor($r('app.color.brand_blue')).onClick(() => this.saveDevice()) }.width('100%')
+        Row({ space: 10 }) { Button('取消').layoutWeight(1).height(40).onClick(() => { this.showCreate = false; this.resetEditor(); }); Button('保存').layoutWeight(1).height(40).borderRadius(8).fontColor(Color.White).backgroundColor(DARK_BUTTON_BG).onClick(() => this.saveDevice()) }.width('100%')
       }.width(this.compactWidth ? '90%' : 440).padding(24).backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
     }
   }
@@ -271,24 +413,24 @@ export struct WideDeviceManagement {
   build() {
     Stack() {
       Scroll(this.managementScroller) { Column({ space: 16 }) {
-        Row() { Column({ space: 4 }) { Text('设备管理').fontSize(this.compactWidth ? 24 : 28).fontWeight(FontWeight.Bold); Text('添加毫米波设备或摄像头，并绑定到房间').fontSize(11).fontColor($r('sys.color.font_secondary')) }.alignItems(HorizontalAlign.Start).layoutWeight(1); Button('添加设备').height(36).fontSize(12).fontColor(Color.White).backgroundColor($r('app.color.brand_blue')).onClick(() => this.showCreate = true) }.width('100%')
+        Row({ space: 12 }) {
+          Column({ space: 4 }) {
+            Text('设备管理').fontSize(this.compactWidth ? 24 : 28).fontWeight(FontWeight.Bold)
+              .fontColor($r('sys.color.font_primary'))
+            Text('添加毫米波设备或摄像头，并绑定到房间').fontSize(11).fontColor($r('sys.color.font_secondary'))
+          }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+          Search({ value: this.searchQuery, placeholder: '搜索设备编号/名称' })
+            .width(this.compactWidth ? '100%' : 260).height(38)
+            .onChange((value: string) => this.searchQuery = value)
+          Button('新增设备').height(38).fontSize(13).borderRadius(8)
+            .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
+            .onClick(() => { this.resetEditor(); this.showCreate = true; })
+        }.width('100%').alignItems(VerticalAlign.Center)
+        this.typeChipsRow()
         if (this.error.length > 0) Text(this.error).fontSize(12).fontColor($r('app.color.doctor_workspace_danger'))
-        if (this.businessStore.devices.length > 0) {
-          GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
-            ForEach(this.businessStore.devices, (device: IotDevice) => {
-              GridCol({ span: this.compactWidth ? 12 : 6 }) {
-                this.deviceCard(device)
-              }
-            }, (device: IotDevice) => `device-card-${device.id}`)
-          }.width('100%')
-        } else if (!this.businessStore.loading) {
-          Column({ space: 8 }) {
-            SymbolGlyph($r('sys.symbol.beacon_tower_fill')).fontSize(32).fontColor([$r('sys.color.icon_secondary')])
-            Text('暂无设备').fontSize(15).fontWeight(FontWeight.Medium)
-            Text('毫米波设备可通过 MQTT 自动发现，摄像头可手动添加。').fontSize(12).fontColor($r('sys.color.font_secondary'))
-          }.width('100%').padding({ top: 48, bottom: 48 }).alignItems(HorizontalAlign.Center)
-        }
-      }.width('100%').padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28, top: 56 + this.statusBarHeight, bottom: 24 + this.naviIndicatorHeight }) }.width('100%').height('100%').scrollBar(BarState.Off)
+        this.statCards()
+        this.deviceTable()
+      }.width('100%').constraintSize({ minHeight: '100%' }).padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28, top: 56 + this.statusBarHeight, bottom: 24 + this.naviIndicatorHeight }) }.width('100%').height('100%').scrollBar(BarState.Off)
       if (this.showCreate) Row() { this.createDialog() }.width('100%').height('100%').backgroundColor('#66000000').justifyContent(FlexAlign.Center)
       if (this.previewUrl.length > 0) Row() {
         Column({ space: 12 }) {
