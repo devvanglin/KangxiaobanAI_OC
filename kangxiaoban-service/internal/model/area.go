@@ -24,6 +24,12 @@ type Area struct {
 	Status      string   `gorm:"size:16;default:active;index" json:"status"`
 	SortOrder   int      `gorm:"default:0" json:"sort_order"`
 	Description string   `gorm:"size:500" json:"description"`
+	// Floor-plan geometry in grid cells. Zero size marks an area that has
+	// not been placed on its floor map yet.
+	PosX  float64 `gorm:"default:0" json:"pos_x"`
+	PosY  float64 `gorm:"default:0" json:"pos_y"`
+	SizeW float64 `gorm:"default:0" json:"size_w"`
+	SizeH float64 `gorm:"default:0" json:"size_h"`
 }
 
 type CarePackageTemplate struct {

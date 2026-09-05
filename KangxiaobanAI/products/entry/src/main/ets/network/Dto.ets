@@ -189,6 +189,11 @@ export interface Area {
   status: string;
   sort_order?: number;
   description?: string;
+  /** 楼层平面图几何（网格单位）；尺寸为 0 表示尚未布置。 */
+  pos_x?: number;
+  pos_y?: number;
+  size_w?: number;
+  size_h?: number;
 }
 
 /** 床位。 */

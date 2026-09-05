@@ -31,15 +31,26 @@ func (h *AreaHandler) List(c *gin.Context) {
 }
 
 type areaInput struct {
-	ParentID    *uint  `json:"parent_id"`
-	Type        string `json:"type" binding:"required"`
-	Code        string `json:"code" binding:"required"`
-	Name        string `json:"name" binding:"required"`
-	Building    string `json:"building"`
-	FloorNo     int    `json:"floor_no"`
-	Status      string `json:"status"`
-	SortOrder   int    `json:"sort_order"`
-	Description string `json:"description"`
+	ParentID    *uint   `json:"parent_id"`
+	Type        string  `json:"type" binding:"required"`
+	Code        string  `json:"code" binding:"required"`
+	Name        string  `json:"name" binding:"required"`
+	Building    string  `json:"building"`
+	FloorNo     int     `json:"floor_no"`
+	Status      string  `json:"status"`
+	SortOrder   int     `json:"sort_order"`
+	Description string  `json:"description"`
+	PosX        float64 `json:"pos_x"`
+	PosY        float64 `json:"pos_y"`
+	SizeW       float64 `json:"size_w"`
+	SizeH       float64 `json:"size_h"`
+}
+
+func sanitizeGeometry(value float64) float64 {
+	if value < 0 {
+		return 0
+	}
+	return value
 }
 
 func validateAreaType(value string) bool {
@@ -62,7 +73,7 @@ func (h *AreaHandler) Create(c *gin.Context) {
 		status = "active"
 	}
 	db := h.db.WithContext(c.Request.Context())
-	area := &model.Area{ParentID: input.ParentID, Type: model.AreaType(input.Type), Code: strings.TrimSpace(input.Code), Name: strings.TrimSpace(input.Name), Building: strings.TrimSpace(input.Building), FloorNo: input.FloorNo, Status: status, SortOrder: input.SortOrder, Description: strings.TrimSpace(input.Description)}
+	area := &model.Area{ParentID: input.ParentID, Type: model.AreaType(input.Type), Code: strings.TrimSpace(input.Code), Name: strings.TrimSpace(input.Name), Building: strings.TrimSpace(input.Building), FloorNo: input.FloorNo, Status: status, SortOrder: input.SortOrder, Description: strings.TrimSpace(input.Description), PosX: sanitizeGeometry(input.PosX), PosY: sanitizeGeometry(input.PosY), SizeW: sanitizeGeometry(input.SizeW), SizeH: sanitizeGeometry(input.SizeH)}
 	if err := db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(area).Error; err != nil {
 			return err
@@ -99,7 +110,7 @@ func (h *AreaHandler) Update(c *gin.Context) {
 	if status == "" {
 		status = area.Status
 	}
-	updates := map[string]interface{}{"parent_id": input.ParentID, "type": input.Type, "code": strings.TrimSpace(input.Code), "name": strings.TrimSpace(input.Name), "building": strings.TrimSpace(input.Building), "floor_no": input.FloorNo, "status": status, "sort_order": input.SortOrder, "description": strings.TrimSpace(input.Description)}
+	updates := map[string]interface{}{"parent_id": input.ParentID, "type": input.Type, "code": strings.TrimSpace(input.Code), "name": strings.TrimSpace(input.Name), "building": strings.TrimSpace(input.Building), "floor_no": input.FloorNo, "status": status, "sort_order": input.SortOrder, "description": strings.TrimSpace(input.Description), "pos_x": sanitizeGeometry(input.PosX), "pos_y": sanitizeGeometry(input.PosY), "size_w": sanitizeGeometry(input.SizeW), "size_h": sanitizeGeometry(input.SizeH)}
 	if err := db.Model(&area).Updates(updates).Error; err != nil {
 		Fail(c, 409, 409, "区域更新失败")
 		return
