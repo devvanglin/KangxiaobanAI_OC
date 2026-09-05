@@ -113,6 +113,26 @@ export struct WideDeviceManagement {
 
   private async loadAreas(): Promise<void> { try { const response = await ApiClient.get<AreaPage>('/areas'); if (response.code === 0 && response.data !== undefined) this.areas = response.data.list ?? []; } catch (_error) {} }
 
+  private areaOptions(): SelectOption[] {
+    const options: SelectOption[] = [{ value: '不限' } as SelectOption];
+    this.areas.forEach((area: Area) => {
+      options.push({ value: area.name } as SelectOption);
+    });
+    return options;
+  }
+
+  private selectedAreaIndex(): number {
+    if (this.areaId === 0) { return 0; }
+    const index: number = this.areas.findIndex((area: Area) => area.id === this.areaId);
+    return index >= 0 ? index + 1 : 0;
+  }
+
+  private selectedAreaName(): string {
+    const index: number = this.selectedAreaIndex();
+    if (index <= 0) { return '不限'; }
+    return this.areas[index - 1]?.name ?? '不限';
+  }
+
   private productName(product: string): string { return product === 'fall_radar' ? '毫米波跌倒雷达' : product === 'breath_radar' ? '毫米波呼吸雷达' : product === 'camera' ? '摄像头' : product || '未知设备'; }
   private productSymbol(product: string): Resource {
     return product === 'camera' ? $r('sys.symbol.camera_fill') :
@@ -415,8 +435,19 @@ export struct WideDeviceManagement {
         TextInput({ placeholder: '绑定房间号，可选，例如 101', text: $$this.room }).height(42)
         TextInput({ placeholder: '床位号，可选，例如 1', text: $$this.bed }).height(42)
         Text('绑定区域（可选）').fontSize(12).fontColor($r('sys.color.font_secondary'))
-        ForEach(this.areas, (area: Area) => Button(area.name).width('100%').height(32).fontSize(11).backgroundColor(this.areaId === area.id ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary')).fontColor(this.areaId === area.id ? Color.White : $r('sys.color.font_secondary')).onClick(() => this.areaId = area.id), (area: Area) => `device-area-${area.id}`)
-        Row({ space: 10 }) { Button('取消').layoutWeight(1).height(40).onClick(() => { this.showCreate = false; this.resetEditor(); }); Button('保存').layoutWeight(1).height(40).borderRadius(8).fontColor(Color.White).backgroundColor(DARK_BUTTON_BG).onClick(() => this.saveDevice()) }.width('100%')
+        Select(this.areaOptions())
+          .selected(this.selectedAreaIndex()).value(this.selectedAreaName())
+          .fontColor($r('sys.color.font_primary')).font({ size: 13 })
+          .onSelect((index: number) => this.areaId = index === 0 ? 0 : (this.areas[index - 1]?.id ?? 0))
+          .width('100%').height(42)
+        Row({ space: 10 }) {
+          Button('取消').layoutWeight(1).height(40).fontSize(13).borderRadius(8)
+            .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))
+            .onClick(() => { this.showCreate = false; this.resetEditor(); })
+          Button('保存').layoutWeight(1).height(40).fontSize(13).borderRadius(8)
+            .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
+            .onClick(() => this.saveDevice())
+        }.width('100%')
       }.width(this.compactWidth ? '90%' : 440).padding(24).backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
     }
   }
