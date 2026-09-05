@@ -7,6 +7,7 @@ interface AIModelConfig {
 }
 interface AIConfigPage { list: AIModelConfig[]; }
 interface AIConfigRequest { role_scope: string; name: string; provider: string; base_url: string; model: string; api_key: string; system_prompt: string; rag_enabled: boolean; rag_base_url: string; rag_dataset_id: string; enabled: boolean; allowed: boolean; is_default: boolean; }
+interface StatCardParam { label: string; value: string; subtitle: string; }
 
 const DARK_BUTTON_BG: string = '#1F1F1F';
 
@@ -137,12 +138,12 @@ export struct WideModelManagement {
   }
 
   @Builder
-  private statCard(label: string, value: string, subtitle: string) {
+  private statCard($$: StatCardParam) {
     Column({ space: 6 }) {
-      Text(label).fontSize(12).fontColor($r('sys.color.font_secondary'))
-      Text(value).fontSize(24).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+      Text($$.label).fontSize(12).fontColor($r('sys.color.font_secondary'))
+      Text($$.value).fontSize(24).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
         .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-      Text(subtitle).fontSize(11).fontColor($r('sys.color.font_tertiary'))
+      Text($$.subtitle).fontSize(11).fontColor($r('sys.color.font_tertiary'))
         .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
     }.alignItems(HorizontalAlign.Start)
       .width('100%').padding(14)
@@ -167,20 +168,20 @@ export struct WideModelManagement {
     if (this.compactWidth) {
       Column({ space: 12 }) {
         Row({ space: 12 }) {
-          Row() { this.statCard('接入模型', String(this.configs.length), `${this.enabledCount()} 个已启用`) }.layoutWeight(1).alignItems(VerticalAlign.Top)
-          Row() { this.statCard('护工端', this.roleStatusValue('caregiver'), this.roleStatusSubtitle('caregiver')) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+          Row() { this.statCard({ label: '接入模型', value: String(this.configs.length), subtitle: `${this.enabledCount()} 个已启用` }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+          Row() { this.statCard({ label: '护工端', value: this.roleStatusValue('caregiver'), subtitle: this.roleStatusSubtitle('caregiver') }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
         }.width('100%')
         Row({ space: 12 }) {
-          Row() { this.statCard('医师端', this.roleStatusValue('doctor'), this.roleStatusSubtitle('doctor')) }.layoutWeight(1).alignItems(VerticalAlign.Top)
-          Row() { this.statCard('RAG 知识库', `${this.ragEnabledCount()} 项启用`, '检索适配完成后生效') }.layoutWeight(1).alignItems(VerticalAlign.Top)
+          Row() { this.statCard({ label: '医师端', value: this.roleStatusValue('doctor'), subtitle: this.roleStatusSubtitle('doctor') }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+          Row() { this.statCard({ label: 'RAG 知识库', value: `${this.ragEnabledCount()} 项启用`, subtitle: '检索适配完成后生效' }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
         }.width('100%')
       }.width('100%')
     } else {
       Row({ space: 12 }) {
-        Row() { this.statCard('接入模型', String(this.configs.length), `${this.enabledCount()} 个已启用`) }.layoutWeight(1).alignItems(VerticalAlign.Top)
-        Row() { this.statCard('护工端', this.roleStatusValue('caregiver'), this.roleStatusSubtitle('caregiver')) }.layoutWeight(1).alignItems(VerticalAlign.Top)
-        Row() { this.statCard('医师端', this.roleStatusValue('doctor'), this.roleStatusSubtitle('doctor')) }.layoutWeight(1).alignItems(VerticalAlign.Top)
-        Row() { this.statCard('RAG 知识库', `${this.ragEnabledCount()} 项启用`, '检索适配完成后生效') }.layoutWeight(1).alignItems(VerticalAlign.Top)
+        Row() { this.statCard({ label: '接入模型', value: String(this.configs.length), subtitle: `${this.enabledCount()} 个已启用` }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+        Row() { this.statCard({ label: '护工端', value: this.roleStatusValue('caregiver'), subtitle: this.roleStatusSubtitle('caregiver') }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+        Row() { this.statCard({ label: '医师端', value: this.roleStatusValue('doctor'), subtitle: this.roleStatusSubtitle('doctor') }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+        Row() { this.statCard({ label: 'RAG 知识库', value: `${this.ragEnabledCount()} 项启用`, subtitle: '检索适配完成后生效' }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
       }.width('100%')
     }
   }
@@ -282,6 +283,56 @@ export struct WideModelManagement {
   }
 
   @Builder
+  private ragCard() {
+    Column({ space: 12 }) {
+      Text('RAG 知识库').fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+      Text('每个模型可独立接入 Dify 知识库检索；当前检索适配完成后才会参与回答。')
+        .fontSize(12).fontColor($r('sys.color.font_secondary'))
+      if (this.configs.length === 0) {
+        Text('暂无模型配置。新增模型后在配置里开启 RAG。')
+          .fontSize(12).fontColor($r('sys.color.font_tertiary'))
+      } else {
+        ForEach(this.configs, (item: AIModelConfig, index: number) => {
+          Column({ space: 10 }) {
+            Row({ space: 10 }) {
+              Column({ space: 3 }) {
+                Row({ space: 6 }) {
+                  Text(this.roleLabel(item.role_scope))
+                    .fontSize(10).fontColor(Color.White)
+                    .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+                    .borderRadius(4)
+                    .backgroundColor(item.role_scope === 'doctor' ? $r('app.color.doctor_workspace_accent') : $r('app.color.brand_blue'))
+                  Text('知识库接入').fontSize(14).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+                }.alignItems(VerticalAlign.Center)
+                if (item.rag_enabled) {
+                  Text(item.rag_base_url.length > 0 ? item.rag_base_url : '未填写 Dify URL')
+                    .fontSize(12).fontColor($r('sys.color.font_secondary'))
+                    .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+                  Text(`数据集 ${item.rag_dataset_id.length > 0 ? item.rag_dataset_id : '未填写'} · RAG 密钥${item.rag_api_key_configured ? '已配置' : '未配置'}`)
+                    .fontSize(11).fontColor($r('sys.color.font_tertiary'))
+                    .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+                } else {
+                  Text('未接入知识库检索，回答仅依赖模型本身。')
+                    .fontSize(12).fontColor($r('sys.color.font_tertiary'))
+                }
+              }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+              this.statusBadge(item.rag_enabled)
+              this.actionText('配置', false, () => this.openEditor(item))
+            }.width('100%').alignItems(VerticalAlign.Center)
+            .constraintSize({ maxWidth: '100%' })
+          }.width('100%').padding({ top: 10, bottom: 10 })
+          if (index < this.configs.length - 1) {
+            Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
+          }
+        }, (item: AIModelConfig) => `ai-rag-${item.id}`)
+      }
+    }.width('100%').padding(16)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(12).border({ width: 0.5, color: $r('sys.color.comp_divider') })
+      .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
   private editorDialog() {
     Column({ space: 12 }) {
       Scroll() {
@@ -367,6 +418,7 @@ export struct WideModelManagement {
           }
           this.statCards()
           this.modelListCard()
+          this.ragCard()
           this.apiKeyCard()
         }.width('100%').padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28,
           top: 56 + this.statusBarHeight, bottom: 24 + this.naviIndicatorHeight })
