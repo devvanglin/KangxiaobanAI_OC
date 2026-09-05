@@ -769,8 +769,17 @@ export struct WideAdminWorkspace {
       }.width('100%').height(40).padding({ left: 14, right: 14 })
         .border({ width: { bottom: 0.5 }, color: { bottom: $r('app.color.doctor_workspace_border_soft') } })
       if (this.auditLoading) {
-        Text('正在加载操作日志').width('100%').height(82).padding({ top: 30, bottom: 30 })
-          .fontSize(12).fontColor($r('app.color.doctor_workspace_text_tertiary')).textAlign(TextAlign.Center)
+        // Skeleton rows reserve the loaded list height so the panel does not
+        // grow suddenly when logs arrive.
+        Column() {
+          ForEach([1, 2, 3, 4, 5, 6], (_: number) => {
+            Row() {
+              Row().height(12).borderRadius(6).layoutWeight(1)
+                .backgroundColor($r('app.color.doctor_workspace_surface_hover'))
+            }.width('100%').height(56).padding({ left: 14, right: 14 })
+              .alignItems(VerticalAlign.Center)
+          }, (item: number) => `audit-skeleton-${item}`)
+        }.width('100%')
       } else if (this.auditError.length > 0) {
         Text(this.auditError).width('100%').height(82).padding({ top: 30, bottom: 30 })
           .fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).textAlign(TextAlign.Center)
@@ -806,7 +815,7 @@ export struct WideAdminWorkspace {
       Column({ space: 12 }) {
         WideServerMonitor({ compactWidth: this.compactWidth, embedded: true }).width('100%')
         this.auditLogPanel()
-      }.width('100%').padding({ left: this.compactWidth ? 14 : 8, right: this.compactWidth ? 14 : 8,
+      }.width('100%').padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28,
         top: this.adminOverviewTopPadding(), bottom: this.dashboardBottomPadding() }).alignItems(HorizontalAlign.Start)
     }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
   }

@@ -71,10 +71,11 @@ struct MonitorStatusRing {
       }.width(144).height(144)
       Text(this.detail).fontSize(11).fontColor($r('sys.color.font_secondary'))
         .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-      if (this.secondaryDetail.length > 0) {
-        Text(this.secondaryDetail).fontSize(10).fontColor($r('sys.color.font_tertiary'))
-          .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-      }
+      // Always reserve the secondary line so the card keeps its height when
+      // monitoring data lands, otherwise the whole overview layout jumps.
+      Text(this.secondaryDetail).fontSize(10).fontColor($r('sys.color.font_tertiary'))
+        .maxLines(1).height(14)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
     }.width('100%').alignItems(HorizontalAlign.Center)
       .accessibilityText(`${this.label} ${this.valueText} ${this.detail} ${this.secondaryDetail}`)
   }
