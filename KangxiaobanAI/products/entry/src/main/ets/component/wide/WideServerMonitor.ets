@@ -171,6 +171,7 @@ export struct WideServerMonitor {
   @Local loading: boolean = false;
   @Local error: string = '';
   @Local lastUpdated: string = '--';
+  @Local infoCardMinHeight: number = 0;
   private networkContext: CanvasRenderingContext2D = new CanvasRenderingContext2D(new RenderingContextSettings(true));
   private refreshTimer: number = -1;
 
@@ -472,11 +473,12 @@ export struct WideServerMonitor {
           ServerMetricRow({ label: '应用版本', value: '1.0.0' })
           ServerMetricRow({ label: '部署模式', value: '生产环境', showBottomDivider: false })
         }.width('100%').alignItems(HorizontalAlign.Start)
-      }.width('100%').padding({ left: 12, right: 12, bottom: this.compactWidth ? 6 : 34 })
+      }.width('100%').padding({ left: 12, right: 12, bottom: 6 })
     }.width('100%').borderRadius(8)
       .backgroundColor($r('sys.color.comp_background_primary'))
       .border({ width: 0.5, color: $r('sys.color.comp_divider') })
       .alignItems(HorizontalAlign.Start)
+      .constraintSize({ minHeight: this.compactWidth ? 0 : this.infoCardMinHeight })
   }
 
   @Builder
@@ -533,6 +535,9 @@ export struct WideServerMonitor {
               this.statusPanel()
               this.networkCard()
             }.width('100%')
+              .onAreaChange((_oldArea: Area, newArea: Area) => {
+                this.infoCardMinHeight = Number(newArea.height);
+              })
           }
           GridCol({ span: this.compactWidth ? 12 : 5 }) {
             this.systemInfoPanel()
