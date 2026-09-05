@@ -203,11 +203,11 @@ export struct WideRoleManagement {
           onClick: (): void => { this.selectedRoleId = role.id; },
           cardBorderRadius: 0,
           hoverBorderRadius: 0,
-          cardBackgroundColor: this.selectedRoleId === role.id ?
-            $r('sys.color.comp_background_secondary') : $r('sys.color.ohos_id_color_background_transparent'),
+          cardBackgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
           cardHeight: 96
         }).layoutWeight(1)
       }.width('100%')
+        .backgroundColor(this.selectedRoleId === role.id ? $r('sys.color.comp_background_secondary') : Color.Transparent)
       if (!isLast) {
         Divider().strokeWidth(0.5).color($r('sys.color.comp_divider')).margin({ left: 18, right: 18 })
       }
