@@ -19,8 +19,7 @@ interface AreaSaveRequest {
   size_w: number;
   size_h: number;
 }
-interface AreaChoice { code: string; label: string; }
-interface BedCreateRequest { room_id: number; bed_no: string; status: string; }
+interface BedCreateRequest { room_id?: number; area_id?: number; bed_no: string; status: string; }
 
 const GRID_COLS: number = 26;
 const GRID_ROWS: number = 15;
@@ -41,8 +40,8 @@ export struct WideAreaManagement {
   @Local error: string = '';
   @Local showFloorDialog: boolean = false;
   @Local showItemDialog: boolean = false;
-  @Local showBedDialog: boolean = false;
   @Local showSizeDialog: boolean = false;
+  @Local floorEditMode: boolean = false;
   @Local dialogKind: string = 'room';
   @Local dialogName: string = '';
   @Local dialogCode: string = '';
@@ -50,8 +49,6 @@ export struct WideAreaManagement {
   @Local dialogFloorNo: string = '';
   @Local dialogWidth: string = '3';
   @Local dialogHeight: string = '2';
-  @Local bedTargetAreaId: number = 0;
-  @Local bedNo: string = '';
   private planContext: CanvasRenderingContext2D = new CanvasRenderingContext2D(new RenderingContextSettings(true));
   private planWidth: number = 0;
   private cellSize: number = 0;
@@ -130,8 +127,64 @@ export struct WideAreaManagement {
   }
 
   private bedCount(area: AreaDto): number {
+    return this.bedsOfArea(area).length;
+  }
+
+  /** 床位优先按 area_id 关联统计，兼容尚未回填 area_id 的历史床位。 */
+  private bedsOfArea(area: AreaDto): Bed[] {
+    const linked: Bed[] = this.businessStore.beds.filter((bed: Bed) => bed.area_id === area.id);
+    if (linked.length > 0) {
+      return linked;
+    }
     const room: Room | undefined = this.roomForArea(area);
-    return room === undefined ? 0 : this.businessStore.beds.filter((bed: Bed) => bed.room_id === room.id).length;
+    return room === undefined ? [] : this.businessStore.beds.filter((bed: Bed) => bed.room_id === room.id);
+  }
+
+  private bedsOfSelected(): Bed[] {
+    const area: AreaDto | undefined = this.selectedArea();
+    return area === undefined ? [] : this.bedsOfArea(area);
+  }
+
+  /** 把选中房间设置为 target 张床：不足则补建，超出则删除空闲床位。 */
+  private async setBedCount(target: number): Promise<void> {
+    const area: AreaDto | undefined = this.selectedArea();
+    if (area === undefined || area.type !== 'room') { return; }
+    const beds: Bed[] = this.bedsOfArea(area);
+    const current: number = beds.length;
+    if (current === target) { return; }
+    if (current < target) {
+      const used: string[] = beds.map((bed: Bed) => bed.bed_no);
+      let created = 0;
+      for (const no of ['1', '2']) {
+        if (created >= target - current) { break; }
+        if (used.indexOf(no) >= 0) { continue; }
+        const room: Room | undefined = this.roomForArea(area);
+        const request: BedCreateRequest = {
+          area_id: area.id, bed_no: no, status: 'free',
+          room_id: room === undefined ? undefined : room.id
+        };
+        try {
+          const response = await ApiClient.post<Object>('/beds', request);
+          if (response.code !== 0) { this.error = response.msg || '床位创建失败'; return; }
+          created++;
+        } catch (_error) { this.error = '床位创建失败，请稍后重试'; return; }
+      }
+      if (created < target - current) { this.error = '床位创建失败'; return; }
+    } else {
+      const removable: Bed[] = beds.filter((bed: Bed) => bed.status === 'free' && bed.elder_id === undefined)
+        .sort((left: Bed, right: Bed) => right.bed_no.localeCompare(left.bed_no));
+      const need: number = current - target;
+      if (removable.length < need) { this.error = '入住中的床位不能删除'; return; }
+      for (let i = 0; i < need; i++) {
+        try {
+          const response = await ApiClient.delete<Object>(`/beds/${removable[i].id}`);
+          if (response.code !== 0) { this.error = response.msg || '床位删除失败'; return; }
+        } catch (_error) { this.error = '床位删除失败，请稍后重试'; return; }
+      }
+    }
+    this.error = '';
+    await this.businessStore.load(true);
+    this.drawPlan();
   }
 
   private async saveArea(area: AreaDto): Promise<boolean> {
@@ -177,6 +230,29 @@ export struct WideAreaManagement {
     } catch (_error) { this.error = '楼层创建失败'; }
   }
 
+  private openFloorEdit(): void {
+    const floor: AreaDto | undefined = this.selectedFloor();
+    if (floor === undefined) { this.error = '请先选择楼层'; return; }
+    this.floorEditMode = true;
+    this.dialogName = floor.name;
+    this.dialogCode = floor.code;
+    this.dialogBuilding = floor.building ?? '';
+    this.dialogFloorNo = String(floor.floor_no ?? 0);
+    this.showFloorDialog = true;
+  }
+
+  private async updateFloor(): Promise<void> {
+    const floor: AreaDto | undefined = this.selectedFloor();
+    if (floor === undefined) { this.showFloorDialog = false; return; }
+    if (this.dialogName.trim() === '' || this.dialogCode.trim() === '') { this.error = '楼层名称和编码不能为空'; return; }
+    floor.name = this.dialogName.trim();
+    floor.code = this.dialogCode.trim();
+    floor.building = this.dialogBuilding.trim();
+    floor.floor_no = Number(this.dialogFloorNo) || 0;
+    const ok: boolean = await this.saveArea(floor);
+    if (ok) { this.showFloorDialog = false; }
+  }
+
   private async createPlacingItem(): Promise<void> {
     const floor: AreaDto | undefined = this.selectedFloor();
     if (floor === undefined) { this.error = '请先选择楼层'; return; }
@@ -197,22 +273,6 @@ export struct WideAreaManagement {
       await this.load();
       this.error = '';
     } catch (_error) { this.error = '创建失败，请稍后重试'; }
-  }
-
-  private async createBed(): Promise<void> {
-    const area = this.areas.find((item: AreaDto) => item.id === this.bedTargetAreaId);
-    const room: Room | undefined = area === undefined ? undefined : this.roomForArea(area);
-    if (room === undefined) { this.error = '该房间尚未关联历史床位记录'; return; }
-    if (this.bedNo.trim() === '') { this.error = '床位号不能为空'; return; }
-    const request: BedCreateRequest = { room_id: room.id, bed_no: this.bedNo.trim(), status: 'free' };
-    try {
-      const response = await ApiClient.post<Object>('/beds', request);
-      if (response.code !== 0) { this.error = response.msg || '床位创建失败'; return; }
-      this.showBedDialog = false;
-      this.bedNo = '';
-      await this.businessStore.load(true);
-      this.drawPlan();
-    } catch (_error) { this.error = '床位创建失败'; }
   }
 
   private suggestCode(prefix: string): string {
@@ -407,9 +467,15 @@ export struct WideAreaManagement {
               .key((floor: AreaDto) => `floor-${floor.id}`)
           }
         }.layoutWeight(1).scrollable(ScrollDirection.Horizontal).scrollBar(BarState.Off)
+        Button('编辑楼层').height(34).fontSize(12).borderRadius(8)
+          .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
+          .enabled(this.selectedFloorId > 0)
+          .opacity(this.selectedFloorId > 0 ? 1 : 0.4)
+          .onClick(() => this.openFloorEdit())
         Button('新增楼层').height(34).fontSize(12).borderRadius(8)
           .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
           .onClick(() => {
+            this.floorEditMode = false;
             this.dialogName = '';
             this.dialogCode = this.suggestCode('floor');
             this.dialogBuilding = '';
@@ -432,6 +498,24 @@ export struct WideAreaManagement {
           .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
           .onClick(() => this.openItemDialog('common'))
       }.width('100%').alignItems(VerticalAlign.Center)
+      if (this.unplacedAreas().length > 0) {
+        Column({ space: 8 }) {
+          Text('未布置（点击后放到平面图上）').fontSize(13).fontColor($r('sys.color.font_secondary'))
+          Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.vp(8), cross: LengthMetrics.vp(8) } }) {
+            Repeat(this.unplacedAreas())
+              .each((ri: RepeatItem<AreaDto>) => {
+                Text(`${this.typeLabel(ri.item.type)} · ${ri.item.name}`)
+                  .fontSize(13)
+                  .fontColor(this.placingId === ri.item.id ? Color.White : $r('sys.color.font_primary'))
+                  .padding({ left: 12, right: 12, top: 7, bottom: 7 })
+                  .borderRadius(6)
+                  .backgroundColor(this.placingId === ri.item.id ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
+                  .onClick(() => { this.placingId = ri.item.id; })
+              })
+              .key((area: AreaDto) => `unplaced-${area.id}`)
+          }.width('100%')
+        }.width('100%').alignItems(HorizontalAlign.Start)
+      }
     }.width('100%').padding(16).backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius(8).border({ width: 0.5, color: $r('sys.color.comp_divider') })
       .alignItems(HorizontalAlign.Start)
@@ -524,15 +608,6 @@ export struct WideAreaManagement {
             this.dialogHeight = String(this.selectedArea()?.size_h ?? 2);
             this.showSizeDialog = true;
           })
-        if (this.selectedArea()?.type === 'room') {
-          Button('加床').height(34).fontSize(12).borderRadius(8)
-            .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
-            .onClick(() => {
-              this.bedTargetAreaId = this.selectedAreaId;
-              this.bedNo = '';
-              this.showBedDialog = true;
-            })
-        }
         Button('删除').height(34).fontSize(12).borderRadius(8)
           .fontColor(Color.White).backgroundColor($r('app.color.doctor_workspace_danger'))
           .onClick(() => {
@@ -540,28 +615,20 @@ export struct WideAreaManagement {
             if (area !== undefined) { this.deleteArea(area); }
           })
       }.width('100%')
-    }.width('100%').padding(16).backgroundColor($r('sys.color.comp_background_primary'))
-      .borderRadius(8).border({ width: 0.5, color: $r('sys.color.comp_divider') })
-      .alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  private unplacedCard() {
-    Column({ space: 10 }) {
-      Text('未布置（点击后放到平面图上）').fontSize(13).fontColor($r('sys.color.font_secondary'))
-      Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.vp(8), cross: LengthMetrics.vp(8) } }) {
-        Repeat(this.unplacedAreas())
-          .each((ri: RepeatItem<AreaDto>) => {
-            Text(`${this.typeLabel(ri.item.type)} · ${ri.item.name}`)
-              .fontSize(13)
-              .fontColor(this.placingId === ri.item.id ? Color.White : $r('sys.color.font_primary'))
-              .padding({ left: 12, right: 12, top: 7, bottom: 7 })
-              .borderRadius(6)
-              .backgroundColor(this.placingId === ri.item.id ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
-              .onClick(() => { this.placingId = ri.item.id; })
-          })
-          .key((area: AreaDto) => `unplaced-${area.id}`)
-      }.width('100%')
+      if (this.selectedArea()?.type === 'room') {
+        Row({ space: 8 }) {
+          Text('床位设置').fontSize(13).fontColor($r('sys.color.font_secondary'))
+          Button('1 床').height(34).fontSize(12).borderRadius(8)
+            .fontColor(this.bedCountOfSelected() === 1 ? Color.White : $r('sys.color.font_primary'))
+            .backgroundColor(this.bedCountOfSelected() === 1 ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
+            .onClick(() => this.setBedCount(1))
+          Button('2 床').height(34).fontSize(12).borderRadius(8)
+            .fontColor(this.bedCountOfSelected() === 2 ? Color.White : $r('sys.color.font_primary'))
+            .backgroundColor(this.bedCountOfSelected() === 2 ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
+            .onClick(() => this.setBedCount(2))
+          Text(`当前 ${this.bedCountOfSelected()} 张`).fontSize(12).fontColor($r('sys.color.font_tertiary'))
+        }.width('100%').alignItems(VerticalAlign.Center)
+      }
     }.width('100%').padding(16).backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius(8).border({ width: 0.5, color: $r('sys.color.comp_divider') })
       .alignItems(HorizontalAlign.Start)
@@ -579,19 +646,32 @@ export struct WideAreaManagement {
   @Builder
   private floorDialog() {
     Column({ space: 12 }) {
-      Text('新增楼层').fontSize(20).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+      Text(this.floorEditMode ? '编辑楼层' : '新增楼层').fontSize(20).fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
       TextInput({ placeholder: '楼层名称，例如 1 号楼 3 层', text: $$this.dialogName }).height(42)
       TextInput({ placeholder: '楼栋，例如 1 号楼', text: $$this.dialogBuilding }).height(42)
       TextInput({ placeholder: '楼层号，例如 3', text: $$this.dialogFloorNo }).height(42).type(InputType.Number)
       TextInput({ placeholder: '楼层编码', text: $$this.dialogCode }).height(42)
+      if (this.floorEditMode) {
+        Text('删除楼层前需先删除楼层内的房间、走廊等区域').fontSize(12).fontColor($r('sys.color.font_tertiary'))
+      }
       Row({ space: 10 }) {
         Button('取消').layoutWeight(1).height(40)
           .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))
           .onClick(() => this.showFloorDialog = false)
         Button('保存').layoutWeight(1).height(40)
           .fontColor(Color.White).backgroundColor(ACTION_BUTTON_BG)
-          .onClick(() => this.createFloor())
+          .onClick(() => this.floorEditMode ? this.updateFloor() : this.createFloor())
       }.width('100%')
+      if (this.floorEditMode) {
+        Button('删除楼层').layoutWeight(1).height(40)
+          .fontColor(Color.White).backgroundColor($r('app.color.doctor_workspace_danger'))
+          .onClick(() => {
+            const floor: AreaDto | undefined = this.selectedFloor();
+            this.showFloorDialog = false;
+            if (floor !== undefined) { this.deleteArea(floor); }
+          })
+      }
     }.width(this.compactWidth ? '90%' : 440).padding(24)
       .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
   }
@@ -648,23 +728,6 @@ export struct WideAreaManagement {
       .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
   }
 
-  @Builder
-  private bedDialog() {
-    Column({ space: 12 }) {
-      Text('加床').fontSize(20).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
-      TextInput({ placeholder: '床位号，例如 1', text: $$this.bedNo }).height(42)
-      Row({ space: 10 }) {
-        Button('取消').layoutWeight(1).height(40)
-          .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))
-          .onClick(() => this.showBedDialog = false)
-        Button('保存').layoutWeight(1).height(40)
-          .fontColor(Color.White).backgroundColor(ACTION_BUTTON_BG)
-          .onClick(() => this.createBed())
-      }.width('100%')
-    }.width(this.compactWidth ? '90%' : 400).padding(24)
-      .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
-  }
-
   build() {
     Stack() {
       Scroll(this.managementScroller) {
@@ -676,9 +739,6 @@ export struct WideAreaManagement {
           this.mapCard()
           if (this.selectedAreaId > 0 && this.selectedArea() !== undefined) {
             this.selectedPanelCard()
-          }
-          if (this.unplacedAreas().length > 0) {
-            this.unplacedCard()
           }
         }.width('100%').padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28,
           top: 56 + this.statusBarHeight, bottom: 24 + this.naviIndicatorHeight })
@@ -695,10 +755,6 @@ export struct WideAreaManagement {
       }
       if (this.showSizeDialog) {
         Row() { this.sizeDialog() }.width('100%').height('100%')
-          .backgroundColor('#66000000').justifyContent(FlexAlign.Center)
-      }
-      if (this.showBedDialog) {
-        Row() { this.bedDialog() }.width('100%').height('100%')
           .backgroundColor('#66000000').justifyContent(FlexAlign.Center)
       }
     }.width('100%').height('100%')

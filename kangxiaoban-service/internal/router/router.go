@@ -142,6 +142,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		authed.GET("/rooms", perm("elder:read"), resourceHandler.ListRooms)
 		authed.GET("/beds", perm("elder:read"), resourceHandler.ListBeds)
 		authed.POST("/beds", perm("admin:all"), resourceHandler.CreateBed)
+		authed.DELETE("/beds/:id", perm("admin:all"), resourceHandler.DeleteBed)
 		areas := authed.Group("/areas", perm("elder:read"))
 		areas.GET("", areaHandler.List)
 		areas.GET("/tree", areaHandler.List)

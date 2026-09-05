@@ -118,6 +118,42 @@ func (r *ResourceRepository) CreateBed(ctx context.Context, bed *model.Bed) erro
 	return r.db.WithContext(ctx).Create(bed).Error
 }
 
+func (r *ResourceRepository) DeleteBed(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).Delete(&model.Bed{}, id).Error
+}
+
+func (r *ResourceRepository) FindArea(ctx context.Context, id uint) (*model.Area, error) {
+	var area model.Area
+	if err := r.db.WithContext(ctx).First(&area, id).Error; err != nil {
+		return nil, err
+	}
+	return &area, nil
+}
+
+func (r *ResourceRepository) FindRoomByID(ctx context.Context, id uint) (*model.Room, error) {
+	var room model.Room
+	if err := r.db.WithContext(ctx).Preload("Beds").First(&room, id).Error; err != nil {
+		return nil, err
+	}
+	return &room, nil
+}
+
+// FindRoomByKey resolves the historical room matching a floor-plan room area
+// through the same building/floor/room_no key the clients use.
+func (r *ResourceRepository) FindRoomByKey(ctx context.Context, building string, floor int, roomNo string) (*model.Room, error) {
+	var room model.Room
+	if err := r.db.WithContext(ctx).Preload("Beds").
+		Where("building = ? AND floor = ? AND room_no = ?", building, floor, roomNo).
+		First(&room).Error; err != nil {
+		return nil, err
+	}
+	return &room, nil
+}
+
+func (r *ResourceRepository) CreateRoom(ctx context.Context, room *model.Room) error {
+	return r.db.WithContext(ctx).Create(room).Error
+}
+
 // TaskRepository 护理任务。
 type TaskRepository struct{ db *gorm.DB }
 

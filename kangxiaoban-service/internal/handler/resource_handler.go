@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 	"kangxiaoban-service/internal/model"
 
 	"kangxiaoban-service/internal/service"
@@ -20,62 +22,77 @@ func NewResourceHandler(svc *service.ResourceService) *ResourceHandler {
 }
 
 type bedCreateReq struct {
-	RoomID uint   `json:"room_id" binding:"required"`
+	RoomID uint   `json:"room_id"`
+	AreaID uint   `json:"area_id"`
 	BedNo  string `json:"bed_no" binding:"required"`
 	Status string `json:"status"`
 }
 
-// CreateBed creates one of the maximum two bed slots in a room. Existing
-// admission and resident APIs continue to use the room_id compatibility field.
+// CreateBed creates one of the maximum two bed slots in a room. The room is
+// addressed either by the legacy room_id or by a floor-plan area_id, whose
+// historical room record is provisioned on demand. Admission and resident
+// APIs keep using the room_id compatibility field.
 func (h *ResourceHandler) CreateBed(c *gin.Context) {
 	var req bedCreateReq
 	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.BedNo) == "" {
-		Fail(c, 400, 400, "room_id 与 bed_no 必填")
+		Fail(c, 400, 400, "bed_no 必填，room_id 或 area_id 必填")
 		return
 	}
-	// The resource service owns the repository; the handler only validates the
-	// request and delegates persistence through the service boundary.
-	// Room existence and the two-bed limit are checked by the repository query
-	// before creating the row.
-	db := h.svc
-	var room model.Room
-	rooms, _, err := db.ListRooms(c.Request.Context(), "", 0, 1, 200)
-	if err != nil {
-		Fail(c, 500, 500, "查询房间失败")
-		return
+	var areaID *uint
+	if req.AreaID > 0 {
+		area := req.AreaID
+		areaID = &area
 	}
-	for _, item := range rooms {
-		if item.ID == req.RoomID {
-			room = item
-			break
+	roomID := req.RoomID
+	if roomID == 0 {
+		if areaID == nil {
+			Fail(c, 400, 400, "room_id 或 area_id 必填")
+			return
 		}
-	}
-	if room.ID == 0 {
-		Fail(c, 404, 404, "房间不存在")
-		return
+		room, err := h.svc.EnsureRoomForArea(c.Request.Context(), *areaID)
+		if err != nil {
+			Fail(c, 404, 404, "区域不存在或不是房间")
+			return
+		}
+		roomID = room.ID
 	}
 	status := strings.TrimSpace(req.Status)
 	if status == "" {
 		status = "free"
 	}
-	bed := &model.Bed{RoomID: req.RoomID, BedNo: strings.TrimSpace(req.BedNo), Status: status}
-	for _, item := range room.Beds {
-		if item.ID != 0 {
-			if item.BedNo == bed.BedNo {
-				Fail(c, 409, 409, "床位编号已存在")
-				return
-			}
+	bed := &model.Bed{RoomID: roomID, AreaID: areaID, BedNo: strings.TrimSpace(req.BedNo), Status: status}
+	if err := h.svc.CreateBedInRoom(c.Request.Context(), bed); err != nil {
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			Fail(c, 404, 404, "房间不存在")
+		case errors.Is(err, service.ErrBedNumberExists):
+			Fail(c, 409, 409, "床位编号已存在")
+		case errors.Is(err, service.ErrBedLimitReached):
+			Fail(c, 409, 409, "一个房间最多配置两张床位")
+		default:
+			Fail(c, 500, 500, "床位创建失败")
 		}
-	}
-	if len(room.Beds) >= 2 {
-		Fail(c, 409, 409, "一个房间最多配置两张床位")
-		return
-	}
-	if err := db.CreateBed(c.Request.Context(), bed); err != nil {
-		Fail(c, 409, 409, "床位编号已存在或创建失败")
 		return
 	}
 	OK(c, bed)
+}
+
+// DeleteBed removes a bed that no resident occupies, so the room bed-count
+// setting can shrink from two beds back to one.
+func (h *ResourceHandler) DeleteBed(c *gin.Context) {
+	id := uint(parseUint(c, "id"))
+	if err := h.svc.DeleteBed(c.Request.Context(), id); err != nil {
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			Fail(c, 404, 404, "床位不存在")
+		case errors.Is(err, service.ErrBedNotRemovable):
+			Fail(c, 409, 409, "入住中或维护中的床位不能删除")
+		default:
+			Fail(c, 500, 500, "床位删除失败")
+		}
+		return
+	}
+	OK(c, gin.H{"id": id})
 }
 
 func (h *ResourceHandler) ListRooms(c *gin.Context) {

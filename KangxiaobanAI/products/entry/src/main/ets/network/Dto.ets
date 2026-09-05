@@ -200,6 +200,7 @@ export interface Area {
 export interface Bed {
   id: number;
   room_id: number;
+  area_id?: number;
   bed_no: string;
   status: string;
   elder_id?: number;

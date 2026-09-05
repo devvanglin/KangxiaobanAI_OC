@@ -3,7 +3,10 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
+
+	"gorm.io/gorm"
 
 	"kangxiaoban-service/internal/healthrisk"
 	"kangxiaoban-service/internal/model"
@@ -62,6 +65,70 @@ func (s *ResourceService) ListBeds(ctx context.Context, roomID uint, status stri
 }
 func (s *ResourceService) CreateBed(ctx context.Context, bed *model.Bed) error {
 	return s.repo.CreateBed(ctx, bed)
+}
+
+// 床位设置的业务规则错误，由 handler 映射为具体状态码。
+var (
+	ErrAreaNotRoom     = errors.New("area is not a room")
+	ErrRoomNotFound    = errors.New("room not found")
+	ErrBedNumberExists = errors.New("bed number already exists")
+	ErrBedLimitReached = errors.New("room already has two beds")
+	ErrBedNotRemovable = errors.New("bed is occupied or unavailable")
+)
+
+// EnsureRoomForArea returns the historical room matching a floor-plan room
+// area, provisioning the record on demand so rooms drawn on the map can hold
+// beds without a legacy room row.
+func (s *ResourceService) EnsureRoomForArea(ctx context.Context, areaID uint) (*model.Room, error) {
+	area, err := s.repo.FindArea(ctx, areaID)
+	if err != nil {
+		return nil, err
+	}
+	if area.Type != model.AreaTypeRoom {
+		return nil, ErrAreaNotRoom
+	}
+	room, err := s.repo.FindRoomByKey(ctx, area.Building, area.FloorNo, area.Name)
+	if err == nil {
+		return room, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	room = &model.Room{Building: area.Building, Floor: area.FloorNo, RoomNo: area.Name}
+	if err := s.repo.CreateRoom(ctx, room); err != nil {
+		return nil, err
+	}
+	return room, nil
+}
+
+// CreateBedInRoom validates duplicate numbers and the two-bed room limit
+// before insert.
+func (s *ResourceService) CreateBedInRoom(ctx context.Context, bed *model.Bed) error {
+	room, err := s.repo.FindRoomByID(ctx, bed.RoomID)
+	if err != nil {
+		return err
+	}
+	for _, item := range room.Beds {
+		if item.BedNo == bed.BedNo {
+			return ErrBedNumberExists
+		}
+	}
+	if len(room.Beds) >= 2 {
+		return ErrBedLimitReached
+	}
+	return s.repo.CreateBed(ctx, bed)
+}
+
+// DeleteBed removes a bed that no resident occupies.
+func (s *ResourceService) DeleteBed(ctx context.Context, id uint) error {
+	bed, err := s.repo.GetBed(ctx, id)
+	if err != nil {
+		return err
+	}
+	if bed.ElderID != nil || !strings.EqualFold(strings.TrimSpace(bed.Status), "free") {
+		return ErrBedNotRemovable
+	}
+	return s.repo.DeleteBed(ctx, id)
 }
 
 // TaskService 护理任务。
