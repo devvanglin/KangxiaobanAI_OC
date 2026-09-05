@@ -332,17 +332,19 @@ export struct WideDeviceManagement {
         .layoutWeight(1.6).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
       Text(device.bed !== undefined && device.bed.length > 0 ? device.bed + '床' : '—')
         .fontSize(13).fontColor($r('sys.color.font_primary')).layoutWeight(1)
-      Text(this.deviceStatus(device))
-        .fontSize(11).fontColor(this.statusTintFg(device))
-        .padding({ left: 10, right: 10, top: 4, bottom: 4 }).borderRadius(8)
-        .backgroundColor(this.statusTintBg(device)).layoutWeight(1)
+      Row() {
+        Text(this.deviceStatus(device))
+          .fontSize(11).fontColor(this.statusTintFg(device))
+          .padding({ left: 10, right: 10, top: 4, bottom: 4 }).borderRadius(8)
+          .backgroundColor(this.statusTintBg(device))
+      }.layoutWeight(1)
       Text(this.relativeHeartbeat(device.last_seen)).fontSize(13).fontColor($r('sys.color.font_primary'))
         .layoutWeight(1.3).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
       Row({ space: 10 }) {
         Text('详情').fontSize(13).fontColor($r('sys.color.font_primary')).onClick(() => this.openDeviceDetail(device))
         Text('配置').fontSize(13).fontColor($r('sys.color.font_primary')).onClick(() => this.openEdit(device))
       }.layoutWeight(1.4)
-    }.width('100%').alignItems(VerticalAlign.Center)
+    }.width('100%').height(76).alignItems(VerticalAlign.Center)
   }
 
   @Builder
