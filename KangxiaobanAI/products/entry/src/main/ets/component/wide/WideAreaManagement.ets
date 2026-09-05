@@ -40,7 +40,7 @@ const AREA_KINDS_PREF_KEY = 'kanxiaoban_area_custom_kinds';
 
 const GRID_COLS: number = 26;
 const GRID_ROWS: number = 10;
-const ACTION_BUTTON_BG: string = '#1F1F1F';
+const ACTION_BUTTON_BG: string = '#1D63ED';
 
 @ComponentV2
 export struct WideAreaManagement {

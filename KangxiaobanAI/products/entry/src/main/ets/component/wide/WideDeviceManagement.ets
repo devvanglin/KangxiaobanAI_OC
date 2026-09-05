@@ -13,7 +13,7 @@ interface SignalRecord { id: number; type: string; value: string; ts: string; }
 interface SignalPage { list: SignalRecord[]; }
 interface StatCardParam { label: string; value: string; valueColor?: string; }
 
-const DARK_BUTTON_BG: string = '#1F1F1F';
+const DARK_BUTTON_BG: string = '#1D63ED';
 
 @ComponentV2
 export struct WideDeviceManagement {
@@ -324,7 +324,7 @@ export struct WideDeviceManagement {
           .fontColor(this.typeFilter === label ? Color.White : $r('sys.color.font_primary'))
           .padding({ left: 16, right: 16, top: 8, bottom: 8 })
           .borderRadius(8)
-          .backgroundColor(this.typeFilter === label ? '#1F1F1F' : $r('sys.color.comp_background_secondary'))
+          .backgroundColor(this.typeFilter === label ? '#1D63ED' : $r('sys.color.comp_background_secondary'))
           .onClick(() => this.typeFilter = label)
       }, (label: string) => 'type-chip-' + label)
     }.width('100%')

@@ -9,7 +9,7 @@ interface AIConfigPage { list: AIModelConfig[]; }
 interface AIConfigRequest { role_scope: string; name: string; provider: string; base_url: string; model: string; api_key: string; system_prompt: string; rag_enabled: boolean; rag_base_url: string; rag_dataset_id: string; enabled: boolean; allowed: boolean; is_default: boolean; }
 interface StatCardParam { label: string; value: string; }
 
-const DARK_BUTTON_BG: string = '#1F1F1F';
+const DARK_BUTTON_BG: string = '#1D63ED';
 
 @ComponentV2
 export struct WideModelManagement {

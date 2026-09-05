@@ -8,7 +8,7 @@ interface CreateUserRequest { username: string; password: string; real_name: str
 interface RolePage { list: UserRole[]; }
 interface UserStatusRequest { status: number; }
 
-const ACTION_BUTTON_BG: string = '#1F1F1F';
+const ACTION_BUTTON_BG: string = '#1D63ED';
 
 @ComponentV2
 export struct WideUserManagement {

@@ -17,7 +17,7 @@ interface RoleSaveRequest { name: string; code: string; remark: string; permissi
 interface PermissionGroup { title: string; items: RolePermission[]; }
 interface PermissionPage { list: RolePermission[]; }
 
-const ACTION_BUTTON_BG: string = '#1F1F1F';
+const ACTION_BUTTON_BG: string = '#1D63ED';
 const GROUP_TITLES: string[] = ['长者与健康', '照护任务', '告警处置', '系统管理', '其他权限'];
 
 function groupTitleOf(code: string): string {
