@@ -737,14 +737,23 @@ export struct WideAreaManagement {
             Text(this.error).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
           }
           this.mapCard()
-          if (this.selectedAreaId > 0 && this.selectedArea() !== undefined) {
-            this.selectedPanelCard()
-          }
         }.width('100%').padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28,
           top: 56 + this.statusBarHeight, bottom: 24 + this.naviIndicatorHeight })
           .constraintSize({ minHeight: '100%' })
           .alignItems(HorizontalAlign.Start)
       }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
+      if (this.selectedAreaId > 0 && this.selectedArea() !== undefined) {
+        Column() {
+          Column() { this.selectedPanelCard() }
+            .constraintSize({ maxWidth: 640 })
+            .width('100%')
+            .shadow({ radius: 24, color: '#1A000000', offsetY: 4 })
+        }.width('100%').height('100%')
+          .justifyContent(FlexAlign.End)
+          .alignItems(HorizontalAlign.Center)
+          .padding({ left: 16, right: 16, bottom: 16 + this.naviIndicatorHeight })
+          .hitTestBehavior(HitTestMode.None)
+      }
       if (this.showFloorDialog) {
         Row() { this.floorDialog() }.width('100%').height('100%')
           .backgroundColor('#66000000').justifyContent(FlexAlign.Center)
