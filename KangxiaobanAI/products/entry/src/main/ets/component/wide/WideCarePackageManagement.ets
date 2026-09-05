@@ -385,6 +385,10 @@ export struct WideCarePackageManagement {
         Row() { this.editorDialog() }.width('100%').height('100%')
           .backgroundColor('#66000000').justifyContent(FlexAlign.Center)
       }
+      if (this.showDetail) {
+        Row() { this.detailDialog() }.width('100%').height('100%')
+          .backgroundColor('#66000000').justifyContent(FlexAlign.Center)
+      }
       if (this.showAssign) {
         Row() {
           Column({ space: 12 }) {
@@ -429,10 +433,6 @@ export struct WideCarePackageManagement {
           }.width(this.compactWidth ? '90%' : 440).padding(24)
             .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
         }.width('100%').height('100%').backgroundColor('#66000000').justifyContent(FlexAlign.Center)
-      }
-      if (this.showDetail) {
-        Row() { this.detailDialog() }.width('100%').height('100%')
-          .backgroundColor('#66000000').justifyContent(FlexAlign.Center)
       }
     }.width('100%').height('100%')
   }
