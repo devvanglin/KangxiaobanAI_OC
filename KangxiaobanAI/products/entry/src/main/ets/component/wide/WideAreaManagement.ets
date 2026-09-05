@@ -452,10 +452,11 @@ export struct WideAreaManagement {
   @Builder
   private floorChip(floor: AreaDto, selected: boolean) {
     Text(floor.name)
-      .fontSize(13)
+      .fontSize(12)
       .fontColor(selected ? Color.White : $r('sys.color.font_primary'))
-      .padding({ left: 14, right: 14, top: 7, bottom: 7 })
-      .borderRadius(16)
+      .padding({ left: 16, right: 16 })
+      .height(34)
+      .borderRadius(8)
       .backgroundColor(selected ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
   }
 
