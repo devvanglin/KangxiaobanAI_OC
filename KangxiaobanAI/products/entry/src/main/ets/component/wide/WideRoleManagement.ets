@@ -1,6 +1,8 @@
 import { HdsSnackBar } from '@kit.UIDesignKit';
-import { LengthMetrics } from '@kit.ArkUI';
+import { AppStorageV2, LengthMetrics } from '@kit.ArkUI';
 import ApiClient from '../../network/ApiClient';
+import { GlobalInfoModel } from '../../model/GlobalInfoModel';
+import { StorageKey } from '../../common/CommonConstants';
 
 interface RolePermission { code: string; name: string; }
 interface RoleRecord {
@@ -37,7 +39,6 @@ export struct WideRoleManagement {
   @Local allPermissions: RolePermission[] = [];
   @Local selectedPermissionCodes: string[] = [];
   @Local selectedRoleId: number = 0;
-  @Local cardMinHeight: number = 0;
   @Local loading: boolean = false;
   @Local error: string = '';
   @Local showDialog: boolean = false;
@@ -46,8 +47,20 @@ export struct WideRoleManagement {
   @Local roleCode: string = '';
   @Local roleRemark: string = '';
   @Local editStatusOn: boolean = true;
+  @Local globalInfo: GlobalInfoModel =
+    AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO, () => new GlobalInfoModel()) ?? new GlobalInfoModel();
 
   aboutToAppear(): void { this.loadRoles(); this.loadUserCounts(); this.loadPermissions(); }
+
+  private selectedRole(): RoleRecord | undefined {
+    return this.roles.find((role: RoleRecord) => role.id === this.selectedRoleId);
+  }
+
+  /** 两张卡片的稳定高度：视口减去页边距与页脚，加载前后不跳变。 */
+  private roleCardMinHeight(): number {
+    const viewport: number = this.globalInfo.deviceHeight > 0 ? this.globalInfo.deviceHeight : 800;
+    return Math.max(480, viewport - (88 + this.statusBarHeight) - (24 + this.naviIndicatorHeight) - 44);
+  }
 
   private async loadRoles(): Promise<void> {
     this.loading = true;
@@ -75,11 +88,6 @@ export struct WideRoleManagement {
       });
       this.userCounts = counts;
     } catch (_error) { /* user counts are supplementary; the role list stays usable without them */ }
-  }
-
-  private selectedRoleList(): RoleRecord[] {
-    const selected: RoleRecord | undefined = this.roles.find((role: RoleRecord) => role.id === this.selectedRoleId);
-    return selected === undefined ? [] : [selected];
   }
 
   private userCount(role: RoleRecord): number {
@@ -253,8 +261,20 @@ export struct WideRoleManagement {
       this.roleListHeader()
       if (this.loading) {
         Column() {
-          LoadingProgress().width(30).height(30)
-        }.width('100%').padding({ top: 44, bottom: 44 })
+          ForEach([1, 2, 3], (_: number) => {
+            Row({ space: 14 }) {
+              Row().width(3).height(52).borderRadius(2)
+                .backgroundColor($r('sys.color.comp_background_tertiary'))
+              Column({ space: 8 }) {
+                Row().height(14).width('40%').borderRadius(7)
+                  .backgroundColor($r('sys.color.comp_background_tertiary'))
+                Row().height(12).width('62%').borderRadius(6)
+                  .backgroundColor($r('sys.color.comp_background_tertiary'))
+              }.alignItems(HorizontalAlign.Start).layoutWeight(1)
+            }.width('100%').height(96).padding({ left: 18, right: 18 })
+              .alignItems(VerticalAlign.Center)
+          }, (item: number) => `role-skeleton-${item}`)
+        }.width('100%')
       } else if (this.roles.length === 0) {
         Column() {
           Text(this.error.length > 0 ? this.error : '暂无角色数据').fontSize(13).fontColor($r('sys.color.font_tertiary'))
@@ -269,7 +289,7 @@ export struct WideRoleManagement {
     }.width('100%').backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius(8).border({ width: 0.5, color: $r('sys.color.comp_divider') })
       .alignItems(HorizontalAlign.Start)
-      .constraintSize({ minHeight: this.compactWidth ? 0 : this.cardMinHeight })
+      .constraintSize({ minHeight: this.compactWidth ? 0 : this.roleCardMinHeight() })
   }
 
   @Builder
@@ -301,42 +321,38 @@ export struct WideRoleManagement {
   }
 
   @Builder
-  private roleDetailContent(role: RoleRecord) {
-    Column({ space: 14 }) {
-      Text(role.name || '--').fontSize(20).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
-      Text(role.description || '暂无描述').fontSize(13).fontColor($r('sys.color.font_secondary'))
-      Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
-      Row() {
-        this.detailStat(this.permissionCountOf(role), '权限数量')
-        this.detailStat(this.userCount(role), '用户数量')
-      }.width('100%')
-      Repeat(this.permissionGroups(role))
-        .each((ri: RepeatItem<PermissionGroup>) => {
-          this.permissionGroupBlock(ri.item)
-        })
-        .key((group: PermissionGroup) => `group-${group.title}`)
-    }.width('100%').padding(18).alignItems(HorizontalAlign.Start)
+  private roleDetailContent(role: RoleRecord | undefined) {
+    if (role !== undefined) {
+      Column({ space: 14 }) {
+        Text(role.name || '--').fontSize(20).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+        Text(role.description || '暂无描述').fontSize(13).fontColor($r('sys.color.font_secondary'))
+        Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
+        Row() {
+          this.detailStat(this.permissionCountOf(role), '权限数量')
+          this.detailStat(this.userCount(role), '用户数量')
+        }.width('100%')
+        Repeat(this.permissionGroups(role))
+          .each((ri: RepeatItem<PermissionGroup>) => {
+            this.permissionGroupBlock(ri.item)
+          })
+          .key((group: PermissionGroup) => `group-${group.title}`)
+      }.width('100%').padding(18).alignItems(HorizontalAlign.Start)
+    } else {
+      Column() {
+        Text('请选择左侧角色查看详情').fontSize(13).fontColor($r('sys.color.font_tertiary'))
+      }.width('100%').padding({ top: 44, bottom: 44 })
+    }
   }
 
   @Builder
   private roleDetailCard() {
     Column() {
       this.cardHeader('角色详情')
-      if (this.selectedRoleList().length === 0) {
-        Column() {
-          Text('请选择左侧角色查看详情').fontSize(13).fontColor($r('sys.color.font_tertiary'))
-        }.width('100%').padding({ top: 44, bottom: 44 })
-      } else {
-        Repeat(this.selectedRoleList())
-          .each((ri: RepeatItem<RoleRecord>) => {
-            this.roleDetailContent(ri.item)
-          })
-          .key((role: RoleRecord) => `detail-${role.id}`)
-      }
+      this.roleDetailContent(this.roles.find((role: RoleRecord) => role.id === this.selectedRoleId))
     }.width('100%').backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius(8).border({ width: 0.5, color: $r('sys.color.comp_divider') })
       .alignItems(HorizontalAlign.Start)
-      .constraintSize({ minHeight: this.compactWidth ? 0 : this.cardMinHeight })
+      .constraintSize({ minHeight: this.compactWidth ? 0 : this.roleCardMinHeight() })
   }
 
   @Builder
@@ -409,9 +425,6 @@ export struct WideRoleManagement {
               this.roleDetailCard()
             }
           }.width('100%')
-            .onAreaChange((_oldArea: Area, newArea: Area) => {
-              this.cardMinHeight = Number(newArea.height);
-            })
           Text(`共 ${this.roles.length} 个角色`).fontSize(11).fontColor($r('sys.color.font_tertiary')).width('100%')
             .textAlign(TextAlign.End)
         }.width('100%').padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28,
