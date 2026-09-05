@@ -294,7 +294,7 @@ server-side RBAC remains the authorization boundary. The backend-connected
 navigation. Wide administrator layouts mount `WideAdminWorkspace` directly; its operations overview and management
 modules read and write through authenticated server APIs.
 
-The current administrator capsule is `总览 / 角色 / 用户 / 区域 / 计划 / 大模型 / 设备`.
+The current administrator capsule is `总览 / 角色 / 用户 / 区域 / 订阅 / 大模型 / 设备`.
 `总览` is a server-backed monitoring surface: CPU, memory, and root-disk usage use responsive circular indicators;
 network monitoring shows real receive/transmit rates and cumulative bytes from the protected system-monitor API;
 server and runtime information remain compact label/value lists; and the lower card shows the latest tenant-scoped
@@ -305,7 +305,7 @@ fabricated chart.
 spatial records, and renders each selected floor as a 2D grid floor plan in `WideAreaManagement`: areas carry
 `pos_x`/`pos_y`/`size_w`/`size_h` grid geometry (zero size marks a not-yet-placed legacy area; placing one applies
 type defaults, room 3×2 and corridor 6×1), and the canvas supports tap-to-place, drag-to-move, a resize dialog, and
-per-floor layouts persisted through the area APIs. `计划` manages tenant-owned care-package templates and elder
+per-floor layouts persisted through the area APIs. `订阅` manages tenant-owned care-package templates and elder
 subscriptions that generate runtime
 care plans and tasks. The model page persists separate caregiver and doctor AI configurations through authenticated
 admin APIs; keys are encrypted server-side and never returned to clients. Device management accepts MQTT radar

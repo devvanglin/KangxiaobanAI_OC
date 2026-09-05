@@ -17,7 +17,7 @@ export struct WideDoctorTitleActions {
         { title: '角色', index: 1 },
         { title: '用户', index: 2 },
         { title: '区域', index: 3 },
-        { title: '计划', index: 4 },
+        { title: '订阅', index: 4 },
         { title: '大模型', index: 5 },
         { title: '设备', index: 6 }
       ];

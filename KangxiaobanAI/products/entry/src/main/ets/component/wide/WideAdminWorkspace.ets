@@ -139,7 +139,7 @@ export struct WideAdminWorkspace {
       { id: 'roles', label: '角色管理', symbol: $r('sys.symbol.key_shield_badge_person_crop_circle_fill') },
       { id: 'users', label: '用户', symbol: $r('sys.symbol.person_crop_circle_fill') },
       { id: 'areas', label: '区域', symbol: $r('sys.symbol.square_grid_2x2') },
-      { id: 'plans', label: '计划', symbol: $r('sys.symbol.calendar_badge_clock') },
+      { id: 'plans', label: '订阅', symbol: $r('sys.symbol.calendar_badge_clock') },
       { id: 'models', label: '大模型', symbol: $r('sys.symbol.AI_model') },
       { id: 'assets', label: '设备', symbol: $r('sys.symbol.beacon_tower_fill') }
     ];
