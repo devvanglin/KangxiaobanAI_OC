@@ -137,7 +137,7 @@ export struct WideModelManagement {
   }
 
   @Builder
-  private statCard(label: string, value: string, subtitle: string, widthPercent: string) {
+  private statCard(label: string, value: string, subtitle: string) {
     Column({ space: 6 }) {
       Text(label).fontSize(12).fontColor($r('sys.color.font_secondary'))
       Text(value).fontSize(24).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
@@ -145,7 +145,7 @@ export struct WideModelManagement {
       Text(subtitle).fontSize(11).fontColor($r('sys.color.font_tertiary'))
         .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
     }.alignItems(HorizontalAlign.Start)
-      .width(widthPercent).padding(14)
+      .width('100%').padding(14)
       .backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius(12).border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
@@ -164,12 +164,25 @@ export struct WideModelManagement {
 
   @Builder
   private statCards() {
-    Flex({ wrap: FlexWrap.Wrap }) {
-      this.statCard('接入模型', String(this.configs.length), `${this.enabledCount()} 个已启用`, this.compactWidth ? '50%' : '25%')
-      this.statCard('护工端', this.roleStatusValue('caregiver'), this.roleStatusSubtitle('caregiver'), this.compactWidth ? '50%' : '25%')
-      this.statCard('医师端', this.roleStatusValue('doctor'), this.roleStatusSubtitle('doctor'), this.compactWidth ? '50%' : '25%')
-      this.statCard('RAG 知识库', `${this.ragEnabledCount()} 项启用`, '检索适配完成后生效', this.compactWidth ? '50%' : '25%')
-    }.width('100%')
+    if (this.compactWidth) {
+      Column({ space: 12 }) {
+        Row({ space: 12 }) {
+          Row() { this.statCard('接入模型', String(this.configs.length), `${this.enabledCount()} 个已启用`) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+          Row() { this.statCard('护工端', this.roleStatusValue('caregiver'), this.roleStatusSubtitle('caregiver')) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+        }.width('100%')
+        Row({ space: 12 }) {
+          Row() { this.statCard('医师端', this.roleStatusValue('doctor'), this.roleStatusSubtitle('doctor')) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+          Row() { this.statCard('RAG 知识库', `${this.ragEnabledCount()} 项启用`, '检索适配完成后生效') }.layoutWeight(1).alignItems(VerticalAlign.Top)
+        }.width('100%')
+      }.width('100%')
+    } else {
+      Row({ space: 12 }) {
+        Row() { this.statCard('接入模型', String(this.configs.length), `${this.enabledCount()} 个已启用`) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+        Row() { this.statCard('护工端', this.roleStatusValue('caregiver'), this.roleStatusSubtitle('caregiver')) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+        Row() { this.statCard('医师端', this.roleStatusValue('doctor'), this.roleStatusSubtitle('doctor')) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+        Row() { this.statCard('RAG 知识库', `${this.ragEnabledCount()} 项启用`, '检索适配完成后生效') }.layoutWeight(1).alignItems(VerticalAlign.Top)
+      }.width('100%')
+    }
   }
 
   @Builder
