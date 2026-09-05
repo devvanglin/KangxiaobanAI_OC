@@ -1018,7 +1018,8 @@ export struct WideAdminWorkspace {
         WideRoleManagement({
           compactWidth: this.compactWidth,
           statusBarHeight: this.statusBarHeight,
-          naviIndicatorHeight: this.naviIndicatorHeight
+          naviIndicatorHeight: this.naviIndicatorHeight,
+          managementScroller: this.managementScroller
         })
       } else if (!this.isDoctor && this.selectedNavId === 'users') {
         WideUserManagement({

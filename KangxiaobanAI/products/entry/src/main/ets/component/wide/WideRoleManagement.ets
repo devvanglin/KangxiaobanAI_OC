@@ -1,3 +1,4 @@
+import { HdsListItemCard, HdsSnackBar, SuffixCustomBuilder } from '@kit.UIDesignKit';
 import { LengthMetrics } from '@kit.ArkUI';
 import ApiClient from '../../network/ApiClient';
 
@@ -29,10 +30,10 @@ export struct WideRoleManagement {
   @Param compactWidth: boolean = false;
   @Param statusBarHeight: number = 0;
   @Param naviIndicatorHeight: number = 0;
+  @Param managementScroller: Scroller = new Scroller();
   @Local roles: RoleRecord[] = [];
   @Local userCounts: Record<string, number> = {};
   @Local selectedRoleId: number = 0;
-  @Local hoveredRoleId: number = 0;
   @Local cardMinHeight: number = 0;
   @Local loading: boolean = false;
   @Local error: string = '';
@@ -43,7 +44,6 @@ export struct WideRoleManagement {
   @Local roleRemark: string = '';
   @Local permissionCodes: string = '';
   @Local editStatusOn: boolean = true;
-  private scroller: Scroller = new Scroller();
 
   aboutToAppear(): void { this.loadRoles(); this.loadUserCounts(); }
 
@@ -138,7 +138,14 @@ export struct WideRoleManagement {
       await this.loadRoles();
       await this.loadUserCounts();
       this.error = '';
+      this.showSavedSnackBar();
     } catch (_error) { this.error = '角色保存失败，请稍后重试'; }
+  }
+
+  private showSavedSnackBar(): void {
+    try {
+      new HdsSnackBar(this.getUIContext()).show({}, { title: '角色已保存' }, {});
+    } catch (_error) { /* snackbar is non-critical feedback */ }
   }
 
   @Builder
@@ -171,30 +178,36 @@ export struct WideRoleManagement {
   }
 
   @Builder
+  private roleRowSuffix(role: RoleRecord) {
+    Row({ space: 16 }) {
+      this.listStat(this.permissionCountOf(role), '权限数')
+      this.listStat(this.userCount(role), '用户数')
+      Text('编辑').fontSize(14).fontColor($r('sys.color.font_primary'))
+        .padding({ left: 2, right: 2, top: 8, bottom: 8 })
+        .onClick(() => { this.selectedRoleId = role.id; this.openEdit(role); })
+    }
+  }
+
+  @Builder
   private roleRow(role: RoleRecord, isLast: boolean) {
     Column() {
       Row() {
         Column().width(3).alignSelf(ItemAlign.Stretch)
           .backgroundColor(this.selectedRoleId === role.id ? ACTION_BUTTON_BG : Color.Transparent)
-        Row({ space: 14 }) {
-          Column({ space: 6 }) {
-            Text(role.name || '--').fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
-              .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-            Text(role.description || '暂无描述').fontSize(13).fontColor($r('sys.color.font_secondary'))
-              .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-          }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-          this.listStat(this.permissionCountOf(role), '权限数')
-          this.listStat(this.userCount(role), '用户数')
-          Text('编辑').fontSize(14).fontColor($r('sys.color.font_primary'))
-            .padding({ left: 10, top: 8, bottom: 8 })
-            .onClick(() => { this.selectedRoleId = role.id; this.openEdit(role); })
-        }.layoutWeight(1).height(96).padding({ left: 16, right: 12 })
-          .alignItems(VerticalAlign.Center)
+        HdsListItemCard({
+          textItem: {
+            primaryText: { text: role.name || '--' },
+            secondaryText: { text: role.description || '暂无描述' }
+          },
+          suffixItem: new SuffixCustomBuilder((): void => { this.roleRowSuffix(role); }),
+          onClick: (): void => { this.selectedRoleId = role.id; },
+          cardBorderRadius: 0,
+          hoverBorderRadius: 0,
+          cardBackgroundColor: this.selectedRoleId === role.id ?
+            $r('sys.color.comp_background_secondary') : $r('sys.color.ohos_id_color_background_transparent'),
+          cardHeight: 96
+        }).layoutWeight(1)
       }.width('100%')
-        .backgroundColor(this.selectedRoleId === role.id || this.hoveredRoleId === role.id ?
-          $r('sys.color.comp_background_secondary') : Color.Transparent)
-        .onClick(() => this.selectedRoleId = role.id)
-        .onHover((hover: boolean) => this.hoveredRoleId = hover ? role.id : 0)
       if (!isLast) {
         Divider().strokeWidth(0.5).color($r('sys.color.comp_divider')).margin({ left: 18, right: 18 })
       }
@@ -218,9 +231,11 @@ export struct WideRoleManagement {
           Text(this.error.length > 0 ? this.error : '暂无角色数据').fontSize(13).fontColor($r('sys.color.font_tertiary'))
         }.width('100%').padding({ top: 44, bottom: 44 })
       } else {
-        ForEach(this.roles, (role: RoleRecord, index: number) => {
-          this.roleRow(role, index === this.roles.length - 1)
-        }, (role: RoleRecord) => `role-${role.id}`)
+        Repeat(this.roles)
+          .each((ri: RepeatItem<RoleRecord>) => {
+            this.roleRow(ri.item, ri.index === this.roles.length - 1)
+          })
+          .key((role: RoleRecord) => `role-${role.id}`)
       }
     }.width('100%').backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius(8).border({ width: 0.5, color: $r('sys.color.comp_divider') })
@@ -266,9 +281,11 @@ export struct WideRoleManagement {
         this.detailStat(this.permissionCountOf(role), '权限数量')
         this.detailStat(this.userCount(role), '用户数量')
       }.width('100%')
-      ForEach(this.permissionGroups(role), (group: PermissionGroup) => {
-        this.permissionGroupBlock(group)
-      }, (group: PermissionGroup) => `group-${group.title}`)
+      Repeat(this.permissionGroups(role))
+        .each((ri: RepeatItem<PermissionGroup>) => {
+          this.permissionGroupBlock(ri.item)
+        })
+        .key((group: PermissionGroup) => `group-${group.title}`)
     }.width('100%').padding(18).alignItems(HorizontalAlign.Start)
   }
 
@@ -281,9 +298,11 @@ export struct WideRoleManagement {
           Text('请选择左侧角色查看详情').fontSize(13).fontColor($r('sys.color.font_tertiary'))
         }.width('100%').padding({ top: 44, bottom: 44 })
       } else {
-        ForEach(this.selectedRoleList(), (role: RoleRecord) => {
-          this.roleDetailContent(role)
-        }, (role: RoleRecord) => `detail-${role.id}`)
+        Repeat(this.selectedRoleList())
+          .each((ri: RepeatItem<RoleRecord>) => {
+            this.roleDetailContent(ri.item)
+          })
+          .key((role: RoleRecord) => `detail-${role.id}`)
       }
     }.width('100%').backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius(8).border({ width: 0.5, color: $r('sys.color.comp_divider') })
@@ -320,7 +339,7 @@ export struct WideRoleManagement {
 
   build() {
     Stack() {
-      Scroll(this.scroller) {
+      Scroll(this.managementScroller) {
         Column({ space: 16 }) {
           this.pageHeader()
           if (this.error.length > 0) {
