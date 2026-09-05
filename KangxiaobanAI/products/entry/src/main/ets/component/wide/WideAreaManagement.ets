@@ -42,6 +42,8 @@ export struct WideAreaManagement {
   @Local showItemDialog: boolean = false;
   @Local showSizeDialog: boolean = false;
   @Local floorEditMode: boolean = false;
+  @Local itemEditMode: boolean = false;
+  @Local itemEditId: number = 0;
   @Local dialogKind: string = 'room';
   @Local dialogName: string = '';
   @Local dialogCode: string = '';
@@ -258,7 +260,7 @@ export struct WideAreaManagement {
     if (ok) { this.showFloorDialog = false; }
   }
 
-  private async createPlacingItem(): Promise<void> {
+  private async createPlacingItem(placeAfter: boolean): Promise<void> {
     const floor: AreaDto | undefined = this.selectedFloor();
     if (floor === undefined) { this.error = '请先选择楼层'; return; }
     const width: number = Math.max(1, Number(this.dialogWidth) || 1);
@@ -267,17 +269,46 @@ export struct WideAreaManagement {
     const request: AreaSaveRequest = {
       parent_id: floor.id, type: this.dialogKind, code: this.dialogCode.trim(), name: this.dialogName.trim(),
       building: floor.building ?? '', floor_no: floor.floor_no ?? 0, status: 'active',
-      pos_x: 0, pos_y: 0, size_w: Math.min(width, GRID_COLS), size_h: Math.min(height, GRID_ROWS)
+      pos_x: 0, pos_y: 0, size_w: Math.min(width, GRID_COLS - 1), size_h: Math.min(height, GRID_ROWS - 1)
     };
     try {
       const response = await ApiClient.post<AreaDto>('/areas', request);
       if (response.code !== 0 || response.data === undefined) { this.error = response.msg || '创建失败'; return; }
       this.showItemDialog = false;
-      this.placingId = response.data.id;
+      this.placingId = placeAfter ? response.data.id : 0;
       this.selectedAreaId = response.data.id;
       await this.load();
       this.error = '';
     } catch (_error) { this.error = '创建失败，请稍后重试'; }
+  }
+
+  /** 打开区域编辑对话框：平面图选中项与未布置项共用。 */
+  private openItemEdit(area: AreaDto): void {
+    this.itemEditMode = true;
+    this.itemEditId = area.id;
+    this.dialogKind = area.type;
+    this.dialogName = area.name;
+    this.dialogCode = area.code;
+    this.dialogWidth = String(this.effectiveWidth(area));
+    this.dialogHeight = String(this.effectiveHeight(area));
+    this.showItemDialog = true;
+  }
+
+  /** 保存区域编辑：名称、编码、尺寸；已布置项超出网格时回夹位置。 */
+  private async updateItem(): Promise<void> {
+    const area: AreaDto | undefined = this.areas.find((item: AreaDto) => item.id === this.itemEditId);
+    if (area === undefined) { this.showItemDialog = false; return; }
+    if (this.dialogName.trim() === '' || this.dialogCode.trim() === '') { this.error = '名称和编码不能为空'; return; }
+    area.name = this.dialogName.trim();
+    area.code = this.dialogCode.trim();
+    area.size_w = Math.min(Math.max(1, Number(this.dialogWidth) || 1), GRID_COLS - 1);
+    area.size_h = Math.min(Math.max(1, Number(this.dialogHeight) || 1), GRID_ROWS - 1);
+    if ((area.pos_x ?? 0) > 0) {
+      area.pos_x = Math.max(1, Math.min(area.pos_x ?? 0, GRID_COLS - area.size_w));
+      area.pos_y = Math.max(1, Math.min(area.pos_y ?? 0, GRID_ROWS - area.size_h));
+    }
+    const ok: boolean = await this.saveArea(area);
+    if (ok) { this.showItemDialog = false; }
   }
 
   private suggestCode(prefix: string): string {
@@ -507,7 +538,7 @@ export struct WideAreaManagement {
       }.width('100%').alignItems(VerticalAlign.Center)
       if (this.unplacedAreas().length > 0) {
         Column({ space: 8 }) {
-          Text('未布置（点击后放到平面图上）').fontSize(13).fontColor($r('sys.color.font_secondary'))
+          Text('未布置（点击标签放到平面图上）').fontSize(13).fontColor($r('sys.color.font_secondary'))
           Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.vp(8), cross: LengthMetrics.vp(8) } }) {
             Repeat(this.unplacedAreas())
               .each((ri: RepeatItem<AreaDto>) => {
@@ -530,6 +561,8 @@ export struct WideAreaManagement {
 
   private openItemDialog(kind: string): void {
     if (this.selectedFloorId === 0) { this.error = '请先选择或新增楼层'; return; }
+    this.itemEditMode = false;
+    this.itemEditId = 0;
     this.dialogKind = kind;
     this.dialogName = '';
     this.dialogCode = this.suggestCode(kind);
@@ -611,6 +644,12 @@ export struct WideAreaManagement {
           .fontColor($r('sys.color.font_secondary'))
       }.width('100%')
       Row({ space: 10 }) {
+        Button('编辑').height(34).fontSize(12).borderRadius(8)
+          .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
+          .onClick(() => {
+            const area = this.selectedArea();
+            if (area !== undefined) { this.openItemEdit(area); }
+          })
         Button('调整尺寸').height(34).fontSize(12).borderRadius(8)
           .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
           .onClick(() => {
@@ -689,7 +728,8 @@ export struct WideAreaManagement {
   @Builder
   private itemDialog() {
     Column({ space: 12 }) {
-      Text(this.typeLabel(this.dialogKind) === '房间' ? '新增房间' :
+      Text(this.itemEditMode ? `编辑${this.typeLabel(this.dialogKind)}` :
+        this.typeLabel(this.dialogKind) === '房间' ? '新增房间' :
         this.typeLabel(this.dialogKind) === '走廊' ? '新增走廊' : `新增${this.typeLabel(this.dialogKind)}`)
         .fontSize(20).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
       TextInput({ placeholder: '名称，例如 103', text: $$this.dialogName }).height(42)
@@ -698,15 +738,35 @@ export struct WideAreaManagement {
         this.numberField('宽（格）', this.dialogWidth, (text: string) => this.dialogWidth = text)
         this.numberField('高（格）', this.dialogHeight, (text: string) => this.dialogHeight = text)
       }.width('100%')
-      Text('保存后在平面图上点击放置，可拖动微调').fontSize(12).fontColor($r('sys.color.font_tertiary'))
-      Row({ space: 10 }) {
-        Button('取消').layoutWeight(1).height(40)
-          .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))
-          .onClick(() => this.showItemDialog = false)
-        Button('保存').layoutWeight(1).height(40)
-          .fontColor(Color.White).backgroundColor(ACTION_BUTTON_BG)
-          .onClick(() => this.createPlacingItem())
-      }.width('100%')
+      if (this.itemEditMode) {
+        Text('未布置的区域保存后仍停留在未布置区，点击标签即可放置').fontSize(12)
+          .fontColor($r('sys.color.font_tertiary'))
+      } else {
+        Text('可立即放置到平面图，或先保存到未布置区稍后再放').fontSize(12)
+          .fontColor($r('sys.color.font_tertiary'))
+      }
+      if (this.itemEditMode) {
+        Row({ space: 10 }) {
+          Button('取消').layoutWeight(1).height(40)
+            .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))
+            .onClick(() => this.showItemDialog = false)
+          Button('保存').layoutWeight(1).height(40)
+            .fontColor(Color.White).backgroundColor(ACTION_BUTTON_BG)
+            .onClick(() => this.updateItem())
+        }.width('100%')
+      } else {
+        Row({ space: 10 }) {
+          Button('取消').height(40)
+            .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))
+            .onClick(() => this.showItemDialog = false)
+          Button('存到未布置').layoutWeight(1).height(40)
+            .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
+            .onClick(() => this.createPlacingItem(false))
+          Button('保存并放置').layoutWeight(1).height(40)
+            .fontColor(Color.White).backgroundColor(ACTION_BUTTON_BG)
+            .onClick(() => this.createPlacingItem(true))
+        }.width('100%')
+      }
     }.width(this.compactWidth ? '90%' : 440).padding(24)
       .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
   }
@@ -728,8 +788,12 @@ export struct WideAreaManagement {
           .onClick(async () => {
             const area = this.selectedArea();
             if (area === undefined) { this.showSizeDialog = false; return; }
-            area.size_w = Math.max(1, Number(this.dialogWidth) || 1);
-            area.size_h = Math.max(1, Number(this.dialogHeight) || 1);
+            area.size_w = Math.min(Math.max(1, Number(this.dialogWidth) || 1), GRID_COLS - 1);
+            area.size_h = Math.min(Math.max(1, Number(this.dialogHeight) || 1), GRID_ROWS - 1);
+            if ((area.pos_x ?? 0) > 0) {
+              area.pos_x = Math.max(1, Math.min(area.pos_x ?? 0, GRID_COLS - area.size_w));
+              area.pos_y = Math.max(1, Math.min(area.pos_y ?? 0, GRID_ROWS - area.size_h));
+            }
             const ok: boolean = await this.saveArea(area);
             if (ok) { this.showSizeDialog = false; }
           })
