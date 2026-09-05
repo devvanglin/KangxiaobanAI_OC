@@ -389,7 +389,7 @@ export struct WideDeviceManagement {
               Text('毫米波').fontSize(13)
                 .fontColor(this.deviceType === '毫米波雷达' ? Color.White : $r('sys.color.font_secondary'))
             }
-          }.layoutWeight(1).height(36).backgroundColor(this.deviceType === '毫米波雷达' ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
+          }.layoutWeight(1).height(36).borderRadius(8).backgroundColor(this.deviceType === '毫米波雷达' ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
             .accessibilityText('选择毫米波雷达').onClick(() => this.deviceType = '毫米波雷达')
           Button({ type: ButtonType.Normal, stateEffect: true }) {
             Row({ space: 6 }) {
@@ -398,9 +398,18 @@ export struct WideDeviceManagement {
               Text('摄像头').fontSize(13)
                 .fontColor(this.deviceType === '摄像头' ? Color.White : $r('sys.color.font_secondary'))
             }
-          }.layoutWeight(1).height(36).backgroundColor(this.deviceType === '摄像头' ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
+          }.layoutWeight(1).height(36).borderRadius(8).backgroundColor(this.deviceType === '摄像头' ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
             .accessibilityText('选择摄像头').onClick(() => this.deviceType = '摄像头')
-          Button('其他').layoutWeight(1).height(36).fontSize(13).backgroundColor(this.deviceType === '其他' ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary')).fontColor(this.deviceType === '其他' ? Color.White : $r('sys.color.font_secondary')).onClick(() => this.deviceType = '其他')
+          Button({ type: ButtonType.Normal, stateEffect: true }) {
+            Row({ space: 6 }) {
+              SymbolGlyph($r('sys.symbol.device_2')).fontSize(16)
+                .fontColor([this.deviceType === '其他' ? Color.White : $r('sys.color.icon_secondary')])
+              Text('其他').fontSize(13)
+                .fontColor(this.deviceType === '其他' ? Color.White : $r('sys.color.font_secondary'))
+            }
+          }.layoutWeight(1).height(36).borderRadius(8)
+            .backgroundColor(this.deviceType === '其他' ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
+            .accessibilityText('选择其他设备').onClick(() => this.deviceType = '其他')
         }.width('100%')
         if (this.deviceType === '摄像头') { TextInput({ placeholder: '摄像头 IP，例如 192.168.1.20', text: $$this.cameraIp }).height(42) }
         TextInput({ placeholder: '绑定房间号，可选，例如 101', text: $$this.room }).height(42)
