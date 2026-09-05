@@ -238,7 +238,7 @@ export struct WideCarePackageManagement {
       .nestedScroll({ scrollForward: NestedScrollMode.SELF_FIRST, scrollBackward: NestedScrollMode.SELF_FIRST })
       Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
       Row() {
-        Text(`共 ${this.enabledItems(item).length} 项服务 · v${item.version}`).fontSize(11).fontColor($r('sys.color.font_tertiary'))
+        Text(`共 ${this.enabledItems(item).length} 项服务`).fontSize(11).fontColor($r('sys.color.font_tertiary'))
         Blank().layoutWeight(1)
       }.width('100%')
       Row({ space: 10 }) {
