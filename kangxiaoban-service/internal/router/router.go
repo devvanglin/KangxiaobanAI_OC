@@ -154,6 +154,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		packages.POST("", perm("admin:all"), carePackageHandler.CreateTemplate)
 		packages.PUT("/:id", perm("admin:all"), carePackageHandler.UpdateTemplate)
 		packages.POST("/:id/items", perm("admin:all"), carePackageHandler.AddTemplateItem)
+		packages.DELETE("/:id/items/:itemId", perm("admin:all"), carePackageHandler.DeleteTemplateItem)
 		elderPackages := authed.Group("/elders/:id/care-package-subscriptions", perm("task:read"))
 		elderPackages.GET("", carePackageHandler.ListSubscriptions)
 		elderPackages.POST("", perm("plan:manage"), carePackageHandler.CreateSubscription)

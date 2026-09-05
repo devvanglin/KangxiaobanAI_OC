@@ -126,6 +126,30 @@ func (h *CarePackageHandler) AddTemplateItem(c *gin.Context) {
 	OK(c, item)
 }
 
+// DeleteTemplateItem removes a service item from a template. Care plans
+// already generated for subscribers keep their own copies, so removal only
+// affects future subscriptions.
+func (h *CarePackageHandler) DeleteTemplateItem(c *gin.Context) {
+	templateID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	itemID, _ := strconv.ParseUint(c.Param("itemId"), 10, 64)
+	db := h.db.WithContext(c.Request.Context())
+	var template model.CarePackageTemplate
+	if err := db.First(&template, uint(templateID)).Error; err != nil {
+		Fail(c, 404, 404, "套餐不存在")
+		return
+	}
+	var item model.CarePackageItem
+	if err := db.Where("id = ? AND template_id = ?", uint(itemID), uint(templateID)).First(&item).Error; err != nil {
+		Fail(c, 404, 404, "护理项目不存在")
+		return
+	}
+	if err := db.Delete(&item).Error; err != nil {
+		Fail(c, 409, 409, "护理项目删除失败")
+		return
+	}
+	OK(c, gin.H{"id": item.ID})
+}
+
 type subscriptionInput struct {
 	TemplateID uint   `json:"template_id" binding:"required"`
 	StartDate  string `json:"start_date"`

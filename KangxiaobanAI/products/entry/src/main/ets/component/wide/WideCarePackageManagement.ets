@@ -1,4 +1,4 @@
-import { HdsListItemCard, HdsSnackBar, SnackBarOperationType } from '@kit.UIDesignKit';
+import { HdsListItemCard, HdsSnackBar, SnackBarOperationType, SuffixButton } from '@kit.UIDesignKit';
 import ApiClient from '../../network/ApiClient';
 import { CarePackageItem, CarePackageTemplate, Elder } from '../../network/Dto';
 
@@ -174,6 +174,16 @@ export struct WideCarePackageManagement {
     return this.enabledItems(template);
   }
 
+  private async removeItem(serviceItem: CarePackageItem): Promise<void> {
+    if (this.detailTemplate === undefined) { return; }
+    const response = await ApiClient.delete<Object>(`/care-package-templates/${this.detailTemplate.id}/items/${serviceItem.id}`);
+    if (response.code !== 0) { this.error = response.msg || '护理项目删除失败'; return; }
+    await this.load();
+    const refreshed: CarePackageTemplate | undefined = this.templates.find((template: CarePackageTemplate) => template.id === this.detailTemplate?.id);
+    if (refreshed !== undefined) { this.detailTemplate = refreshed; }
+    this.notify('护理项目已删除');
+  }
+
   @Builder
   private levelBadge(item: CarePackageTemplate) {
     if (item.applicable_care_level !== undefined && item.applicable_care_level >= 1 && item.applicable_care_level <= 5) {
@@ -272,7 +282,12 @@ export struct WideCarePackageManagement {
                     ? `执行频次：${serviceItem.frequency}`
                     : (serviceItem.instructions !== undefined && serviceItem.instructions.length > 0 ? serviceItem.instructions : '按套餐计划执行')
                 }
-              }
+              },
+              suffixItem: new SuffixButton({
+                text: '删除',
+                textColor: $r('app.color.doctor_workspace_danger'),
+                onClick: () => this.removeItem(serviceItem)
+              })
             })
           }
         }, (serviceItem: CarePackageItem) => `detail-item-${serviceItem.id}`)
@@ -368,7 +383,7 @@ export struct WideCarePackageManagement {
             Row({ space: 12 }) {
               ForEach(row, (item: CarePackageTemplate) => {
                 Row() { this.packageCard(item) }.layoutWeight(1).alignItems(VerticalAlign.Top)
-              }, (item: CarePackageTemplate) => `pkg-${item.id}`)
+              }, (item: CarePackageTemplate) => `pkg-${item.id}-${(item.items ?? []).length}`)
             }.width('100%')
           }, (row: CarePackageTemplate[]) => `pkg-row-${row.length > 0 ? row[0].id : 0}-${row.length}`)
           if (!this.loading && this.templates.length === 0) {
