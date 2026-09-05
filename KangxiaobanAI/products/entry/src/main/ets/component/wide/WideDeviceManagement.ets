@@ -372,8 +372,12 @@ export struct WideDeviceManagement {
       Text(this.relativeHeartbeat(device.last_seen)).fontSize(13).fontColor($r('sys.color.font_primary'))
         .layoutWeight(1.3).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
       Row({ space: 10 }) {
-        Text('详情').fontSize(13).fontColor($r('sys.color.font_primary')).onClick(() => this.openDeviceDetail(device))
-        Text('配置').fontSize(13).fontColor($r('sys.color.font_primary')).onClick(() => this.openEdit(device))
+        Button('详情').height(30).fontSize(12).borderRadius(8)
+          .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
+          .onClick(() => this.openDeviceDetail(device))
+        Button('配置').height(30).fontSize(12).borderRadius(8)
+          .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
+          .onClick(() => this.openEdit(device))
       }.layoutWeight(1.4)
     }.width('100%').height(76).alignItems(VerticalAlign.Center)
   }
@@ -467,8 +471,7 @@ export struct WideDeviceManagement {
     Stack() {
       Scroll(this.managementScroller) { Column({ space: 16 }) {
         Row({ space: 12 }) {
-          Text('设备管理').fontSize(this.compactWidth ? 24 : 28).fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary')).layoutWeight(1)
+          Blank()
           Search({ value: this.searchQuery, placeholder: '搜索设备编号/名称' })
             .width(this.compactWidth ? '100%' : 260).height(38)
             .onChange((value: string) => this.searchQuery = value)

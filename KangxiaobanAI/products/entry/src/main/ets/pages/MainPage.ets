@@ -144,7 +144,7 @@ struct MainPage {
   @Local doctorResidentBackRequestToken: number = 0;
   @Local doctorResidentScrollerOwner: DoctorResidentScrollerOwner = 'residentDetail';
   @Local doctorAiHistoryCollapsed: boolean = false;
-  @Local doctorCurrentTime: string = '--:--';
+  @Local workspaceClockTime: string = '--:--';
   @Local businessStore: BusinessStore = BusinessStore.getShared();
   private wideHomeScroller: Scroller = new Scroller();
   private wideHomeTaskDetailScroller: Scroller = new Scroller();
@@ -195,11 +195,11 @@ struct MainPage {
 
   private formatCurrentTime(): string {
     const now: Date = new Date();
-    return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
   }
 
   private refreshDoctorClock(): void {
-    this.doctorCurrentTime = this.formatCurrentTime();
+    this.workspaceClockTime = this.formatCurrentTime();
     if (this.doctorClockTimerId !== -1) {
       clearTimeout(this.doctorClockTimerId);
     }
@@ -384,7 +384,7 @@ struct MainPage {
     }
     if (this.isManagementWideWorkspace()) {
       const content: TitleBarContentOptions = {
-        title: { mainTitle: this.globalInfoModel.role === '医师' ? this.doctorCurrentTime : '总览' },
+        title: { mainTitle: this.workspaceClockTime },
         menu: { value: [] },
         stackBuilder: (): void => this.wideDoctorTitleActions()
       };

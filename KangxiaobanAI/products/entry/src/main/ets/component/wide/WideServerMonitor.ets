@@ -160,6 +160,8 @@ export struct WideServerMonitor {
   @Local serverStartedAt: string = '';
   @Local serverUptime: string = '--';
   @Local serverGoroutines: number = 0;
+  @Local serverAppVersion: string = '--';
+  @Local serverDeployMode: string = '';
   @Local disks: SystemDiskStat[] = [];
   @Local networkAvailable: boolean = false;
   @Local networkInterface: string = 'all';
@@ -223,6 +225,8 @@ export struct WideServerMonitor {
       this.serverStartedAt = response.data.server.started_at;
       this.serverUptime = response.data.server.uptime_text;
       this.serverGoroutines = response.data.server.goroutines;
+      this.serverAppVersion = response.data.server.app_version ?? '--';
+      this.serverDeployMode = response.data.server.deploy_mode ?? '';
       this.disks = response.data.disks ?? [];
       this.applyNetwork(response.data.network);
       this.lastUpdated = this.formatTime(response.data.collected_at);
@@ -257,6 +261,14 @@ export struct WideServerMonitor {
     });
     this.networkSamples = samples.slice(Math.max(0, samples.length - NETWORK_HISTORY_LIMIT));
     this.networkSampleVersion += 1;
+  }
+
+  /** 部署模式展示名：production=生产环境，dev=开发环境，其余原样显示。 */
+  private deployModeLabel(): string {
+    const mode: string = this.serverDeployMode;
+    if (mode === 'production' || mode === 'prod') { return '生产环境'; }
+    if (mode === 'dev' || mode === 'development') { return '开发环境'; }
+    return mode.length > 0 ? mode : '--';
   }
 
   private formatTime(value: string): string {
@@ -396,7 +408,8 @@ export struct WideServerMonitor {
 
   private currentServer(): SystemServerInfo {
     return { hostname: this.serverHostname, ip: this.serverIp, os: this.serverOs, arch: this.serverArch,
-      pid: this.serverPid, go_version: this.serverGoVersion, started_at: this.serverStartedAt,
+      pid: this.serverPid, go_version: this.serverGoVersion,
+      app_version: this.serverAppVersion, deploy_mode: this.serverDeployMode, started_at: this.serverStartedAt,
       uptime_seconds: 0, uptime_text: this.serverUptime, goroutines: this.serverGoroutines };
   }
 
@@ -477,8 +490,8 @@ export struct WideServerMonitor {
           ServerMetricRow({ label: '启动时间', value: this.formatTime(this.currentServer().started_at) })
           ServerMetricRow({ label: '运行时长', value: this.currentServer().uptime_text })
           ServerMetricRow({ label: 'Goroutine 数', value: this.currentServer().goroutines.toString() })
-          ServerMetricRow({ label: '应用版本', value: '1.0.0' })
-          ServerMetricRow({ label: '部署模式', value: '生产环境', showBottomDivider: false })
+          ServerMetricRow({ label: '应用版本', value: this.serverAppVersion })
+          ServerMetricRow({ label: '部署模式', value: this.deployModeLabel(), showBottomDivider: false })
         }.width('100%').alignItems(HorizontalAlign.Start)
       }.width('100%').padding({ left: 12, right: 12, bottom: 6 })
     }.width('100%').borderRadius(8)

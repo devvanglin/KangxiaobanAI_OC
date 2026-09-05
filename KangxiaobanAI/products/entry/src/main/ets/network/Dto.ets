@@ -466,6 +466,8 @@ export interface SystemServerInfo {
   uptime_seconds: number;
   uptime_text: string;
   goroutines: number;
+  app_version?: string;
+  deploy_mode?: string;
 }
 
 export interface SystemNetworkInterfaceStat {
