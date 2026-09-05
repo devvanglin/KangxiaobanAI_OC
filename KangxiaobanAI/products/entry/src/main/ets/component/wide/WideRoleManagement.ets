@@ -416,7 +416,7 @@ export struct WideRoleManagement {
           Text(`共 ${this.roles.length} 个角色`).fontSize(11).fontColor($r('sys.color.font_tertiary')).width('100%')
             .textAlign(TextAlign.End)
         }.width('100%').padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28,
-          top: 56 + this.statusBarHeight, bottom: 24 + this.naviIndicatorHeight })
+          top: 88 + this.statusBarHeight, bottom: 24 + this.naviIndicatorHeight })
           .constraintSize({ minHeight: '100%' })
           .alignItems(HorizontalAlign.Start)
       }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
