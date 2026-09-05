@@ -664,7 +664,7 @@ export struct WideAreaManagement {
           .onClick(() => this.floorEditMode ? this.updateFloor() : this.createFloor())
       }.width('100%')
       if (this.floorEditMode) {
-        Button('删除楼层').layoutWeight(1).height(40)
+        Button('删除楼层').width('100%').height(40)
           .fontColor(Color.White).backgroundColor($r('app.color.doctor_workspace_danger'))
           .onClick(() => {
             const floor: AreaDto | undefined = this.selectedFloor();
