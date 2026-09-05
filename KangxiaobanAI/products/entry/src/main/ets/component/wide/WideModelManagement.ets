@@ -15,6 +15,7 @@ export struct WideModelManagement {
   @Param compactWidth: boolean = false;
   @Param statusBarHeight: number = 0;
   @Param naviIndicatorHeight: number = 0;
+  @Param managementScroller: Scroller = new Scroller();
   @Local configs: AIModelConfig[] = [];
   @Local selectedRole: string = 'caregiver';
   @Local configId: number = 0;
@@ -30,7 +31,6 @@ export struct WideModelManagement {
   @Local showEditor: boolean = false;
   @Local saved: boolean = false;
   @Local error: string = '';
-  private scroller: Scroller = new Scroller();
 
   aboutToAppear(): void { this.load(); }
 
@@ -349,7 +349,7 @@ export struct WideModelManagement {
 
   build() {
     Stack() {
-      Scroll(this.scroller) {
+      Scroll(this.managementScroller) {
         Column({ space: 16 }) {
           Row({ space: 12 }) {
             Column({ space: 4 }) {
