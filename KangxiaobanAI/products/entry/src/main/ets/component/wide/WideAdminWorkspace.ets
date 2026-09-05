@@ -356,7 +356,7 @@ export struct WideAdminWorkspace {
   }
 
   private adminOverviewTopPadding(): number {
-    return WIDE_TITLE_BAR_HEIGHT + this.statusBarHeight + 12;
+    return WIDE_TITLE_BAR_HEIGHT + this.statusBarHeight + 32;
   }
 
   /**
