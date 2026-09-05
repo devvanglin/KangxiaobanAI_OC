@@ -122,6 +122,13 @@ func (r *ResourceRepository) DeleteBed(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&model.Bed{}, id).Error
 }
 
+// UnassignEldersFromBed clears the resident assignment of a bed that is about
+// to be removed, so no profile keeps pointing at a deleted bed.
+func (r *ResourceRepository) UnassignEldersFromBed(ctx context.Context, bedID uint) error {
+	return r.db.WithContext(ctx).Model(&model.Elder{}).Where("bed_id = ?", bedID).
+		Update("bed_id", nil).Error
+}
+
 func (r *ResourceRepository) FindArea(ctx context.Context, id uint) (*model.Area, error) {
 	var area model.Area
 	if err := r.db.WithContext(ctx).First(&area, id).Error; err != nil {

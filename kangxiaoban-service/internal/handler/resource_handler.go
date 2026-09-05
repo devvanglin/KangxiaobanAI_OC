@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -77,22 +78,23 @@ func (h *ResourceHandler) CreateBed(c *gin.Context) {
 	OK(c, bed)
 }
 
-// DeleteBed removes a bed that no resident occupies, so the room bed-count
-// setting can shrink from two beds back to one.
+// DeleteBed removes a bed and releases any resident assignment on it, so the
+// room bed-count setting can shrink freely.
 func (h *ResourceHandler) DeleteBed(c *gin.Context) {
-	id := uint(parseUint(c, "id"))
-	if err := h.svc.DeleteBed(c.Request.Context(), id); err != nil {
-		switch {
-		case errors.Is(err, gorm.ErrRecordNotFound):
-			Fail(c, 404, 404, "床位不存在")
-		case errors.Is(err, service.ErrBedNotRemovable):
-			Fail(c, 409, 409, "入住中或维护中的床位不能删除")
-		default:
-			Fail(c, 500, 500, "床位删除失败")
-		}
+	id64, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		Fail(c, 400, 400, "床位 ID 无效")
 		return
 	}
-	OK(c, gin.H{"id": id})
+	if err := h.svc.DeleteBed(c.Request.Context(), uint(id64)); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			Fail(c, 404, 404, "床位不存在")
+			return
+		}
+		Fail(c, 500, 500, "床位删除失败")
+		return
+	}
+	OK(c, gin.H{"id": uint(id64)})
 }
 
 func (h *ResourceHandler) ListRooms(c *gin.Context) {

@@ -17,7 +17,7 @@ func backfillAreas(db *gorm.DB) error {
 	for _, room := range rooms {
 		floorCode := fmt.Sprintf("%s-floor-%d", room.Building, room.Floor)
 		floor := model.Area{}
-		if err := db.Where("code = ?", floorCode).First(&floor).Error; err != nil {
+		if err := db.Unscoped().Where("code = ?", floorCode).First(&floor).Error; err != nil {
 			if err != gorm.ErrRecordNotFound {
 				return err
 			}
@@ -25,10 +25,15 @@ func backfillAreas(db *gorm.DB) error {
 			if err := db.Create(&floor).Error; err != nil {
 				return err
 			}
+		} else if floor.DeletedAt.Valid {
+			// 镜像区域被删除过时恢复而不是重插，避免触发编码唯一约束。
+			if err := db.Unscoped().Model(&model.Area{}).Where("id = ?", floor.ID).Update("deleted_at", nil).Error; err != nil {
+				return err
+			}
 		}
 		roomCode := fmt.Sprintf("%s-room-%s", room.Building, room.RoomNo)
 		area := model.Area{}
-		if err := db.Where("code = ?", roomCode).First(&area).Error; err != nil {
+		if err := db.Unscoped().Where("code = ?", roomCode).First(&area).Error; err != nil {
 			if err != gorm.ErrRecordNotFound {
 				return err
 			}
@@ -38,6 +43,10 @@ func backfillAreas(db *gorm.DB) error {
 			}
 			area = model.Area{ParentID: &floor.ID, Type: model.AreaTypeRoom, Code: roomCode, Name: room.RoomNo, Building: room.Building, FloorNo: room.Floor, Status: areaStatus}
 			if err := db.Create(&area).Error; err != nil {
+				return err
+			}
+		} else if area.DeletedAt.Valid {
+			if err := db.Unscoped().Model(&model.Area{}).Where("id = ?", area.ID).Update("deleted_at", nil).Error; err != nil {
 				return err
 			}
 		}

@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -73,7 +72,6 @@ var (
 	ErrRoomNotFound    = errors.New("room not found")
 	ErrBedNumberExists = errors.New("bed number already exists")
 	ErrBedLimitReached = errors.New("room already has two beds")
-	ErrBedNotRemovable = errors.New("bed is occupied or unavailable")
 )
 
 // EnsureRoomForArea returns the historical room matching a floor-plan room
@@ -119,14 +117,15 @@ func (s *ResourceService) CreateBedInRoom(ctx context.Context, bed *model.Bed) e
 	return s.repo.CreateBed(ctx, bed)
 }
 
-// DeleteBed removes a bed that no resident occupies.
+// DeleteBed removes a bed. Beds are freely adjustable: when the bed still
+// holds a resident, the assignment is released first so no profile keeps
+// pointing at a deleted bed.
 func (s *ResourceService) DeleteBed(ctx context.Context, id uint) error {
-	bed, err := s.repo.GetBed(ctx, id)
-	if err != nil {
+	if _, err := s.repo.GetBed(ctx, id); err != nil {
 		return err
 	}
-	if bed.ElderID != nil || !strings.EqualFold(strings.TrimSpace(bed.Status), "free") {
-		return ErrBedNotRemovable
+	if err := s.repo.UnassignEldersFromBed(ctx, id); err != nil {
+		return err
 	}
 	return s.repo.DeleteBed(ctx, id)
 }

@@ -171,10 +171,15 @@ export struct WideAreaManagement {
       }
       if (created < target - current) { this.error = '床位创建失败'; return; }
     } else {
-      const removable: Bed[] = beds.filter((bed: Bed) => bed.status === 'free' && bed.elder_id === undefined)
-        .sort((left: Bed, right: Bed) => right.bed_no.localeCompare(left.bed_no));
       const need: number = current - target;
-      if (removable.length < need) { this.error = '入住中的床位不能删除'; return; }
+      // 优先删空闲床；不足时允许删占用床，后端会先解除长者绑定。
+      const removable: Bed[] = beds.slice()
+        .sort((left: Bed, right: Bed) => {
+          const leftFree: number = left.status === 'free' && left.elder_id === undefined ? 0 : 1;
+          const rightFree: number = right.status === 'free' && right.elder_id === undefined ? 0 : 1;
+          if (leftFree !== rightFree) { return leftFree - rightFree; }
+          return right.bed_no.localeCompare(left.bed_no);
+        });
       for (let i = 0; i < need; i++) {
         try {
           const response = await ApiClient.delete<Object>(`/beds/${removable[i].id}`);

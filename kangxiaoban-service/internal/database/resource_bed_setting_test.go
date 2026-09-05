@@ -96,7 +96,7 @@ func TestCreateBedInRoomEnforcesLimitAndNumbers(t *testing.T) {
 	}
 }
 
-func TestDeleteBedGuardsOccupancy(t *testing.T) {
+func TestDeleteBedReleasesOccupiedAssignment(t *testing.T) {
 	db, svc, ctx := setupBedSettingDB(t)
 
 	room := &model.Room{Building: "BED", Floor: 4, RoomNo: "401"}
@@ -111,14 +111,44 @@ func TestDeleteBedGuardsOccupancy(t *testing.T) {
 	if err := svc.CreateBedInRoom(ctx, occupied); err != nil {
 		t.Fatal(err)
 	}
+	elder := &model.Elder{Name: "床测长者", BedID: &occupied.ID}
+	if err := db.WithContext(ctx).Create(elder).Error; err != nil {
+		t.Fatal(err)
+	}
 
 	if err := svc.DeleteBed(ctx, free.ID); err != nil {
 		t.Fatalf("free bed must be removable: %v", err)
 	}
-	if err := svc.DeleteBed(ctx, occupied.ID); !errors.Is(err, service.ErrBedNotRemovable) {
-		t.Fatalf("occupied bed must be protected: %v", err)
+	if err := svc.DeleteBed(ctx, occupied.ID); err != nil {
+		t.Fatalf("occupied bed must be removable with assignment release: %v", err)
+	}
+	var reloaded model.Elder
+	if err := db.WithContext(ctx).First(&reloaded, elder.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if reloaded.BedID != nil {
+		t.Fatalf("elder bed assignment must be released: %v", *reloaded.BedID)
 	}
 	if err := svc.DeleteBed(ctx, free.ID); !errors.Is(err, gorm.ErrRecordNotFound) {
 		t.Fatalf("deleted bed must not be found again: %v", err)
+	}
+}
+
+func TestBackfillRestoresSoftDeletedMirrorAreas(t *testing.T) {
+	db, _, ctx := setupBedSettingDB(t)
+
+	// Seed 创造的 A-room-101 镜像区域被用户删除后，重启回填必须恢复而非重插。
+	if err := db.WithContext(ctx).Delete(&model.Area{}, 2).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := backfillAreas(db.WithContext(ctx)); err != nil {
+		t.Fatalf("backfill must tolerate soft-deleted mirror areas: %v", err)
+	}
+	var area model.Area
+	if err := db.Unscoped().First(&area, 2).Error; err != nil {
+		t.Fatal(err)
+	}
+	if area.DeletedAt.Valid {
+		t.Fatal("mirror area must be restored by the backfill")
 	}
 }
