@@ -1,7 +1,10 @@
-import { LengthMetrics } from '@kit.ArkUI';
+import { AppStorageV2, LengthMetrics } from '@kit.ArkUI';
 import ApiClient from '../../network/ApiClient';
 import { Area as AreaDto, Bed, Room } from '../../network/Dto';
 import { BusinessStore } from '../../network/BusinessStore';
+import { PreferenceManager } from '../../util/PreferenceManager';
+import { GlobalInfoModel } from '../../model/GlobalInfoModel';
+import { StorageKey } from '../../common/CommonConstants';
 
 interface AreaPage { list: AreaDto[]; }
 interface AreaSaveRequest {
@@ -21,8 +24,22 @@ interface AreaSaveRequest {
 }
 interface BedCreateRequest { room_id?: number; area_id?: number; bed_no: string; status: string; }
 
+/** “在平面图上新增”行里的一个区域类型按钮。 */
+interface AreaKind {
+  value: string;
+  label: string;
+  builtin: boolean;
+}
+
+interface AreaKindsPref {
+  hidden: string[];
+  extra: string[];
+}
+
+const AREA_KINDS_PREF_KEY = 'kanxiaoban_area_custom_kinds';
+
 const GRID_COLS: number = 26;
-const GRID_ROWS: number = 15;
+const GRID_ROWS: number = 10;
 const ACTION_BUTTON_BG: string = '#1F1F1F';
 
 @ComponentV2
@@ -33,6 +50,10 @@ export struct WideAreaManagement {
   @Param managementScroller: Scroller = new Scroller();
   @Local areas: AreaDto[] = [];
   @Local businessStore: BusinessStore = BusinessStore.getShared();
+  @Local globalInfo: GlobalInfoModel =
+    AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO, () => new GlobalInfoModel()) ?? new GlobalInfoModel();
+  @Local toolbarHeight: number = 0;
+  @Local dragAreaId: number = 0;
   @Local selectedFloorId: number = 0;
   @Local selectedAreaId: number = 0;
   @Local placingId: number = 0;
@@ -42,8 +63,13 @@ export struct WideAreaManagement {
   @Local showItemDialog: boolean = false;
   @Local showSizeDialog: boolean = false;
   @Local floorEditMode: boolean = false;
+  @Local kindEditMode: boolean = false;
   @Local itemEditMode: boolean = false;
   @Local itemEditId: number = 0;
+  @Local customKinds: string[] = [];
+  @Local hiddenBuiltinKinds: string[] = [];
+  @Local showKindDialog: boolean = false;
+  @Local kindDialogName: string = '';
   @Local dialogKind: string = 'room';
   @Local dialogName: string = '';
   @Local dialogCode: string = '';
@@ -54,12 +80,19 @@ export struct WideAreaManagement {
   private planContext: CanvasRenderingContext2D = new CanvasRenderingContext2D(new RenderingContextSettings(true));
   private planWidth: number = 0;
   private cellSize: number = 0;
-  private dragAreaId: number = 0;
   private dragOffsetCol: number = 0;
   private dragOffsetRow: number = 0;
   private dragMoved: boolean = false;
 
-  aboutToAppear(): void { this.load(); this.businessStore.load(); }
+  aboutToAppear(): void { this.loadCustomKinds(); this.load(); this.businessStore.load(); }
+
+  /** 切换楼层后清空旧楼层的选中/放置状态并重绘平面图。 */
+  @Monitor('selectedFloorId')
+  onSelectedFloorChange(): void {
+    this.selectedAreaId = 0;
+    this.placingId = 0;
+    this.drawPlan();
+  }
 
   private async load(): Promise<void> {
     this.loading = true;
@@ -68,6 +101,7 @@ export struct WideAreaManagement {
       const response = await ApiClient.get<AreaPage>('/areas');
       if (response.code !== 0 || response.data === undefined) { throw new Error(response.msg); }
       this.areas = response.data.list ?? [];
+      this.clampLegacyPlacements();
       if (!this.areas.some((area: AreaDto) => area.id === this.selectedFloorId)) {
         this.selectedFloorId = this.floors().length > 0 ? this.floors()[0].id : 0;
       }
@@ -77,6 +111,20 @@ export struct WideAreaManagement {
       this.drawPlan();
     } catch (_error) { this.error = '区域数据加载失败'; }
     this.loading = false;
+  }
+
+  /** 历史数据按旧网格放置时超出当前网格的部分收进网格并回存。 */
+  private clampLegacyPlacements(): void {
+    const legacy: AreaDto[] = this.placedAreas().filter((area: AreaDto) => {
+      return (area.pos_x ?? 0) + (area.size_w ?? 0) > GRID_COLS || (area.pos_y ?? 0) + (area.size_h ?? 0) > GRID_ROWS;
+    });
+    legacy.forEach((area: AreaDto) => {
+      area.size_w = Math.min(Math.max(1, area.size_w ?? 1), GRID_COLS - 1);
+      area.size_h = Math.min(Math.max(1, area.size_h ?? 1), GRID_ROWS - 1);
+      area.pos_x = Math.max(1, Math.min(area.pos_x ?? 1, GRID_COLS - 1 - area.size_w));
+      area.pos_y = Math.max(1, Math.min(area.pos_y ?? 1, GRID_ROWS - 1 - area.size_h));
+      this.saveArea(area);
+    });
   }
 
   private floors(): AreaDto[] {
@@ -119,7 +167,7 @@ export struct WideAreaManagement {
       case 'corridor': return '走廊';
       case 'stair': return '楼梯';
       case 'common': return '公共区';
-      default: return '其他';
+      default: return value;
     }
   }
 
@@ -237,9 +285,7 @@ export struct WideAreaManagement {
     } catch (_error) { this.error = '楼层创建失败'; }
   }
 
-  private openFloorEdit(): void {
-    const floor: AreaDto | undefined = this.selectedFloor();
-    if (floor === undefined) { this.error = '请先选择楼层'; return; }
+  private openFloorEdit(floor: AreaDto): void {
     this.floorEditMode = true;
     this.dialogName = floor.name;
     this.dialogCode = floor.code;
@@ -321,13 +367,21 @@ export struct WideAreaManagement {
     return this.planWidth > 0 ? (this.planWidth / GRID_COLS) * GRID_ROWS : 360;
   }
 
+  /** 地图卡片高度：视口高度减去卡片顶部起点（页面上边距+工具栏）和页面底部留白，让卡片铺满屏幕剩余空间。 */
+  private mapCardMinHeight(): number {
+    const viewport: number = this.globalInfo.deviceHeight > 0 ? this.globalInfo.deviceHeight : 800;
+    const toolbar: number = this.toolbarHeight > 0 ? this.toolbarHeight : 150;
+    const cardTop: number = 88 + this.statusBarHeight + toolbar + 16;
+    return Math.max(480, viewport - cardTop - 24 - this.naviIndicatorHeight);
+  }
+
   private drawPlan(): void {
     const context = this.planContext;
     const width: number = this.planWidth;
     if (width <= 0) { return; }
     const cell: number = width / GRID_COLS;
     this.cellSize = cell;
-    const height: number = cell * GRID_ROWS;
+    const height: number = context.height;
     context.clearRect(0, 0, width, height);
     context.fillStyle = '#FBFCFE';
     context.fillRect(0, 0, width, height);
@@ -335,17 +389,22 @@ export struct WideAreaManagement {
     for (let col: number = 0; col <= GRID_COLS; col++) {
       context.strokeStyle = col % 5 === 0 ? '#D9DEE7' : '#EBEEF3';
       context.beginPath();
-      context.moveTo(col * cell, 0);
-      context.lineTo(col * cell, height);
+      context.moveTo(Math.min(col * cell, width), 0);
+      context.lineTo(Math.min(col * cell, width), height);
       context.stroke();
     }
-    for (let row: number = 0; row <= GRID_ROWS; row++) {
-      context.strokeStyle = row % 5 === 0 ? '#D9DEE7' : '#EBEEF3';
+    for (let y: number = 0; y <= height; y += cell) {
+      context.strokeStyle = Math.round(y / cell) % 5 === 0 ? '#D9DEE7' : '#EBEEF3';
       context.beginPath();
-      context.moveTo(0, row * cell);
-      context.lineTo(width, row * cell);
+      context.moveTo(0, y);
+      context.lineTo(width, y);
       context.stroke();
     }
+    context.strokeStyle = '#D9DEE7';
+    context.beginPath();
+    context.moveTo(0, height);
+    context.lineTo(width, height);
+    context.stroke();
     const placed: AreaDto[] = this.placedAreas().slice().sort((left: AreaDto, right: AreaDto) => {
       return (left.type === 'corridor' ? 0 : 1) - (right.type === 'corridor' ? 0 : 1);
     });
@@ -367,8 +426,8 @@ export struct WideAreaManagement {
     const y: number = (area.pos_y ?? 0) * cell;
     const w: number = (area.size_w ?? 0) * cell;
     const h: number = (area.size_h ?? 0) * cell;
-    let fill = '#EEEEEE';
-    let border = '#BBBBBB';
+    let fill = '#EDE7F6';
+    let border = '#9575CD';
     if (area.type === 'room') { fill = '#DCE9FB'; border = '#4A7AD9'; }
     else if (area.type === 'corridor') { fill = '#ECEFF3'; border = '#A9B2BF'; }
     else if (area.type === 'stair') { fill = '#F5ECDD'; border = '#C9A96A'; }
@@ -379,7 +438,7 @@ export struct WideAreaManagement {
     context.lineWidth = selected ? 2.5 : 1.5;
     context.strokeRect(x + 1.5, y + 1.5, w - 3, h - 3);
     context.fillStyle = '#1F2329';
-    const fontSize: number = Math.max(13, Math.min(20, Math.round(cell * 0.3)));
+    const fontSize: number = Math.max(16, Math.min(24, Math.round(cell * 0.45)));
     context.font = `600 ${fontSize}px sans-serif`;
     context.textAlign = 'center';
     context.textBaseline = 'middle';
@@ -481,14 +540,25 @@ export struct WideAreaManagement {
   // ---- UI builders ----
 
   @Builder
-  private floorChip(floor: AreaDto, selected: boolean) {
-    Text(floor.name)
-      .fontSize(12)
-      .fontColor(selected ? Color.White : $r('sys.color.font_primary'))
-      .padding({ left: 16, right: 16 })
+  private floorChip(floor: AreaDto) {
+    Row({ space: 4 }) {
+      Text(floor.name)
+        .fontSize(12)
+        .fontColor(floor.id === this.selectedFloorId ? Color.White : $r('sys.color.font_primary'))
+      if (this.floorEditMode) {
+        Text('✕').fontSize(12).fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.doctor_workspace_danger'))
+          .onClick(() => this.deleteArea(floor))
+      }
+    }
+      .padding({ left: 16, right: this.floorEditMode ? 10 : 16 })
       .height(34)
       .borderRadius(8)
-      .backgroundColor(selected ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
+      .backgroundColor(floor.id === this.selectedFloorId ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
+      .onClick(() => {
+        this.selectedFloorId = floor.id;
+        if (this.floorEditMode) { this.openFloorEdit(floor); }
+      })
   }
 
   @Builder
@@ -500,20 +570,32 @@ export struct WideAreaManagement {
           Row({ space: 8 }) {
             Repeat(this.floors())
               .each((ri: RepeatItem<AreaDto>) => {
-                this.floorChip(ri.item, ri.item.id === this.selectedFloorId)
+                this.floorChip(ri.item)
               })
               .key((floor: AreaDto) => `floor-${floor.id}`)
           }
         }.layoutWeight(1).align(Alignment.Start).scrollable(ScrollDirection.Horizontal).scrollBar(BarState.Off)
-        Button('编辑楼层').height(34).fontSize(12).borderRadius(8)
-          .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
-          .enabled(this.selectedFloorId > 0)
-          .opacity(this.selectedFloorId > 0 ? 1 : 0.4)
-          .onClick(() => this.openFloorEdit())
+        if (this.floorEditMode) {
+          Button() {
+            Row({ space: 4 }) {
+              Text('编辑楼层').fontSize(12).fontColor(Color.White)
+              Text('✕').fontSize(12).fontWeight(FontWeight.Medium).fontColor(Color.White)
+            }.padding({ left: 12, right: 12 })
+          }.height(34).borderRadius(8)
+            .backgroundColor($r('app.color.doctor_workspace_danger'))
+            .onClick(() => { this.floorEditMode = false; })
+        } else {
+          Button('编辑楼层').height(34).fontSize(12).borderRadius(8)
+            .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
+            .enabled(this.selectedFloorId > 0)
+            .opacity(this.selectedFloorId > 0 ? 1 : 0.4)
+            .onClick(() => { this.floorEditMode = true; this.kindEditMode = false; })
+        }
         Button('新增楼层').height(34).fontSize(12).borderRadius(8)
           .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
           .onClick(() => {
             this.floorEditMode = false;
+            this.kindEditMode = false;
             this.dialogName = '';
             this.dialogCode = this.suggestCode('floor');
             this.dialogBuilding = '';
@@ -523,18 +605,45 @@ export struct WideAreaManagement {
       }.width('100%').alignItems(VerticalAlign.Center)
       Row({ space: 10 }) {
         Text('在平面图上新增：').fontSize(13).fontColor($r('sys.color.font_secondary'))
-        Button('房间').height(34).fontSize(12).borderRadius(8)
-          .fontColor(Color.White).backgroundColor($r('app.color.brand_blue'))
-          .onClick(() => this.openItemDialog('room'))
-        Button('走廊').height(34).fontSize(12).borderRadius(8)
-          .fontColor(Color.White).backgroundColor($r('app.color.brand_blue'))
-          .onClick(() => this.openItemDialog('corridor'))
-        Button('楼梯').height(34).fontSize(12).borderRadius(8)
-          .fontColor(Color.White).backgroundColor($r('app.color.brand_blue'))
-          .onClick(() => this.openItemDialog('stair'))
-        Button('公共区').height(34).fontSize(12).borderRadius(8)
-          .fontColor(Color.White).backgroundColor($r('app.color.brand_blue'))
-          .onClick(() => this.openItemDialog('common'))
+        Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.vp(8), cross: LengthMetrics.vp(8) } }) {
+          Repeat(this.areaKinds())
+            .each((ri: RepeatItem<AreaKind>) => {
+              Row({ space: 6 }) {
+                Text(ri.item.label).fontSize(12).fontColor(Color.White)
+                  .onClick(() => this.openItemDialog(ri.item.value))
+                if (this.kindEditMode) {
+                  Text('✕').fontSize(11).fontWeight(FontWeight.Medium).fontColor(Color.White)
+                    .width(18).height(18).textAlign(TextAlign.Center)
+                    .borderRadius(9).backgroundColor($r('app.color.doctor_workspace_danger'))
+                    .onClick(() => this.removeKind(ri.item))
+                }
+              }
+                .padding({ left: 12, right: this.kindEditMode ? 6 : 12 })
+                .height(34).borderRadius(8)
+                .backgroundColor($r('app.color.brand_blue'))
+            })
+            .key((kind: AreaKind) => `kind-${kind.value}`)
+        }.layoutWeight(1)
+        if (this.kindEditMode) {
+          Button() {
+            Row({ space: 4 }) {
+              Text('编辑区域').fontSize(12).fontColor(Color.White)
+              Text('✕').fontSize(12).fontWeight(FontWeight.Medium).fontColor(Color.White)
+            }.padding({ left: 12, right: 12 })
+          }.height(34).borderRadius(8)
+            .backgroundColor($r('app.color.doctor_workspace_danger'))
+            .onClick(() => { this.kindEditMode = false; })
+        } else {
+          Button('编辑区域').height(34).fontSize(12).borderRadius(8)
+            .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
+            .onClick(() => {
+              this.kindEditMode = true;
+              this.floorEditMode = false;
+            })
+        }
+        Button('新增区域').height(34).fontSize(12).borderRadius(8)
+          .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
+          .onClick(() => { this.kindDialogName = ''; this.showKindDialog = true; })
       }.width('100%').alignItems(VerticalAlign.Center)
       if (this.unplacedAreas().length > 0) {
         Column({ space: 8 }) {
@@ -557,6 +666,69 @@ export struct WideAreaManagement {
     }.width('100%').padding(16).backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius(8).border({ width: 0.5, color: $r('sys.color.comp_divider') })
       .alignItems(HorizontalAlign.Start)
+      .onAreaChange((_oldArea: Area, newArea: Area) => {
+        this.toolbarHeight = Number(newArea.height);
+      })
+  }
+
+  /** “在平面图上新增”行的类型按钮：内置四类 + 自定义类型，内置类型可被隐藏。 */
+  private builtinAreaKinds(): AreaKind[] {
+    return [
+      { value: 'room', label: '房间', builtin: true },
+      { value: 'corridor', label: '走廊', builtin: true },
+      { value: 'stair', label: '楼梯', builtin: true },
+      { value: 'common', label: '公共区', builtin: true }
+    ];
+  }
+
+  private areaKinds(): AreaKind[] {
+    const visibleBuiltins: AreaKind[] = this.builtinAreaKinds().filter((kind: AreaKind) => {
+      return !this.hiddenBuiltinKinds.includes(kind.value);
+    });
+    const extras: AreaKind[] = this.customKinds.map((label: string): AreaKind => {
+      return { value: label, label: label, builtin: false };
+    });
+    return visibleBuiltins.concat(extras);
+  }
+
+  private loadCustomKinds(): void {
+    const stored: AreaKindsPref | null = PreferenceManager.getInstance().getValue<AreaKindsPref>(AREA_KINDS_PREF_KEY);
+    this.customKinds = stored?.extra ?? [];
+    this.hiddenBuiltinKinds = stored?.hidden ?? [];
+  }
+
+  private persistCustomKinds(): void {
+    const pref: AreaKindsPref = { hidden: this.hiddenBuiltinKinds, extra: this.customKinds };
+    PreferenceManager.getInstance().setValue<AreaKindsPref>(AREA_KINDS_PREF_KEY, pref);
+  }
+
+  /** 新增区域类型：与内置同名的恢复内置按钮，其余作为自定义类型追加。 */
+  private saveKind(): void {
+    const name: string = this.kindDialogName.trim();
+    if (name === '') { this.error = '请输入区域名称'; return; }
+    if (name === '楼层') { this.error = '该名称已被楼层使用'; return; }
+    const builtinByLabel: AreaKind[] = this.builtinAreaKinds().filter((kind: AreaKind) => kind.label === name);
+    if (builtinByLabel.length > 0) {
+      this.hiddenBuiltinKinds = this.hiddenBuiltinKinds.filter((value: string) => value !== builtinByLabel[0].value);
+      this.customKinds = this.customKinds.filter((label: string) => label !== name);
+    } else {
+      if (this.areaKinds().some((kind: AreaKind) => kind.label === name)) { this.error = '该区域类型已存在'; return; }
+      this.customKinds = this.customKinds.concat([name]);
+    }
+    this.persistCustomKinds();
+    this.showKindDialog = false;
+    this.kindDialogName = '';
+    this.error = '';
+  }
+
+  /** 移除类型按钮：内置类型仅从按钮行隐藏，已布置的区域记录不受影响。 */
+  private removeKind(kind: AreaKind): void {
+    if (kind.builtin) {
+      this.hiddenBuiltinKinds = this.hiddenBuiltinKinds.concat([kind.value]);
+    } else {
+      this.customKinds = this.customKinds.filter((label: string) => label !== kind.value);
+    }
+    this.persistCustomKinds();
   }
 
   private openItemDialog(kind: string): void {
@@ -580,13 +752,15 @@ export struct WideAreaManagement {
         Blank()
         if (this.placingId > 0) {
           Text('点击地图放置，放置后可拖动').fontSize(12).fontColor($r('app.color.brand_blue'))
+        } else if (this.kindEditMode) {
+          Text('编辑中：点类型按钮的✕移除该类型').fontSize(12).fontColor($r('app.color.doctor_workspace_danger'))
         } else {
           Text('点选房间后可拖动改位').fontSize(12).fontColor($r('sys.color.font_tertiary'))
         }
       }.width('100%')
       Stack() {
         Canvas(this.planContext)
-          .width('100%').aspectRatio(GRID_COLS / GRID_ROWS)
+          .width('100%').height('100%')
           .onAreaChange((_oldArea: Area, newArea: Area) => {
             this.planWidth = Number(newArea.width);
             this.drawPlan();
@@ -597,17 +771,17 @@ export struct WideAreaManagement {
           Column({ space: 8 }) {
             Text('暂无楼层').fontSize(14).fontColor($r('sys.color.font_tertiary'))
             Text('请先在上方新增楼层').fontSize(12).fontColor($r('sys.color.font_tertiary'))
-          }.width('100%').height(this.planHeight()).justifyContent(FlexAlign.Center)
+          }.width('100%').height('100%').justifyContent(FlexAlign.Center)
             .backgroundColor('#FBFCFE')
         }
-      }.width('100%')
+      }.width('100%').layoutWeight(1)
       Row({ space: 14 }) {
         this.legendSwatch('#DCE9FB', '#4A7AD9', '房间')
         this.legendSwatch('#ECEFF3', '#A9B2BF', '走廊')
         this.legendSwatch('#F5ECDD', '#C9A96A', '楼梯')
         this.legendSwatch('#E3F0E5', '#6FA97A', '公共区')
       }.width('100%')
-    }.width('100%').padding(16).backgroundColor($r('sys.color.comp_background_primary'))
+    }.width('100%').height(this.mapCardMinHeight()).padding(16).backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius(8).border({ width: 0.5, color: $r('sys.color.comp_divider') })
       .alignItems(HorizontalAlign.Start)
   }
@@ -690,6 +864,26 @@ export struct WideAreaManagement {
       TextInput({ text: value }).width(72).height(38).fontSize(13).borderRadius(6).type(InputType.Number)
         .onChange((text: string) => onChange(text))
     }.alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  private kindDialog() {
+    Column({ space: 12 }) {
+      Text('新增区域').fontSize(20).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+      TextInput({ placeholder: '区域名称，例如 电梯', text: $$this.kindDialogName }).height(42)
+        .onSubmit(() => this.saveKind())
+      Text('保存后会出现在上方的类型按钮行，可在平面图上放置该类型区域')
+        .fontSize(12).fontColor($r('sys.color.font_tertiary')).width('100%')
+      Row({ space: 10 }) {
+        Button('取消').layoutWeight(1).height(40)
+          .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))
+          .onClick(() => this.showKindDialog = false)
+        Button('保存').layoutWeight(1).height(40)
+          .fontColor(Color.White).backgroundColor(ACTION_BUTTON_BG)
+          .onClick(() => this.saveKind())
+      }.width('100%')
+    }.width(this.compactWidth ? '90%' : 400).padding(24)
+      .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
   }
 
   @Builder
@@ -816,6 +1010,7 @@ export struct WideAreaManagement {
           .constraintSize({ minHeight: '100%' })
           .alignItems(HorizontalAlign.Start)
       }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
+        .scrollable(this.dragAreaId > 0 ? ScrollDirection.None : ScrollDirection.Vertical)
       if (this.selectedAreaId > 0 && this.selectedArea() !== undefined) {
         Column() { this.selectedPanelCard() }
           .constraintSize({ maxWidth: 640 })
@@ -825,6 +1020,10 @@ export struct WideAreaManagement {
       }
       if (this.showFloorDialog) {
         Row() { this.floorDialog() }.width('100%').height('100%')
+          .backgroundColor('#66000000').justifyContent(FlexAlign.Center)
+      }
+      if (this.showKindDialog) {
+        Row() { this.kindDialog() }.width('100%').height('100%')
           .backgroundColor('#66000000').justifyContent(FlexAlign.Center)
       }
       if (this.showItemDialog) {
