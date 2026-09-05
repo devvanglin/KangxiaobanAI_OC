@@ -11,7 +11,7 @@ interface DeviceUpdateRequest { device_type: string; room: string; building: str
 interface AreaPage { list: Area[]; }
 interface SignalRecord { id: number; type: string; value: string; ts: string; }
 interface SignalPage { list: SignalRecord[]; }
-interface StatCardParam { label: string; value: string; subtitle: string; valueColor?: string; }
+interface StatCardParam { label: string; value: string; valueColor?: string; }
 
 const DARK_BUTTON_BG: string = '#1F1F1F';
 
@@ -89,12 +89,6 @@ export struct WideDeviceManagement {
 
   private pendingCount(): number {
     return this.businessStore.devices.filter((device: IotDevice) => device.discovery_status === 'pending').length;
-  }
-
-  private onlineRate(): string {
-    const total: number = this.businessStore.devices.length;
-    if (total === 0) { return '0%'; }
-    return String(Math.round(this.onlineCount() / total * 1000) / 10) + '%';
   }
 
   private relativeHeartbeat(lastSeen: string | null | undefined): string {
@@ -305,7 +299,6 @@ export struct WideDeviceManagement {
       Text($$.label).fontSize(12).fontColor($r('sys.color.font_secondary'))
       Text($$.value).fontSize(24).fontWeight(FontWeight.Bold)
         .fontColor($$.valueColor !== undefined && $$.valueColor.length > 0 ? $$.valueColor : $r('sys.color.font_primary'))
-      Text($$.subtitle).fontSize(11).fontColor($r('sys.color.font_tertiary'))
     }.alignItems(HorizontalAlign.Start)
       .layoutWeight(1).padding(14)
       .backgroundColor($r('sys.color.comp_background_primary'))
@@ -315,10 +308,10 @@ export struct WideDeviceManagement {
   @Builder
   private statCards() {
     Row({ space: 12 }) {
-      this.statCard({ label: '设备总数', value: String(this.businessStore.devices.length), subtitle: '毫米波雷达 + 摄像头' })
-      this.statCard({ label: '在线设备', value: String(this.onlineCount()), subtitle: '在线率 ' + this.onlineRate() })
-      this.statCard({ label: '离线设备', value: String(this.offlineCount()), subtitle: '需关注', valueColor: this.offlineCount() > 0 ? '#C0392B' : '' })
-      this.statCard({ label: '待认领设备', value: String(this.pendingCount()), subtitle: 'MQTT 自动发现后认领' })
+      this.statCard({ label: '设备总数', value: String(this.businessStore.devices.length) })
+      this.statCard({ label: '在线设备', value: String(this.onlineCount()) })
+      this.statCard({ label: '离线设备', value: String(this.offlineCount()), valueColor: this.offlineCount() > 0 ? '#C0392B' : '' })
+      this.statCard({ label: '待认领设备', value: String(this.pendingCount()) })
     }.width('100%')
   }
 
@@ -474,11 +467,8 @@ export struct WideDeviceManagement {
     Stack() {
       Scroll(this.managementScroller) { Column({ space: 16 }) {
         Row({ space: 12 }) {
-          Column({ space: 4 }) {
-            Text('设备管理').fontSize(this.compactWidth ? 24 : 28).fontWeight(FontWeight.Bold)
-              .fontColor($r('sys.color.font_primary'))
-            Text('添加毫米波设备或摄像头，并绑定到房间').fontSize(11).fontColor($r('sys.color.font_secondary'))
-          }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+          Text('设备管理').fontSize(this.compactWidth ? 24 : 28).fontWeight(FontWeight.Bold)
+            .fontColor($r('sys.color.font_primary')).layoutWeight(1)
           Search({ value: this.searchQuery, placeholder: '搜索设备编号/名称' })
             .width(this.compactWidth ? '100%' : 260).height(38)
             .onChange((value: string) => this.searchQuery = value)

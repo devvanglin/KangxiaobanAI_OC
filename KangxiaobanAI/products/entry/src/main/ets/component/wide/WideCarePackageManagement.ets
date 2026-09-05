@@ -194,10 +194,6 @@ export struct WideCarePackageManagement {
         Text(this.formatPrice(item.monthly_price)).fontSize(24).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
         Text('/月').fontSize(13).fontColor($r('sys.color.font_secondary'))
       }.width('100%').alignItems(VerticalAlign.Bottom)
-      if (item.description !== undefined && item.description.length > 0) {
-        Text(item.description).fontSize(12).fontColor($r('sys.color.font_secondary'))
-          .maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
-      }
       Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
       Scroll() {
         Column({ space: 6 }) {
@@ -337,12 +333,8 @@ export struct WideCarePackageManagement {
       Scroll(this.managementScroller) {
         Column({ space: 16 }) {
           Row({ space: 12 }) {
-            Column({ space: 4 }) {
-              Text('护理套餐').fontSize(this.compactWidth ? 24 : 28).fontWeight(FontWeight.Bold)
-                .fontColor($r('sys.color.font_primary'))
-              Text('护理套餐模板与长者订阅，订阅后自动生成护理计划和任务。')
-                .fontSize(11).fontColor($r('sys.color.font_secondary'))
-            }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+            Text('护理套餐').fontSize(this.compactWidth ? 24 : 28).fontWeight(FontWeight.Bold)
+              .fontColor($r('sys.color.font_primary')).layoutWeight(1)
             Search({ value: this.searchQuery, placeholder: '搜索套餐名称' })
               .width(this.compactWidth ? '100%' : 260).height(38)
               .onChange((value: string) => this.searchQuery = value)

@@ -7,7 +7,7 @@ interface AIModelConfig {
 }
 interface AIConfigPage { list: AIModelConfig[]; }
 interface AIConfigRequest { role_scope: string; name: string; provider: string; base_url: string; model: string; api_key: string; system_prompt: string; rag_enabled: boolean; rag_base_url: string; rag_dataset_id: string; enabled: boolean; allowed: boolean; is_default: boolean; }
-interface StatCardParam { label: string; value: string; subtitle: string; }
+interface StatCardParam { label: string; value: string; }
 
 const DARK_BUTTON_BG: string = '#1F1F1F';
 
@@ -143,8 +143,6 @@ export struct WideModelManagement {
       Text($$.label).fontSize(12).fontColor($r('sys.color.font_secondary'))
       Text($$.value).fontSize(24).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
         .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-      Text($$.subtitle).fontSize(11).fontColor($r('sys.color.font_tertiary'))
-        .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
     }.alignItems(HorizontalAlign.Start)
       .width('100%').padding(14)
       .backgroundColor($r('sys.color.comp_background_primary'))
@@ -157,31 +155,25 @@ export struct WideModelManagement {
     return config.enabled ? '已启用' : '已停用';
   }
 
-  private roleStatusSubtitle(role: string): string {
-    const config: AIModelConfig | undefined = this.defaultConfigOfRole(role);
-    if (config === undefined) { return '保存配置后生效'; }
-    return `${config.provider} · ${config.model}`;
-  }
-
   @Builder
   private statCards() {
     if (this.compactWidth) {
       Column({ space: 12 }) {
         Row({ space: 12 }) {
-          Row() { this.statCard({ label: '接入模型', value: String(this.configs.length), subtitle: `${this.enabledCount()} 个已启用` }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
-          Row() { this.statCard({ label: '护工端', value: this.roleStatusValue('caregiver'), subtitle: this.roleStatusSubtitle('caregiver') }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+          Row() { this.statCard({ label: '接入模型', value: String(this.configs.length) }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+          Row() { this.statCard({ label: '护工端', value: this.roleStatusValue('caregiver') }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
         }.width('100%')
         Row({ space: 12 }) {
-          Row() { this.statCard({ label: '医师端', value: this.roleStatusValue('doctor'), subtitle: this.roleStatusSubtitle('doctor') }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
-          Row() { this.statCard({ label: 'RAG 知识库', value: `${this.ragEnabledCount()} 项启用`, subtitle: '检索适配完成后生效' }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+          Row() { this.statCard({ label: '医师端', value: this.roleStatusValue('doctor') }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+          Row() { this.statCard({ label: 'RAG 知识库', value: `${this.ragEnabledCount()} 项启用` }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
         }.width('100%')
       }.width('100%')
     } else {
       Row({ space: 12 }) {
-        Row() { this.statCard({ label: '接入模型', value: String(this.configs.length), subtitle: `${this.enabledCount()} 个已启用` }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
-        Row() { this.statCard({ label: '护工端', value: this.roleStatusValue('caregiver'), subtitle: this.roleStatusSubtitle('caregiver') }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
-        Row() { this.statCard({ label: '医师端', value: this.roleStatusValue('doctor'), subtitle: this.roleStatusSubtitle('doctor') }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
-        Row() { this.statCard({ label: 'RAG 知识库', value: `${this.ragEnabledCount()} 项启用`, subtitle: '检索适配完成后生效' }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+        Row() { this.statCard({ label: '接入模型', value: String(this.configs.length) }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+        Row() { this.statCard({ label: '护工端', value: this.roleStatusValue('caregiver') }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+        Row() { this.statCard({ label: '医师端', value: this.roleStatusValue('doctor') }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+        Row() { this.statCard({ label: 'RAG 知识库', value: `${this.ragEnabledCount()} 项启用` }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
       }.width('100%')
     }
   }
@@ -252,8 +244,6 @@ export struct WideModelManagement {
   private apiKeyCard() {
     Column({ space: 12 }) {
       Text('API Key 管理').fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
-      Text(`共 ${this.configs.length} 个角色密钥位：密钥仅在服务端加密存储，客户端不可查看。`)
-        .fontSize(12).fontColor($r('sys.color.font_secondary'))
       ForEach(this.configs, (item: AIModelConfig, index: number) => {
         Column({ space: 10 }) {
           Row({ space: 10 }) {
@@ -286,8 +276,6 @@ export struct WideModelManagement {
   private ragCard() {
     Column({ space: 12 }) {
       Text('RAG 知识库').fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
-      Text('每个模型可独立接入 Dify 知识库检索；当前检索适配完成后才会参与回答。')
-        .fontSize(12).fontColor($r('sys.color.font_secondary'))
       if (this.configs.length === 0) {
         Text('暂无模型配置。新增模型后在配置里开启 RAG。')
           .fontSize(12).fontColor($r('sys.color.font_tertiary'))
@@ -403,12 +391,8 @@ export struct WideModelManagement {
       Scroll(this.managementScroller) {
         Column({ space: 16 }) {
           Row({ space: 12 }) {
-            Column({ space: 4 }) {
-              Text('大模型管理').fontSize(this.compactWidth ? 24 : 28).fontWeight(FontWeight.Bold)
-                .fontColor($r('sys.color.font_primary'))
-              Text('护工和医师使用独立模型、API 与系统提示词；密钥只在服务端保存。')
-                .fontSize(11).fontColor($r('sys.color.font_secondary'))
-            }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+            Text('大模型管理').fontSize(this.compactWidth ? 24 : 28).fontWeight(FontWeight.Bold)
+              .fontColor($r('sys.color.font_primary')).layoutWeight(1)
             Button('新增模型').height(38).fontSize(13).borderRadius(8)
               .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
               .onClick(() => this.openEditor())
