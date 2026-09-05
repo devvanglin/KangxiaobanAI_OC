@@ -343,14 +343,15 @@ export struct WideAreaManagement {
     context.lineWidth = selected ? 2.5 : 1.5;
     context.strokeRect(x + 1.5, y + 1.5, w - 3, h - 3);
     context.fillStyle = '#1F2329';
-    context.font = '600 12px sans-serif';
+    const fontSize: number = Math.max(13, Math.min(20, Math.round(cell * 0.3)));
+    context.font = `600 ${fontSize}px sans-serif`;
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     let label: string = area.name;
     if (area.type === 'room') {
       label = `${area.name} ${this.bedCount(area)}床`;
     }
-    if (w > 28) {
+    if (w > fontSize * 1.8) {
       context.fillText(label, x + w / 2, y + h / 2, Math.max(10, w - 8));
     }
     if (selected) {
@@ -584,6 +585,9 @@ export struct WideAreaManagement {
   @Builder
   private selectedPanelCard() {
     Column({ space: 10 }) {
+      if (this.error.length > 0) {
+        Text(this.error).fontSize(13).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
+      }
       Row({ space: 8 }) {
         Text('已选中').fontSize(13).fontColor($r('sys.color.font_secondary'))
         Text(`${this.typeLabel(this.selectedArea()?.type ?? '')} · ${this.selectedArea()?.name ?? ''}`)
@@ -729,7 +733,7 @@ export struct WideAreaManagement {
   }
 
   build() {
-    Stack() {
+    Stack({ alignContent: Alignment.Bottom }) {
       Scroll(this.managementScroller) {
         Column({ space: 16 }) {
           this.floorToolbarCard()
@@ -743,16 +747,11 @@ export struct WideAreaManagement {
           .alignItems(HorizontalAlign.Start)
       }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
       if (this.selectedAreaId > 0 && this.selectedArea() !== undefined) {
-        Column() {
-          Column() { this.selectedPanelCard() }
-            .constraintSize({ maxWidth: 640 })
-            .width('100%')
-            .shadow({ radius: 24, color: '#1A000000', offsetY: 4 })
-        }.width('100%').height('100%')
-          .justifyContent(FlexAlign.End)
-          .alignItems(HorizontalAlign.Center)
-          .padding({ left: 16, right: 16, bottom: 16 + this.naviIndicatorHeight })
-          .hitTestBehavior(HitTestMode.None)
+        Column() { this.selectedPanelCard() }
+          .constraintSize({ maxWidth: 640 })
+          .width('100%')
+          .margin({ left: 16, right: 16, bottom: 16 + this.naviIndicatorHeight })
+          .shadow({ radius: 24, color: '#1A000000', offsetY: 4 })
       }
       if (this.showFloorDialog) {
         Row() { this.floorDialog() }.width('100%').height('100%')
