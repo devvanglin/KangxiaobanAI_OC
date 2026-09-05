@@ -89,34 +89,31 @@ export struct WideUserManagement {
 
   @Builder
   private toolbarCard() {
-    Column({ space: 10 }) {
-      Row({ space: 22 }) {
-        TextInput({ placeholder: '请输入用户名/姓名/手机号', text: $$this.keyword })
-          .width(this.compactWidth ? 220 : 300).height(38).borderRadius(6)
-        Text('状态').fontSize(12).fontColor($r('sys.color.font_secondary'))
-        Text(this.statusFilter === '1' ? '正常' : this.statusFilter === '0' ? '停用' : '用户状态')
-          .width(110).height(38).padding(10).borderRadius(6)
-          .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-          .onClick(() => this.statusFilter = this.statusFilter === '' ? '1' : this.statusFilter === '1' ? '0' : '')
-        Button('搜索').height(38).fontSize(13).borderRadius(6)
-          .fontColor(Color.White).backgroundColor($r('app.color.brand_blue'))
-          .onClick(() => this.loadUsers())
-        Button('重置').height(38).fontSize(13).borderRadius(6)
-          .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))
-          .onClick(() => { this.keyword = ''; this.statusFilter = ''; this.loadUsers(); })
-      }.width('100%')
-      Row({ space: 10 }) {
-        Button('新增').height(36).fontSize(12).borderRadius(6)
-          .fontColor(Color.White).backgroundColor(ACTION_BUTTON_BG)
-          .onClick(() => this.showCreate = true)
-        Button('修改').height(36).fontSize(12).borderRadius(6).enabled(false)
-        Button('删除').height(36).fontSize(12).borderRadius(6).enabled(false)
-        Button('导入').height(36).fontSize(12).borderRadius(6).enabled(false)
-        Button('导出').height(36).fontSize(12).borderRadius(6).enabled(false)
-      }.width('100%')
+    Row({ space: 14 }) {
+      TextInput({ placeholder: '请输入用户名/姓名/手机号', text: $$this.keyword })
+        .width(this.compactWidth ? 200 : 300).height(38).borderRadius(6)
+      Text('状态').fontSize(12).fontColor($r('sys.color.font_secondary'))
+      Text(this.statusFilter === '1' ? '正常' : this.statusFilter === '0' ? '停用' : '用户状态')
+        .width(110).height(38).padding(10).borderRadius(6)
+        .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+        .onClick(() => this.statusFilter = this.statusFilter === '' ? '1' : this.statusFilter === '1' ? '0' : '')
+      Button('搜索').height(38).fontSize(13).borderRadius(6)
+        .fontColor(Color.White).backgroundColor($r('app.color.brand_blue'))
+        .onClick(() => this.loadUsers())
+      Button('重置').height(38).fontSize(13).borderRadius(6)
+        .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))
+        .onClick(() => { this.keyword = ''; this.statusFilter = ''; this.loadUsers(); })
+      Blank().layoutWeight(1)
+      Button('新增').height(36).fontSize(12).borderRadius(6)
+        .fontColor(Color.White).backgroundColor(ACTION_BUTTON_BG)
+        .onClick(() => this.showCreate = true)
+      Button('修改').height(36).fontSize(12).borderRadius(6).enabled(false)
+      Button('删除').height(36).fontSize(12).borderRadius(6).enabled(false)
+      Button('导入').height(36).fontSize(12).borderRadius(6).enabled(false)
+      Button('导出').height(36).fontSize(12).borderRadius(6).enabled(false)
     }.width('100%').padding(16).backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius(8).border({ width: 0.5, color: $r('sys.color.comp_divider') })
-      .alignItems(HorizontalAlign.Start)
+      .alignItems(VerticalAlign.Center)
   }
 
   @Builder
