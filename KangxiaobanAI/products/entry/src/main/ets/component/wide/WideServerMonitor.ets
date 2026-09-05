@@ -317,8 +317,7 @@ export struct WideServerMonitor {
       return;
     }
     this.networkContext.clearRect(0, 0, width, height);
-    const samples: NetworkSample[] = this.networkSamples;
-    if (samples.length === 0 || !this.networkAvailable) {
+    if (!this.networkAvailable) {
       this.networkContext.fillStyle = NETWORK_MUTED_COLOR;
       this.networkContext.font = '16px sans-serif';
       this.networkContext.textAlign = 'center';
@@ -326,6 +325,13 @@ export struct WideServerMonitor {
       this.networkContext.fillText('暂无网络采样', width / 2, height / 2);
       return;
     }
+    // 进入页面先铺一条当前速率的基线，采样积累后过渡为真实曲线。
+    const collected: NetworkSample[] = this.networkSamples;
+    const seedTime: string = this.lastUpdated !== '--' ? this.lastUpdated : this.formatTime(new Date().toISOString());
+    const samples: NetworkSample[] = collected.length === 0 ?
+      [{ receiveRateBps: 0, transmitRateBps: 0, time: seedTime },
+       { receiveRateBps: 0, transmitRateBps: 0, time: seedTime }] :
+      collected.length === 1 ? [collected[0], collected[0]] : collected;
     const left: number = 46;
     const right: number = 18;
     const top: number = 18;
