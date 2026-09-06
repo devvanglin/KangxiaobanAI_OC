@@ -2,7 +2,9 @@ package handler
 
 import (
 	"errors"
+	"io"
 	"net/http"
+	"regexp"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -223,6 +225,94 @@ func (h *AIAdminHandler) AdminPromptDelete(c *gin.Context) {
 	OK(c, gin.H{"deleted": true})
 }
 
+// RagEmbeddingModels GET /api/v1/admin/ai/rag/embedding-models
+func (h *AIAdminHandler) RagEmbeddingModels(c *gin.Context) {
+	models, err := h.svc.ListRAGModels(c.Request.Context(), "text-embedding")
+	if err != nil {
+		h.failProxy(c, err, "未配置 Dify RAG 连接，请先在「编辑模型网关」中填写", "嵌入模型列表获取失败，请检查 Dify 地址与密钥")
+		return
+	}
+	OK(c, models)
+}
+
+// RagRerankModels GET /api/v1/admin/ai/rag/rerank-models
+func (h *AIAdminHandler) RagRerankModels(c *gin.Context) {
+	models, err := h.svc.ListRAGModels(c.Request.Context(), "rerank")
+	if err != nil {
+		h.failProxy(c, err, "未配置 Dify RAG 连接，请先在「编辑模型网关」中填写", "嵌入模型列表获取失败，请检查 Dify 地址与密钥")
+		return
+	}
+	OK(c, models)
+}
+
+// UploadRagDocument POST /api/v1/admin/ai/rag/datasets/:datasetId/documents
+// multipart 转发：file + embedding_model（解析模型，可选）。
+func (h *AIAdminHandler) UploadRagDocument(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		Fail(c, http.StatusBadRequest, 400, "请选择要上传的文件")
+		return
+	}
+	source, err := file.Open()
+	if err != nil {
+		Fail(c, http.StatusBadRequest, 400, "文件读取失败")
+		return
+	}
+	content, err := io.ReadAll(source)
+	source.Close()
+	if err != nil {
+		Fail(c, http.StatusBadRequest, 400, "文件读取失败")
+		return
+	}
+	result, err := h.svc.UploadRAGDocument(c.Request.Context(), c.Param("datasetId"),
+		file.Filename, content, c.PostForm("data"))
+	if err != nil {
+		h.failProxy(c, err, "未配置 Dify RAG 连接，请先在「编辑模型网关」中填写", "文档上传失败，请检查 Dify 地址与密钥")
+		return
+	}
+	OK(c, result)
+}
+
+type aiCreateDatasetReq struct {
+	Name              string                 `json:"name"`
+	IndexingTechnique string                 `json:"indexing_technique"`
+	EmbeddingModel    string                 `json:"embedding_model"`
+	RetrievalModel    map[string]interface{} `json:"retrieval_model"`
+}
+
+// CreateRagDataset POST /api/v1/admin/ai/rag/datasets/create 创建即用型知识库。
+func (h *AIAdminHandler) CreateRagDataset(c *gin.Context) {
+	var req aiCreateDatasetReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Fail(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	result, err := h.svc.CreateRAGDataset(c.Request.Context(), service.CreateRAGDatasetInput{
+		Name: req.Name, IndexingTechnique: req.IndexingTechnique,
+		EmbeddingModel: req.EmbeddingModel, RetrievalModel: req.RetrievalModel,
+	})
+	if err != nil {
+		if errors.Is(err, service.ErrAIValidation) {
+			Fail(c, http.StatusBadRequest, 400, err.Error())
+			return
+		}
+		h.failProxy(c, err, "未配置 Dify RAG 连接，请先在「编辑模型网关」中填写", "知识库创建失败，请检查 Dify 地址与密钥")
+		return
+	}
+	OK(c, result)
+}
+
+// RagIndexingStatus GET /api/v1/admin/ai/rag/datasets/:datasetId/documents/:batch/indexing-status
+func (h *AIAdminHandler) RagIndexingStatus(c *gin.Context) {
+	result, err := h.svc.GetRAGIndexingStatus(c.Request.Context(),
+		c.Param("datasetId"), c.Param("batch"))
+	if err != nil {
+		h.failProxy(c, err, "未配置 Dify RAG 连接，请先在「编辑模型网关」中填写", "解析进度获取失败，请检查 Dify 地址与密钥")
+		return
+	}
+	OK(c, result)
+}
+
 // ListRAGDatasets GET /api/v1/admin/ai/rag/datasets
 func (h *AIAdminHandler) ListRAGDatasets(c *gin.Context) {
 	datasets, err := h.svc.ListRAGDatasets(c.Request.Context())
@@ -246,12 +336,17 @@ func (h *AIAdminHandler) ListProviderModels(c *gin.Context) {
 // failProxy 探测/测试类失败统一以 HTTP 200 + 业务码返回，让网关编辑弹窗
 // 能把具体原因（未配置/连接失败）原样展示给管理员，而不是被网络层吞掉。
 func (h *AIAdminHandler) failProxy(c *gin.Context, err error, notConfiguredMsg, unavailableMsg string) {
+	// 业务码必须 < 500：前端网络层把 >=500 的业务码转成通用异常，会吞掉具体原因。
 	switch {
 	case errors.Is(err, service.ErrRAGNotConfigured), errors.Is(err, service.ErrModelSourceNotConfigured):
 		respond(c, http.StatusOK, 400, notConfiguredMsg, nil)
 	case errors.Is(err, service.ErrRAGUnavailable), errors.Is(err, service.ErrModelSourceUnavailable):
-		respond(c, http.StatusOK, 502, unavailableMsg, nil)
+		statusHint := ""
+		if match := regexp.MustCompile(`HTTP \d+$`).FindStringSubmatch(err.Error()); len(match) > 0 {
+			statusHint = "（上游 " + match[0] + "，密钥可能已失效，请重新填写并保存）"
+		}
+		respond(c, http.StatusOK, 400, unavailableMsg+statusHint, nil)
 	default:
-		respond(c, http.StatusOK, 500, "AI 管理代理请求失败", nil)
+		respond(c, http.StatusOK, 400, "AI 管理代理请求失败", nil)
 	}
 }

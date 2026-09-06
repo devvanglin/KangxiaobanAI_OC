@@ -1,4 +1,7 @@
+import { picker } from '@kit.CoreFileKit';
+import { fileIo as fs } from '@kit.CoreFileKit';
 import ApiClient from '../../network/ApiClient';
+import { KBCreatePageParam, KBFileParam } from './WideKnowledgeCreatePage';
 import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule';
 
 interface AIModelConfig {
@@ -11,7 +14,10 @@ interface AIConfigPage { list: AIModelConfig[]; }
 interface AIConfigRequest { role_scope: string; name: string; provider: string; base_url: string; model: string; api_key: string; system_prompt: string; temperature: number; context_window: number; rag_enabled: boolean; rag_base_url: string; rag_dataset_id: string; enabled: boolean; allowed: boolean; is_default: boolean; }
 interface AIUsageSummary { total_tokens: number; today_calls: number; avg_daily_calls: number; rag_calls: number; }
 interface ModelUsageStat { model: string; today_calls: number; avg_duration_ms: number; success_rate: number; }
-interface RAGDataset { id: string; name: string; description: string; document_count: number; word_count: number; }
+interface RAGDataset { id: string; name: string; description: string; document_count: number; word_count: number; updated_at?: string; embedding_model?: string; indexing_technique?: string; }
+interface RAGEmbeddingModel { model: string; label?: Record<string, string>; status?: string; }
+interface UploadProcessRule { mode: string; }
+interface KBPickedFile { name: string; size: number; bytes: ArrayBuffer; }
 interface ProviderModel { id: string; }
 interface AIConnectionView {
   provider: string; base_url: string; api_key_configured: boolean; rag_enabled: boolean;
@@ -43,6 +49,7 @@ export struct WideModelManagement {
   @Param statusBarHeight: number = 0;
   @Param naviIndicatorHeight: number = 0;
   @Param managementScroller: Scroller = new Scroller();
+  @Consumer('mainPageStack') pathStack: NavPathStack = new NavPathStack();
   @Local configs: AIModelConfig[] = [];
   @Local activeSection: string = 'models';
   @Local promptFilter: string = 'all';
@@ -51,11 +58,16 @@ export struct WideModelManagement {
   @Local connRagBaseUrl: string = '';
   @Local connRagDatasetId: string = '';
   @Local connRagApiKey: string = '';
+  @Local savedKeyConfigured: boolean = false;
+  @Local savedRagKeyConfigured: boolean = false;
   @Local editorSelectedModels: string[] = [];
   @Local editorTesting: boolean = false;
   @Local editorTestResults: ModelTestResult[] = [];
   @Local editorRagFetching: boolean = false;
   @Local editorRagHint: string = '';
+  @Local showFilePick: boolean = false;
+  @Local pickedFiles: KBPickedFile[] = [];
+  @Local filePickHint: string = '';
   @Local showEditor: boolean = false;
   @Local editorFetched: ProviderModel[] = [];
   @Local editorFetching: boolean = false;
@@ -138,6 +150,8 @@ export struct WideModelManagement {
       this.connBaseUrl = view.base_url;
       this.connRagBaseUrl = view.rag_base_url;
       this.connRagDatasetId = view.rag_dataset_id;
+      this.savedKeyConfigured = view.api_key_configured;
+      this.savedRagKeyConfigured = view.rag_api_key_configured;
     } catch (_error) { this.showToast('AI 连接加载失败'); }
   }
 
@@ -427,6 +441,82 @@ export struct WideModelManagement {
     this.showEditor = true;
   }
 
+  private static readonly KB_EXTENSIONS: string[] =
+    ['vtt', 'html', 'properties', 'markdown', 'md', 'xls', 'htm', 'mdx', 'pdf', 'csv', 'docx', 'txt', 'odt', 'xlsx'];
+  private static readonly KB_MAX_FILES: number = 5;
+  private static readonly KB_MAX_BYTES: number = 15 * 1024 * 1024;
+
+  private openFilePickDialog(): void {
+    this.pickedFiles = [];
+    this.filePickHint = '';
+    this.showFilePick = true;
+  }
+
+  private async pickKBFile(): Promise<void> {
+    if (this.pickedFiles.length >= WideModelManagement.KB_MAX_FILES) {
+      this.filePickHint = '每批最多 5 个文件';
+      return;
+    }
+    try {
+      const docPicker = new picker.DocumentViewPicker();
+      const options = new picker.DocumentSelectOptions();
+      const picked: string[] = await docPicker.select(options);
+      if (picked.length === 0) { return; }
+      const uri: string = picked[0];
+      const name: string = uri.substring(uri.lastIndexOf('/') + 1);
+      const lowerName: string = name.toLowerCase();
+      const extOk: boolean = WideModelManagement.KB_EXTENSIONS.some((ext: string) => lowerName.endsWith('.' + ext));
+      if (!extOk) {
+        this.filePickHint = '不支持的文件类型，已支持 PDF / DOCX / TXT / MD / CSV / XLSX 等';
+        return;
+      }
+      const file = fs.openSync(uri, fs.OpenMode.READ_ONLY);
+      const size: number = fs.statSync(file.fd).size;
+      if (size > WideModelManagement.KB_MAX_BYTES) {
+        fs.closeSync(file);
+        this.filePickHint = '文件超过 15MB 上限';
+        return;
+      }
+      const buf: ArrayBuffer = new ArrayBuffer(size);
+      fs.readSync(file.fd, buf);
+      fs.closeSync(file);
+      if (this.pickedFiles.some((item: KBPickedFile) => item.name === name)) {
+        this.filePickHint = '该文件已添加';
+        return;
+      }
+      const pickedFile: KBPickedFile = { name: name, size: size, bytes: buf };
+      this.pickedFiles = this.pickedFiles.concat(pickedFile);
+      this.filePickHint = '';
+    } catch (_error) {
+      this.filePickHint = '文件选择失败';
+    }
+  }
+
+  private removePickedFile(name: string): void {
+    this.pickedFiles = this.pickedFiles.filter((item: KBPickedFile) => item.name !== name);
+  }
+
+  private formatSize(size: number): string {
+    return size >= 1024 * 1024 ? `${(size / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(size / 1024))} KB`;
+  }
+
+  private goCreateKnowledge(): void {
+    if (this.pickedFiles.length === 0) {
+      this.filePickHint = '请先选择文件';
+      return;
+    }
+    this.showFilePick = false;
+    const files: KBFileParam[] = this.pickedFiles.map((item: KBPickedFile): KBFileParam =>
+      new KBFileParam(item.name, item.bytes));
+    this.pathStack.pushPath({
+      name: 'KnowledgeCreatePage',
+      param: new KBCreatePageParam(files, this.statusBarHeight, this.naviIndicatorHeight),
+      onPop: () => {
+        this.loadRagDatasets();
+      }
+    });
+  }
+
   private async loadPromptSuggestions(): Promise<void> {
     try {
       const response = await ApiClient.get<AdminPromptSuggestion[]>('/admin/ai/prompts');
@@ -673,6 +763,7 @@ export struct WideModelManagement {
       Blank()
       Button('编辑模型网关').height(38).fontSize(14).borderRadius(8)
         .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
+        .margin({ left: 12 })
         .onClick(() => this.openEditor())
     }.width('100%')
     .alignItems(VerticalAlign.Center)
@@ -957,6 +1048,21 @@ export struct WideModelManagement {
       Row({ space: 8 }) {
         this.modelStatCell('文档数量', `${this.formatCount(item.document_count)} 篇`)
         this.modelStatCell('总字符数', item.word_count > 0 ? `${this.formatCount(Math.round(item.word_count / 10000))} 万` : '--')
+        this.modelStatCell('最后更新', this.updatedDateText(item.updated_at))
+      }.width('100%')
+      Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
+      Row({ space: 10 }) {
+        Text('嵌入模型').fontSize(12).fontColor($r('sys.color.font_secondary')).constraintSize({ minWidth: 68 })
+        Text(item.embedding_model ?? '--')
+          .fontSize(12).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+          .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+      }.width('100%')
+      Row({ space: 10 }) {
+        Text('索引方式').fontSize(12).fontColor($r('sys.color.font_secondary')).constraintSize({ minWidth: 68 })
+        Text(item.indexing_technique === 'high_quality' ? '高质量' :
+          item.indexing_technique === 'economy' ? '经济' :
+          ((item.indexing_technique ?? '').length > 0 ? item.indexing_technique! : '--'))
+          .fontSize(12).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
       }.width('100%')
     }.width('100%')
     .padding(16)
@@ -969,6 +1075,12 @@ export struct WideModelManagement {
   @Builder
   private ragModule() {
     Column({ space: 12 }) {
+      Row({ space: 10 }) {
+        Blank()
+        Button('上传文件').height(34).fontSize(12.5).borderRadius(8)
+          .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
+          .onClick(() => this.openFilePickDialog())
+      }.width('100%').alignItems(VerticalAlign.Center)
       if (this.ragLoading) {
         Text('正在从 Dify 获取知识库列表…').fontSize(14).fontColor($r('sys.color.font_secondary'))
           .width('100%').padding({ top: 24, bottom: 24 }).textAlign(TextAlign.Center)
@@ -1023,8 +1135,13 @@ export struct WideModelManagement {
               .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
               .onClick(() => this.fetchEditorModels())
           }.width('100%')
-          TextInput({ placeholder: 'API Key（留空表示保留原密钥）', text: $$this.connApiKey })
+          TextInput({ placeholder: this.savedKeyConfigured ?
+            'API Key（留空表示保留原密钥）' : 'API Key（尚未配置，必填）', text: $$this.connApiKey })
             .height(40).type(InputType.Password)
+          if (!this.savedKeyConfigured) {
+            Text('当前未保存密钥，必须填写后保存').fontSize(12)
+              .fontColor($r('app.color.doctor_workspace_danger')).width('100%')
+          }
           if (this.editorFetching) {
             Text('正在获取模型…').fontSize(12).fontColor($r('sys.color.font_secondary')).width('100%')
           } else if (this.editorFetchHint.length > 0) {
@@ -1074,8 +1191,13 @@ export struct WideModelManagement {
           Text('Dify RAG 知识库').fontSize(13).fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary')).width('100%')
           TextInput({ placeholder: 'Dify RAG URL', text: $$this.connRagBaseUrl }).height(40)
-          TextInput({ placeholder: 'RAG API Key（留空表示保留原密钥）', text: $$this.connRagApiKey })
+          TextInput({ placeholder: this.savedRagKeyConfigured ?
+            'RAG API Key（留空表示保留原密钥）' : 'RAG API Key（尚未配置，必填）', text: $$this.connRagApiKey })
             .height(40).type(InputType.Password)
+          if (!this.savedRagKeyConfigured) {
+            Text('当前未保存密钥，必须填写后保存').fontSize(12)
+              .fontColor($r('app.color.doctor_workspace_danger')).width('100%')
+          }
           Button('获取知识库测试').width('100%').height(40).fontSize(13)
             .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
             .onClick(() => this.fetchEditorRag())
@@ -1151,6 +1273,45 @@ export struct WideModelManagement {
         .alignItems(HorizontalAlign.Center)
       }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
       .align(Alignment.TopStart)
+      if (this.showFilePick) {
+        Row() {
+          Column({ space: 12 }) {
+            Text('创建即用型知识库 · 选择文件').fontSize(16).fontWeight(FontWeight.Bold)
+              .fontColor($r('sys.color.font_primary')).width('100%')
+            Text('已支持 PDF、DOCX、TXT、MD、CSV、XLSX、HTML 等，每批最多 5 个文件，每个不超过 15MB。')
+              .fontSize(12).fontColor($r('sys.color.font_tertiary')).width('100%')
+            Button('＋ 选择文件').width('100%').height(40).fontSize(13)
+              .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
+              .enabled(this.pickedFiles.length < 5)
+              .onClick(() => this.pickKBFile())
+            ForEach(this.pickedFiles, (item: KBPickedFile) => {
+              Row({ space: 10 }) {
+                Text(item.name).fontSize(13).fontColor($r('sys.color.font_primary'))
+                  .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+                Text(this.formatSize(item.size)).fontSize(12).fontColor($r('sys.color.font_tertiary'))
+                Text('移除').fontSize(12).fontColor($r('app.color.doctor_workspace_danger'))
+                  .onClick(() => this.removePickedFile(item.name))
+              }.width('100%').padding({ left: 10, right: 10, top: 8, bottom: 8 })
+                .borderRadius(8).border({ width: 0.5, color: $r('sys.color.comp_divider') })
+                .backgroundColor($r('sys.color.comp_background_primary'))
+            }, (item: KBPickedFile) => `picked-${item.name}`)
+            if (this.filePickHint.length > 0) {
+              Text(this.filePickHint).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
+            }
+            Row({ space: 10 }) {
+              Button('取消').layoutWeight(1).height(40)
+                .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))
+                .onClick(() => { this.showFilePick = false; })
+              Button('下一步').layoutWeight(1).height(40).fontSize(13)
+                .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
+                .enabled(this.pickedFiles.length > 0)
+                .onClick(() => this.goCreateKnowledge())
+            }.width('100%')
+          }.width(this.compactWidth ? '92%' : 480).padding(24)
+            .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
+        }.width('100%').height('100%')
+          .backgroundColor('#66000000').justifyContent(FlexAlign.Center)
+      }
       if (this.showEditor) {
         Row() { this.editorDialog() }.width('100%').height('100%')
           .backgroundColor('#66000000').justifyContent(FlexAlign.Center)

@@ -398,3 +398,81 @@ func TestAdminPromptSuggestionCrud(t *testing.T) {
 		t.Fatal("expected validation error for bad role")
 	}
 }
+
+func TestListRAGEmbeddingModelsAndUploadDocument(t *testing.T) {
+	svc, db, ctx := newAIServiceTest(t)
+	var auth string
+	var gotPath string
+	var gotData string
+	var gotFile string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth = r.Header.Get("Authorization")
+		if r.URL.Path == "/workspaces/current/models/model-types/text-embedding" {
+			fmt.Fprint(w, `{"data":[{"model":"bge-large-zh","label":{"en_US":"BGE"},"status":"ready"}]}`)
+			return
+		}
+		gotPath = r.URL.Path
+		_ = r.ParseMultipartForm(10 << 20)
+		gotData = r.FormValue("data")
+		file, header, _ := r.FormFile("file")
+		if file != nil {
+			gotFile = header.Filename
+			file.Close()
+		}
+		fmt.Fprint(w, `{"id":"doc-1","name":"手册.pdf","batch":"batch-1"}`)
+	}))
+	t.Cleanup(server.Close)
+	if err := db.WithContext(ctx).Create(&model.AIConnection{
+		Provider: "http", Enabled: true,
+		RAGEnabled: true, RAGBaseURL: server.URL, RAGDatasetID: "ds-1",
+		RAGAPIKeyEncrypted: func() string { v, _ := security.Encrypt("", "dify-key"); return v }(),
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	models, err := svc.ListRAGModels(ctx, "text-embedding")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(models) != 1 || models[0].Model != "bge-large-zh" || models[0].Status != "ready" {
+		t.Fatalf("models = %+v", models)
+	}
+
+	result, err := svc.UploadRAGDocument(ctx, "ds-1", "手册.pdf", []byte("内容"),
+		`{"indexing_technique":"high_quality","process_rule":{"mode":"automatic"},"embedding_model":"bge-large-zh"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if auth != "Bearer dify-key" || gotPath != "/v1/datasets/ds-1/documents" || gotFile != "手册.pdf" {
+		t.Fatalf("upload forward mismatch: auth=%q path=%q file=%q", auth, gotPath, gotFile)
+	}
+	if !strings.Contains(gotData, "bge-large-zh") || !strings.Contains(gotData, "automatic") {
+		t.Fatalf("data field = %q", gotData)
+	}
+	if result["id"] != "doc-1" || result["batch"] != "batch-1" {
+		t.Fatalf("result = %+v", result)
+	}
+}
+
+func TestListRAGDatasetsToleratesNullFields(t *testing.T) {
+	svc, db, ctx := newAIServiceTest(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		// 经济模式或旧知识库的 embedding_model / indexing_technique 可能为 null。
+		fmt.Fprint(w, `{"data":[{"id":"ds-null","name":"旧知识库","document_count":3,"word_count":null,"embedding_model":null,"indexing_technique":null,"updated_at":1757049600}]}`)
+	}))
+	t.Cleanup(server.Close)
+	if err := db.WithContext(ctx).Create(&model.AIConnection{
+		Provider: "http", Enabled: true,
+		RAGEnabled: true, RAGBaseURL: server.URL,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	datasets, err := svc.ListRAGDatasets(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(datasets) != 1 || datasets[0].ID != "ds-null" || datasets[0].EmbeddingModel != "" ||
+		datasets[0].IndexingTechnique != "" || datasets[0].WordCount != 0 || datasets[0].UpdatedAt == "" {
+		t.Fatalf("datasets = %+v", datasets)
+	}
+}

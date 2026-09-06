@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"strconv"
 	"strings"
@@ -751,13 +752,212 @@ func modelProbeRequest(model string) (string, []byte) {
 	}
 }
 
+// RAGEmbeddingModel is one embedding model available on the Dify instance.
+type RAGEmbeddingModel struct {
+	Model  string            `json:"model"`
+	Label  map[string]string `json:"label,omitempty"`
+	Status string            `json:"status,omitempty"`
+}
+
+// ListRAGModels 列出 Dify 实例当前可用的指定类型模型（text-embedding / rerank）。
+func (s *AIService) ListRAGModels(ctx context.Context, modelType string) ([]RAGEmbeddingModel, error) {
+	if modelType != "text-embedding" && modelType != "rerank" {
+		modelType = "text-embedding"
+	}
+	connection := s.connectionForContext(ctx)
+	if connection == nil || !connection.RAGEnabled || strings.TrimSpace(connection.RAGBaseURL) == "" {
+		return nil, ErrRAGNotConfigured
+	}
+	baseURL := normalizeAPIBase(connection.RAGBaseURL)
+	apiKey, _ := security.Decrypt(s.cfg.ConfigKey, connection.RAGAPIKeyEncrypted)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		baseURL+"/workspaces/current/models/model-types/"+modelType, nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+	}
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+	client := &http.Client{Timeout: 8 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("%w: HTTP %d", ErrRAGUnavailable, resp.StatusCode)
+	}
+	var out struct {
+		Data []struct {
+			Model  string            `json:"model"`
+			Label  map[string]string `json:"label"`
+			Status string            `json:"status"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+	}
+	models := make([]RAGEmbeddingModel, 0, len(out.Data))
+	for _, item := range out.Data {
+		models = append(models, RAGEmbeddingModel{Model: item.Model, Label: item.Label, Status: item.Status})
+	}
+	return models, nil
+}
+
+// UploadRAGDocument 把文件与客户端构造的 data 配置 JSON 转发到 Dify
+// create-by-file，返回文档创建结果（id/name/batch 等）。
+func (s *AIService) UploadRAGDocument(ctx context.Context, datasetID, fileName string, content []byte, dataJSON string) (map[string]interface{}, error) {
+	connection := s.connectionForContext(ctx)
+	if connection == nil || !connection.RAGEnabled || strings.TrimSpace(connection.RAGBaseURL) == "" {
+		return nil, ErrRAGNotConfigured
+	}
+	baseURL := normalizeAPIBase(connection.RAGBaseURL)
+	apiKey, _ := security.Decrypt(s.cfg.ConfigKey, connection.RAGAPIKeyEncrypted)
+	if strings.TrimSpace(dataJSON) == "" {
+		dataJSON = `{"indexing_technique":"high_quality","process_rule":{"mode":"automatic"}}`
+	}
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	if err := writer.WriteField("data", string(dataJSON)); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+	}
+	part, err := writer.CreateFormFile("file", fileName)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+	}
+	if _, err := part.Write(content); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+	}
+	if err := writer.Close(); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		baseURL+"/v1/datasets/"+datasetID+"/documents", body)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("%w: HTTP %d", ErrRAGUnavailable, resp.StatusCode)
+	}
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+	}
+	return result, nil
+}
+
+// CreateRAGDatasetInput 是“创建即用型知识库”的完整配置。
+type CreateRAGDatasetInput struct {
+	Name              string
+	IndexingTechnique string
+	EmbeddingModel    string
+	RetrievalModel    map[string]interface{}
+}
+
+// CreateRAGDataset 在 Dify 上创建知识库，返回数据集信息（含 id）。
+func (s *AIService) CreateRAGDataset(ctx context.Context, in CreateRAGDatasetInput) (map[string]interface{}, error) {
+	connection := s.connectionForContext(ctx)
+	if connection == nil || !connection.RAGEnabled || strings.TrimSpace(connection.RAGBaseURL) == "" {
+		return nil, ErrRAGNotConfigured
+	}
+	baseURL := normalizeAPIBase(connection.RAGBaseURL)
+	apiKey, _ := security.Decrypt(s.cfg.ConfigKey, connection.RAGAPIKeyEncrypted)
+	if strings.TrimSpace(in.Name) == "" {
+		return nil, fmt.Errorf("%w: 知识库名称必填", ErrAIValidation)
+	}
+	technique := in.IndexingTechnique
+	if technique != "high_quality" && technique != "economy" {
+		technique = "high_quality"
+	}
+	payload := map[string]interface{}{
+		"name":               strings.TrimSpace(in.Name),
+		"indexing_technique": technique,
+		"permission":         "only_me",
+	}
+	if technique == "high_quality" && strings.TrimSpace(in.EmbeddingModel) != "" {
+		payload["embedding_model"] = strings.TrimSpace(in.EmbeddingModel)
+	}
+	if in.RetrievalModel != nil {
+		payload["retrieval_model"] = in.RetrievalModel
+	}
+	body, _ := json.Marshal(payload)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/v1/datasets", bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("%w: HTTP %d", ErrRAGUnavailable, resp.StatusCode)
+	}
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+	}
+	return result, nil
+}
+
+// GetRAGIndexingStatus 查询一批文档的解析（嵌入）进度。
+func (s *AIService) GetRAGIndexingStatus(ctx context.Context, datasetID, batchID string) (map[string]interface{}, error) {
+	connection := s.connectionForContext(ctx)
+	if connection == nil || !connection.RAGEnabled || strings.TrimSpace(connection.RAGBaseURL) == "" {
+		return nil, ErrRAGNotConfigured
+	}
+	baseURL := normalizeAPIBase(connection.RAGBaseURL)
+	apiKey, _ := security.Decrypt(s.cfg.ConfigKey, connection.RAGAPIKeyEncrypted)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		baseURL+"/v1/datasets/"+datasetID+"/documents/"+batchID+"/indexing-status", nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+	}
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+	client := &http.Client{Timeout: 8 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("%w: HTTP %d", ErrRAGUnavailable, resp.StatusCode)
+	}
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+	}
+	return result, nil
+}
+
 // RAGDataset is one knowledge-base inventory entry fetched from the configured Dify service.
 type RAGDataset struct {
-	ID            string `json:"id"`
-	Name          string `json:"name"`
-	Description   string `json:"description"`
-	DocumentCount int64  `json:"document_count"`
-	WordCount     int64  `json:"word_count"`
+	ID                string `json:"id"`
+	Name              string `json:"name"`
+	Description       string `json:"description"`
+	DocumentCount     int64  `json:"document_count"`
+	WordCount         int64  `json:"word_count"`
+	UpdatedAt         string `json:"updated_at,omitempty"`
+	EmbeddingModel    string `json:"embedding_model,omitempty"`
+	IndexingTechnique string `json:"indexing_technique,omitempty"`
 }
 
 // ProviderModel is one model id fetched from the role's configured
@@ -815,15 +1015,11 @@ func (s *AIService) ListRAGDatasetsAt(ctx context.Context, baseURL, apiKey strin
 			resp.Body.Close()
 			return nil, fmt.Errorf("%w: HTTP %d", ErrRAGUnavailable, resp.StatusCode)
 		}
+		// Dify 不同版本/配置下字段类型不稳定（null、数字时间戳等），
+		// 用 map + 类型自适应逐字段提取，避免严格解码整表失败。
 		var out struct {
-			Data []struct {
-				ID            string `json:"id"`
-				Name          string `json:"name"`
-				Description   string `json:"description"`
-				DocumentCount int64  `json:"document_count"`
-				WordCount     int64  `json:"word_count"`
-			} `json:"data"`
-			HasMore bool `json:"has_more"`
+			Data    []map[string]interface{} `json:"data"`
+			HasMore bool                     `json:"has_more"`
 		}
 		decodeErr := json.NewDecoder(resp.Body).Decode(&out)
 		resp.Body.Close()
@@ -831,8 +1027,16 @@ func (s *AIService) ListRAGDatasetsAt(ctx context.Context, baseURL, apiKey strin
 			return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, decodeErr)
 		}
 		for _, item := range out.Data {
-			datasets = append(datasets, RAGDataset{ID: item.ID, Name: item.Name, Description: item.Description,
-				DocumentCount: item.DocumentCount, WordCount: item.WordCount})
+			datasets = append(datasets, RAGDataset{
+				ID:                ragStringField(item, "id"),
+				Name:              ragStringField(item, "name"),
+				Description:       ragStringField(item, "description"),
+				DocumentCount:     ragIntField(item, "document_count"),
+				WordCount:         ragIntField(item, "word_count"),
+				UpdatedAt:         ragTimeField(item, "updated_at"),
+				EmbeddingModel:    ragStringField(item, "embedding_model"),
+				IndexingTechnique: ragStringField(item, "indexing_technique"),
+			})
 		}
 		if !out.HasMore || len(out.Data) == 0 {
 			break
@@ -861,6 +1065,36 @@ func (s *AIService) ProbeProviderModels(ctx context.Context, baseURL, apiKey str
 		}
 	}
 	return s.ListProviderModelsAt(ctx, baseURL, apiKey)
+}
+
+func ragStringField(item map[string]interface{}, key string) string {
+	if value, ok := item[key]; ok && value != nil {
+		if text, ok := value.(string); ok {
+			return text
+		}
+		if number, ok := value.(float64); ok {
+			return strconv.FormatFloat(number, 'f', -1, 64)
+		}
+	}
+	return ""
+}
+
+func ragIntField(item map[string]interface{}, key string) int64 {
+	if number, ok := item[key].(float64); ok {
+		return int64(number)
+	}
+	return 0
+}
+
+// ragTimeField 兼容字符串与 Unix 时间戳两种 updated_at 形态。
+func ragTimeField(item map[string]interface{}, key string) string {
+	switch value := item[key].(type) {
+	case string:
+		return value
+	case float64:
+		return time.Unix(int64(value), 0).Format("2006-01-02 15:04:05")
+	}
+	return ""
 }
 
 // normalizeAPIBase 统一网关地址：去尾部斜杠与冗余的 /v1 后缀，

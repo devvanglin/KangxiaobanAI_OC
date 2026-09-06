@@ -236,15 +236,19 @@ export class ApiClient {
     return ApiClient.request<T>('POST', path, body);
   }
 
-  /** Upload one image as a multipart form field while retaining auth headers. */
+  /** Upload one file as a multipart form field while retaining auth headers. */
   public static uploadBinary<T>(path: string, data: ArrayBuffer, contentType: string,
-    extraHeaders: Record<string, string> = {}): Promise<ApiResp<T>> {
+    extraHeaders: Record<string, string> = {}, fileName: string = 'admission-photo',
+    dataJson: string = ''): Promise<ApiResp<T>> {
     const httpRequest = http.createHttp();
     const boundary: string = `----KXBAdmissionPhoto${Date.now()}`;
     const encoder = new util.TextEncoder('utf-8');
-    const prefix: Uint8Array = encoder.encodeInto(
-      `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="admission-photo"\r\n` +
-      `Content-Type: ${contentType}\r\n\r\n`);
+    let prefixText: string = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\n` +
+      `Content-Type: ${contentType}\r\n\r\n`;
+    if (dataJson.length > 0) {
+      prefixText = `--${boundary}\r\nContent-Disposition: form-data; name="data"\r\n\r\n${dataJson}\r\n` + prefixText;
+    }
+    const prefix: Uint8Array = encoder.encodeInto(prefixText);
     const suffix: Uint8Array = encoder.encodeInto(`\r\n--${boundary}--\r\n`);
     const bytes: Uint8Array = new Uint8Array(prefix.length + data.byteLength + suffix.length);
     bytes.set(prefix, 0);
