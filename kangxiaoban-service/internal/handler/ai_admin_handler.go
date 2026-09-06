@@ -3,8 +3,10 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"kangxiaoban-service/internal/model"
 	"kangxiaoban-service/internal/service"
@@ -133,6 +135,92 @@ func (h *AIAdminHandler) ProbeRagDatasets(c *gin.Context) {
 		return
 	}
 	OK(c, datasets)
+}
+
+type aiPromptReq struct {
+	RoleScope string `json:"role_scope"`
+	Title     string `json:"title"`
+	Prompt    string `json:"prompt"`
+	Enabled   bool   `json:"enabled"`
+}
+
+// AdminPromptList GET /api/v1/admin/ai/prompts?role=caregiver|doctor
+func (h *AIAdminHandler) AdminPromptList(c *gin.Context) {
+	rows, err := h.svc.AdminListPrompts(c.Request.Context(), c.Query("role"))
+	if err != nil {
+		Fail(c, http.StatusInternalServerError, 500, "提示词列表加载失败")
+		return
+	}
+	OK(c, rows)
+}
+
+// AdminPromptCreate POST /api/v1/admin/ai/prompts
+func (h *AIAdminHandler) AdminPromptCreate(c *gin.Context) {
+	var req aiPromptReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Fail(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	row, err := h.svc.AdminCreatePrompt(c.Request.Context(), service.AdminPromptInput{
+		RoleScope: req.RoleScope, Title: req.Title, Prompt: req.Prompt, Enabled: req.Enabled,
+	})
+	if err != nil {
+		if errors.Is(err, service.ErrAIValidation) {
+			Fail(c, http.StatusBadRequest, 400, err.Error())
+			return
+		}
+		Fail(c, http.StatusInternalServerError, 500, "提示词创建失败")
+		return
+	}
+	OK(c, row)
+}
+
+// AdminPromptUpdate PUT /api/v1/admin/ai/prompts/:id
+func (h *AIAdminHandler) AdminPromptUpdate(c *gin.Context) {
+	id, parseErr := strconv.ParseUint(c.Param("id"), 10, 64)
+	if parseErr != nil {
+		Fail(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	var req aiPromptReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Fail(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	row, err := h.svc.AdminUpdatePrompt(c.Request.Context(), uint(id), service.AdminPromptInput{
+		RoleScope: req.RoleScope, Title: req.Title, Prompt: req.Prompt, Enabled: req.Enabled,
+	})
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			Fail(c, http.StatusNotFound, 404, "提示词不存在")
+			return
+		}
+		if errors.Is(err, service.ErrAIValidation) {
+			Fail(c, http.StatusBadRequest, 400, err.Error())
+			return
+		}
+		Fail(c, http.StatusInternalServerError, 500, "提示词保存失败")
+		return
+	}
+	OK(c, row)
+}
+
+// AdminPromptDelete DELETE /api/v1/admin/ai/prompts/:id
+func (h *AIAdminHandler) AdminPromptDelete(c *gin.Context) {
+	id, parseErr := strconv.ParseUint(c.Param("id"), 10, 64)
+	if parseErr != nil {
+		Fail(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	if err := h.svc.AdminDeletePrompt(c.Request.Context(), uint(id)); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			Fail(c, http.StatusNotFound, 404, "提示词不存在")
+			return
+		}
+		Fail(c, http.StatusInternalServerError, 500, "提示词删除失败")
+		return
+	}
+	OK(c, gin.H{"deleted": true})
 }
 
 // ListRAGDatasets GET /api/v1/admin/ai/rag/datasets

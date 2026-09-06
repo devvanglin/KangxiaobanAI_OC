@@ -324,7 +324,9 @@ planned-only placeholders), a model card grid whose per-model today calls / aver
 protected `/api/v1/admin/ai/usage/models` endpoint, a prompt-assignment table (with an 全部/护工端/医师端 chip filter
 and a copy-to-the-other-role action) over the role configs, and Dify
 knowledge-base cards (description, document count, word count) whose `设为机构知识库` action updates the unified
-connection binding. The proxies
+connection binding. The 提示词库 module is a split prompt library: an AI-场景 list (caregiver/doctor) with counts,
+per-role prompt entries (the role system prompt plus persisted starter-prompt suggestions managed through the
+`/api/v1/admin/ai/prompts` CRUD), and an editor with model binding, temperature and context-length params. The proxies
 require `admin:all` and return typed not-configured/unavailable errors that the page renders as explicit states.
 Device management accepts MQTT radar
 metadata and manually configured RTSP cameras. Camera behavior remains an explicit empty state until the vision

@@ -981,3 +981,93 @@ func (s *AIService) UpdateConnection(ctx context.Context, input AIConnectionUpda
 	}
 	return saved, nil
 }
+
+// AdminPromptInput 是管理端维护提示词建议的字段。
+type AdminPromptInput struct {
+	RoleScope string
+	Title     string
+	Prompt    string
+	Enabled   bool
+}
+
+// AdminListPrompts 管理端列出提示词建议（可按角色过滤，含停用项）。
+func (s *AIService) AdminListPrompts(ctx context.Context, role string) ([]model.AIPromptSuggestion, error) {
+	query := s.db.WithContext(ctx).Order("role_scope ASC, group_index ASC, sort_order ASC, id ASC")
+	role = strings.TrimSpace(role)
+	if role != "" {
+		query = query.Where("role_scope = ?", role)
+	}
+	var rows []model.AIPromptSuggestion
+	err := query.Find(&rows).Error
+	return rows, err
+}
+
+// AdminCreatePrompt 管理端新建一条提示词建议。
+func (s *AIService) AdminCreatePrompt(ctx context.Context, in AdminPromptInput) (*model.AIPromptSuggestion, error) {
+	role := strings.TrimSpace(in.RoleScope)
+	if role != "caregiver" && role != "doctor" {
+		return nil, fmt.Errorf("%w: role_scope 必须是 caregiver 或 doctor", ErrAIValidation)
+	}
+	title := strings.TrimSpace(in.Title)
+	prompt := strings.TrimSpace(in.Prompt)
+	if title == "" || prompt == "" {
+		return nil, fmt.Errorf("%w: title 与 prompt 必填", ErrAIValidation)
+	}
+	var maxSort int
+	if err := s.db.WithContext(ctx).Model(&model.AIPromptSuggestion{}).
+		Where("role_scope = ?", role).
+		Select("COALESCE(MAX(sort_order), 0)").Scan(&maxSort).Error; err != nil {
+		return nil, err
+	}
+	row := model.AIPromptSuggestion{
+		RoleScope:  role,
+		Code:       fmt.Sprintf("custom-%s-%d", role, time.Now().UnixMilli()),
+		GroupIndex: 9,
+		Title:      title,
+		Prompt:     prompt,
+		SortOrder:  maxSort + 10,
+		Enabled:    in.Enabled,
+	}
+	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
+		return nil, err
+	}
+	return &row, nil
+}
+
+// AdminUpdatePrompt 管理端更新提示词建议的标题、内容与启用状态。
+func (s *AIService) AdminUpdatePrompt(ctx context.Context, id uint, in AdminPromptInput) (*model.AIPromptSuggestion, error) {
+	title := strings.TrimSpace(in.Title)
+	prompt := strings.TrimSpace(in.Prompt)
+	if title == "" || prompt == "" {
+		return nil, fmt.Errorf("%w: title 与 prompt 必填", ErrAIValidation)
+	}
+	var row model.AIPromptSuggestion
+	if err := s.db.WithContext(ctx).First(&row, id).Error; err != nil {
+		return nil, err
+	}
+	updates := map[string]interface{}{
+		"title":   title,
+		"prompt":  prompt,
+		"enabled": in.Enabled,
+	}
+	if err := s.db.WithContext(ctx).Model(&model.AIPromptSuggestion{}).Where("id = ?", id).
+		Updates(updates).Error; err != nil {
+		return nil, err
+	}
+	if err := s.db.WithContext(ctx).First(&row, id).Error; err != nil {
+		return nil, err
+	}
+	return &row, nil
+}
+
+// AdminDeletePrompt 管理端删除提示词建议。
+func (s *AIService) AdminDeletePrompt(ctx context.Context, id uint) error {
+	result := s.db.WithContext(ctx).Delete(&model.AIPromptSuggestion{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}

@@ -354,3 +354,47 @@ func TestListRAGDatasetsToleratesV1Suffix(t *testing.T) {
 		t.Fatalf("datasets = %+v", datasets)
 	}
 }
+
+func TestAdminPromptSuggestionCrud(t *testing.T) {
+	svc, _, ctx := newAIServiceTest(t)
+	created, err := svc.AdminCreatePrompt(ctx, AdminPromptInput{
+		RoleScope: "caregiver", Title: "护理任务问答", Prompt: "请解答护理任务相关问题。", Enabled: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.ID == 0 || created.RoleScope != "caregiver" || !created.Enabled || created.SortOrder <= 0 {
+		t.Fatalf("created = %+v", created)
+	}
+	updated, err := svc.AdminUpdatePrompt(ctx, created.ID, AdminPromptInput{
+		RoleScope: "caregiver", Title: "护理任务问答v2", Prompt: "更新后的内容。", Enabled: false,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Title != "护理任务问答v2" || updated.Enabled {
+		t.Fatalf("updated = %+v", updated)
+	}
+	rows, err := svc.AdminListPrompts(ctx, "caregiver")
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, row := range rows {
+		if row.ID == created.ID {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("updated row missing from list: %+v", rows)
+	}
+	if err := svc.AdminDeletePrompt(ctx, created.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.AdminUpdatePrompt(ctx, created.ID, AdminPromptInput{RoleScope: "caregiver", Title: "x", Prompt: "y"}); err == nil {
+		t.Fatal("expected not-found error after delete")
+	}
+	if _, err := svc.AdminCreatePrompt(ctx, AdminPromptInput{RoleScope: "admin", Title: "x", Prompt: "y"}); err == nil {
+		t.Fatal("expected validation error for bad role")
+	}
+}

@@ -8,7 +8,7 @@ interface AIModelConfig {
   updated_at?: string;
 }
 interface AIConfigPage { list: AIModelConfig[]; }
-interface AIConfigRequest { role_scope: string; name: string; provider: string; base_url: string; model: string; api_key: string; system_prompt: string; rag_enabled: boolean; rag_base_url: string; rag_dataset_id: string; enabled: boolean; allowed: boolean; is_default: boolean; }
+interface AIConfigRequest { role_scope: string; name: string; provider: string; base_url: string; model: string; api_key: string; system_prompt: string; temperature: number; context_window: number; rag_enabled: boolean; rag_base_url: string; rag_dataset_id: string; enabled: boolean; allowed: boolean; is_default: boolean; }
 interface AIUsageSummary { total_tokens: number; today_calls: number; avg_daily_calls: number; rag_calls: number; }
 interface ModelUsageStat { model: string; today_calls: number; avg_duration_ms: number; success_rate: number; }
 interface RAGDataset { id: string; name: string; description: string; document_count: number; word_count: number; }
@@ -23,6 +23,13 @@ interface AIConnectionRequest {
 }
 interface ModelTestResult { model: string; success: boolean; latency_ms: number; error?: string; }
 interface AIModelProbeRequest { base_url: string; api_key: string; models?: string[]; }
+interface AdminPromptSuggestion {
+  id: number; role_scope: string; title: string; prompt: string; enabled: boolean; updated_at?: string;
+}
+interface AdminPromptRequest { role_scope: string; title: string; prompt: string; enabled: boolean; }
+interface PromptListEntry {
+  key: string; kind: string; role: string; title: string; preview: string; enabled: boolean;
+}
 interface AIRagProbeRequest { base_url: string; api_key: string; }
 interface StatTagParam { label: string; value: string; }
 
@@ -53,10 +60,17 @@ export struct WideModelManagement {
   @Local editorFetched: ProviderModel[] = [];
   @Local editorFetching: boolean = false;
   @Local editorFetchHint: string = '';
-  @Local showPrompts: boolean = false;
-  @Local promptRole: string = 'caregiver';
+  @Local promptScenario: string = 'caregiver';
+  @Local promptSearch: string = '';
+  @Local selectedPromptKey: string = 'system-caregiver';
+  @Local promptSuggestions: AdminPromptSuggestion[] = [];
   @Local promptText: string = '';
   @Local promptModel: string = '';
+  @Local promptTemp: string = '0.3';
+  @Local promptContext: string = '16';
+  @Local suggestionTitle: string = '';
+  @Local suggestionContent: string = '';
+  @Local suggestionEnabled: boolean = true;
   @Local promptError: string = '';
   @Local sourceModels: ProviderModel[] = [];
   @Local sourceLoading: boolean = false;
@@ -75,6 +89,7 @@ export struct WideModelManagement {
     this.load();
     this.loadUsage();
     this.loadModelStats();
+    this.loadPromptSuggestions();
     this.loadConnection();
     this.loadRagDatasets();
     this.loadSourceModels();
@@ -412,86 +427,209 @@ export struct WideModelManagement {
     this.showEditor = true;
   }
 
-  private openPromptDialog(role: string): void {
-    this.selectPromptRole(role);
-    this.showPrompts = true;
+  private async loadPromptSuggestions(): Promise<void> {
+    try {
+      const response = await ApiClient.get<AdminPromptSuggestion[]>('/admin/ai/prompts');
+      if (response.code !== 0 || response.data === undefined) throw new Error(response.msg);
+      this.promptSuggestions = response.data;
+    } catch (_error) {
+      this.promptSuggestions = [];
+    }
   }
 
-  private selectPromptRole(role: string): void {
-    this.promptRole = role;
+  private firstLine(text: string): string {
+    const trimmed: string = text.trim().replace(/\s+/g, ' ');
+    return trimmed.length > 24 ? `${trimmed.slice(0, 24)}…` : trimmed;
+  }
+
+  private promptEntriesForRole(role: string): PromptListEntry[] {
     const config: AIModelConfig | undefined = this.defaultConfigOfRole(role);
-    this.promptText = config !== undefined ? config.system_prompt : '';
-    this.promptModel = config !== undefined ? config.model : '';
-    this.promptError = '';
-    this.saved = false;
+    const entries: PromptListEntry[] = [{
+      key: `system-${role}`, kind: 'system', role: role,
+      title: `${this.roleShort(role)}助手角色提示`,
+      preview: this.firstLine(config !== undefined ? config.system_prompt : '未配置系统提示词'),
+      enabled: config !== undefined && config.enabled
+    }];
+    this.promptSuggestions.forEach((row: AdminPromptSuggestion): void => {
+      if (row.role_scope === role) {
+        entries.push({
+          key: `sug-${row.id}`, kind: 'suggestion', role: role,
+          title: row.title, preview: this.firstLine(row.prompt), enabled: row.enabled
+        });
+      }
+    });
+    const search: string = this.promptSearch.trim();
+    if (search.length > 0) {
+      return entries.filter((entry: PromptListEntry) =>
+        entry.title.includes(search) || entry.preview.includes(search));
+    }
+    return entries;
   }
 
-  /** 把一端的模型与提示词复制到另一端。 */
-  private async copyPrompt(fromRole: string): Promise<void> {
-    const source: AIModelConfig | undefined = this.defaultConfigOfRole(fromRole);
-    if (source === undefined) {
-      this.showToast('该端尚未配置提示词');
+  private scenarioCount(role: string): number {
+    return this.promptEntriesForRole(role).length;
+  }
+
+  private selectedPromptTitle(): string {
+    if (this.selectedPromptKey.startsWith('system-')) {
+      return `${this.roleShort(this.selectedPromptKey.slice(7))}助手角色提示`;
+    }
+    if (this.selectedPromptKey.startsWith('sug-')) {
+      const id: number = Number(this.selectedPromptKey.slice(4));
+      const row: AdminPromptSuggestion | undefined =
+        this.promptSuggestions.find((item: AdminPromptSuggestion) => item.id === id);
+      return row !== undefined ? row.title : '提示词';
+    }
+    return '新建提示词';
+  }
+
+  private selectPromptEntry(key: string): void {
+    this.selectedPromptKey = key;
+    this.promptError = '';
+    if (key.startsWith('system-')) {
+      const config: AIModelConfig | undefined = this.defaultConfigOfRole(key.slice(7));
+      this.promptText = config !== undefined ? config.system_prompt : '';
+      this.promptModel = config !== undefined ? config.model : '';
+      this.promptTemp = config !== undefined ? String(config.temperature) : '0.3';
+      this.promptContext = config !== undefined ? String(config.context_window) : '16';
+    } else if (key.startsWith('sug-')) {
+      const id: number = Number(this.selectedPromptKey.slice(4));
+      const row: AdminPromptSuggestion | undefined =
+        this.promptSuggestions.find((item: AdminPromptSuggestion) => item.id === id);
+      this.suggestionTitle = row !== undefined ? row.title : '';
+      this.suggestionContent = row !== undefined ? row.prompt : '';
+      this.suggestionEnabled = row !== undefined ? row.enabled : true;
+    }
+  }
+
+  private modelOptionIds(): string[] {
+    const ids: string[] = this.sourceModels.map((item: ProviderModel) => item.id);
+    if (this.promptModel.length > 0 && !ids.includes(this.promptModel)) {
+      ids.unshift(this.promptModel);
+    }
+    if (ids.length === 0) {
+      ids.push('未获取到模型');
+    }
+    return ids;
+  }
+
+  private modelOptionIndex(): number {
+    const ids: string[] = this.modelOptionIds();
+    const index: number = ids.indexOf(this.promptModel);
+    return index >= 0 ? index : 0;
+  }
+
+  private async saveSelectedPrompt(): Promise<void> {
+    if (this.selectedPromptKey.startsWith('system-')) {
+      const role: string = this.selectedPromptKey.slice(7);
+      const config: AIModelConfig | undefined = this.defaultConfigOfRole(role);
+      const modelId: string = this.promptModel.trim();
+      if (modelId.length === 0) { this.promptError = '请先绑定模型'; return; }
+      const temperature: number = Number(this.promptTemp);
+      const contextWindow: number = Math.round(Number(this.promptContext));
+      const basePayload: AIConfigRequest = {
+        role_scope: role,
+        name: role === 'doctor' ? '医师默认模型' : '护工默认模型',
+        provider: 'http', base_url: '', model: modelId, api_key: '',
+        system_prompt: this.promptText.trim(),
+        temperature: isNaN(temperature) ? 0.3 : temperature,
+        context_window: isNaN(contextWindow) || contextWindow <= 0 ? 16 : contextWindow,
+        rag_enabled: false, rag_base_url: '', rag_dataset_id: '',
+        enabled: true, allowed: true, is_default: true
+      };
+      if (config === undefined || config.id === undefined) {
+        const created = await ApiClient.post<AIModelConfig>('/admin/ai/configs', basePayload);
+        if (created.code !== 0) { this.promptError = created.msg || '提示词保存失败'; return; }
+      } else {
+        const payload: AIConfigRequest = {
+          role_scope: config.role_scope, name: config.name, provider: config.provider, base_url: config.base_url,
+          model: modelId, api_key: '',
+          system_prompt: this.promptText.trim(),
+          temperature: basePayload.temperature, context_window: basePayload.context_window,
+          rag_enabled: config.rag_enabled, rag_base_url: config.rag_base_url, rag_dataset_id: config.rag_dataset_id,
+          enabled: config.enabled, allowed: config.allowed, is_default: config.is_default
+        };
+        const response = await ApiClient.put<AIModelConfig>(`/admin/ai/configs/${config.id}`, payload);
+        if (response.code !== 0) { this.promptError = response.msg || '提示词保存失败'; return; }
+      }
+      this.promptError = '';
+      await this.load();
+      this.loadModelStats();
+      this.showToast('已保存');
       return;
     }
-    const targetRole: string = fromRole === 'doctor' ? 'caregiver' : 'doctor';
-    const target: AIModelConfig | undefined = this.defaultConfigOfRole(targetRole);
-    if (target === undefined || target.id === undefined) {
-      const payload: AIConfigRequest = {
-        role_scope: targetRole,
-        name: targetRole === 'doctor' ? '医师默认模型' : '护工默认模型',
-        provider: source.provider, base_url: '', model: source.model, api_key: '',
-        system_prompt: source.system_prompt, rag_enabled: false, rag_base_url: '', rag_dataset_id: '',
-        enabled: true, allowed: true, is_default: true
+    const title: string = this.suggestionTitle.trim();
+    const content: string = this.suggestionContent.trim();
+    if (title.length === 0 || content.length === 0) { this.promptError = '标题与内容必填'; return; }
+    if (this.selectedPromptKey.startsWith('new-')) {
+      const payload: AdminPromptRequest = {
+        role_scope: this.promptScenario, title: title, prompt: content, enabled: this.suggestionEnabled
       };
-      const created = await ApiClient.post<AIModelConfig>('/admin/ai/configs', payload);
-      if (created.code !== 0) { this.showToast(created.msg.length > 0 ? created.msg : '提示词复制失败'); return; }
-    } else {
-      const payload: AIConfigRequest = {
-        role_scope: target.role_scope, name: target.name, provider: target.provider, base_url: target.base_url,
-        model: source.model, api_key: '', system_prompt: source.system_prompt, rag_enabled: target.rag_enabled,
-        rag_base_url: target.rag_base_url, rag_dataset_id: target.rag_dataset_id,
-        enabled: target.enabled, allowed: target.allowed, is_default: target.is_default
-      };
-      const response = await ApiClient.put<AIModelConfig>(`/admin/ai/configs/${target.id}`, payload);
-      if (response.code !== 0) { this.showToast(response.msg.length > 0 ? response.msg : '提示词复制失败'); return; }
-    }
-    this.error = '';
-    await this.load();
-  }
-
-  private async savePrompt(): Promise<void> {
-    const config: AIModelConfig | undefined = this.defaultConfigOfRole(this.promptRole);
-    const modelId: string = this.promptModel.trim();
-    if (config === undefined || config.id === undefined) {
-      if (modelId.length === 0) {
-        this.promptError = '请先选择模型';
+      const created = await ApiClient.post<AdminPromptSuggestion>('/admin/ai/prompts', payload);
+      if (created.code !== 0 || created.data === undefined) {
+        this.promptError = created.msg || '提示词创建失败';
         return;
       }
-      const payload: AIConfigRequest = {
-        role_scope: this.promptRole,
-        name: this.promptRole === 'doctor' ? '医师默认模型' : '护工默认模型',
-        provider: 'http', base_url: '', model: modelId, api_key: '',
-        system_prompt: this.promptText.trim(), rag_enabled: false, rag_base_url: '', rag_dataset_id: '',
-        enabled: true, allowed: true, is_default: true
-      };
-      const created = await ApiClient.post<AIModelConfig>('/admin/ai/configs', payload);
-      if (created.code !== 0) { this.promptError = created.msg || '提示词保存失败'; return; }
-    } else {
-      const payload: AIConfigRequest = {
-        role_scope: config.role_scope, name: config.name, provider: config.provider, base_url: config.base_url,
-        model: modelId.length > 0 ? modelId : config.model, api_key: '',
-        system_prompt: this.promptText.trim(), rag_enabled: config.rag_enabled,
-        rag_base_url: config.rag_base_url, rag_dataset_id: config.rag_dataset_id,
-        enabled: config.enabled, allowed: config.allowed, is_default: config.is_default
-      };
-      const response = await ApiClient.put<AIModelConfig>(`/admin/ai/configs/${config.id}`, payload);
-      if (response.code !== 0) { this.promptError = response.msg || '提示词保存失败'; return; }
+      await this.loadPromptSuggestions();
+      this.selectPromptEntry(`sug-${created.data.id}`);
+      this.showToast('已创建');
+      return;
     }
-    this.promptError = '';
-    this.saved = true;
-    this.showPrompts = false;
-    await this.load();
-    this.loadModelStats();
+    const id: number = Number(this.selectedPromptKey.slice(4));
+    const payload: AdminPromptRequest = {
+      role_scope: this.promptScenario, title: title, prompt: content, enabled: this.suggestionEnabled
+    };
+    const response = await ApiClient.put<AdminPromptSuggestion>(`/admin/ai/prompts/${id}`, payload);
+    if (response.code !== 0) { this.promptError = response.msg || '提示词保存失败'; return; }
+    await this.loadPromptSuggestions();
+    this.showToast('已保存');
+  }
+
+  private async testBoundModel(): Promise<void> {
+    const modelId: string = this.promptModel.trim();
+    if (modelId.length === 0) { this.showToast('请先绑定模型'); return; }
+    if (this.connBaseUrl.trim().length === 0) { this.showToast('请先保存网关地址'); return; }
+    try {
+      const payload: AIModelProbeRequest = {
+        base_url: this.connBaseUrl.trim(), api_key: '', models: [modelId]
+      };
+      const response = await ApiClient.post<ModelTestResult[]>('/admin/ai/llm/test', payload);
+      if (response.code !== 0 || response.data === undefined || response.data.length === 0) {
+        this.showToast(response.msg.length > 0 ? response.msg : '测试失败');
+        return;
+      }
+      const result: ModelTestResult = response.data[0];
+      if (result.success) {
+        this.showToast(`测试通过 · ${result.latency_ms}ms`);
+      } else {
+        this.showToast(`测试失败 · ${result.error}`);
+      }
+    } catch (_error) {
+      this.showToast('测试失败，请检查网络');
+    }
+  }
+
+  private async createPromptEntry(): Promise<void> {
+    const payload: AdminPromptRequest = {
+      role_scope: this.promptScenario, title: '新提示词',
+      prompt: '（请填写提示词内容）', enabled: false
+    };
+    const created = await ApiClient.post<AdminPromptSuggestion>('/admin/ai/prompts', payload);
+    if (created.code !== 0 || created.data === undefined) {
+      this.showToast(created.msg.length > 0 ? created.msg : '提示词创建失败');
+      return;
+    }
+    await this.loadPromptSuggestions();
+    this.selectPromptEntry(`sug-${created.data.id}`);
+  }
+
+  private async deleteSelectedSuggestion(): Promise<void> {
+    if (!this.selectedPromptKey.startsWith('sug-')) { return; }
+    const id: number = Number(this.selectedPromptKey.slice(4));
+    const response = await ApiClient.delete<Object>(`/admin/ai/prompts/${id}`);
+    if (response.code !== 0) { this.promptError = response.msg || '提示词删除失败'; return; }
+    await this.loadPromptSuggestions();
+    this.selectPromptEntry(`system-${this.promptScenario}`);
   }
 
   // ===== 平台版式元素 =====
@@ -622,93 +760,177 @@ export struct WideModelManagement {
   }
 
   @Builder
-  private filterChip(label: string, value: string) {
-    Text(label)
-      .fontSize(12.5)
-      .fontColor(this.promptFilter === value ? Color.White : $r('sys.color.font_secondary'))
-      .padding({ left: 12, right: 12, top: 5, bottom: 5 })
-      .borderRadius(14)
-      .backgroundColor(this.promptFilter === value ? $r('sys.color.font_primary') :
-        $r('sys.color.comp_background_primary'))
-      .border({ width: 0.5, color: this.promptFilter === value ? $r('sys.color.font_primary') :
-        $r('sys.color.comp_divider') })
-      .onClick(() => this.promptFilter = value)
+  private scenarioRow(role: string) {
+    Row({ space: 8 }) {
+      Text(this.roleLabel(role))
+        .fontSize(14)
+        .fontColor(this.promptScenario === role ? $r('sys.color.font_primary') : $r('sys.color.font_secondary'))
+      Blank()
+      Text(this.scenarioCount(role).toString())
+        .fontSize(11).fontColor(this.promptScenario === role ? $r('sys.color.font_primary') : $r('sys.color.font_tertiary'))
+        .padding({ left: 8, right: 8, top: 2, bottom: 2 })
+        .borderRadius(10)
+        .backgroundColor(this.promptScenario === role ? $r('sys.color.comp_background_primary') :
+          $r('sys.color.comp_background_secondary'))
+    }.width('100%')
+    .padding({ left: 12, right: 12, top: 10, bottom: 10 })
+    .borderRadius(8)
+    .backgroundColor(this.promptScenario === role ? $r('sys.color.comp_background_secondary') : Color.Transparent)
+    .onClick(() => {
+      this.promptScenario = role;
+      this.selectPromptEntry(`system-${role}`);
+    })
   }
 
   @Builder
-  private promptRow(role: string, isLast: boolean) {
-    Row({ space: 12 }) {
-      Text(this.roleLabel(role) + ' 对话')
-        .fontSize(14).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
-        .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-      Text(this.roleShort(role) + '端').fontSize(12).fontColor($r('sys.color.font_secondary'))
-        .padding({ left: 8, right: 8, top: 2, bottom: 2 })
-        .borderRadius(10).backgroundColor($r('sys.color.comp_background_secondary'))
-        .constraintSize({ minWidth: 64 })
-      Text(this.defaultConfigOfRole(role)?.model ?? '--')
-        .fontSize(13).fontColor($r('sys.color.font_primary'))
-        .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-      Text('--').fontSize(14).fontColor($r('sys.color.font_secondary'))
-        .constraintSize({ minWidth: 56 })
-      Text(this.updatedDateText(this.defaultConfigOfRole(role)?.updated_at))
-        .fontSize(14).fontColor($r('sys.color.font_secondary'))
-        .constraintSize({ minWidth: 64 })
-      Text(this.defaultConfigOfRole(role) === undefined ? '未配置' :
-        (this.defaultConfigOfRole(role)!.enabled ? '启用' : '停用'))
-        .fontSize(11).fontColor(this.defaultConfigOfRole(role)?.enabled ?
-          $r('app.color.doctor_workspace_success') : $r('sys.color.font_tertiary'))
-        .padding({ left: 8, right: 8, top: 2, bottom: 2 })
-        .borderRadius(10)
-        .backgroundColor(this.defaultConfigOfRole(role)?.enabled ? '#F0FDF4' :
-          $r('sys.color.comp_background_secondary'))
-        .constraintSize({ minWidth: 56 })
-      Row({ space: 12 }) {
-        this.cardLink('编辑', () => this.openPromptDialog(role))
-        this.cardLink('复制', () => this.copyPrompt(role))
-      }
+  private promptEntryRow(entry: PromptListEntry) {
+    Column({ space: 3 }) {
+      Row({ space: 8 }) {
+        Text(entry.title)
+          .fontSize(13)
+          .fontWeight(this.selectedPromptKey === entry.key ? FontWeight.Medium : FontWeight.Regular)
+          .fontColor($r('sys.color.font_primary'))
+          .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(entry.enabled ? '启用' : '停用')
+          .fontSize(11)
+          .fontColor(entry.enabled ? $r('app.color.doctor_workspace_success') : $r('sys.color.font_tertiary'))
+          .padding({ left: 8, right: 8, top: 2, bottom: 2 })
+          .borderRadius(10)
+          .backgroundColor(entry.enabled ? '#F0FDF4' : $r('sys.color.comp_background_secondary'))
+      }.width('100%').alignItems(VerticalAlign.Center)
+      Text(entry.preview).fontSize(12).fontColor($r('sys.color.font_tertiary'))
+        .width('100%').maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
     }.width('100%')
-    .padding({ top: 12, bottom: 12, left: 14, right: 14 })
-    .alignItems(VerticalAlign.Center)
-    if (!isLast) {
-      Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
-    }
+    .alignItems(HorizontalAlign.Start)
+    .padding({ left: 12, right: 12, top: 9, bottom: 9 })
+    .borderRadius(8)
+    .border({ width: 0.5, color: this.selectedPromptKey === entry.key ?
+      $r('app.color.brand_blue') : $r('sys.color.comp_divider') })
+    .backgroundColor(this.selectedPromptKey === entry.key ? '#F0F5FF' :
+      $r('sys.color.comp_background_primary'))
+    .onClick(() => this.selectPromptEntry(entry.key))
+  }
+
+  @Builder
+  private promptEditorField(label: string) {
+    Text(label).fontSize(12).fontColor($r('sys.color.font_secondary')).width('100%')
   }
 
   @Builder
   private promptsModule() {
-    Column({ space: 12 }) {
-      Row({ space: 8 }) {
-        this.filterChip('全部', 'all')
-        this.filterChip('护工端', 'caregiver')
-        this.filterChip('医师端', 'doctor')
-      }.width('100%')
-      Column({ space: 0 }) {
-        Row({ space: 12 }) {
-          Text('名称').fontSize(13).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_secondary'))
-            .layoutWeight(1)
-          Text('分类').fontSize(13).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_secondary'))
-            .constraintSize({ minWidth: 64 })
-          Text('模型').fontSize(13).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_secondary'))
-            .layoutWeight(1)
-          Text('版本').fontSize(13).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_secondary'))
-            .constraintSize({ minWidth: 56 })
-          Text('更新时间').fontSize(13).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_secondary'))
-            .constraintSize({ minWidth: 64 })
-          Text('状态').fontSize(13).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_secondary'))
-            .constraintSize({ minWidth: 56 })
-          Text('操作').fontSize(13).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_secondary'))
+    Row({ space: 12 }) {
+      Column({ space: 10 }) {
+        Search({ value: $$this.promptSearch, placeholder: '搜索提示词...' }).height(36)
+        Text('AI 场景').fontSize(12).fontColor($r('sys.color.font_secondary')).width('100%')
+        this.scenarioRow('caregiver')
+        this.scenarioRow('doctor')
+        Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
+        Row({ space: 8 }) {
+          Text('全部提示词').fontSize(13).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+          Blank()
+          Text('＋ 新建').fontSize(13).fontColor($r('app.color.brand_blue'))
+            .onClick(() => this.createPromptEntry())
         }.width('100%')
-        .padding({ top: 10, bottom: 10, left: 14, right: 14 })
-        .backgroundColor($r('sys.color.comp_background_secondary'))
-        .alignItems(VerticalAlign.Center)
-        ForEach(this.visiblePromptRoles(), (role: string, index: number) => {
-          this.promptRow(role, index === this.visiblePromptRoles().length - 1)
-        }, (role: string) => `prompt-row-${role}`)
-      }.width('100%')
-      .borderRadius(10)
+        Scroll() {
+          Column({ space: 6 }) {
+            ForEach(this.promptEntriesForRole(this.promptScenario), (entry: PromptListEntry) => {
+              this.promptEntryRow(entry)
+            }, (entry: PromptListEntry) => `pe-${entry.key}`)
+          }.width('100%').alignItems(HorizontalAlign.Start)
+        }.constraintSize({ maxHeight: 430 }).scrollBar(BarState.Off).width('100%')
+      }.width(260)
+      .padding(14)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(12)
       .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-      .clip(true)
-    }.width('100%').alignItems(HorizontalAlign.Start)
+      .alignItems(HorizontalAlign.Start)
+
+      Column({ space: 12 }) {
+        Row({ space: 12 }) {
+          Text(this.selectedPromptTitle())
+            .fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+          Blank()
+          this.cardLink('测试', () => this.testBoundModel())
+          Button('保存').height(36).fontSize(13).borderRadius(8)
+            .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
+            .onClick(() => this.saveSelectedPrompt())
+        }.width('100%').alignItems(VerticalAlign.Center)
+
+        Row({ space: 24 }) {
+          Column({ space: 4 }) {
+            this.promptEditorField('所属场景')
+            Text(this.roleLabel(this.promptScenario)).fontSize(14).fontColor($r('sys.color.font_primary'))
+          }.alignItems(HorizontalAlign.Start)
+          if (this.selectedPromptKey.startsWith('system-')) {
+            Column({ space: 4 }) {
+              this.promptEditorField('绑定模型')
+              Select(this.modelOptionIds().map((item: string): SelectOption => ({ value: item } as SelectOption)))
+                .selected(this.modelOptionIndex())
+                .value(this.promptModel.length > 0 ? this.promptModel : '选择模型')
+                .font({ size: 14 })
+                .onSelect((index: number) => {
+                  const ids: string[] = this.modelOptionIds();
+                  if (index >= 0 && index < ids.length) { this.promptModel = ids[index]; }
+                })
+            }.alignItems(HorizontalAlign.Start)
+            Column({ space: 4 }) {
+              this.promptEditorField('当前版本')
+              Text(`最后更新 ${this.updatedDateText(this.defaultConfigOfRole(this.promptScenario)?.updated_at)}`)
+                .fontSize(14).fontColor($r('sys.color.font_primary'))
+            }.alignItems(HorizontalAlign.Start)
+          } else {
+            Column({ space: 4 }) {
+              this.promptEditorField('所属场景')
+              Text(this.roleLabel(this.promptScenario)).fontSize(14).fontColor($r('sys.color.font_primary'))
+            }.alignItems(HorizontalAlign.Start)
+          }
+        }.width('100%').alignItems(VerticalAlign.Top)
+
+        if (this.selectedPromptKey.startsWith('system-')) {
+          this.promptEditorField('系统提示词')
+          TextArea({ text: $$this.promptText, placeholder: '输入系统提示词...' })
+            .height(300).fontSize(13)
+          Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
+          Text('对话参数').fontSize(13).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+            .width('100%')
+          Row({ space: 24 }) {
+            Column({ space: 4 }) {
+              this.promptEditorField('温度（temperature）')
+              TextInput({ text: $$this.promptTemp }).height(38).width(140)
+            }.alignItems(HorizontalAlign.Start)
+            Column({ space: 4 }) {
+              this.promptEditorField('上下文长度（条）')
+              TextInput({ text: $$this.promptContext }).height(38).width(140)
+            }.alignItems(HorizontalAlign.Start)
+          }.width('100%').alignItems(VerticalAlign.Top)
+        } else {
+          this.promptEditorField('标题')
+          TextInput({ text: $$this.suggestionTitle, placeholder: '提示词标题...' }).height(40)
+          Row({ space: 8 }) {
+            Toggle({ type: ToggleType.Switch, isOn: this.suggestionEnabled })
+              .selectedColor($r('app.color.brand_blue'))
+              .onChange((isOn: boolean) => this.suggestionEnabled = isOn)
+            Text(this.suggestionEnabled ? '启用' : '停用').fontSize(13).fontColor($r('sys.color.font_primary'))
+          }.alignItems(VerticalAlign.Center)
+          this.promptEditorField('提示词内容')
+          TextArea({ text: $$this.suggestionContent, placeholder: '输入提示词内容...' })
+            .height(280).fontSize(13)
+          if (this.selectedPromptKey.startsWith('sug-')) {
+            Text('删除该提示词').fontSize(13).fontColor($r('app.color.doctor_workspace_danger'))
+              .onClick(() => this.deleteSelectedSuggestion())
+          }
+        }
+        if (this.promptError.length > 0) {
+          Text(this.promptError).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
+        }
+      }.layoutWeight(1)
+      .padding(16)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(12)
+      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+      .alignItems(HorizontalAlign.Start)
+    }.width('100%')
+    .alignItems(VerticalAlign.Top)
   }
 
   @Builder
@@ -897,62 +1119,6 @@ export struct WideModelManagement {
       .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
   }
 
-  /** 提示词路由：各端 AI 在统一连接下分配各自的模型与系统提示词。 */
-  @Builder
-  private promptDialog() {
-    Column({ space: 12 }) {
-      Text('提示词').fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
-        .width('100%')
-      Text('为该端 AI 分配模型并设置系统提示词。')
-        .fontSize(12).fontColor($r('sys.color.font_tertiary')).width('100%')
-      WideSlidingCapsule({
-        items: this.promptTabs(),
-        selectedIndex: this.promptRole === 'doctor' ? 1 : 0,
-        itemWidth: 72,
-        onSelect: (index: number) => this.selectPromptRole(index === 1 ? 'doctor' : 'caregiver')
-      })
-      Text('路由模型').fontSize(12).fontColor($r('sys.color.font_secondary')).width('100%')
-      if (this.sourceModels.length === 0) {
-        Text(this.sourceError.length > 0 ? this.sourceError :
-          `当前模型：${this.promptModel.length > 0 ? this.promptModel : '未分配'}`)
-          .fontSize(12).fontColor($r('sys.color.font_secondary')).width('100%')
-      } else {
-        Scroll() {
-          Column({ space: 6 }) {
-            ForEach(this.sourceModels, (item: ProviderModel) => {
-              Row({ space: 8 }) {
-                Text(item.id).fontSize(12).fontColor($r('sys.color.font_primary'))
-                  .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-                if (this.promptModel === item.id) {
-                  Text('已选择').fontSize(11).fontColor($r('app.color.brand_blue'))
-                }
-              }.width('100%').padding({ left: 10, right: 10, top: 8, bottom: 8 })
-                .borderRadius(8)
-                .border({ width: 0.5, color: this.promptModel === item.id ?
-                  $r('app.color.brand_blue') : $r('sys.color.comp_divider') })
-                .backgroundColor(this.promptModel === item.id ? '#F0F5FF' :
-                  $r('sys.color.comp_background_primary'))
-                .onClick(() => this.promptModel = item.id)
-            }, (item: ProviderModel) => `prompt-model-${item.id}`)
-          }.width('100%').alignItems(HorizontalAlign.Start)
-        }.constraintSize({ maxHeight: 130 }).scrollBar(BarState.Off).width('100%')
-      }
-      TextArea({ placeholder: '系统提示词', text: $$this.promptText }).height(120).fontSize(13)
-      if (this.promptError.length > 0) {
-        Text(this.promptError).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
-      }
-      Row({ space: 10 }) {
-        Button('取消').layoutWeight(1).height(40)
-          .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))
-          .onClick(() => { this.showPrompts = false; })
-        Button(this.saved ? '已保存' : '保存').layoutWeight(1).height(40).fontSize(13)
-          .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
-          .onClick(() => this.savePrompt())
-      }.width('100%')
-    }.width(this.compactWidth ? '92%' : 480).padding(24)
-      .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
-  }
-
   build() {
     Stack() {
       Scroll(this.managementScroller) {
@@ -987,10 +1153,6 @@ export struct WideModelManagement {
       .align(Alignment.TopStart)
       if (this.showEditor) {
         Row() { this.editorDialog() }.width('100%').height('100%')
-          .backgroundColor('#66000000').justifyContent(FlexAlign.Center)
-      }
-      if (this.showPrompts) {
-        Row() { this.promptDialog() }.width('100%').height('100%')
           .backgroundColor('#66000000').justifyContent(FlexAlign.Center)
       }
     }.width('100%').height('100%')

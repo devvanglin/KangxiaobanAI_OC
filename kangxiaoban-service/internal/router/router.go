@@ -137,6 +137,10 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		authed.GET("/admin/ai/llm/models", perm("admin:all"), aiAdminHandler.ListProviderModels)
 		authed.POST("/admin/ai/llm/models", perm("admin:all"), aiAdminHandler.ProbeModels)
 		authed.POST("/admin/ai/llm/test", perm("admin:all"), aiAdminHandler.TestModels)
+		authed.GET("/admin/ai/prompts", perm("admin:all"), aiAdminHandler.AdminPromptList)
+		authed.POST("/admin/ai/prompts", perm("admin:all"), aiAdminHandler.AdminPromptCreate)
+		authed.PUT("/admin/ai/prompts/:id", perm("admin:all"), aiAdminHandler.AdminPromptUpdate)
+		authed.DELETE("/admin/ai/prompts/:id", perm("admin:all"), aiAdminHandler.AdminPromptDelete)
 
 		// 长者档案（读）
 		elders := authed.Group("/elders", perm("elder:read"))
