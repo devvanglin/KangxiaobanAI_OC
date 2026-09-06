@@ -129,6 +129,9 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		authed.PUT("/admin/ai/configs/:id", perm("admin:all"), aiConfigHandler.Update)
 		authed.DELETE("/admin/ai/configs/:id", perm("admin:all"), aiConfigHandler.Delete)
 		authed.GET("/admin/ai/usage/summary", perm("admin:all"), aiUsageHandler.Summary)
+		authed.GET("/admin/ai/usage/models", perm("admin:all"), aiUsageHandler.Models)
+		authed.GET("/admin/ai/connection", perm("admin:all"), aiAdminHandler.Connection)
+		authed.PUT("/admin/ai/connection", perm("admin:all"), aiAdminHandler.UpdateConnection)
 		authed.GET("/admin/ai/rag/datasets", perm("admin:all"), aiAdminHandler.ListRAGDatasets)
 		authed.GET("/admin/ai/llm/models", perm("admin:all"), aiAdminHandler.ListProviderModels)
 

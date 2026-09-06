@@ -39,6 +39,24 @@ type AIModelConfig struct {
 	RAGAPIKeyEncrypted string  `gorm:"size:2048" json:"-"`
 }
 
+// AIConnection is the tenant-level model-service connection. There is one
+// unified OpenAI-compatible endpoint (vLLM and friends) plus one Dify RAG
+// connection per institution; role assignments only pick a model and prompt.
+// Keys are deliberately never serialized.
+type AIConnection struct {
+	Base
+	Provider           string `gorm:"size:16;default:local" json:"provider"`
+	BaseURL            string `gorm:"size:512" json:"base_url"`
+	APIKeyEncrypted    string `gorm:"size:2048" json:"-"`
+	RAGEnabled         bool   `gorm:"default:false" json:"rag_enabled"`
+	RAGBaseURL         string `gorm:"size:512" json:"rag_base_url"`
+	RAGDatasetID       string `gorm:"size:128" json:"rag_dataset_id"`
+	RAGAPIKeyEncrypted string `gorm:"size:2048" json:"-"`
+	Enabled            bool   `gorm:"default:true" json:"enabled"`
+}
+
+func (AIConnection) TableName() string { return "ai_connections" }
+
 // AIConversation is one authenticated user's isolated AI chat thread.
 type AIConversation struct {
 	Base

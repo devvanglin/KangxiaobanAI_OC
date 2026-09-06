@@ -24,3 +24,13 @@ func (h *AIUsageHandler) Summary(c *gin.Context) {
 	}
 	OK(c, summary)
 }
+
+// Models GET /api/v1/admin/ai/usage/models 返回今日逐模型用量，用于模型卡片。
+func (h *AIUsageHandler) Models(c *gin.Context) {
+	stats, err := h.svc.UsageByModel(c.Request.Context())
+	if err != nil {
+		Fail(c, 500, 500, "模型用量统计加载失败")
+		return
+	}
+	OK(c, stats)
+}

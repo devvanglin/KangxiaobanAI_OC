@@ -63,10 +63,31 @@ func (s *AIService) roleScope(ctx context.Context) string {
 	return "caregiver"
 }
 
+// connectionForContext loads the tenant's unified model-service connection.
+func (s *AIService) connectionForContext(ctx context.Context) *model.AIConnection {
+	var row model.AIConnection
+	if err := s.db.WithContext(ctx).Order("id ASC").First(&row).Error; err != nil {
+		return nil
+	}
+	return &row
+}
+
+// configForContext merges the tenant connection (endpoint, keys, enable) with
+// the role assignment (model, system prompt) into one chat configuration.
 func (s *AIService) configForContext(ctx context.Context) (*config.AIConfig, *model.AIModelConfig) {
 	base := *s.cfg
 	if base.SystemPrompt == "" {
 		base.SystemPrompt = "你是康小伴智慧康养护理平台的照护助理，回答须谨慎、贴题、仅作参考，不做临床诊断。"
+	}
+	connection := s.connectionForContext(ctx)
+	if connection != nil {
+		base.Enabled = base.Enabled && connection.Enabled
+		base.Provider = connection.Provider
+		base.BaseURL = connection.BaseURL
+		base.APIKey = ""
+		if value, decryptErr := security.Decrypt(s.cfg.ConfigKey, connection.APIKeyEncrypted); decryptErr == nil {
+			base.APIKey = value
+		}
 	}
 	var row model.AIModelConfig
 	err := s.db.WithContext(ctx).Where("role_scope IN ? AND enabled = ? AND allowed = ?", []string{s.roleScope(ctx), "all"}, true, true).
@@ -74,13 +95,12 @@ func (s *AIService) configForContext(ctx context.Context) (*config.AIConfig, *mo
 	if err != nil {
 		return &base, nil
 	}
-	base.Provider, base.BaseURL, base.Model, base.APIKey = row.Provider, row.BaseURL, row.Model, ""
 	base.ConfigKey = s.cfg.ConfigKey
-	if value, decryptErr := security.Decrypt(base.ConfigKey, row.APIKeyEncrypted); decryptErr == nil {
-		base.APIKey = value
-	}
 	if row.SystemPrompt != "" {
 		base.SystemPrompt = row.SystemPrompt
+	}
+	if strings.TrimSpace(row.Model) != "" {
+		base.Model = row.Model
 	}
 	return &base, &row
 }
@@ -217,6 +237,32 @@ func (s *AIService) UsageSummary(ctx context.Context) (*AIUsageSummary, error) {
 	}, nil
 }
 
+// ModelUsageStat is one model's per-day usage rollup for the model card grid.
+type ModelUsageStat struct {
+	Model         string  `json:"model"`
+	TodayCalls    int64   `json:"today_calls"`
+	AvgDurationMS float64 `json:"avg_duration_ms"`
+	SuccessRate   float64 `json:"success_rate"`
+}
+
+// UsageByModel aggregates today's per-call logs into per-model stats
+// (calls, average successful duration, success rate) for the current tenant.
+func (s *AIService) UsageByModel(ctx context.Context) ([]ModelUsageStat, error) {
+	now := time.Now()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	var rows []ModelUsageStat
+	err := s.db.WithContext(ctx).Model(&model.AIUsageLog{}).
+		Select("model, COUNT(*) AS today_calls, "+
+			"COALESCE(AVG(CASE WHEN success = ? THEN duration_ms END), 0) AS avg_duration_ms, "+
+			"COALESCE(AVG(CASE WHEN success = ? THEN 100.0 ELSE 0 END), 0) AS success_rate", true, true).
+		Where("created_at >= ?", todayStart).
+		Group("model").Order("today_calls DESC").Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
 // SendMessage asks the configured AI and atomically persists both sides of the exchange.
 func (s *AIService) SendMessage(ctx context.Context, userID, conversationID uint, content string) (*AIExchange, error) {
 	content = strings.TrimSpace(content)
@@ -291,12 +337,15 @@ func (s *AIService) Chat(ctx context.Context, userID uint, question string) (str
 	provider := strings.ToLower(strings.TrimSpace(cfg.Provider))
 	startedAt := time.Now()
 	ragUsed := false
-	if provider == "http" && configRow != nil {
-		ragContext, attempted := s.ragContextForChat(ctx, configRow, question)
-		ragUsed = attempted
-		if ragContext != "" {
-			cfg.SystemPrompt = strings.TrimSpace(cfg.SystemPrompt) +
-				"\n\n以下是机构知识库检索到的参考资料，回答时请优先依据其内容并保持谨慎：\n" + ragContext
+	if provider == "http" {
+		connection := s.connectionForContext(ctx)
+		if connection != nil {
+			ragContext, attempted := s.ragContextForChat(ctx, connection, question)
+			ragUsed = attempted
+			if ragContext != "" {
+				cfg.SystemPrompt = strings.TrimSpace(cfg.SystemPrompt) +
+					"\n\n以下是机构知识库检索到的参考资料，回答时请优先依据其内容并保持谨慎：\n" + ragContext
+			}
 		}
 	}
 	answer, modelName, promptTokens, completionTokens, totalTokens, chatErr := s.dispatchChat(ctx, cfg, provider, question)
@@ -364,9 +413,9 @@ func (s *AIService) recordUsage(ctx context.Context, userID uint, configRow *mod
 	}
 }
 
-// ragContextForChat 调用配置的 Dify 知识库检索接口并拼接参考片段。布尔值表示
+// ragContextForChat 调用租户统一 Dify 知识库检索接口并拼接参考片段。布尔值表示
 // 是否发起了检索调用（即管理端统计的“RAG 知识库调用次数”）。检索失败不阻断对话。
-func (s *AIService) ragContextForChat(ctx context.Context, row *model.AIModelConfig, question string) (string, bool) {
+func (s *AIService) ragContextForChat(ctx context.Context, row *model.AIConnection, question string) (string, bool) {
 	baseURL := strings.TrimRight(strings.TrimSpace(row.RAGBaseURL), "/")
 	datasetID := strings.TrimSpace(row.RAGDatasetID)
 	if baseURL == "" || datasetID == "" {
@@ -613,7 +662,9 @@ func formatAIThreshold(value float64) string {
 type RAGDataset struct {
 	ID            string `json:"id"`
 	Name          string `json:"name"`
+	Description   string `json:"description"`
 	DocumentCount int64  `json:"document_count"`
+	WordCount     int64  `json:"word_count"`
 }
 
 // ProviderModel is one model id fetched from the role's configured
@@ -625,17 +676,12 @@ type ProviderModel struct {
 // ListRAGDatasets 代理读取已配置 Dify 的知识库清单，供管理端大模型页展示与选择。
 // 密钥只存在服务端，客户端永远不接触 Dify API Key。
 func (s *AIService) ListRAGDatasets(ctx context.Context) ([]RAGDataset, error) {
-	var row model.AIModelConfig
-	err := s.db.WithContext(ctx).Where("rag_enabled = ? AND rag_base_url <> ''", true).
-		Order("is_default DESC, id DESC").First(&row).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	connection := s.connectionForContext(ctx)
+	if connection == nil || !connection.RAGEnabled || strings.TrimSpace(connection.RAGBaseURL) == "" {
 		return nil, ErrRAGNotConfigured
 	}
-	if err != nil {
-		return nil, err
-	}
-	baseURL := strings.TrimRight(strings.TrimSpace(row.RAGBaseURL), "/")
-	apiKey, _ := security.Decrypt(s.cfg.ConfigKey, row.RAGAPIKeyEncrypted)
+	baseURL := strings.TrimRight(strings.TrimSpace(connection.RAGBaseURL), "/")
+	apiKey, _ := security.Decrypt(s.cfg.ConfigKey, connection.RAGAPIKeyEncrypted)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/v1/datasets?page=1&limit=100", nil)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
@@ -656,7 +702,9 @@ func (s *AIService) ListRAGDatasets(ctx context.Context) ([]RAGDataset, error) {
 		Data []struct {
 			ID            string `json:"id"`
 			Name          string `json:"name"`
+			Description   string `json:"description"`
 			DocumentCount int64  `json:"document_count"`
+			WordCount     int64  `json:"word_count"`
 		} `json:"data"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
@@ -664,28 +712,20 @@ func (s *AIService) ListRAGDatasets(ctx context.Context) ([]RAGDataset, error) {
 	}
 	datasets := make([]RAGDataset, 0, len(out.Data))
 	for _, item := range out.Data {
-		datasets = append(datasets, RAGDataset{ID: item.ID, Name: item.Name, DocumentCount: item.DocumentCount})
+		datasets = append(datasets, RAGDataset{ID: item.ID, Name: item.Name, Description: item.Description,
+			DocumentCount: item.DocumentCount, WordCount: item.WordCount})
 	}
 	return datasets, nil
 }
 
-// ListProviderModels 代理读取角色 http 模型服务（vLLM 等 OpenAI 兼容部署）的可用模型清单。
-func (s *AIService) ListProviderModels(ctx context.Context, role string) ([]ProviderModel, error) {
-	role = strings.TrimSpace(role)
-	if role == "" {
-		role = "caregiver"
-	}
-	var row model.AIModelConfig
-	err := s.db.WithContext(ctx).Where("role_scope IN ? AND provider = ? AND base_url <> ''", []string{role, "all"}, "http").
-		Order("is_default DESC, id DESC").First(&row).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+// ListProviderModels 代理读取租户统一模型服务（vLLM 等 OpenAI 兼容部署）的可用模型清单。
+func (s *AIService) ListProviderModels(ctx context.Context) ([]ProviderModel, error) {
+	connection := s.connectionForContext(ctx)
+	if connection == nil || connection.Provider != "http" || strings.TrimSpace(connection.BaseURL) == "" {
 		return nil, ErrModelSourceNotConfigured
 	}
-	if err != nil {
-		return nil, err
-	}
-	baseURL := strings.TrimRight(strings.TrimSpace(row.BaseURL), "/")
-	apiKey, _ := security.Decrypt(s.cfg.ConfigKey, row.APIKeyEncrypted)
+	baseURL := strings.TrimRight(strings.TrimSpace(connection.BaseURL), "/")
+	apiKey, _ := security.Decrypt(s.cfg.ConfigKey, connection.APIKeyEncrypted)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/v1/models", nil)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrModelSourceUnavailable, err)
@@ -718,4 +758,76 @@ func (s *AIService) ListProviderModels(ctx context.Context, role string) ([]Prov
 		models = append(models, ProviderModel{ID: item.ID})
 	}
 	return models, nil
+}
+
+// AIConnectionUpdate carries the editable unified connection fields. Empty key
+// fields keep the stored secrets, mirroring the assignment update contract.
+type AIConnectionUpdate struct {
+	Provider     string
+	BaseURL      string
+	APIKey       string
+	RAGEnabled   bool
+	RAGBaseURL   string
+	RAGDatasetID string
+	RAGAPIKey    string
+	Enabled      bool
+}
+
+// Connection 返回租户统一模型服务连接；尚无记录时返回本地默认值（不落库）。
+func (s *AIService) Connection(ctx context.Context) (*model.AIConnection, error) {
+	if connection := s.connectionForContext(ctx); connection != nil {
+		return connection, nil
+	}
+	return &model.AIConnection{Provider: "local", Enabled: true}, nil
+}
+
+// UpdateConnection 创建或更新租户唯一的模型服务连接。
+func (s *AIService) UpdateConnection(ctx context.Context, input AIConnectionUpdate) (*model.AIConnection, error) {
+	provider := strings.ToLower(strings.TrimSpace(input.Provider))
+	if provider != "local" && provider != "http" {
+		provider = "local"
+	}
+	var saved *model.AIConnection
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var row model.AIConnection
+		err := tx.Order("id ASC").First(&row).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			row = model.AIConnection{Provider: provider}
+		} else if err != nil {
+			return err
+		}
+		row.Provider = provider
+		row.BaseURL = strings.TrimSpace(input.BaseURL)
+		row.RAGEnabled = input.RAGEnabled
+		row.RAGBaseURL = strings.TrimSpace(input.RAGBaseURL)
+		row.RAGDatasetID = strings.TrimSpace(input.RAGDatasetID)
+		row.Enabled = input.Enabled
+		if strings.TrimSpace(input.APIKey) != "" {
+			encrypted, encryptErr := security.Encrypt(s.cfg.ConfigKey, strings.TrimSpace(input.APIKey))
+			if encryptErr != nil {
+				return encryptErr
+			}
+			row.APIKeyEncrypted = encrypted
+		}
+		if strings.TrimSpace(input.RAGAPIKey) != "" {
+			encrypted, encryptErr := security.Encrypt(s.cfg.ConfigKey, strings.TrimSpace(input.RAGAPIKey))
+			if encryptErr != nil {
+				return encryptErr
+			}
+			row.RAGAPIKeyEncrypted = encrypted
+		}
+		if row.ID == 0 {
+			if err := tx.Create(&row).Error; err != nil {
+				return err
+			}
+		} else if err := tx.Save(&row).Error; err != nil {
+			return err
+		}
+		saved = &row
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return saved, nil
 }

@@ -110,8 +110,13 @@ func TestChatHTTPRecordsProviderUsageTokens(t *testing.T) {
 		fmt.Fprint(w, `{"choices":[{"message":{"content":"好的，请注意休息。"}}],"usage":{"prompt_tokens":12,"completion_tokens":34,"total_tokens":46}}`)
 	}))
 	t.Cleanup(server.Close)
+	if err := db.WithContext(ctx).Create(&model.AIConnection{
+		Provider: "http", BaseURL: server.URL, Enabled: true,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
 	if err := db.WithContext(ctx).Create(&model.AIModelConfig{
-		RoleScope: "caregiver", Provider: "http", BaseURL: server.URL, Model: "remote-model",
+		RoleScope: "caregiver", Provider: "http", Model: "remote-model",
 		Enabled: true, Allowed: true, IsDefault: true,
 	}).Error; err != nil {
 		t.Fatal(err)
@@ -159,10 +164,15 @@ func TestChatHTTPInjectsRAGContextAndCountsCall(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.WithContext(ctx).Create(&model.AIModelConfig{
-		RoleScope: "caregiver", Provider: "http", BaseURL: chatServer.URL, Model: "remote-model",
-		Enabled: true, Allowed: true, IsDefault: true,
+	if err := db.WithContext(ctx).Create(&model.AIConnection{
+		Provider: "http", BaseURL: chatServer.URL, Enabled: true,
 		RAGEnabled: true, RAGBaseURL: ragServer.URL, RAGDatasetID: "ds-1", RAGAPIKeyEncrypted: ragKey,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.WithContext(ctx).Create(&model.AIModelConfig{
+		RoleScope: "caregiver", Provider: "http", Model: "remote-model",
+		Enabled: true, Allowed: true, IsDefault: true,
 	}).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -197,8 +207,13 @@ func TestChatHTTPFailureStillRecordsAttempt(t *testing.T) {
 		http.Error(w, "provider unavailable", http.StatusBadGateway)
 	}))
 	t.Cleanup(server.Close)
+	if err := db.WithContext(ctx).Create(&model.AIConnection{
+		Provider: "http", BaseURL: server.URL, Enabled: true,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
 	if err := db.WithContext(ctx).Create(&model.AIModelConfig{
-		RoleScope: "caregiver", Provider: "http", BaseURL: server.URL, Model: "remote-model",
+		RoleScope: "caregiver", Provider: "http", Model: "remote-model",
 		Enabled: true, Allowed: true, IsDefault: true,
 	}).Error; err != nil {
 		t.Fatal(err)
@@ -245,5 +260,53 @@ func TestUsageLogIsTenantScoped(t *testing.T) {
 	}
 	if first.TodayCalls != 1 || second.TodayCalls != 1 {
 		t.Fatalf("tenant scoping broken: %+v / %+v", first, second)
+	}
+}
+
+func TestUsageByModelAggregatesTodayOnly(t *testing.T) {
+	svc, db, ctx := newAIServiceTest(t)
+	now := time.Now()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	seeds := []struct {
+		model    string
+		ageDays  int
+		success  bool
+		duration int64
+	}{
+		{model: "remote-a", ageDays: 0, success: true, duration: 600},
+		{model: "remote-a", ageDays: 0, success: false, duration: 4000},
+		{model: "remote-a", ageDays: 0, success: true, duration: 800},
+		{model: "remote-b", ageDays: 1, success: true, duration: 999},
+	}
+	for i, seed := range seeds {
+		entry := model.AIUsageLog{
+			Base:        model.Base{CreatedAt: todayStart.Add(time.Duration(-seed.ageDays) * 24 * time.Hour)},
+			UserID:      uint(i + 1),
+			RoleScope:   "caregiver",
+			Provider:    "http",
+			Model:       seed.model,
+			TotalTokens: 10,
+			Success:     seed.success,
+			DurationMS:  seed.duration,
+		}
+		if err := db.WithContext(ctx).Create(&entry).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	stats, err := svc.UsageByModel(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stats) != 1 || stats[0].Model != "remote-a" {
+		t.Fatalf("stats = %+v, want only remote-a (today only)", stats)
+	}
+	if stats[0].TodayCalls != 3 {
+		t.Fatalf("today calls = %d, want 3", stats[0].TodayCalls)
+	}
+	if math.Abs(stats[0].AvgDurationMS-700.0) > 1e-6 {
+		t.Fatalf("avg duration = %f, want 700", stats[0].AvgDurationMS)
+	}
+	if math.Abs(stats[0].SuccessRate-200.0/3.0) > 1e-6 {
+		t.Fatalf("success rate = %f, want 66.67", stats[0].SuccessRate)
 	}
 }
