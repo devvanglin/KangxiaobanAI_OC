@@ -217,26 +217,6 @@ export struct WideRagDocumentsPage {
     }
   }
 
-  private allSelected(): boolean {
-    const docs: RagDocument[] = this.visibleDocs();
-    return docs.length > 0 && docs.every((item: RagDocument): boolean => this.isSelected(item.id ?? ''));
-  }
-
-  private toggleSelectAll(selected: boolean): void {
-    const ids: string[] = this.visibleDocs()
-      .map((item: RagDocument): string => item.id ?? '')
-      .filter((id: string) => id.length > 0);
-    if (selected) {
-      const merged: string[] = this.selectedIds.slice();
-      ids.forEach((id: string) => {
-        if (merged.indexOf(id) < 0) { merged.push(id); }
-      });
-      this.selectedIds = merged;
-    } else {
-      this.selectedIds = this.selectedIds.filter((id: string) => ids.indexOf(id) < 0);
-    }
-  }
-
   private async deleteDoc(docId: string): Promise<void> {
     if (this.busy) { return; }
     this.busy = true;
@@ -516,15 +496,8 @@ export struct WideRagDocumentsPage {
                 .font({ size: 14 }).height(44).width(190).backgroundColor($r('app.color.doctor_workspace_surface_hover')).borderRadius(10)
                 .onSelect((index: number) => this.sortIndex = index)
               Blank()
-              Button({ type: ButtonType.Normal, stateEffect: true }) {
-                Row({ space: 6 }) {
-                  SymbolGlyph($r('sys.symbol.doc_text')).fontSize(17).fontColor([$r('sys.color.font_primary')])
-                  Text('元数据').fontSize(14).fontColor($r('sys.color.font_primary'))
-                }
-              }.height(44).padding({ left: 15, right: 15 }).borderRadius(10)
-                .backgroundColor($r('app.color.doctor_workspace_surface'))
-                .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
-                .onClick(() => this.showToast('元数据编辑请返回知识库设置'))
+              Text(`共 ${this.visibleDocs().length} 个文档`)
+                .fontSize(13).fontColor($r('app.color.doctor_workspace_text_secondary'))
               Button({ type: ButtonType.Normal, stateEffect: true }) {
                 Row({ space: 6 }) {
                   SymbolGlyph($r('sys.symbol.plus')).fontSize(18).fontColor([Color.White])
@@ -546,20 +519,6 @@ export struct WideRagDocumentsPage {
               }.width('100%').padding({ top: 20, bottom: 20 })
             } else {
               Column({ space: 12 }) {
-                Row({ space: 8 }) {
-                  Checkbox({ name: 'rag-docs-select-all' }).select(this.allSelected())
-                    .selectedColor($r('app.color.brand_blue'))
-                    .width(28)
-                    .onChange((value: boolean) => {
-                      if (value !== this.allSelected()) {
-                        this.toggleSelectAll(value);
-                      }
-                    })
-                  Text('全选').fontSize(13).fontColor($r('app.color.doctor_workspace_text_secondary'))
-                  Blank()
-                  Text(`共 ${this.visibleDocs().length} 个文档`)
-                    .fontSize(12).fontColor($r('app.color.doctor_workspace_text_tertiary'))
-                }.width('100%').alignItems(VerticalAlign.Center)
                 ForEach(this.visibleDocs(), (item: RagDocument, index: number) => {
                   this.docCard(item, index)
                 }, (item: RagDocument) => `doc-${item.id}`)
