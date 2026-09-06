@@ -77,12 +77,21 @@ export struct WideModelManagement {
     this.loadSourceModels();
   }
 
+  /** 页级提示统一走系统 Toast：白底、短暂显示后自动消失。 */
+  private showToast(message: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message: message, duration: 2000 });
+    } catch (_error) {
+      // Toast 展示失败时静默，不打断页面。
+    }
+  }
+
   private async load(): Promise<void> {
     try {
       const response = await ApiClient.get<AIConfigPage>('/admin/ai/configs');
       if (response.code !== 0 || response.data === undefined) throw new Error(response.msg);
       this.configs = response.data.list ?? [];
-    } catch (_error) { this.error = 'AI 配置加载失败'; }
+    } catch (_error) { this.showToast('AI 配置加载失败'); }
   }
 
   private async loadUsage(): Promise<void> {
@@ -116,7 +125,7 @@ export struct WideModelManagement {
       this.connEnabled = view.enabled;
       this.savedConnBaseUrl = view.base_url;
       this.savedConnProvider = view.provider;
-    } catch (_error) { this.error = 'AI 连接加载失败'; }
+    } catch (_error) { this.showToast('AI 连接加载失败'); }
   }
 
   private async loadRagDatasets(): Promise<void> {
@@ -286,7 +295,7 @@ export struct WideModelManagement {
       enabled: this.connEnabled
     };
     const response = await ApiClient.put<AIConnectionView>('/admin/ai/connection', payload);
-    if (response.code !== 0) { this.error = response.msg || '知识库切换失败'; return; }
+    if (response.code !== 0) { this.showToast(response.msg.length > 0 ? response.msg : '知识库切换失败'); return; }
     this.error = '';
     await this.loadConnection();
   }
@@ -317,7 +326,7 @@ export struct WideModelManagement {
   private async copyPrompt(fromRole: string): Promise<void> {
     const source: AIModelConfig | undefined = this.defaultConfigOfRole(fromRole);
     if (source === undefined) {
-      this.error = '该端尚未配置提示词';
+      this.showToast('该端尚未配置提示词');
       return;
     }
     const targetRole: string = fromRole === 'doctor' ? 'caregiver' : 'doctor';
@@ -331,7 +340,7 @@ export struct WideModelManagement {
         enabled: true, allowed: true, is_default: true
       };
       const created = await ApiClient.post<AIModelConfig>('/admin/ai/configs', payload);
-      if (created.code !== 0) { this.error = created.msg || '提示词复制失败'; return; }
+      if (created.code !== 0) { this.showToast(created.msg.length > 0 ? created.msg : '提示词复制失败'); return; }
     } else {
       const payload: AIConfigRequest = {
         role_scope: target.role_scope, name: target.name, provider: target.provider, base_url: target.base_url,
@@ -340,7 +349,7 @@ export struct WideModelManagement {
         enabled: target.enabled, allowed: target.allowed, is_default: target.is_default
       };
       const response = await ApiClient.put<AIModelConfig>(`/admin/ai/configs/${target.id}`, payload);
-      if (response.code !== 0) { this.error = response.msg || '提示词复制失败'; return; }
+      if (response.code !== 0) { this.showToast(response.msg.length > 0 ? response.msg : '提示词复制失败'); return; }
     }
     this.error = '';
     await this.load();
@@ -420,7 +429,7 @@ export struct WideModelManagement {
       })
       Blank()
       if (this.activeSection === 'models') {
-        Button('编辑模型索引').height(36).fontSize(12.5).borderRadius(8)
+        Button('编辑模型网关').height(36).fontSize(12.5).borderRadius(8)
           .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
           .onClick(() => this.openEditor())
       } else if (this.activeSection === 'prompts') {
@@ -702,11 +711,11 @@ export struct WideModelManagement {
     }.width('100%').alignItems(HorizontalAlign.Start)
   }
 
-  /** 编辑模型索引：机构统一的模型服务连接与 Dify RAG 连接。 */
+  /** 编辑模型网关：机构统一的模型服务连接与 Dify RAG 连接。 */
   @Builder
   private editorDialog() {
     Column({ space: 12 }) {
-      Text('编辑模型索引').fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+      Text('编辑模型网关').fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
         .width('100%')
       Scroll() {
         Column({ space: 12 }) {
@@ -841,9 +850,6 @@ export struct WideModelManagement {
       Scroll(this.managementScroller) {
         Column() {
           Column({ space: 24 }) {
-            if (this.error.length > 0 && !this.showEditor) {
-              Text(this.error).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
-            }
             Row({ space: 10 }) {
               this.statTag({ label: '已接入', value: this.sourceModels.length.toString() })
               this.statTag({ label: '启用中', value: this.configs.filter((item: AIModelConfig) => item.enabled).length.toString() })

@@ -327,7 +327,7 @@ export struct WideDeviceManagement {
           .backgroundColor(this.typeFilter === label ? '#1D63ED' : $r('sys.color.comp_background_secondary'))
           .onClick(() => this.typeFilter = label)
       }, (label: string) => 'type-chip-' + label)
-    }.width('100%')
+    }.layoutWeight(1)
   }
 
   @Builder
@@ -471,18 +471,17 @@ export struct WideDeviceManagement {
     Stack() {
       Scroll(this.managementScroller) { Column({ space: 16 }) {
         Row({ space: 12 }) {
-          Blank()
+          this.typeChipsRow()
           Search({ value: this.searchQuery, placeholder: '搜索设备编号/名称' })
-            .width(this.compactWidth ? '100%' : 260).height(38)
+            .width(this.compactWidth ? 200 : 260).height(38)
             .onChange((value: string) => this.searchQuery = value)
           Button('新增设备').height(38).fontSize(13).borderRadius(8)
             .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
             .onClick(() => { this.resetEditor(); this.showCreate = true; })
         }.width('100%').alignItems(VerticalAlign.Center)
-        this.typeChipsRow()
         this.statCards()
         this.deviceTable()
-      }.width('100%').constraintSize({ minHeight: '100%' }).padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28, top: 88 + this.statusBarHeight, bottom: 24 + this.naviIndicatorHeight }) }.width('100%').height('100%').align(Alignment.Top).scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
+      }.width('100%').constraintSize({ minHeight: '100%', maxWidth: 1280 }).padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28, top: 88 + this.statusBarHeight, bottom: 24 + this.naviIndicatorHeight }) }.width('100%').height('100%').align(Alignment.Top).scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
       if (this.showCreate) Row() { this.createDialog() }.width('100%').height('100%').backgroundColor('#66000000').justifyContent(FlexAlign.Center)
       if (this.previewUrl.length > 0) Row() {
         Column({ space: 12 }) {

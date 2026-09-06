@@ -815,9 +815,10 @@ export struct WideAdminWorkspace {
       Column({ space: 12 }) {
         WideServerMonitor({ compactWidth: this.compactWidth, embedded: true }).width('100%')
         this.auditLogPanel()
-      }.width('100%').padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28,
-        top: this.adminOverviewTopPadding(), bottom: this.dashboardBottomPadding() }).alignItems(HorizontalAlign.Start)
+      }.width('100%').constraintSize({ maxWidth: 1280 }).padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28,
+        top: this.adminOverviewTopPadding(), bottom: 24 + this.naviIndicatorHeight }).alignItems(HorizontalAlign.Start)
     }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
+      .align(Alignment.Top)
   }
 
   @Builder

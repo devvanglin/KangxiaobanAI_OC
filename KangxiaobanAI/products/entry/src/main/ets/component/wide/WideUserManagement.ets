@@ -253,9 +253,10 @@ export struct WideUserManagement {
           this.userTableCard()
         }.width('100%').padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28,
           top: 88 + this.statusBarHeight, bottom: 24 + this.naviIndicatorHeight })
-          .constraintSize({ minHeight: '100%' })
+          .constraintSize({ minHeight: '100%', maxWidth: 1280 })
           .alignItems(HorizontalAlign.Start)
       }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
+      .align(Alignment.Top)
       if (this.showCreate) {
         Row() { this.createDialog() }.width('100%').height('100%').backgroundColor('#66000000').justifyContent(FlexAlign.Center)
       }

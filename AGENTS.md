@@ -314,7 +314,7 @@ per-floor layouts persisted through the area APIs. `订阅` manages tenant-owned
 subscriptions that generate runtime
 care plans and tasks. The model page edits one tenant-level unified model-service connection (`ai_connections`:
 one OpenAI-compatible endpoint (vLLM and friends) plus one Dify RAG connection; keys are encrypted server-side and
-never returned to clients) through the `编辑模型索引` dialog and `GET/PUT /api/v1/admin/ai/connection`. Role AIs no
+never returned to clients) through the `编辑模型网关` dialog and `GET/PUT /api/v1/admin/ai/connection`. Role AIs no
 longer own connections: the per-role `提示词` panel assigns the model plus system prompt to the caregiver/doctor
 `ai_model_configs` assignments, and the chat gateway merges connection + assignment. The page follows the redesign
 platform layout on a 1280vp-centered column: a page header with live stat tags (connected models, enabled
