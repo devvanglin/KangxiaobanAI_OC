@@ -1100,52 +1100,47 @@ export struct WideModelManagement {
           Column({ space: 4 }) {
             this.promptEditorField('所属场景')
             Text(this.roleLabel(this.promptScenario)).fontSize(14).fontColor($r('sys.color.font_primary'))
-          }.alignItems(HorizontalAlign.Start)
+          }.layoutWeight(1).alignItems(HorizontalAlign.Start)
           if (this.selectedPromptKey.startsWith('system-')) {
             Column({ space: 4 }) {
               this.promptEditorField('绑定模型')
               Select(this.modelOptionIds().map((item: string): SelectOption => ({ value: item } as SelectOption)))
                 .selected(this.modelOptionIndex())
                 .value(this.promptModel.length > 0 ? this.promptModel : '选择模型')
-                .font({ size: 14 })
+                .font({ size: 14 }).width('100%')
                 .onSelect((index: number) => {
                   const ids: string[] = this.modelOptionIds();
                   if (index >= 0 && index < ids.length) { this.promptModel = ids[index]; }
                 })
-            }.alignItems(HorizontalAlign.Start)
+            }.layoutWeight(1).alignItems(HorizontalAlign.Start)
             Column({ space: 4 }) {
               this.promptEditorField('当前版本')
               Text(`最后更新 ${this.updatedDateText(this.defaultConfigOfRole(this.promptScenario)?.updated_at)}`)
                 .fontSize(14).fontColor($r('sys.color.font_primary'))
-            }.alignItems(HorizontalAlign.Start)
-          } else {
-            Column({ space: 4 }) {
-              this.promptEditorField('所属场景')
-              Text(this.roleLabel(this.promptScenario)).fontSize(14).fontColor($r('sys.color.font_primary'))
-            }.alignItems(HorizontalAlign.Start)
+            }.layoutWeight(1).alignItems(HorizontalAlign.Start)
           }
         }.width('100%').alignItems(VerticalAlign.Top)
 
         if (this.selectedPromptKey.startsWith('system-')) {
           this.promptEditorField('系统提示词')
           TextArea({ text: $$this.promptText, placeholder: '输入系统提示词...' })
-            .height(300).fontSize(13)
+            .height(300).fontSize(13).width('100%')
           Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
           Text('对话参数').fontSize(13).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
             .width('100%')
           Row({ space: 24 }) {
             Column({ space: 4 }) {
               this.promptEditorField('温度（temperature）')
-              TextInput({ text: $$this.promptTemp }).height(38).width(140)
-            }.alignItems(HorizontalAlign.Start)
+              TextInput({ text: $$this.promptTemp }).height(38).width('100%')
+            }.layoutWeight(1).alignItems(HorizontalAlign.Start)
             Column({ space: 4 }) {
               this.promptEditorField('上下文长度（条）')
-              TextInput({ text: $$this.promptContext }).height(38).width(140)
-            }.alignItems(HorizontalAlign.Start)
+              TextInput({ text: $$this.promptContext }).height(38).width('100%')
+            }.layoutWeight(1).alignItems(HorizontalAlign.Start)
           }.width('100%').alignItems(VerticalAlign.Top)
         } else {
           this.promptEditorField('标题')
-          TextInput({ text: $$this.suggestionTitle, placeholder: '提示词标题...' }).height(40)
+          TextInput({ text: $$this.suggestionTitle, placeholder: '提示词标题...' }).height(40).width('100%')
           Row({ space: 8 }) {
             Toggle({ type: ToggleType.Switch, isOn: this.suggestionEnabled })
               .selectedColor($r('app.color.brand_blue'))
@@ -1154,7 +1149,7 @@ export struct WideModelManagement {
           }.alignItems(VerticalAlign.Center)
           this.promptEditorField('提示词内容')
           TextArea({ text: $$this.suggestionContent, placeholder: '输入提示词内容...' })
-            .height(280).fontSize(13)
+            .height(280).fontSize(13).width('100%')
           if (this.selectedPromptKey.startsWith('sug-')) {
             Text('删除该提示词').fontSize(13).fontColor($r('app.color.doctor_workspace_danger'))
               .onClick(() => this.deleteSelectedSuggestion())
