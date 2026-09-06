@@ -1,5 +1,5 @@
 import ApiClient, { HttpMethod } from '../../network/ApiClient';
-import pasteboard from '@ohos.pasteboard';
+import { BusinessError } from '@kit.BasicServicesKit';
 import { picker, fileIo as fs } from '@kit.CoreFileKit';
 import { hdsMaterial, HdsNavDestination, HdsNavDestinationTitleMode, ScrollEffectType, TitleBarStyleOptions } from '@kit.UIDesignKit';
 import { ApiResp } from '../../network/Dto';
@@ -250,16 +250,46 @@ export struct WideRagDocumentsPage {
         if (url.length === 0) {
           this.hint = '该文档没有可下载的原始文件';
         } else {
-          const pasteData: pasteboard.PasteData =
-            pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, url);
-          pasteboard.getSystemPasteboard().setData(pasteData);
-          this.showToast('下载链接已复制，可在浏览器打开');
+          this.showToast('正在获取原文件…');
+          await this.downloadAndSave(url, this.docNameById(docId));
         }
       }
     } catch (_error) {
       this.hint = '下载链接获取失败，请检查网络';
     }
     this.busy = false;
+  }
+
+  private docNameById(docId: string): string {
+    const doc: RagDocument | undefined = this.docs.find((item: RagDocument): boolean => item.id === docId);
+    const name: string = (doc?.name ?? '').trim();
+    return name.length > 0 ? name : 'document';
+  }
+
+  /** 拉取原文件字节后交给系统保存选择器落盘；用户取消选择时静默返回。 */
+  private async downloadAndSave(url: string, fileName: string): Promise<void> {
+    let bytes: ArrayBuffer;
+    try {
+      bytes = await ApiClient.downloadBinary(url);
+    } catch (_error) {
+      this.hint = '原文件下载失败，请检查网络';
+      return;
+    }
+    try {
+      const saveOptions = new picker.DocumentSaveOptions();
+      saveOptions.newFileNames = [fileName.replace(/[\\/:*?"<>|]/g, '_')];
+      const documentPicker = new picker.DocumentViewPicker();
+      const uris: string[] = await documentPicker.save(saveOptions);
+      if (uris === undefined || uris.length === 0) { return; }
+      const file = fs.openSync(uris[0], fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
+      fs.writeSync(file.fd, bytes);
+      fs.closeSync(file);
+      this.showToast('文件已保存');
+    } catch (error) {
+      const err = error as BusinessError;
+      if (err.code === 14000011) { return; }
+      this.hint = '文件保存失败';
+    }
   }
 
   private async toggleChunks(docId: string): Promise<void> {

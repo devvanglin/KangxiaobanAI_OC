@@ -42,6 +42,9 @@ export class ApiClient {
   private static readonly RETRY_DELAYS_MS: number[] = [500];
   private static readonly MAX_PAGES: number = 50;
   private static readonly GET_ALL_TIMEOUT_MS: number = 30000;
+  private static readonly DOWNLOAD_CONNECT_TIMEOUT_MS: number = 8000;
+  private static readonly DOWNLOAD_READ_TIMEOUT_MS: number = 60000;
+  private static readonly DOWNLOAD_WATCHDOG_MS: number = 120000;
 
   private static shouldRetry(method: HttpMethod, path: string): boolean {
     // GET is safe to repeat. Login has no business-side mutation, so it also
@@ -335,6 +338,85 @@ export class ApiClient {
         });
       } catch (error) {
         finishError(error instanceof Error ? error : new Error('上传请求失败'));
+      }
+    });
+  }
+
+  /**
+   * 流式下载一个可直接访问的 URL（如知识库签名下载地址）的完整字节。
+   * 走 requestInStream 以绕开 request 的响应体大小上限；URL 自带鉴权签名，
+   * 不注入后端令牌。传输失败、非 2xx 或超时都以 Error 拒绝。
+   */
+  public static downloadBinary(url: string): Promise<ArrayBuffer> {
+    return new Promise<ArrayBuffer>((resolve: (value: ArrayBuffer) => void, reject: (reason: Error) => void) => {
+      const httpRequest = http.createHttp();
+      const chunks: ArrayBuffer[] = [];
+      let settled: boolean = false;
+      let watchdogId: number = -1;
+
+      const finishError = (message: string): void => {
+        if (settled) { return; }
+        settled = true;
+        clearTimeout(watchdogId);
+        try {
+          httpRequest.destroy();
+        } catch (_error) {
+          // destroy 在回调或事件路径中可能已被 SDK 释放。
+        }
+        Logger.warn('[ApiClient]', `downloadBinary failed: ${message}`);
+        reject(new Error(message));
+      };
+      const finishOk = (): void => {
+        if (settled) { return; }
+        settled = true;
+        clearTimeout(watchdogId);
+        try {
+          httpRequest.destroy();
+        } catch (_error) {
+          // ignore
+        }
+        let total: number = 0;
+        chunks.forEach((chunk: ArrayBuffer): void => {
+          total += chunk.byteLength;
+        });
+        const merged: ArrayBuffer = new ArrayBuffer(total);
+        const view: Uint8Array = new Uint8Array(merged);
+        let offset: number = 0;
+        chunks.forEach((chunk: ArrayBuffer): void => {
+          view.set(new Uint8Array(chunk), offset);
+          offset += chunk.byteLength;
+        });
+        resolve(merged);
+      };
+
+      watchdogId = setTimeout((): void => {
+        finishError(`下载超时(${ApiClient.DOWNLOAD_WATCHDOG_MS}ms)`);
+      }, ApiClient.DOWNLOAD_WATCHDOG_MS);
+
+      httpRequest.on('dataReceive', (data: ArrayBuffer): void => {
+        chunks.push(data);
+      });
+      httpRequest.on('dataEnd', (): void => {
+        finishOk();
+      });
+
+      const options: http.HttpRequestOptions = {
+        method: http.RequestMethod.GET,
+        connectTimeout: ApiClient.DOWNLOAD_CONNECT_TIMEOUT_MS,
+        readTimeout: ApiClient.DOWNLOAD_READ_TIMEOUT_MS
+      };
+      try {
+        httpRequest.requestInStream(url, options, (err: BusinessError, responseCode: number) => {
+          if (err) {
+            finishError(err.message && err.message.length > 0 ? err.message : '网络请求失败');
+            return;
+          }
+          if (responseCode < 200 || responseCode >= 300) {
+            finishError(`下载失败(HTTP ${responseCode})`);
+          }
+        });
+      } catch (error) {
+        finishError(error instanceof Error ? error.message : '下载请求失败');
       }
     });
   }
