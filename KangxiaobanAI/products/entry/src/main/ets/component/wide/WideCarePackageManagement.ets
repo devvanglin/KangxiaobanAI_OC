@@ -20,7 +20,6 @@ export struct WideCarePackageManagement {
   @Param managementScroller: Scroller = new Scroller();
   @Local templates: CarePackageTemplate[] = [];
   @Local loading: boolean = false;
-  @Local error: string = '';
   @Local searchQuery: string = '';
   @Local showEditor: boolean = false;
   @Local editingId: number = 0;
@@ -45,16 +44,15 @@ export struct WideCarePackageManagement {
     }
     this.snackBar.show({}, { content: message }, {
       operationType: SnackBarOperationType.TEXT_ONLY, content: '知道了'
-    });
+    }, { duration: 5000 });
   }
 
   private async load(): Promise<void> {
-    this.loading = true; this.error = '';
-    try {
+    this.loading = true; try {
       const response = await ApiClient.get<PackagePage>('/care-package-templates?status=');
       if (response.code !== 0 || response.data === undefined) throw new Error(response.msg);
       this.templates = response.data.list ?? [];
-    } catch (_error) { this.error = '护理套餐加载失败'; }
+    } catch (_error) { this.notify('护理套餐加载失败'); }
     this.loading = false;
   }
 
@@ -96,7 +94,7 @@ export struct WideCarePackageManagement {
   }
 
   private async save(): Promise<void> {
-    if (this.code.trim() === '' || this.name.trim() === '') { this.error = '套餐编码和名称不能为空'; return; }
+    if (this.code.trim() === '' || this.name.trim() === '') { this.notify('套餐编码和名称不能为空'); return; }
     const level: number = this.careLevelIndex;
     const request: PackageSaveRequest = {
       code: this.code.trim(), name: this.name.trim(), description: this.description.trim(),
@@ -104,9 +102,8 @@ export struct WideCarePackageManagement {
       monthly_price: Number(this.price) || 0, status: 'active', currency: 'CNY'
     };
     const response = this.editingId > 0 ? await ApiClient.put<CarePackageTemplate>(`/care-package-templates/${this.editingId}`, request) : await ApiClient.post<CarePackageTemplate>('/care-package-templates', request);
-    if (response.code !== 0) { this.error = response.msg || '套餐保存失败'; return; }
+    if (response.code !== 0) { this.notify(response.msg || '套餐保存失败'); return; }
     this.showEditor = false;
-    this.error = '';
     await this.load();
     this.notify(this.editingId > 0 ? '套餐已保存' : '套餐已创建');
   }
@@ -114,17 +111,16 @@ export struct WideCarePackageManagement {
   private openItemCreate(template: CarePackageTemplate): void { this.itemTemplateId = template.id; this.itemTitle = ''; this.itemFrequency = ''; this.showItemCreate = true; }
 
   private async addItem(): Promise<void> {
-    if (this.itemTemplateId === 0 || this.itemTitle.trim() === '') { this.error = '护理项目名称不能为空'; return; }
+    if (this.itemTemplateId === 0 || this.itemTitle.trim() === '') { this.notify('护理项目名称不能为空'); return; }
     const request: PackageItemRequest = { title: this.itemTitle.trim(), frequency: this.itemFrequency.trim(), enabled: true };
     const response = await ApiClient.post<CarePackageItem>(`/care-package-templates/${this.itemTemplateId}/items`, request);
-    if (response.code !== 0) { this.error = response.msg || '护理项目保存失败'; return; }
+    if (response.code !== 0) { this.notify(response.msg || '护理项目保存失败'); return; }
     this.showItemCreate = false; this.itemTitle = ''; this.itemFrequency = '';
     await this.load();
     this.notify('护理项目已添加');
   }
 
   private openEditor(item?: CarePackageTemplate): void {
-    this.error = '';
     if (item !== undefined) {
       this.editingId = item.id;
       this.code = item.code;
@@ -157,7 +153,7 @@ export struct WideCarePackageManagement {
   private async removeItem(serviceItem: CarePackageItem): Promise<void> {
     if (this.detailTemplate === undefined) { return; }
     const response = await ApiClient.delete<Object>(`/care-package-templates/${this.detailTemplate.id}/items/${serviceItem.id}`);
-    if (response.code !== 0) { this.error = response.msg || '护理项目删除失败'; return; }
+    if (response.code !== 0) { this.notify(response.msg || '护理项目删除失败'); return; }
     await this.load();
     const refreshed: CarePackageTemplate | undefined = this.templates.find((template: CarePackageTemplate) => template.id === this.detailTemplate?.id);
     if (refreshed !== undefined) { this.detailTemplate = refreshed; }
@@ -319,7 +315,7 @@ export struct WideCarePackageManagement {
       Row({ space: 10 }) {
         Button('取消').layoutWeight(1).height(40).fontSize(14)
           .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))
-          .onClick(() => { this.showEditor = false; this.error = ''; })
+          .onClick(() => { this.showEditor = false; })
         Button('保存').layoutWeight(1).height(40).fontSize(14)
           .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
           .onClick(() => this.save())
@@ -341,9 +337,6 @@ export struct WideCarePackageManagement {
               .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
               .onClick(() => this.openEditor())
           }.width('100%').alignItems(VerticalAlign.Center)
-          if (this.error.length > 0) {
-            Text(this.error).fontSize(13).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
-          }
           if (this.loading) {
             LoadingProgress().width(34).height(34)
           }

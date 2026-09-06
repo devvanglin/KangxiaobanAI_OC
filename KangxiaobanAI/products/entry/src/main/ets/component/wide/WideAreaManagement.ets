@@ -58,7 +58,6 @@ export struct WideAreaManagement {
   @Local selectedAreaId: number = 0;
   @Local placingId: number = 0;
   @Local loading: boolean = false;
-  @Local error: string = '';
   @Local showFloorDialog: boolean = false;
   @Local showItemDialog: boolean = false;
   @Local showSizeDialog: boolean = false;
@@ -86,6 +85,15 @@ export struct WideAreaManagement {
 
   aboutToAppear(): void { this.loadCustomKinds(); this.load(); this.businessStore.load(); }
 
+
+  /** 页级提示统一走系统 Toast：白底、短暂显示后自动消失。 */
+  private showToast(message: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message: message, duration: 2000 });
+    } catch (_error) {
+      // Toast 展示失败时静默，不打断页面。
+    }
+  }
   /** 切换楼层后清空旧楼层的选中/放置状态并重绘平面图。 */
   @Monitor('selectedFloorId')
   onSelectedFloorChange(): void {
@@ -96,7 +104,6 @@ export struct WideAreaManagement {
 
   private async load(): Promise<void> {
     this.loading = true;
-    this.error = '';
     try {
       const response = await ApiClient.get<AreaPage>('/areas');
       if (response.code !== 0 || response.data === undefined) { throw new Error(response.msg); }
@@ -109,7 +116,7 @@ export struct WideAreaManagement {
         this.selectedAreaId = 0;
       }
       this.drawPlan();
-    } catch (_error) { this.error = '区域数据加载失败'; }
+    } catch (_error) { this.showToast('区域数据加载失败'); }
     this.loading = false;
   }
 
@@ -215,11 +222,11 @@ export struct WideAreaManagement {
         };
         try {
           const response = await ApiClient.post<Object>('/beds', request);
-          if (response.code !== 0) { this.error = response.msg || '床位创建失败'; return; }
+          if (response.code !== 0) { this.showToast(response.msg || '床位创建失败'); return; }
           created++;
-        } catch (_error) { this.error = '床位创建失败，请稍后重试'; return; }
+        } catch (_error) { this.showToast('床位创建失败，请稍后重试'); return; }
       }
-      if (created < target - current) { this.error = '床位创建失败'; return; }
+      if (created < target - current) { this.showToast('床位创建失败'); return; }
     } else {
       const need: number = current - target;
       // 优先删空闲床；不足时允许删占用床，后端会先解除长者绑定。
@@ -233,11 +240,10 @@ export struct WideAreaManagement {
       for (let i = 0; i < need; i++) {
         try {
           const response = await ApiClient.delete<Object>(`/beds/${removable[i].id}`);
-          if (response.code !== 0) { this.error = response.msg || '床位删除失败'; return; }
-        } catch (_error) { this.error = '床位删除失败，请稍后重试'; return; }
+          if (response.code !== 0) { this.showToast(response.msg || '床位删除失败'); return; }
+        } catch (_error) { this.showToast('床位删除失败，请稍后重试'); return; }
       }
     }
-    this.error = '';
     await this.businessStore.load(true);
     this.drawPlan();
   }
@@ -252,25 +258,25 @@ export struct WideAreaManagement {
     };
     try {
       const response = await ApiClient.put<AreaDto>(`/areas/${area.id}`, request);
-      if (response.code !== 0 || response.data === undefined) { this.error = response.msg || '区域保存失败'; return false; }
+      if (response.code !== 0 || response.data === undefined) { this.showToast(response.msg || '区域保存失败'); return false; }
       const saved: AreaDto = response.data;
       this.areas = this.areas.map((item: AreaDto) => item.id === saved.id ? saved : item);
       this.drawPlan();
       return true;
-    } catch (_error) { this.error = '区域保存失败，请稍后重试'; return false; }
+    } catch (_error) { this.showToast('区域保存失败，请稍后重试'); return false; }
   }
 
   private async deleteArea(area: AreaDto): Promise<void> {
     try {
       const response = await ApiClient.delete<Object>(`/areas/${area.id}`);
-      if (response.code !== 0) { this.error = response.msg || '区域删除失败'; return; }
+      if (response.code !== 0) { this.showToast(response.msg || '区域删除失败'); return; }
       this.selectedAreaId = 0;
       await this.load();
-    } catch (_error) { this.error = '区域删除失败'; }
+    } catch (_error) { this.showToast('区域删除失败'); }
   }
 
   private async createFloor(): Promise<void> {
-    if (this.dialogName.trim() === '' || this.dialogCode.trim() === '') { this.error = '楼层名称和编码不能为空'; return; }
+    if (this.dialogName.trim() === '' || this.dialogCode.trim() === '') { this.showToast('楼层名称和编码不能为空'); return; }
     const request: AreaSaveRequest = {
       type: 'floor', code: this.dialogCode.trim(), name: this.dialogName.trim(),
       building: this.dialogBuilding.trim(), floor_no: Number(this.dialogFloorNo) || 0,
@@ -278,11 +284,11 @@ export struct WideAreaManagement {
     };
     try {
       const response = await ApiClient.post<AreaDto>('/areas', request);
-      if (response.code !== 0 || response.data === undefined) { this.error = response.msg || '楼层创建失败'; return; }
+      if (response.code !== 0 || response.data === undefined) { this.showToast(response.msg || '楼层创建失败'); return; }
       this.showFloorDialog = false;
       this.selectedFloorId = response.data.id;
       await this.load();
-    } catch (_error) { this.error = '楼层创建失败'; }
+    } catch (_error) { this.showToast('楼层创建失败'); }
   }
 
   private openFloorEdit(floor: AreaDto): void {
@@ -297,7 +303,7 @@ export struct WideAreaManagement {
   private async updateFloor(): Promise<void> {
     const floor: AreaDto | undefined = this.selectedFloor();
     if (floor === undefined) { this.showFloorDialog = false; return; }
-    if (this.dialogName.trim() === '' || this.dialogCode.trim() === '') { this.error = '楼层名称和编码不能为空'; return; }
+    if (this.dialogName.trim() === '' || this.dialogCode.trim() === '') { this.showToast('楼层名称和编码不能为空'); return; }
     floor.name = this.dialogName.trim();
     floor.code = this.dialogCode.trim();
     floor.building = this.dialogBuilding.trim();
@@ -308,10 +314,10 @@ export struct WideAreaManagement {
 
   private async createPlacingItem(placeAfter: boolean): Promise<void> {
     const floor: AreaDto | undefined = this.selectedFloor();
-    if (floor === undefined) { this.error = '请先选择楼层'; return; }
+    if (floor === undefined) { this.showToast('请先选择楼层'); return; }
     const width: number = Math.max(1, Number(this.dialogWidth) || 1);
     const height: number = Math.max(1, Number(this.dialogHeight) || 1);
-    if (this.dialogName.trim() === '' || this.dialogCode.trim() === '') { this.error = '名称和编码不能为空'; return; }
+    if (this.dialogName.trim() === '' || this.dialogCode.trim() === '') { this.showToast('名称和编码不能为空'); return; }
     const request: AreaSaveRequest = {
       parent_id: floor.id, type: this.dialogKind, code: this.dialogCode.trim(), name: this.dialogName.trim(),
       building: floor.building ?? '', floor_no: floor.floor_no ?? 0, status: 'active',
@@ -319,13 +325,12 @@ export struct WideAreaManagement {
     };
     try {
       const response = await ApiClient.post<AreaDto>('/areas', request);
-      if (response.code !== 0 || response.data === undefined) { this.error = response.msg || '创建失败'; return; }
+      if (response.code !== 0 || response.data === undefined) { this.showToast(response.msg || '创建失败'); return; }
       this.showItemDialog = false;
       this.placingId = placeAfter ? response.data.id : 0;
       this.selectedAreaId = response.data.id;
       await this.load();
-      this.error = '';
-    } catch (_error) { this.error = '创建失败，请稍后重试'; }
+    } catch (_error) { this.showToast('创建失败，请稍后重试'); }
   }
 
   /** 打开区域编辑对话框：平面图选中项与未布置项共用。 */
@@ -344,7 +349,7 @@ export struct WideAreaManagement {
   private async updateItem(): Promise<void> {
     const area: AreaDto | undefined = this.areas.find((item: AreaDto) => item.id === this.itemEditId);
     if (area === undefined) { this.showItemDialog = false; return; }
-    if (this.dialogName.trim() === '' || this.dialogCode.trim() === '') { this.error = '名称和编码不能为空'; return; }
+    if (this.dialogName.trim() === '' || this.dialogCode.trim() === '') { this.showToast('名称和编码不能为空'); return; }
     area.name = this.dialogName.trim();
     area.code = this.dialogCode.trim();
     area.size_w = Math.min(Math.max(1, Number(this.dialogWidth) || 1), GRID_COLS - 1);
@@ -705,20 +710,19 @@ export struct WideAreaManagement {
   /** 新增区域类型：与内置同名的恢复内置按钮，其余作为自定义类型追加。 */
   private saveKind(): void {
     const name: string = this.kindDialogName.trim();
-    if (name === '') { this.error = '请输入区域名称'; return; }
-    if (name === '楼层') { this.error = '该名称已被楼层使用'; return; }
+    if (name === '') { this.showToast('请输入区域名称'); return; }
+    if (name === '楼层') { this.showToast('该名称已被楼层使用'); return; }
     const builtinByLabel: AreaKind[] = this.builtinAreaKinds().filter((kind: AreaKind) => kind.label === name);
     if (builtinByLabel.length > 0) {
       this.hiddenBuiltinKinds = this.hiddenBuiltinKinds.filter((value: string) => value !== builtinByLabel[0].value);
       this.customKinds = this.customKinds.filter((label: string) => label !== name);
     } else {
-      if (this.areaKinds().some((kind: AreaKind) => kind.label === name)) { this.error = '该区域类型已存在'; return; }
+      if (this.areaKinds().some((kind: AreaKind) => kind.label === name)) { this.showToast('该区域类型已存在'); return; }
       this.customKinds = this.customKinds.concat([name]);
     }
     this.persistCustomKinds();
     this.showKindDialog = false;
     this.kindDialogName = '';
-    this.error = '';
   }
 
   /** 移除类型按钮：内置类型仅从按钮行隐藏，已布置的区域记录不受影响。 */
@@ -732,7 +736,7 @@ export struct WideAreaManagement {
   }
 
   private openItemDialog(kind: string): void {
-    if (this.selectedFloorId === 0) { this.error = '请先选择或新增楼层'; return; }
+    if (this.selectedFloorId === 0) { this.showToast('请先选择或新增楼层'); return; }
     this.itemEditMode = false;
     this.itemEditId = 0;
     this.dialogKind = kind;
@@ -798,9 +802,6 @@ export struct WideAreaManagement {
   @Builder
   private selectedPanelCard() {
     Column({ space: 10 }) {
-      if (this.error.length > 0) {
-        Text(this.error).fontSize(14).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
-      }
       Row({ space: 8 }) {
         Text('已选中').fontSize(14).fontColor($r('sys.color.font_secondary'))
         Text(`${this.typeLabel(this.selectedArea()?.type ?? '')} · ${this.selectedArea()?.name ?? ''}`)
@@ -1001,9 +1002,6 @@ export struct WideAreaManagement {
       Scroll(this.managementScroller) {
         Column({ space: 16 }) {
           this.floorToolbarCard()
-          if (this.error.length > 0) {
-            Text(this.error).fontSize(13).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
-          }
           this.mapCard()
         }.width('100%').padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28,
           top: 88 + this.statusBarHeight, bottom: 24 + this.naviIndicatorHeight })

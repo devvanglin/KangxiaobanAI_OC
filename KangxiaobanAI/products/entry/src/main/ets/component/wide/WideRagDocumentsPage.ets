@@ -86,7 +86,6 @@ export struct WideRagDocumentsPage {
   @Local chunks: RagChunk[] = [];
   @Local chunksLoading: boolean = false;
   @Local busy: boolean = false;
-  @Local hint: string = '';
   @Local sortIndex: number = 0;
   @Local menuDocId: string = '';
   private scroller: Scroller = new Scroller();
@@ -234,19 +233,18 @@ export struct WideRagDocumentsPage {
   private async deleteDoc(docId: string): Promise<void> {
     if (this.busy) { return; }
     this.busy = true;
-    this.hint = '';
     try {
       const response = await this.proxy<Object>('DELETE',
         `datasets/${this.datasetId}/documents/${docId}`, '');
       if (response.code !== 0) {
-        this.hint = response.msg || '文档删除失败';
+        this.showToast(response.msg || '文档删除失败');
       } else {
         this.showToast('文档已删除');
         this.selectedIds = this.selectedIds.filter((item: string) => item !== docId);
         await this.loadDocs();
       }
     } catch (_error) {
-      this.hint = '文档删除失败，请检查网络';
+      this.showToast('文档删除失败，请检查网络');
     }
     this.busy = false;
   }
@@ -254,23 +252,22 @@ export struct WideRagDocumentsPage {
   private async downloadDoc(docId: string): Promise<void> {
     if (this.busy) { return; }
     this.busy = true;
-    this.hint = '';
     try {
       const response = await this.proxy<RagDownloadResponse>('GET',
         `datasets/${this.datasetId}/documents/${docId}/download`, '');
       if (response.code !== 0 || response.data === undefined) {
-        this.hint = response.msg || '下载链接获取失败';
+        this.showToast(response.msg || '下载链接获取失败');
       } else {
         const url: string = response.data.download_url ?? response.data.url ?? '';
         if (url.length === 0) {
-          this.hint = '该文档没有可下载的原始文件';
+          this.showToast('该文档没有可下载的原始文件');
         } else {
           this.showToast('正在获取原文件…');
           await this.downloadAndSave(url, this.docNameById(docId));
         }
       }
     } catch (_error) {
-      this.hint = '下载链接获取失败，请检查网络';
+      this.showToast('下载链接获取失败，请检查网络');
     }
     this.busy = false;
   }
@@ -287,7 +284,7 @@ export struct WideRagDocumentsPage {
     try {
       bytes = await ApiClient.downloadBinary(url);
     } catch (_error) {
-      this.hint = '原文件下载失败，请检查网络';
+      this.showToast('原文件下载失败，请检查网络');
       return;
     }
     try {
@@ -303,7 +300,7 @@ export struct WideRagDocumentsPage {
     } catch (error) {
       const err = error as BusinessError;
       if (err.code === 14000011) { return; }
-      this.hint = '文件保存失败';
+      this.showToast('文件保存失败');
     }
   }
 
@@ -320,37 +317,36 @@ export struct WideRagDocumentsPage {
       const response = await this.proxy<RagChunksResponse>('GET',
         `datasets/${this.datasetId}/documents/${docId}/segments`, 'page=1&limit=20');
       if (response.code !== 0 || response.data === undefined) {
-        this.hint = response.msg || '分段加载失败';
+        this.showToast(response.msg || '分段加载失败');
       } else {
         this.chunks = response.data.data ?? [];
       }
     } catch (_error) {
-      this.hint = '分段加载失败，请检查网络';
+      this.showToast('分段加载失败，请检查网络');
     }
     this.chunksLoading = false;
   }
 
   private async applyStatus(action: string): Promise<void> {
     if (this.selectedIds.length === 0) {
-      this.hint = '请先勾选文档';
+      this.showToast('请先勾选文档');
       return;
     }
     if (this.busy) { return; }
     this.busy = true;
-    this.hint = '';
     try {
       const payload: RagStatusBatchRequest = { document_ids: this.selectedIds };
       const response = await this.proxy<Object>('PATCH',
         `datasets/${this.datasetId}/documents/status/${action}`, '', payload);
       if (response.code !== 0) {
-        this.hint = response.msg || '批量操作失败';
+        this.showToast(response.msg || '批量操作失败');
       } else {
         this.showToast('批量操作已完成');
         this.selectedIds = [];
         await this.loadDocs();
       }
     } catch (_error) {
-      this.hint = '批量操作失败，请检查网络';
+      this.showToast('批量操作失败，请检查网络');
     }
     this.busy = false;
   }
@@ -590,10 +586,6 @@ export struct WideRagDocumentsPage {
                 .enabled(this.selectedIds.length > 0 && !this.busy)
                 .onClick(() => this.applyStatus('archive'))
             }.width('100%').visibility(this.selectedIds.length > 0 ? Visibility.Visible : Visibility.Hidden)
-
-            if (this.hint.length > 0) {
-              Text(this.hint).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
-            }
           }
           .width('100%')
           .constraintSize({ maxWidth: 1280 })

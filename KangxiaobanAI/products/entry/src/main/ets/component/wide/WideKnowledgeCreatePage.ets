@@ -145,7 +145,6 @@ export struct WideKnowledgeCreatePage {
   @Local scoreEnabled: boolean = false;
   @Local scoreThreshold: string = '0.5';
   @Local creating: boolean = false;
-  @Local createError: string = '';
   @Local progressPercent: number = 0;
   @Local progressStatus: string = '等待处理';
   @Local createdName: string = '';
@@ -183,6 +182,15 @@ export struct WideKnowledgeCreatePage {
     }
   }
 
+
+  /** 页级提示统一走系统 Toast：白底、短暂显示后自动消失。 */
+  private showToast(message: string): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message: message, duration: 2000 });
+    } catch (_error) {
+      // Toast 展示失败时静默，不打断页面。
+    }
+  }
   private async loadModels(modelType: string, isEmbedding: boolean): Promise<void> {
     try {
       const path: string = modelType === 'rerank' ? '/admin/ai/rag/rerank-models' : '/admin/ai/rag/embedding-models';
@@ -290,14 +298,13 @@ export struct WideKnowledgeCreatePage {
 
   private async saveAndProcess(): Promise<void> {
     if (this.creating) { return; }
-    if (this.kbName.trim().length === 0) { this.createError = '请填写知识库名称'; return; }
-    if (this.files.length === 0) { this.createError = '未选择文件'; return; }
+    if (this.kbName.trim().length === 0) { this.showToast('请填写知识库名称'); return; }
+    if (this.files.length === 0) { this.showToast('未选择文件'); return; }
     if (this.embeddingModel.length === 0 && this.indexingTechnique === 'high_quality') {
-      this.createError = '请选择 Embedding 模型';
+      this.showToast('请选择 Embedding 模型');
       return;
     }
     this.creating = true;
-    this.createError = '';
     try {
       const createPayload: CreateDatasetRequest = {
         name: this.kbName.trim(),
@@ -307,7 +314,7 @@ export struct WideKnowledgeCreatePage {
       };
       const createResp = await ApiClient.post<DatasetCreateResult>('/admin/ai/rag/datasets/create', createPayload);
       if (createResp.code !== 0 || createResp.data === undefined) {
-        this.createError = createResp.msg.length > 0 ? createResp.msg : '知识库创建失败';
+        this.showToast(createResp.msg.length > 0 ? createResp.msg : '知识库创建失败');
         this.creating = false;
         return;
       }
@@ -319,7 +326,7 @@ export struct WideKnowledgeCreatePage {
           `/admin/ai/rag/datasets/${this.createdDatasetId}/documents`,
           file.bytes, 'application/octet-stream', {}, file.name, uploadData);
         if (upResp.code !== 0) {
-          this.createError = upResp.msg.length > 0 ? upResp.msg : '文档上传失败';
+          this.showToast(upResp.msg.length > 0 ? upResp.msg : '文档上传失败');
           this.creating = false;
           return;
         }
@@ -331,7 +338,7 @@ export struct WideKnowledgeCreatePage {
       this.step = 'created';
       this.startProgressPolling();
     } catch (_error) {
-      this.createError = '创建失败，请检查网络';
+      this.showToast('创建失败，请检查网络');
     }
     this.creating = false;
   }
@@ -566,10 +573,6 @@ export struct WideKnowledgeCreatePage {
             TextInput({ text: $$this.scoreThreshold }).enabled(this.scoreEnabled).height(38).width(110)
           }.alignItems(VerticalAlign.Center)
         }.width('100%')
-      }
-
-      if (this.createError.length > 0) {
-        Text(this.createError).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
       }
       Row({ space: 12 }) {
         Button('← 上一步').height(40).fontSize(14)

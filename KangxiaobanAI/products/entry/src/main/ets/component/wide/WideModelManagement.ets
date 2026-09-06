@@ -80,10 +80,8 @@ export struct WideModelManagement {
   @Local editorTesting: boolean = false;
   @Local editorTestResults: ModelTestResult[] = [];
   @Local editorRagFetching: boolean = false;
-  @Local editorRagHint: string = '';
   @Local showFilePick: boolean = false;
   @Local pickedFiles: KBPickedFile[] = [];
-  @Local filePickHint: string = '';
   @Local showRetrieve: boolean = false;
   @Local retrieveDatasetId: string = '';
   @Local retrieveQuery: string = '';
@@ -96,11 +94,9 @@ export struct WideModelManagement {
   @Local kbSettingsDesc: string = '';
   @Local kbBusy: boolean = false;
   @Local kbConfirmDelete: boolean = false;
-  @Local kbHint: string = '';
   @Local showEditor: boolean = false;
   @Local editorFetched: ProviderModel[] = [];
   @Local editorFetching: boolean = false;
-  @Local editorFetchHint: string = '';
   @Local promptScenario: string = 'caregiver';
   @Local promptSearch: string = '';
   @Local selectedPromptKey: string = 'system-caregiver';
@@ -112,7 +108,6 @@ export struct WideModelManagement {
   @Local suggestionTitle: string = '';
   @Local suggestionContent: string = '';
   @Local suggestionEnabled: boolean = true;
-  @Local promptError: string = '';
   @Local sourceModels: ProviderModel[] = [];
   @Local sourceLoading: boolean = false;
   @Local sourceError: string = '';
@@ -122,7 +117,6 @@ export struct WideModelManagement {
   @Local modelStats: ModelUsageStat[] = [];
   @Local modelStatsLoaded: boolean = false;
   @Local saved: boolean = false;
-  @Local error: string = '';
   @Local usage: AIUsageSummary = { total_tokens: 0, today_calls: 0, avg_daily_calls: 0, rag_calls: 0 };
   @Local usageLoaded: boolean = false;
 
@@ -298,11 +292,10 @@ export struct WideModelManagement {
       this.editorFetched = [];
       this.editorSelectedModels = [];
       this.editorTestResults = [];
-      this.editorFetchHint = '请先填写模型服务 Base URL';
+      this.showToast('请先填写模型服务 Base URL');
       return;
     }
     this.editorFetching = true;
-    this.editorFetchHint = '';
     this.editorSelectedModels = [];
     this.editorTestResults = [];
     try {
@@ -312,14 +305,14 @@ export struct WideModelManagement {
       const response = await ApiClient.post<ProviderModel[]>('/admin/ai/llm/models', payload);
       if (response.code !== 0 || response.data === undefined) {
         this.editorFetched = [];
-        this.editorFetchHint = response.msg.length > 0 ? response.msg : '模型获取失败，请检查地址与密钥';
+        this.showToast(response.msg.length > 0 ? response.msg : '模型获取失败，请检查地址与密钥');
       } else {
         this.editorFetched = response.data;
-        if (response.data.length === 0) { this.editorFetchHint = '模型服务未返回任何模型'; }
+        if (response.data.length === 0) { this.showToast('模型服务未返回任何模型'); }
       }
     } catch (_error) {
       this.editorFetched = [];
-      this.editorFetchHint = '模型获取失败，请检查网络';
+      this.showToast('模型获取失败，请检查网络');
     }
     this.editorFetching = false;
   }
@@ -350,12 +343,11 @@ export struct WideModelManagement {
 
   private async testSelectedModels(): Promise<void> {
     if (this.editorSelectedModels.length === 0) {
-      this.editorFetchHint = '请先选择要测试的模型';
+      this.showToast('请先选择要测试的模型');
       return;
     }
     if (this.editorTesting) { return; }
     this.editorTesting = true;
-    this.editorFetchHint = '';
     try {
       const payload: AIModelProbeRequest = {
         base_url: this.connBaseUrl.trim(), api_key: this.connApiKey,
@@ -363,23 +355,22 @@ export struct WideModelManagement {
       };
       const response = await ApiClient.post<ModelTestResult[]>('/admin/ai/llm/test', payload);
       if (response.code !== 0 || response.data === undefined) {
-        this.editorFetchHint = response.msg.length > 0 ? response.msg : '模型测试失败';
+        this.showToast(response.msg.length > 0 ? response.msg : '模型测试失败');
       } else {
         this.editorTestResults = response.data;
       }
     } catch (_error) {
-      this.editorFetchHint = '模型测试失败，请检查网络';
+      this.showToast('模型测试失败，请检查网络');
     }
     this.editorTesting = false;
   }
 
   private async fetchEditorRag(): Promise<void> {
     if (this.connRagBaseUrl.trim().length === 0) {
-      this.editorRagHint = '请先填写 Dify RAG URL';
+      this.showToast('请先填写 Dify RAG URL');
       return;
     }
     this.editorRagFetching = true;
-    this.editorRagHint = '';
     try {
       const payload: AIRagProbeRequest = {
         base_url: this.connRagBaseUrl.trim(), api_key: this.connRagApiKey
@@ -387,14 +378,14 @@ export struct WideModelManagement {
       const response = await ApiClient.post<RAGDataset[]>('/admin/ai/rag/datasets', payload);
       if (response.code !== 0 || response.data === undefined) {
         this.ragDatasets = [];
-        this.editorRagHint = response.msg.length > 0 ? response.msg : '知识库获取失败，请检查地址与密钥';
+        this.showToast(response.msg.length > 0 ? response.msg : '知识库获取失败，请检查地址与密钥');
       } else {
         this.ragDatasets = response.data;
-        if (response.data.length === 0) { this.editorRagHint = 'Dify 服务未返回任何知识库'; }
+        if (response.data.length === 0) { this.showToast('Dify 服务未返回任何知识库'); }
       }
     } catch (_error) {
       this.ragDatasets = [];
-      this.editorRagHint = '知识库获取失败，请检查网络';
+      this.showToast('知识库获取失败，请检查网络');
     }
     this.editorRagFetching = false;
   }
@@ -428,8 +419,7 @@ export struct WideModelManagement {
       enabled: true
     };
     const response = await ApiClient.put<AIConnectionView>('/admin/ai/connection', payload);
-    if (response.code !== 0) { this.error = response.msg || 'AI 连接保存失败'; return; }
-    this.error = '';
+    if (response.code !== 0) { this.showToast(response.msg || 'AI 连接保存失败'); return; }
     this.saved = true;
     this.showEditor = false;
     this.connApiKey = '';
@@ -453,16 +443,12 @@ export struct WideModelManagement {
     };
     const response = await ApiClient.put<AIConnectionView>('/admin/ai/connection', payload);
     if (response.code !== 0) { this.showToast(response.msg.length > 0 ? response.msg : '知识库切换失败'); return; }
-    this.error = '';
     await this.loadConnection();
   }
 
   private openEditor(): void {
-    this.error = '';
     this.saved = false;
     this.editorFetched = [];
-    this.editorFetchHint = '';
-    this.editorRagHint = '';
     this.editorRagFetching = false;
     this.editorSelectedModels = [];
     this.editorTestResults = [];
@@ -532,29 +518,27 @@ export struct WideModelManagement {
     this.kbSettingsName = name;
     this.kbSettingsDesc = description;
     this.kbConfirmDelete = false;
-    this.kbHint = '';
     this.showKBSettings = true;
   }
 
   private async saveKBSettings(): Promise<void> {
     if (this.kbBusy) { return; }
-    if (this.kbSettingsName.trim().length === 0) { this.kbHint = '名称必填'; return; }
+    if (this.kbSettingsName.trim().length === 0) { this.showToast('名称必填'); return; }
     this.kbBusy = true;
-    this.kbHint = '';
     try {
       const payload: RagKBUpdateRequest = {
         name: this.kbSettingsName.trim(), description: this.kbSettingsDesc.trim()
       };
       const response = await this.ragProxy<Object>('PATCH', `datasets/${this.kbSettingsId}`, '', payload);
       if (response.code !== 0) {
-        this.kbHint = response.msg || '知识库更新失败';
+        this.showToast(response.msg || '知识库更新失败');
       } else {
         this.showToast('知识库已更新');
         this.showKBSettings = false;
         await this.loadRagDatasets();
       }
     } catch (_error) {
-      this.kbHint = '知识库更新失败，请检查网络';
+      this.showToast('知识库更新失败，请检查网络');
     }
     this.kbBusy = false;
   }
@@ -562,7 +546,7 @@ export struct WideModelManagement {
   private async deleteKB(): Promise<void> {
     if (!this.kbConfirmDelete) {
       this.kbConfirmDelete = true;
-      this.kbHint = '再次点击「删除知识库」确认，删除后不可恢复';
+      this.showToast('再次点击「删除知识库」确认，删除后不可恢复');
       return;
     }
     if (this.kbBusy) { return; }
@@ -570,7 +554,7 @@ export struct WideModelManagement {
     try {
       const response = await this.ragProxy<Object>('DELETE', `datasets/${this.kbSettingsId}`, '');
       if (response.code !== 0) {
-        this.kbHint = response.msg || '知识库删除失败';
+        this.showToast(response.msg || '知识库删除失败');
         this.kbBusy = false;
         return;
       }
@@ -579,20 +563,19 @@ export struct WideModelManagement {
       this.kbBusy = false;
       await this.loadRagDatasets();
     } catch (_error) {
-      this.kbHint = '知识库删除失败，请检查网络';
+      this.showToast('知识库删除失败，请检查网络');
       this.kbBusy = false;
     }
   }
 
   private openFilePickDialog(): void {
     this.pickedFiles = [];
-    this.filePickHint = '';
     this.showFilePick = true;
   }
 
   private async pickKBFile(): Promise<void> {
     if (this.pickedFiles.length >= WideModelManagement.KB_MAX_FILES) {
-      this.filePickHint = '每批最多 5 个文件';
+      this.showToast('每批最多 5 个文件');
       return;
     }
     try {
@@ -605,28 +588,27 @@ export struct WideModelManagement {
       const lowerName: string = name.toLowerCase();
       const extOk: boolean = WideModelManagement.KB_EXTENSIONS.some((ext: string) => lowerName.endsWith('.' + ext));
       if (!extOk) {
-        this.filePickHint = '不支持的文件类型，已支持 PDF / DOCX / TXT / MD / CSV / XLSX 等';
+        this.showToast('不支持的文件类型，已支持 PDF / DOCX / TXT / MD / CSV / XLSX 等');
         return;
       }
       const file = fs.openSync(uri, fs.OpenMode.READ_ONLY);
       const size: number = fs.statSync(file.fd).size;
       if (size > WideModelManagement.KB_MAX_BYTES) {
         fs.closeSync(file);
-        this.filePickHint = '文件超过 15MB 上限';
+        this.showToast('文件超过 15MB 上限');
         return;
       }
       const buf: ArrayBuffer = new ArrayBuffer(size);
       fs.readSync(file.fd, buf);
       fs.closeSync(file);
       if (this.pickedFiles.some((item: KBPickedFile) => item.name === name)) {
-        this.filePickHint = '该文件已添加';
+        this.showToast('该文件已添加');
         return;
       }
       const pickedFile: KBPickedFile = { name: name, size: size, bytes: buf };
       this.pickedFiles = this.pickedFiles.concat(pickedFile);
-      this.filePickHint = '';
     } catch (_error) {
-      this.filePickHint = '文件选择失败';
+      this.showToast('文件选择失败');
     }
   }
 
@@ -640,7 +622,7 @@ export struct WideModelManagement {
 
   private goCreateKnowledge(): void {
     if (this.pickedFiles.length === 0) {
-      this.filePickHint = '请先选择文件';
+      this.showToast('请先选择文件');
       return;
     }
     this.showFilePick = false;
@@ -713,7 +695,6 @@ export struct WideModelManagement {
 
   private selectPromptEntry(key: string): void {
     this.selectedPromptKey = key;
-    this.promptError = '';
     if (key.startsWith('system-')) {
       const config: AIModelConfig | undefined = this.defaultConfigOfRole(key.slice(7));
       this.promptText = config !== undefined ? config.system_prompt : '';
@@ -752,7 +733,7 @@ export struct WideModelManagement {
       const role: string = this.selectedPromptKey.slice(7);
       const config: AIModelConfig | undefined = this.defaultConfigOfRole(role);
       const modelId: string = this.promptModel.trim();
-      if (modelId.length === 0) { this.promptError = '请先绑定模型'; return; }
+      if (modelId.length === 0) { this.showToast('请先绑定模型'); return; }
       const temperature: number = Number(this.promptTemp);
       const contextWindow: number = Math.round(Number(this.promptContext));
       const basePayload: AIConfigRequest = {
@@ -767,7 +748,7 @@ export struct WideModelManagement {
       };
       if (config === undefined || config.id === undefined) {
         const created = await ApiClient.post<AIModelConfig>('/admin/ai/configs', basePayload);
-        if (created.code !== 0) { this.promptError = created.msg || '提示词保存失败'; return; }
+        if (created.code !== 0) { this.showToast(created.msg || '提示词保存失败'); return; }
       } else {
         const payload: AIConfigRequest = {
           role_scope: config.role_scope, name: config.name, provider: config.provider, base_url: config.base_url,
@@ -778,9 +759,8 @@ export struct WideModelManagement {
           enabled: config.enabled, allowed: config.allowed, is_default: config.is_default
         };
         const response = await ApiClient.put<AIModelConfig>(`/admin/ai/configs/${config.id}`, payload);
-        if (response.code !== 0) { this.promptError = response.msg || '提示词保存失败'; return; }
+        if (response.code !== 0) { this.showToast(response.msg || '提示词保存失败'); return; }
       }
-      this.promptError = '';
       await this.load();
       this.loadModelStats();
       this.showToast('已保存');
@@ -788,14 +768,14 @@ export struct WideModelManagement {
     }
     const title: string = this.suggestionTitle.trim();
     const content: string = this.suggestionContent.trim();
-    if (title.length === 0 || content.length === 0) { this.promptError = '标题与内容必填'; return; }
+    if (title.length === 0 || content.length === 0) { this.showToast('标题与内容必填'); return; }
     if (this.selectedPromptKey.startsWith('new-')) {
       const payload: AdminPromptRequest = {
         role_scope: this.promptScenario, title: title, prompt: content, enabled: this.suggestionEnabled
       };
       const created = await ApiClient.post<AdminPromptSuggestion>('/admin/ai/prompts', payload);
       if (created.code !== 0 || created.data === undefined) {
-        this.promptError = created.msg || '提示词创建失败';
+        this.showToast(created.msg || '提示词创建失败');
         return;
       }
       await this.loadPromptSuggestions();
@@ -808,7 +788,7 @@ export struct WideModelManagement {
       role_scope: this.promptScenario, title: title, prompt: content, enabled: this.suggestionEnabled
     };
     const response = await ApiClient.put<AdminPromptSuggestion>(`/admin/ai/prompts/${id}`, payload);
-    if (response.code !== 0) { this.promptError = response.msg || '提示词保存失败'; return; }
+    if (response.code !== 0) { this.showToast(response.msg || '提示词保存失败'); return; }
     await this.loadPromptSuggestions();
     this.showToast('已保存');
   }
@@ -855,7 +835,7 @@ export struct WideModelManagement {
     if (!this.selectedPromptKey.startsWith('sug-')) { return; }
     const id: number = Number(this.selectedPromptKey.slice(4));
     const response = await ApiClient.delete<Object>(`/admin/ai/prompts/${id}`);
-    if (response.code !== 0) { this.promptError = response.msg || '提示词删除失败'; return; }
+    if (response.code !== 0) { this.showToast(response.msg || '提示词删除失败'); return; }
     await this.loadPromptSuggestions();
     this.selectPromptEntry(`system-${this.promptScenario}`);
   }
@@ -1155,9 +1135,6 @@ export struct WideModelManagement {
               .onClick(() => this.deleteSelectedSuggestion())
           }
         }
-        if (this.promptError.length > 0) {
-          Text(this.promptError).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
-        }
       }.layoutWeight(1)
       .padding(16)
       .backgroundColor($r('sys.color.comp_background_primary'))
@@ -1307,10 +1284,6 @@ export struct WideModelManagement {
       TextInput({ text: $$this.kbSettingsName }).height(40).fontSize(13)
       this.promptEditorField('描述')
       TextArea({ text: $$this.kbSettingsDesc, placeholder: '知识库描述...' }).height(90).fontSize(13)
-      if (this.kbHint.length > 0) {
-        Text(this.kbHint).fontSize(12).fontColor(this.kbConfirmDelete ?
-          $r('app.color.doctor_workspace_danger') : $r('sys.color.font_secondary')).width('100%')
-      }
       Row({ space: 10 }) {
         Button(this.kbConfirmDelete ? '确认删除' : '删除知识库').height(40)
           .fontColor(this.kbConfirmDelete ? Color.White : $r('app.color.doctor_workspace_danger'))
@@ -1357,8 +1330,6 @@ export struct WideModelManagement {
           }
           if (this.editorFetching) {
             Text('正在获取模型…').fontSize(12).fontColor($r('sys.color.font_secondary')).width('100%')
-          } else if (this.editorFetchHint.length > 0) {
-            Text(this.editorFetchHint).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
           }
           if (this.editorFetched.length > 0) {
             Row({ space: 10 }) {
@@ -1416,8 +1387,6 @@ export struct WideModelManagement {
             .onClick(() => this.fetchEditorRag())
           if (this.editorRagFetching) {
             Text('正在获取知识库…').fontSize(12).fontColor($r('sys.color.font_secondary')).width('100%')
-          } else if (this.editorRagHint.length > 0) {
-            Text(this.editorRagHint).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
           }
           if (this.ragDatasets.length > 0) {
             Scroll() {
@@ -1439,13 +1408,10 @@ export struct WideModelManagement {
             .fontSize(12).fontColor($r('sys.color.font_tertiary'))
         }.width('100%')
       }.scrollBar(BarState.Off).constraintSize({ maxHeight: 420 }).width('100%')
-      if (this.error.length > 0) {
-        Text(this.error).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
-      }
       Row({ space: 10 }) {
         Button('取消').layoutWeight(1).height(40)
           .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))
-          .onClick(() => { this.showEditor = false; this.error = ''; })
+          .onClick(() => { this.showEditor = false; })
         Button(this.saved ? '已保存' : '保存连接').layoutWeight(1).height(40).fontSize(13)
           .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
           .onClick(() => this.saveConnection())
@@ -1516,9 +1482,6 @@ export struct WideModelManagement {
                 .borderRadius(8).border({ width: 0.5, color: $r('sys.color.comp_divider') })
                 .backgroundColor($r('sys.color.comp_background_primary'))
             }, (item: KBPickedFile) => `picked-${item.name}`)
-            if (this.filePickHint.length > 0) {
-              Text(this.filePickHint).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
-            }
             Row({ space: 10 }) {
               Button('取消').layoutWeight(1).height(40)
                 .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))

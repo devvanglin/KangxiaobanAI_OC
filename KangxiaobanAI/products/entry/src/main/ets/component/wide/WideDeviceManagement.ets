@@ -52,7 +52,7 @@ export struct WideDeviceManagement {
     }
     this.snackBar.show({}, { content: message }, {
       operationType: SnackBarOperationType.TEXT_ONLY, content: '知道了'
-    });
+    }, { duration: 5000 });
   }
   @Local searchQuery: string = '';
   @Local typeFilter: string = '全部';
