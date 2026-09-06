@@ -1,6 +1,6 @@
 import ApiClient, { HttpMethod } from '../../network/ApiClient';
 import pasteboard from '@ohos.pasteboard';
-import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { hdsMaterial, HdsNavDestination, HdsNavDestinationTitleMode, ScrollEffectType, TitleBarStyleOptions } from '@kit.UIDesignKit';
 import { ApiResp } from '../../network/Dto';
 
 export class RagDocsPageParam {
@@ -107,6 +107,19 @@ export struct WideRagDocumentsPage {
       this.docs = [];
     }
     this.docsLoading = false;
+  }
+
+  private titleBarStyle(): TitleBarStyleOptions {
+    return {
+      systemMaterialEffect: {
+        materialType: hdsMaterial.MaterialType.IMMERSIVE,
+        materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+      },
+      scrollEffectOpts: {
+        enableScrollEffect: true,
+        scrollEffectType: ScrollEffectType.GRADIENT_BLUR
+      }
+    };
   }
 
   private docStatusText(item: RagDocument): string {
@@ -310,8 +323,8 @@ export struct WideRagDocumentsPage {
 
   build() {
     HdsNavDestination() {
-      Stack({ alignContent: Alignment.TopStart }) {
-        Scroll(this.scroller) {
+      Scroll(this.scroller) {
+        Row() {
           Column({ space: 12 }) {
             Row({ space: 10 }) {
               Search({ value: $$this.keyword, placeholder: '搜索文档名称...' })
@@ -368,18 +381,29 @@ export struct WideRagDocumentsPage {
           }
           .width('100%')
           .constraintSize({ maxWidth: 1280 })
-          .padding({ left: 28, right: 28, top: this.statusBarHeight + 16, bottom: 24 + this.naviIndicatorHeight })
-          .alignItems(HorizontalAlign.Center)
+          .padding({ left: 28, right: 28, top: 12, bottom: 40 + this.naviIndicatorHeight })
+          .alignItems(HorizontalAlign.Start)
         }
         .width('100%')
-        .height('100%')
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.Spring)
-        .align(Alignment.TopStart)
+        .justifyContent(FlexAlign.Center)
       }
       .width('100%')
       .height('100%')
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
     }
+    .hideBackButton(false)
     .titleMode(HdsNavDestinationTitleMode.MINI)
+    .titleBar({
+      avoidLayoutSafeArea: true,
+      content: { title: { mainTitle: this.datasetName } },
+      style: this.titleBarStyle()
+    })
+    .bindToScrollable([this.scroller])
+    .backgroundColor($r('sys.color.background_secondary'))
+    .ignoreLayoutSafeArea(
+      [LayoutSafeAreaType.SYSTEM],
+      [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM]
+    )
   }
 }

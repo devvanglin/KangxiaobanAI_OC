@@ -524,10 +524,10 @@ export struct WideModelManagement {
     this.retrieveBusy = false;
   }
 
-  private openKBSettings(datasetId: string, name: string): void {
+  private openKBSettings(datasetId: string, name: string, description: string): void {
     this.kbSettingsId = datasetId;
     this.kbSettingsName = name;
-    this.kbSettingsDesc = '';
+    this.kbSettingsDesc = description;
     this.kbConfirmDelete = false;
     this.kbHint = '';
     this.showKBSettings = true;
@@ -1194,7 +1194,7 @@ export struct WideModelManagement {
       Row({ space: 14 }) {
         this.cardLink('管理文档', () => this.openRagDocs(item.id, item.name))
         this.cardLink('测试检索', () => this.openRetrieve(item.id))
-        this.cardLink('设置', () => this.openKBSettings(item.id, item.name))
+        this.cardLink('设置', () => this.openKBSettings(item.id, item.name, item.description ?? ''))
       }.width('100%')
     }.width('100%')
     .padding(16)

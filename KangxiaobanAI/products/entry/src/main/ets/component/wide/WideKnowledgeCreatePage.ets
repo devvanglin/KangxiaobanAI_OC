@@ -1,5 +1,5 @@
 import ApiClient from '../../network/ApiClient';
-import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { hdsMaterial, HdsNavDestination, HdsNavDestinationTitleMode, ScrollEffectType, TitleBarStyleOptions } from '@kit.UIDesignKit';
 
 export class KBFileParam {
   name: string;
@@ -153,6 +153,19 @@ export struct WideKnowledgeCreatePage {
   private createdBatch: string = '';
   private progressTimer: number = -1;
   private scroller: Scroller = new Scroller();
+
+  private titleBarStyle(): TitleBarStyleOptions {
+    return {
+      systemMaterialEffect: {
+        materialType: hdsMaterial.MaterialType.IMMERSIVE,
+        materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+      },
+      scrollEffectOpts: {
+        enableScrollEffect: true,
+        scrollEffectType: ScrollEffectType.GRADIENT_BLUR
+      }
+    };
+  }
 
   aboutToAppear(): void {
     if (this.files.length > 0) {
@@ -617,22 +630,25 @@ export struct WideKnowledgeCreatePage {
     HdsNavDestination() {
       Stack({ alignContent: Alignment.TopStart }) {
         Scroll(this.scroller) {
-          Column({ space: 16 }) {
-            this.stepBar()
-            if (this.step === 'config') {
-              this.configContent()
-            } else {
-              this.createdContent()
+          Row() {
+            Column({ space: 16 }) {
+              this.stepBar()
+              if (this.step === 'config') {
+                this.configContent()
+              } else {
+                this.createdContent()
+              }
             }
+            .width('100%')
+            .constraintSize({ maxWidth: 1280 })
+            .padding({
+              left: 28, right: 28,
+              top: 12,
+              bottom: 40 + this.naviIndicatorHeight
+            })
+            .alignItems(HorizontalAlign.Start)
           }
           .width('100%')
-          .constraintSize({ maxWidth: 1280 })
-          .padding({
-            left: 28, right: 28,
-            top: this.statusBarHeight + 16,
-            bottom: 24 + this.naviIndicatorHeight
-          })
-          .alignItems(HorizontalAlign.Center)
         }
         .width('100%')
         .height('100%')
@@ -643,6 +659,18 @@ export struct WideKnowledgeCreatePage {
       .width('100%')
       .height('100%')
     }
+    .hideBackButton(false)
     .titleMode(HdsNavDestinationTitleMode.MINI)
+    .titleBar({
+      avoidLayoutSafeArea: true,
+      content: { title: { mainTitle: '知识库' } },
+      style: this.titleBarStyle()
+    })
+    .bindToScrollable([this.scroller])
+    .backgroundColor($r('sys.color.background_secondary'))
+    .ignoreLayoutSafeArea(
+      [LayoutSafeAreaType.SYSTEM],
+      [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM]
+    )
   }
 }
