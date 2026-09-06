@@ -403,12 +403,12 @@ export struct WideRagDocumentsPage {
           .fontSize(14).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
           .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
       }.layoutWeight(1).alignItems(VerticalAlign.Center)
-      Text(this.docFormLabel(item)).width(120).fontSize(12).fontColor($r('sys.color.font_secondary'))
+      Text(this.docFormLabel(item)).width(120).fontSize(12).fontColor($r('sys.color.font_primary'))
         .padding({ left: 9, right: 9, top: 4, bottom: 4 }).borderRadius(8)
         .backgroundColor($r('sys.color.comp_background_secondary'))
-      Text(this.formatCount(item.word_count)).width(90).fontSize(13).fontColor($r('sys.color.font_secondary'))
-      Text(this.formatCount(item.hit_count)).width(90).fontSize(13).fontColor($r('sys.color.font_secondary'))
-      Text(this.documentTime(item)).width(160).fontSize(13).fontColor($r('sys.color.font_secondary'))
+      Text(this.formatCount(item.word_count)).width(90).fontSize(13).fontColor($r('sys.color.font_primary'))
+      Text(this.formatCount(item.hit_count)).width(90).fontSize(13).fontColor($r('sys.color.font_primary'))
+      Text(this.documentTime(item)).width(160).fontSize(13).fontColor($r('sys.color.font_primary'))
       Row({ space: 7 }) {
         Row().width(7).height(7).borderRadius(4).backgroundColor(this.docStatusText(item) === '可用' ? '#19B76A' :
           this.docStatusText(item) === '失败' ? '#EA2261' : '#B9C0C9')
@@ -539,31 +539,23 @@ export struct WideRagDocumentsPage {
                   .onClick(() => this.loadDocs())
               }.width('100%').padding({ top: 20, bottom: 20 })
             } else {
-              List({ space: 0 }) {
-                ListItem() {
-                  Row() {
-                    Checkbox().width(30)
-                    Text('#').width(34).fontSize(12).fontColor($r('sys.color.font_tertiary'))
-                    Text('名称').layoutWeight(1).fontSize(12).fontColor($r('sys.color.font_tertiary'))
-                    Text('分段模式').width(120).fontSize(12).fontColor($r('sys.color.font_tertiary'))
-                    Text('字符数').width(90).fontSize(12).fontColor($r('sys.color.font_tertiary'))
-                    Text('召回次数 ↓').width(90).fontSize(12).fontColor($r('sys.color.font_tertiary'))
-                    Text('上传时间 ↓').width(160).fontSize(12).fontColor($r('sys.color.font_tertiary'))
-                    Text('状态').width(90).fontSize(12).fontColor($r('sys.color.font_tertiary'))
-                    Text('操作').width(80).fontSize(12).fontColor($r('sys.color.font_tertiary'))
-                  }.width('100%').height(42).padding({ left: 12, right: 8 }).alignItems(VerticalAlign.Center)
-                }
+              Column({ space: 0 }) {
+                Row() {
+                  Checkbox().width(30)
+                  Text('#').width(34).fontSize(12).fontColor($r('sys.color.font_secondary'))
+                  Text('名称').layoutWeight(1).fontSize(12).fontColor($r('sys.color.font_secondary'))
+                  Text('分段模式').width(120).fontSize(12).fontColor($r('sys.color.font_secondary'))
+                    .padding({ left: 9 })
+                  Text('字符数').width(90).fontSize(12).fontColor($r('sys.color.font_secondary'))
+                  Text('召回次数 ↓').width(90).fontSize(12).fontColor($r('sys.color.font_secondary'))
+                  Text('上传时间 ↓').width(160).fontSize(12).fontColor($r('sys.color.font_secondary'))
+                  Text('状态').width(90).fontSize(12).fontColor($r('sys.color.font_secondary'))
+                  Text('操作').width(88).fontSize(12).fontColor($r('sys.color.font_secondary'))
+                }.width('100%').height(42).padding({ left: 12, right: 8 }).alignItems(VerticalAlign.Center)
                 ForEach(this.visibleDocs(), (item: RagDocument, index: number) => {
-                  ListItem() {
-                    Column({ space: 0 }) {
-                      this.docRow(item, index)
-                    }.width('100%')
-                  }
+                  this.docRow(item, index)
                 }, (item: RagDocument) => `doc-${item.id}`)
-              }
-              .width('100%')
-              .scrollBar(BarState.Off)
-              .edgeEffect(EdgeEffect.None)
+              }.width('100%')
             }
 
             if (this.selectedIds.length > 0) {
