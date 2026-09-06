@@ -87,9 +87,7 @@ export struct WideRagDocumentsPage {
   @Local chunksLoading: boolean = false;
   @Local busy: boolean = false;
   @Local hint: string = '';
-  @Local categoryIndex: number = 0;
   @Local sortIndex: number = 0;
-  @Local sortDescending: boolean = true;
   @Local menuDocId: string = '';
   private scroller: Scroller = new Scroller();
 
@@ -152,21 +150,15 @@ export struct WideRagDocumentsPage {
     return '#B45309';
   }
 
-  private categoryOptions(): string[] {
-    return ['全部', '可用', '解析中', '失败', '已归档'];
+  private docStatusDotColor(item: RagDocument): ResourceColor {
+    const status: string = this.docStatusText(item);
+    if (status === '可用') { return $r('app.color.status_normal'); }
+    if (status === '失败') { return $r('app.color.status_danger'); }
+    return $r('app.color.doctor_workspace_text_tertiary');
   }
 
   private sortOptions(): string[] {
     return ['上传时间', '字符数', '召回次数'];
-  }
-
-  private matchesCategory(item: RagDocument): boolean {
-    const category: string = this.categoryOptions()[this.categoryIndex] ?? '全部';
-    if (category === '全部') { return true; }
-    if (category === '可用') { return item.enabled !== false && item.archived !== true && item.indexing_status === 'completed'; }
-    if (category === '解析中') { return item.indexing_status !== 'completed' && item.indexing_status !== 'error' && item.archived !== true; }
-    if (category === '失败') { return item.indexing_status === 'error'; }
-    return item.archived === true;
   }
 
   private documentTime(item: RagDocument): string {
@@ -196,9 +188,9 @@ export struct WideRagDocumentsPage {
     const query: string = this.keyword.trim().toLowerCase();
     const result: RagDocument[] = this.docs.filter((item: RagDocument): boolean => {
       const name: string = (item.name ?? '').toLowerCase();
-      return this.matchesCategory(item) && (query.length === 0 || name.indexOf(query) >= 0);
+      return query.length === 0 || name.indexOf(query) >= 0;
     });
-    const direction: number = this.sortDescending ? -1 : 1;
+    const direction: number = -1;
     result.sort((left: RagDocument, right: RagDocument): number => {
       const option: string = this.sortOptions()[this.sortIndex] ?? '上传时间';
       if (option === '字符数') {
@@ -221,6 +213,26 @@ export struct WideRagDocumentsPage {
       this.selectedIds = this.selectedIds.filter((item: string) => item !== id);
     } else {
       this.selectedIds = this.selectedIds.concat(id);
+    }
+  }
+
+  private allSelected(): boolean {
+    const docs: RagDocument[] = this.visibleDocs();
+    return docs.length > 0 && docs.every((item: RagDocument): boolean => this.isSelected(item.id ?? ''));
+  }
+
+  private toggleSelectAll(selected: boolean): void {
+    const ids: string[] = this.visibleDocs()
+      .map((item: RagDocument): string => item.id ?? '')
+      .filter((id: string) => id.length > 0);
+    if (selected) {
+      const merged: string[] = this.selectedIds.slice();
+      ids.forEach((id: string) => {
+        if (merged.indexOf(id) < 0) { merged.push(id); }
+      });
+      this.selectedIds = merged;
+    } else {
+      this.selectedIds = this.selectedIds.filter((id: string) => ids.indexOf(id) < 0);
     }
   }
 
@@ -377,139 +389,131 @@ export struct WideRagDocumentsPage {
       .fontSize(11).fontColor(this.docStatusColor(item))
       .padding({ left: 8, right: 8, top: 3, bottom: 3 })
       .borderRadius(10).backgroundColor(item.indexing_status === 'completed' && item.enabled !== false && item.archived !== true ?
-        '#ECFDF5' : $r('sys.color.comp_background_secondary'))
+        $r('app.color.status_normal_bg') : $r('app.color.doctor_workspace_surface_hover'))
   }
 
   @Builder
-  private docRow(item: RagDocument, index: number) {
-    Row() {
-      Checkbox({ name: item.id ?? '' }).select(this.isSelected(item.id ?? ''))
-        .selectedColor($r('app.color.brand_blue'))
-        .width(30)
-        .onChange((value: boolean) => {
-          if (value) {
-            this.toggleSelected(item.id ?? '');
-          } else {
-            this.selectedIds = this.selectedIds.filter((id: string) => id !== (item.id ?? ''));
-          }
-        })
-      Text(`${index + 1}`).width(34).fontSize(13).fontColor($r('sys.color.font_secondary'))
-      Row({ space: 8 }) {
-        Stack({ alignContent: Alignment.Center }) {
-          Row().width(22).height(22).borderRadius(4).backgroundColor('#2296DD')
-          Text('M').fontSize(11).fontWeight(FontWeight.Bold).fontColor(Color.White)
-        }.width(22).height(22)
-        Text(item.name ?? '未命名文档')
-          .fontSize(14).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
-          .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-      }.layoutWeight(1).alignItems(VerticalAlign.Center)
-      Text(this.docFormLabel(item)).width(120).fontSize(12).fontColor($r('sys.color.font_primary'))
-        .padding({ left: 9, right: 9, top: 4, bottom: 4 }).borderRadius(8)
-        .backgroundColor($r('sys.color.comp_background_secondary'))
-      Text(this.formatCount(item.word_count)).width(90).fontSize(13).fontColor($r('sys.color.font_primary'))
-      Text(this.formatCount(item.hit_count)).width(90).fontSize(13).fontColor($r('sys.color.font_primary'))
-      Text(this.documentTime(item)).width(160).fontSize(13).fontColor($r('sys.color.font_primary'))
-      Row({ space: 7 }) {
-        Row().width(7).height(7).borderRadius(4).backgroundColor(this.docStatusText(item) === '可用' ? '#19B76A' :
-          this.docStatusText(item) === '失败' ? '#EA2261' : '#B9C0C9')
-        this.docStatusBadge(item)
-      }.width(90).alignItems(VerticalAlign.Center)
-      Toggle({ type: ToggleType.Switch, isOn: item.enabled !== false && item.archived !== true })
-        .selectedColor($r('app.color.brand_blue'))
-        .width(42)
-        .onChange((value: boolean) => {
-          if ((item.enabled !== false && item.archived !== true) !== value) {
-            this.toggleEnabled(item);
-          }
-        })
-      Button({ type: ButtonType.Circle, stateEffect: true }) {
-        Text('⋮').fontSize(20).fontColor($r('sys.color.font_secondary'))
-      }
-        .width(38).height(38).padding(0).backgroundColor(Color.Transparent)
-        .accessibilityText(`${item.name ?? '文档'}更多操作`)
-        .onClick(() => this.menuDocId = item.id ?? '')
-        .bindMenu(this.documentMenu, { placement: Placement.BottomRight, enableArrow: true })
-    }
-      .width('100%').height(66).padding({ left: 12, right: 8 })
-      .alignItems(VerticalAlign.Center)
-      .backgroundColor(Color.White)
-      .border({ width: { bottom: 0.5 }, color: { bottom: '#EDF0F2' } })
+  private docStatusDot(item: RagDocument) {
+    Row({ space: 6 }) {
+      Row().width(7).height(7).borderRadius(4).backgroundColor(this.docStatusDotColor(item))
+      this.docStatusBadge(item)
+    }.alignItems(VerticalAlign.Center)
+  }
 
-    if (this.expandedDocId === item.id) {
-      Column({ space: 6 }) {
-        if (this.chunksLoading) {
-          Text('正在加载分段…').fontSize(12).fontColor($r('sys.color.font_secondary')).width('100%')
-        } else if (this.chunks.length === 0) {
-          Text('该文档暂无分段').fontSize(12).fontColor($r('sys.color.font_secondary')).width('100%')
-        } else {
-          ForEach(this.chunks, (chunk: RagChunk, chunkIndex: number) => {
-            Column({ space: 2 }) {
-              Text(`#${chunkIndex + 1} · ${chunk.status ?? ''} · ${chunk.word_count ?? 0} 字符`)
-                .fontSize(11).fontColor($r('sys.color.font_tertiary'))
-              Text(chunk.content ?? '').fontSize(12).fontColor($r('sys.color.font_primary'))
-                .maxLines(3).textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
-            }.width('100%').alignItems(HorizontalAlign.Start).padding(8).borderRadius(6)
-              .backgroundColor($r('sys.color.comp_background_secondary'))
-          }, (chunk: RagChunk, chunkIndex: number) => `chunk-${chunk.id ?? chunkIndex}`)
+  @Builder
+  private docFormTag(item: RagDocument) {
+    Text(this.docFormLabel(item))
+      .fontSize(11).fontColor($r('app.color.doctor_workspace_text_secondary'))
+      .padding({ left: 7, right: 7, top: 2, bottom: 2 })
+      .borderRadius(6).backgroundColor($r('app.color.doctor_workspace_surface_hover'))
+  }
+
+  @Builder
+  private docCard(item: RagDocument, index: number) {
+    Column({ space: 12 }) {
+      Row({ space: 12 }) {
+        Checkbox({ name: item.id ?? '' }).select(this.isSelected(item.id ?? ''))
+          .selectedColor($r('app.color.brand_blue'))
+          .width(28)
+          .onChange((value: boolean) => {
+            if (value) {
+              this.toggleSelected(item.id ?? '');
+            } else {
+              this.selectedIds = this.selectedIds.filter((id: string) => id !== (item.id ?? ''));
+            }
+          })
+        Stack({ alignContent: Alignment.Center }) {
+          Row().width(32).height(32).borderRadius(7).backgroundColor($r('app.color.brand_blue'))
+          Text('M').fontSize(12).fontWeight(FontWeight.Bold).fontColor($r('app.color.text_on_brand'))
+        }.width(32).height(32)
+        Column({ space: 7 }) {
+          Text(item.name ?? '未命名文档')
+            .fontSize(15).fontWeight(FontWeight.Medium).fontColor($r('app.color.doctor_workspace_text_primary'))
+            .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
+          Row({ space: 8 }) {
+            Text(`#${index + 1}`).fontSize(12).fontColor($r('app.color.doctor_workspace_text_tertiary'))
+            this.docFormTag(item)
+            Text(`${this.formatCount(item.word_count)} 字符`)
+              .fontSize(12).fontColor($r('app.color.doctor_workspace_text_secondary'))
+            Text(`召回 ${this.formatCount(item.hit_count)} 次`)
+              .fontSize(12).fontColor($r('app.color.doctor_workspace_text_secondary'))
+            Text(this.documentTime(item))
+              .fontSize(12).fontColor($r('app.color.doctor_workspace_text_secondary'))
+              .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+          }.width('100%').alignItems(VerticalAlign.Center)
+        }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+        this.docStatusDot(item)
+        Toggle({ type: ToggleType.Switch, isOn: item.enabled !== false && item.archived !== true })
+          .selectedColor($r('app.color.brand_blue'))
+          .width(42)
+          .onChange((value: boolean) => {
+            if ((item.enabled !== false && item.archived !== true) !== value) {
+              this.toggleEnabled(item);
+            }
+          })
+        Button({ type: ButtonType.Circle, stateEffect: true }) {
+          Text('⋮').fontSize(18).fontColor($r('app.color.doctor_workspace_text_secondary'))
         }
-      }.width('100%').padding({ left: 64, right: 20, top: 8, bottom: 12 })
-        .backgroundColor('#FAFBFC').alignItems(HorizontalAlign.Start)
+          .width(32).height(32).padding(0).backgroundColor(Color.Transparent)
+          .accessibilityText(`${item.name ?? '文档'}更多操作`)
+          .onClick(() => this.menuDocId = item.id ?? '')
+          .bindMenu(this.documentMenu, { placement: Placement.BottomRight, enableArrow: true })
+      }.width('100%').alignItems(VerticalAlign.Center)
+
+      if (this.expandedDocId === item.id) {
+        Divider().strokeWidth(0.5).color($r('app.color.doctor_workspace_border_soft')).width('100%')
+        Column({ space: 6 }) {
+          if (this.chunksLoading) {
+            Text('正在加载分段…').fontSize(12).fontColor($r('app.color.doctor_workspace_text_secondary')).width('100%')
+          } else if (this.chunks.length === 0) {
+            Text('该文档暂无分段').fontSize(12).fontColor($r('app.color.doctor_workspace_text_secondary')).width('100%')
+          } else {
+            ForEach(this.chunks, (chunk: RagChunk, chunkIndex: number) => {
+              Column({ space: 2 }) {
+                Text(`#${chunkIndex + 1} · ${chunk.status ?? ''} · ${chunk.word_count ?? 0} 字符`)
+                  .fontSize(11).fontColor($r('app.color.doctor_workspace_text_tertiary'))
+                Text(chunk.content ?? '').fontSize(12).fontColor($r('app.color.doctor_workspace_text_primary'))
+                  .maxLines(3).textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
+              }.width('100%').alignItems(HorizontalAlign.Start).padding(8).borderRadius(6)
+                .backgroundColor($r('sys.color.comp_background_secondary'))
+            }, (chunk: RagChunk, chunkIndex: number) => `chunk-${chunk.id ?? chunkIndex}`)
+          }
+        }.width('100%').alignItems(HorizontalAlign.Start)
+      }
     }
+    .width('100%')
+    .padding(14)
+    .borderRadius(12)
+    .backgroundColor($r('app.color.doctor_workspace_surface'))
+    .border({ width: 0.5, color: $r('app.color.doctor_workspace_border_soft') })
   }
 
   @Builder
   private documentMenu() {
     Menu() {
-      MenuItem({ content: '查看分段' }).onClick(() => this.toggleChunks(this.menuDocId))
+      MenuItem({
+        content: this.expandedDocId.length > 0 && this.expandedDocId === this.menuDocId ? '隐藏分段' : '查看分段'
+      }).onClick(() => this.toggleChunks(this.menuDocId))
       MenuItem({ content: '下载原文件' }).onClick(() => this.downloadDoc(this.menuDocId))
       MenuItem({ content: '删除文档' }).contentFontColor($r('app.color.doctor_workspace_danger'))
         .onClick(() => this.deleteDoc(this.menuDocId))
     }.width(170).radius(12)
   }
 
-  @Builder
-  private actionLink(label: string, onTap: () => void, danger: boolean = false) {
-    Text(label)
-      .fontSize(13)
-      .fontColor(danger ? $r('app.color.doctor_workspace_danger') : $r('app.color.brand_blue'))
-      .onClick(() => onTap())
-  }
-
   build() {
     HdsNavDestination() {
       Scroll(this.scroller) {
-        Row() {
+        Column() {
           Column({ space: 12 }) {
-            Row({ space: 8 }) {
-              Text('知识库的所有文件都在这里显示，整个知识库可以链接到 Dify 引用或通过 Chat 插件进行索引。')
-                .fontSize(14).fontColor($r('sys.color.font_secondary')).layoutWeight(1)
-              Text('了解更多').fontSize(14).fontColor($r('app.color.brand_blue'))
-                .onClick(() => this.showToast('文档来源与索引能力由 Dify 知识库提供'))
-            }.width('100%').alignItems(VerticalAlign.Center)
-
             Row({ space: 10 }) {
-              Stack({ alignContent: Alignment.Center }) {
-                Select(this.categoryOptions().map((item: string): SelectOption => ({ value: item } as SelectOption)))
-                  .selected(this.categoryIndex).value(this.categoryOptions()[this.categoryIndex] ?? '全部')
-                  .font({ size: 14 }).height(44).width(228).backgroundColor(Color.White)
-                  .border({ width: 0.5, color: '#E4E7EB' }).borderRadius(10)
-                  .onSelect((index: number) => this.categoryIndex = index)
-                Text('×').fontSize(18).fontColor('#A5AAB2').position({ top: 0, right: 14 })
-                  .onClick(() => this.categoryIndex = 0)
-              }.width(228).height(44)
               Search({ value: $$this.keyword, placeholder: '搜索' })
-                .height(44).width(286).backgroundColor('#F4F6F8').borderRadius(10)
+                .height(44).width(286).backgroundColor($r('app.color.doctor_workspace_surface_hover')).borderRadius(10)
                 .onChange((value: string) => this.keyword = value)
-              Divider().vertical(true).height(24).strokeWidth(1).color('#E5E7EB')
+              Divider().vertical(true).height(24).strokeWidth(1).color($r('app.color.doctor_workspace_border_soft'))
               Select(this.sortOptions().map((item: string): SelectOption => ({ value: `排序：${item}` } as SelectOption)))
                 .selected(this.sortIndex).value(`排序：${this.sortOptions()[this.sortIndex] ?? '上传时间'}`)
-                .font({ size: 14 }).height(44).width(190).backgroundColor('#F4F6F8').borderRadius(10)
+                .font({ size: 14 }).height(44).width(190).backgroundColor($r('app.color.doctor_workspace_surface_hover')).borderRadius(10)
                 .onSelect((index: number) => this.sortIndex = index)
-              Button({ type: ButtonType.Normal, stateEffect: true }) {
-                Text(this.sortDescending ? '↓' : '↑').fontSize(20).fontColor($r('sys.color.font_primary'))
-              }.width(46).height(44).padding(0).borderRadius(10).backgroundColor('#F4F6F8')
-                .accessibilityText(this.sortDescending ? '降序排列' : '升序排列')
-                .onClick(() => this.sortDescending = !this.sortDescending)
               Blank()
               Button({ type: ButtonType.Normal, stateEffect: true }) {
                 Row({ space: 6 }) {
@@ -517,7 +521,8 @@ export struct WideRagDocumentsPage {
                   Text('元数据').fontSize(14).fontColor($r('sys.color.font_primary'))
                 }
               }.height(44).padding({ left: 15, right: 15 }).borderRadius(10)
-                .backgroundColor(Color.White).border({ width: 0.5, color: '#E4E7EB' })
+                .backgroundColor($r('app.color.doctor_workspace_surface'))
+                .border({ width: 0.5, color: $r('app.color.doctor_workspace_border') })
                 .onClick(() => this.showToast('元数据编辑请返回知识库设置'))
               Button({ type: ButtonType.Normal, stateEffect: true }) {
                 Row({ space: 6 }) {
@@ -539,40 +544,45 @@ export struct WideRagDocumentsPage {
                   .onClick(() => this.loadDocs())
               }.width('100%').padding({ top: 20, bottom: 20 })
             } else {
-              Column({ space: 0 }) {
-                Row() {
-                  Checkbox().width(30)
-                  Text('#').width(34).fontSize(12).fontColor($r('sys.color.font_secondary'))
-                  Text('名称').layoutWeight(1).fontSize(12).fontColor($r('sys.color.font_secondary'))
-                  Text('分段模式').width(120).fontSize(12).fontColor($r('sys.color.font_secondary'))
-                    .padding({ left: 9 })
-                  Text('字符数').width(90).fontSize(12).fontColor($r('sys.color.font_secondary'))
-                  Text('召回次数 ↓').width(90).fontSize(12).fontColor($r('sys.color.font_secondary'))
-                  Text('上传时间 ↓').width(160).fontSize(12).fontColor($r('sys.color.font_secondary'))
-                  Text('状态').width(90).fontSize(12).fontColor($r('sys.color.font_secondary'))
-                  Text('操作').width(88).fontSize(12).fontColor($r('sys.color.font_secondary'))
-                }.width('100%').height(42).padding({ left: 12, right: 8 }).alignItems(VerticalAlign.Center)
+              Column({ space: 12 }) {
+                Row({ space: 8 }) {
+                  Checkbox({ name: 'rag-docs-select-all' }).select(this.allSelected())
+                    .selectedColor($r('app.color.brand_blue'))
+                    .width(28)
+                    .onChange((value: boolean) => {
+                      if (value !== this.allSelected()) {
+                        this.toggleSelectAll(value);
+                      }
+                    })
+                  Text('全选').fontSize(13).fontColor($r('app.color.doctor_workspace_text_secondary'))
+                  Blank()
+                  Text(`共 ${this.visibleDocs().length} 个文档`)
+                    .fontSize(12).fontColor($r('app.color.doctor_workspace_text_tertiary'))
+                }.width('100%').alignItems(VerticalAlign.Center)
                 ForEach(this.visibleDocs(), (item: RagDocument, index: number) => {
-                  this.docRow(item, index)
+                  this.docCard(item, index)
                 }, (item: RagDocument) => `doc-${item.id}`)
               }.width('100%')
             }
 
             if (this.selectedIds.length > 0) {
               Text(`已勾选 ${this.selectedIds.length} 个`).fontSize(12)
-                .fontColor($r('sys.color.font_secondary'))
+                .fontColor($r('app.color.doctor_workspace_text_secondary'))
             }
             Row({ space: 10 }) {
               Button('批量启用').height(36).fontSize(12.5).borderRadius(8)
-                .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
+                .fontColor($r('app.color.doctor_workspace_text_primary'))
+                .backgroundColor($r('app.color.doctor_workspace_surface_hover'))
                 .enabled(this.selectedIds.length > 0 && !this.busy)
                 .onClick(() => this.applyStatus('enable'))
               Button('批量禁用').height(36).fontSize(12.5).borderRadius(8)
-                .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
+                .fontColor($r('app.color.doctor_workspace_text_primary'))
+                .backgroundColor($r('app.color.doctor_workspace_surface_hover'))
                 .enabled(this.selectedIds.length > 0 && !this.busy)
                 .onClick(() => this.applyStatus('disable'))
               Button('归档').height(36).fontSize(12.5).borderRadius(8)
-                .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
+                .fontColor($r('app.color.doctor_workspace_text_primary'))
+                .backgroundColor($r('app.color.doctor_workspace_surface_hover'))
                 .enabled(this.selectedIds.length > 0 && !this.busy)
                 .onClick(() => this.applyStatus('archive'))
             }.width('100%').visibility(this.selectedIds.length > 0 ? Visibility.Visible : Visibility.Hidden)
@@ -582,7 +592,7 @@ export struct WideRagDocumentsPage {
             }
           }
           .width('100%')
-          .constraintSize({ minWidth: 1060, maxWidth: 1280 })
+          .constraintSize({ maxWidth: 1280 })
           .padding({
             left: 24,
             right: 24,
@@ -592,6 +602,7 @@ export struct WideRagDocumentsPage {
           .alignItems(HorizontalAlign.Start)
         }
         .width('100%')
+        .alignItems(HorizontalAlign.Center)
       }
       .width('100%')
       .height('100%')
@@ -603,11 +614,11 @@ export struct WideRagDocumentsPage {
     .titleMode(HdsNavDestinationTitleMode.MINI)
     .titleBar({
       avoidLayoutSafeArea: true,
-      content: { title: { mainTitle: '文档' } },
+      content: { title: { mainTitle: this.datasetName.length > 0 ? this.datasetName : '文档' } },
       style: this.titleBarStyle()
     })
     .bindToScrollable([this.scroller])
-    .backgroundColor($r('sys.color.background_secondary'))
+    .backgroundColor($r('app.color.doctor_workspace_background'))
     .ignoreLayoutSafeArea(
       [LayoutSafeAreaType.SYSTEM],
       [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM]
