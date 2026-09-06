@@ -333,8 +333,7 @@ export struct WideCarePackageManagement {
       Scroll(this.managementScroller) {
         Column({ space: 16 }) {
           Row({ space: 12 }) {
-            Text('护理套餐').fontSize(this.compactWidth ? 24 : 28).fontWeight(FontWeight.Bold)
-              .fontColor($r('sys.color.font_primary')).layoutWeight(1)
+            Blank()
             Search({ value: this.searchQuery, placeholder: '搜索套餐名称' })
               .width(this.compactWidth ? '100%' : 260).height(38)
               .onChange((value: string) => this.searchQuery = value)

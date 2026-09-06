@@ -4,7 +4,10 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"os"
 	"time"
+
+	"github.com/gin-gonic/gin"
 
 	"kangxiaoban-service/internal/config"
 	"kangxiaoban-service/internal/database"
@@ -12,11 +15,23 @@ import (
 	"kangxiaoban-service/internal/repository"
 	"kangxiaoban-service/internal/router"
 	"kangxiaoban-service/internal/service"
+	"kangxiaoban-service/internal/system"
 	"kangxiaoban-service/internal/ws"
 )
 
 func main() {
 	cfg := config.Load()
+
+	// 监控页部署信息真实化：版本取构建注入值（可被 KXB_APP_VERSION 覆盖）；
+	// 部署模式优先取 KXB_DEPLOY_MODE 显式值（production/dev/demo），否则跟随 Gin 运行模式。
+	if value := os.Getenv("KXB_APP_VERSION"); value != "" {
+		system.AppVersion = value
+	}
+	if value := os.Getenv("KXB_DEPLOY_MODE"); value != "" {
+		system.SetDeployMode(value)
+	} else {
+		system.SetDeployMode(gin.Mode())
+	}
 
 	db, err := database.Connect(&cfg.Database)
 	if err != nil {

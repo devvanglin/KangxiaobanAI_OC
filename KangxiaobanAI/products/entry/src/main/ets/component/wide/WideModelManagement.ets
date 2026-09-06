@@ -391,8 +391,7 @@ export struct WideModelManagement {
       Scroll(this.managementScroller) {
         Column({ space: 16 }) {
           Row({ space: 12 }) {
-            Text('大模型管理').fontSize(this.compactWidth ? 24 : 28).fontWeight(FontWeight.Bold)
-              .fontColor($r('sys.color.font_primary')).layoutWeight(1)
+            Blank()
             Button('新增模型').height(38).fontSize(13).borderRadius(8)
               .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
               .onClick(() => this.openEditor())

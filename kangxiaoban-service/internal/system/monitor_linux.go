@@ -140,6 +140,14 @@ func processMemory() uint64 {
 }
 
 func readNetworkCounters() (map[string]networkCounter, bool) {
+	if counters, ok := readNetworkCountersFromProc(); ok {
+		return counters, true
+	}
+	// 容器内 /proc/net/dev 不可读时，回退到 sysfs 统计文件，避免监控直接失明。
+	return readNetworkCountersFromSysfs()
+}
+
+func readNetworkCountersFromProc() (map[string]networkCounter, bool) {
 	file, err := os.Open("/proc/net/dev")
 	if err != nil {
 		return nil, false
@@ -169,4 +177,34 @@ func readNetworkCounters() (map[string]networkCounter, bool) {
 		counters[name] = networkCounter{receiveBytes: receive, transmitBytes: transmit}
 	}
 	return counters, len(counters) > 0
+}
+
+// readNetworkCountersFromSysfs 遍历 /sys/class/net/<iface>/statistics 读取收发字节。
+func readNetworkCountersFromSysfs() (map[string]networkCounter, bool) {
+	entries, err := os.ReadDir("/sys/class/net")
+	if err != nil {
+		return nil, false
+	}
+	counters := map[string]networkCounter{}
+	for _, entry := range entries {
+		name := entry.Name()
+		if name == "lo" {
+			continue
+		}
+		receive, receiveErr := readUintFile("/sys/class/net/" + name + "/statistics/rx_bytes")
+		transmit, transmitErr := readUintFile("/sys/class/net/" + name + "/statistics/tx_bytes")
+		if receiveErr != nil || transmitErr != nil {
+			continue
+		}
+		counters[name] = networkCounter{receiveBytes: receive, transmitBytes: transmit}
+	}
+	return counters, len(counters) > 0
+}
+
+func readUintFile(path string) (uint64, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0, err
+	}
+	return strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
 }

@@ -160,6 +160,8 @@ export struct WideServerMonitor {
   @Local serverStartedAt: string = '';
   @Local serverUptime: string = '--';
   @Local serverGoroutines: number = 0;
+  @Local serverUptimeSeconds: number = 0;
+  @Local tickCounter: number = 0;
   @Local serverAppVersion: string = '--';
   @Local serverDeployMode: string = '';
   @Local disks: SystemDiskStat[] = [];
@@ -177,16 +179,24 @@ export struct WideServerMonitor {
   @Local infoCardMinHeight: number = 0;
   private networkContext: CanvasRenderingContext2D = new CanvasRenderingContext2D(new RenderingContextSettings(true));
   private refreshTimer: number = -1;
+  private displayTimerId: number = -1;
+  private lastSyncMillis: number = 0;
 
   aboutToAppear(): void {
     this.loadMonitor();
     this.refreshTimer = setInterval(() => this.loadMonitor(true), 10000);
+    // 每秒驱动一次展示层，让运行时长本地实时递增。
+    this.displayTimerId = setInterval(() => { this.tickCounter += 1; }, 1000);
   }
 
   aboutToDisappear(): void {
     if (this.refreshTimer !== -1) {
       clearInterval(this.refreshTimer);
       this.refreshTimer = -1;
+    }
+    if (this.displayTimerId !== -1) {
+      clearInterval(this.displayTimerId);
+      this.displayTimerId = -1;
     }
   }
 
@@ -224,6 +234,8 @@ export struct WideServerMonitor {
       this.serverGoVersion = response.data.server.go_version;
       this.serverStartedAt = response.data.server.started_at;
       this.serverUptime = response.data.server.uptime_text;
+      this.serverUptimeSeconds = response.data.server.uptime_seconds;
+      this.lastSyncMillis = Date.now();
       this.serverGoroutines = response.data.server.goroutines;
       this.serverAppVersion = response.data.server.app_version ?? '--';
       this.serverDeployMode = response.data.server.deploy_mode ?? '';
@@ -263,12 +275,42 @@ export struct WideServerMonitor {
     this.networkSampleVersion += 1;
   }
 
-  /** 部署模式展示名：production=生产环境，dev=开发环境，其余原样显示。 */
+  /** 部署模式展示名：production=生产环境，demo=演示模式，dev=开发环境，其余原样显示。 */
   private deployModeLabel(): string {
     const mode: string = this.serverDeployMode;
     if (mode === 'production' || mode === 'prod') { return '生产环境'; }
+    if (mode === 'demo') { return '演示模式'; }
     if (mode === 'dev' || mode === 'development') { return '开发环境'; }
     return mode.length > 0 ? mode : '--';
+  }
+
+  /** 运行时长 = 最近一次采样的 uptime + 本地流逝秒数，每秒重算。 */
+  private liveUptimeRow(): string {
+    const _tick: number = this.tickCounter;
+    const elapsed: number = this.serverUptimeSeconds + Math.max(0, (Date.now() - this.lastSyncMillis) / 1000);
+    const total: number = Math.floor(elapsed);
+    const days: number = Math.floor(total / 86400);
+    const hours: number = Math.floor(total % 86400 / 3600);
+    const minutes: number = Math.floor(total % 3600 / 60);
+    const seconds: number = total % 60;
+    if (days > 0) { return `${days}天${hours}小时${minutes}分钟`; }
+    return `${hours}小时${minutes}分钟${seconds}秒`;
+  }
+
+  /** 启动时间展示完整本地日期时间（后端为 RFC3339 带时区）。 */
+  private formatFullTime(value: string): string {
+    const moment: Date = new Date(value);
+    if (Number.isNaN(moment.getTime())) { return '--'; }
+    const pad = (input: number): string => input.toString().padStart(2, '0');
+    return `${moment.getFullYear()}-${pad(moment.getMonth() + 1)}-${pad(moment.getDate())} ` +
+      `${pad(moment.getHours())}:${pad(moment.getMinutes())}:${pad(moment.getSeconds())}`;
+  }
+
+  /** 当前设备年月，用于总览中的当前时间展示。 */
+  private currentMonthLabel(): string {
+    const _tick: number = this.tickCounter;
+    const now: Date = new Date();
+    return `${now.getFullYear()}年${now.getMonth() + 1}月`;
   }
 
   private formatTime(value: string): string {
@@ -487,11 +529,12 @@ export struct WideServerMonitor {
           Text('运行时信息').fontSize(13).fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary')).width('100%').height(30)
           ServerMetricRow({ label: 'Go 版本', value: this.currentServer().go_version })
-          ServerMetricRow({ label: '启动时间', value: this.formatTime(this.currentServer().started_at) })
-          ServerMetricRow({ label: '运行时长', value: this.currentServer().uptime_text })
+          ServerMetricRow({ label: '启动时间', value: this.formatFullTime(this.currentServer().started_at) })
+          ServerMetricRow({ label: '运行时长', value: this.liveUptimeRow() })
           ServerMetricRow({ label: 'Goroutine 数', value: this.currentServer().goroutines.toString() })
           ServerMetricRow({ label: '应用版本', value: this.serverAppVersion })
-          ServerMetricRow({ label: '部署模式', value: this.deployModeLabel(), showBottomDivider: false })
+          ServerMetricRow({ label: '部署模式', value: this.deployModeLabel() })
+          ServerMetricRow({ label: '当前时间', value: this.currentMonthLabel(), showBottomDivider: false })
         }.width('100%').alignItems(HorizontalAlign.Start)
       }.width('100%').padding({ left: 12, right: 12, bottom: 6 })
     }.width('100%').borderRadius(8)
@@ -531,7 +574,7 @@ export struct WideServerMonitor {
       }.width('100%').padding({ left: 14, right: 14, top: 12, bottom: 4 })
         .alignItems(VerticalAlign.Center)
       Canvas(this.networkContext)
-        .width('100%').height(250)
+        .width('100%').height(266)
         .padding({ left: 14, right: 14, bottom: 4 })
         .onAreaChange(() => this.drawNetworkChart())
         .onReady(() => this.drawNetworkChart())

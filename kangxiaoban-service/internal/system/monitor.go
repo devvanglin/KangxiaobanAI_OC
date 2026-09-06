@@ -11,6 +11,24 @@ import (
 
 var processStartedAt = time.Now()
 
+// AppVersion 由构建时 -ldflags -X 注入（默认 dev），也可由 KXB_APP_VERSION 覆盖。
+var AppVersion = "dev"
+
+// deployMode 由启动时 SetDeployMode 注入，反映 Gin 实际运行模式或显式覆盖值。
+var deployMode = "dev"
+
+// SetDeployMode 记录当前部署模式：release → production，demo → 演示模式，其余 → dev。
+func SetDeployMode(mode string) {
+	switch mode {
+	case "release", "production":
+		deployMode = "production"
+	case "demo":
+		deployMode = "demo"
+	default:
+		deployMode = "dev"
+	}
+}
+
 // DiskStat describes one visible filesystem mount.
 type DiskStat struct {
 	Mount       string  `json:"mount"`
@@ -51,6 +69,8 @@ type ServerInfo struct {
 	UptimeSeconds int64  `json:"uptime_seconds"`
 	UptimeText    string `json:"uptime_text"`
 	Goroutines    int    `json:"goroutines"`
+	AppVersion    string `json:"app_version"`
+	DeployMode    string `json:"deploy_mode"`
 }
 
 type Snapshot struct {
@@ -109,6 +129,8 @@ func Collect() Snapshot {
 		StartedAt:     processStartedAt.Format(time.RFC3339),
 		UptimeSeconds: int64(now.Sub(processStartedAt).Seconds()),
 		Goroutines:    runtime.NumGoroutine(),
+		AppVersion:    AppVersion,
+		DeployMode:    deployMode,
 	}
 	info.UptimeText = formatUptime(info.UptimeSeconds)
 	return Snapshot{CollectedAt: now.Format(time.RFC3339), CPU: collectCPU(), Memory: collectMemory(), Server: info, Disks: collectDisks(), Network: collectNetwork()}

@@ -9,7 +9,12 @@ services:
     ports:
       - "80:8080"
     environment:
+      GIN_MODE: "release"
       KXB_SERVER_PORT: "8080"
+      KXB_APP_VERSION: "${KXB_APP_VERSION:-1.0.0}"
+      # 部署模式展示：服务器 .env 设 KXB_DEPLOY_MODE=demo 即显示"演示模式"；
+      # 版本号由构建时注入二进制，需覆盖时在这里加 KXB_APP_VERSION。
+      KXB_DEPLOY_MODE: "${KXB_DEPLOY_MODE:-production}"
       KXB_DB_DRIVER: "sqlite"
       KXB_DB_SQLITE_PATH: "/data/kangxiaoban.db"
       # Keep private admission photos beside the persistent database volume;
