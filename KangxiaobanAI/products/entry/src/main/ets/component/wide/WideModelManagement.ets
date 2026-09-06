@@ -385,32 +385,16 @@ export struct WideModelManagement {
 
   @Builder
   private statTag($$: StatTagParam) {
-    Column({ space: 2 }) {
-      Text($$.label).fontSize(11).fontColor($r('sys.color.font_secondary'))
-      Text($$.value).fontSize(15).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+    Column({ space: 4 }) {
+      Text($$.label).fontSize(13).fontColor($r('sys.color.font_secondary'))
+      Text($$.value).fontSize(22).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
         .maxLines(1)
     }.alignItems(HorizontalAlign.Center)
-      .constraintSize({ minWidth: 90 })
-      .padding({ left: 14, right: 14, top: 8, bottom: 8 })
+      .layoutWeight(1)
+      .padding({ top: 16, bottom: 16 })
       .backgroundColor($r('sys.color.comp_background_primary'))
-      .borderRadius(6)
+      .borderRadius(10)
       .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-  }
-
-  @Builder
-  private pageHeader() {
-    Row({ space: 12 }) {
-      Column({ space: 3 }) {
-        Text('大模型平台').fontSize(22).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
-        Text('AI 能力配置与管理中心').fontSize(13).fontColor($r('sys.color.font_secondary'))
-      }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-      Row({ space: 10 }) {
-        this.statTag({ label: '已接入', value: this.sourceModels.length.toString() })
-        this.statTag({ label: '启用中', value: this.configs.filter((item: AIModelConfig) => item.enabled).length.toString() })
-        this.statTag({ label: '今日调用', value: this.usageValue(this.usage.today_calls) })
-        this.statTag({ label: '平均响应', value: this.avgResponseText() })
-      }
-    }.width('100%').alignItems(this.compactWidth ? VerticalAlign.Top : VerticalAlign.Center)
   }
 
   private sectionTabs(): WideSlidingCapsuleItem[] {
@@ -429,42 +413,26 @@ export struct WideModelManagement {
       WideSlidingCapsule({
         items: this.sectionTabs(),
         selectedIndex: SECTION_IDS.indexOf(this.activeSection) < 0 ? 0 : SECTION_IDS.indexOf(this.activeSection),
-        itemWidth: 92,
+        itemWidth: 112,
         onSelect: (index: number) => {
           this.activeSection = SECTION_IDS[index] ?? 'models';
         }
       })
       Blank()
-    }.width('100%')
-    .alignItems(VerticalAlign.Center)
-  }
-
-  @Builder
-  private moduleHeader(title: string) {
-    Row({ space: 10 }) {
-      Text(title).fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
-      Blank()
-      if (title === '模型管理') {
-        Button('编辑模型索引').height(32).fontSize(12.5).borderRadius(6)
+      if (this.activeSection === 'models') {
+        Button('编辑模型索引').height(36).fontSize(12.5).borderRadius(8)
           .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
           .onClick(() => this.openEditor())
-      } else if (title === '提示词库') {
-        Button('提示词设置').height(32).fontSize(12.5).borderRadius(6)
-          .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_primary'))
-          .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-          .margin({ right: 8 })
-          .onClick(() => this.openPromptDialog('caregiver'))
-        Button('新建提示词').height(32).fontSize(12.5).borderRadius(6)
+      } else if (this.activeSection === 'prompts') {
+        Button('提示词设置').height(36).fontSize(12.5).borderRadius(8)
           .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
           .onClick(() => this.openPromptDialog('caregiver'))
-      } else if (title === 'RAG 知识库') {
-        Button('连接设置').height(32).fontSize(12.5).borderRadius(6)
+      } else if (this.activeSection === 'rag') {
+        Button('连接设置').height(36).fontSize(12.5).borderRadius(8)
           .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
           .onClick(() => this.openEditor())
       }
     }.width('100%')
-    .padding({ top: 4, bottom: 12 })
-    .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
     .alignItems(VerticalAlign.Center)
   }
 
@@ -538,8 +506,7 @@ export struct WideModelManagement {
 
   @Builder
   private modelsModule() {
-    Column({ space: 14 }) {
-      this.moduleHeader('模型管理')
+    Column({ space: 12 }) {
       if (this.sourceLoading) {
         Text('正在从统一连接获取模型列表…').fontSize(13).fontColor($r('sys.color.font_secondary'))
           .width('100%').padding({ top: 24, bottom: 24 }).textAlign(TextAlign.Center)
@@ -617,8 +584,7 @@ export struct WideModelManagement {
 
   @Builder
   private promptsModule() {
-    Column({ space: 14 }) {
-      this.moduleHeader('提示词库')
+    Column({ space: 12 }) {
       Row({ space: 8 }) {
         this.filterChip('全部', 'all')
         this.filterChip('护工端', 'caregiver')
@@ -698,8 +664,7 @@ export struct WideModelManagement {
 
   @Builder
   private ragModule() {
-    Column({ space: 14 }) {
-      this.moduleHeader('RAG 知识库')
+    Column({ space: 12 }) {
       if (this.ragLoading) {
         Text('正在从 Dify 获取知识库列表…').fontSize(13).fontColor($r('sys.color.font_secondary'))
           .width('100%').padding({ top: 24, bottom: 24 }).textAlign(TextAlign.Center)
@@ -728,9 +693,8 @@ export struct WideModelManagement {
 
   @Builder
   private wipModule(title: string) {
-    Column({ space: 14 }) {
-      this.moduleHeader(title)
-      Text('该能力在当前版本规划中，尚未接入服务端。')
+    Column({ space: 12 }) {
+      Text('「' + title + '」在当前版本规划中，尚未接入服务端。')
         .fontSize(13).fontColor($r('sys.color.font_secondary'))
         .width('100%').padding({ top: 32, bottom: 32 }).textAlign(TextAlign.Center)
         .backgroundColor($r('sys.color.comp_background_primary'))
@@ -880,7 +844,12 @@ export struct WideModelManagement {
             if (this.error.length > 0 && !this.showEditor) {
               Text(this.error).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
             }
-            this.pageHeader()
+            Row({ space: 10 }) {
+              this.statTag({ label: '已接入', value: this.sourceModels.length.toString() })
+              this.statTag({ label: '启用中', value: this.configs.filter((item: AIModelConfig) => item.enabled).length.toString() })
+              this.statTag({ label: '今日调用', value: this.usageValue(this.usage.today_calls) })
+              this.statTag({ label: '平均响应', value: this.avgResponseText() })
+            }.width('100%')
             this.sectionNav()
             if (this.activeSection === 'models') {
               this.modelsModule()
