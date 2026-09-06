@@ -1,7 +1,9 @@
 import { picker } from '@kit.CoreFileKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
-import ApiClient from '../../network/ApiClient';
+import ApiClient, { HttpMethod } from '../../network/ApiClient';
+import { ApiResp } from '../../network/Dto';
 import { KBCreatePageParam, KBFileParam } from './WideKnowledgeCreatePage';
+import { WideRagDocumentsPage, RagDocsPageParam } from './WideRagDocumentsPage';
 import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule';
 
 interface AIModelConfig {
@@ -18,6 +20,20 @@ interface RAGDataset { id: string; name: string; description: string; document_c
 interface RAGEmbeddingModel { model: string; label?: Record<string, string>; status?: string; }
 interface UploadProcessRule { mode: string; }
 interface KBPickedFile { name: string; size: number; bytes: ArrayBuffer; }
+interface RetrieveSettings {
+  search_method: string;
+  reranking_enable: boolean;
+  top_k: number;
+  score_threshold_enabled: boolean;
+}
+interface RetrieveSegment { content?: string; }
+interface RetrieveRecord { segment?: RetrieveSegment; score?: number; }
+interface RetrieveRequest {
+  query: string;
+  retrieval_model: RetrieveSettings;
+}
+interface RagKBUpdateRequest { name?: string; description?: string; }
+interface RagRetrieveResponse { records?: RetrieveRecord[]; }
 interface ProviderModel { id: string; }
 interface AIConnectionView {
   provider: string; base_url: string; api_key_configured: boolean; rag_enabled: boolean;
@@ -68,6 +84,19 @@ export struct WideModelManagement {
   @Local showFilePick: boolean = false;
   @Local pickedFiles: KBPickedFile[] = [];
   @Local filePickHint: string = '';
+  @Local showRetrieve: boolean = false;
+  @Local retrieveDatasetId: string = '';
+  @Local retrieveQuery: string = '';
+  @Local retrieveBusy: boolean = false;
+  @Local retrieveRecords: RetrieveRecord[] = [];
+  @Local retrieveHint: string = '';
+  @Local showKBSettings: boolean = false;
+  @Local kbSettingsId: string = '';
+  @Local kbSettingsName: string = '';
+  @Local kbSettingsDesc: string = '';
+  @Local kbBusy: boolean = false;
+  @Local kbConfirmDelete: boolean = false;
+  @Local kbHint: string = '';
   @Local showEditor: boolean = false;
   @Local editorFetched: ProviderModel[] = [];
   @Local editorFetching: boolean = false;
@@ -445,6 +474,112 @@ export struct WideModelManagement {
     ['vtt', 'html', 'properties', 'markdown', 'md', 'xls', 'htm', 'mdx', 'pdf', 'csv', 'docx', 'txt', 'odt', 'xlsx'];
   private static readonly KB_MAX_FILES: number = 5;
   private static readonly KB_MAX_BYTES: number = 15 * 1024 * 1024;
+
+  private async ragProxy<T>(method: HttpMethod, sub: string, query: string,
+    payload?: Object): Promise<ApiResp<T>> {
+    const path: string = '/admin/ai/rag/proxy/' + sub + (query.length > 0 ? '?' + query : '');
+    return ApiClient.send<T>(method, path, payload);
+  }
+
+  private openRagDocs(datasetId: string, name: string): void {
+    this.pathStack.pushPath({
+      name: 'RagDocumentsPage',
+      param: new RagDocsPageParam(datasetId, name, this.statusBarHeight, this.naviIndicatorHeight)
+    });
+  }
+
+  private openRetrieve(datasetId: string): void {
+    this.retrieveDatasetId = datasetId;
+    this.retrieveQuery = '';
+    this.retrieveRecords = [];
+    this.retrieveHint = '';
+    this.showRetrieve = true;
+  }
+
+  private async runRetrieve(): Promise<void> {
+    const query: string = this.retrieveQuery.trim();
+    if (query.length === 0) { this.retrieveHint = '请输入测试问题'; return; }
+    if (this.retrieveBusy) { return; }
+    this.retrieveBusy = true;
+    this.retrieveHint = '';
+    try {
+      const payload: RetrieveRequest = {
+        query: query,
+        retrieval_model: {
+          search_method: 'semantic_search', reranking_enable: false,
+          top_k: 3, score_threshold_enabled: false
+        }
+      };
+      const response = await this.ragProxy<RagRetrieveResponse>('POST',
+        `datasets/${this.retrieveDatasetId}/retrieve`, '', payload);
+      if (response.code !== 0 || response.data === undefined) {
+        this.retrieveHint = response.msg.length > 0 ? response.msg : '检索失败';
+      } else {
+        this.retrieveRecords = response.data.records ?? [];
+        if (this.retrieveRecords.length === 0) { this.retrieveHint = '没有命中的分段'; }
+      }
+    } catch (_error) {
+      this.retrieveHint = '检索失败，请检查网络';
+    }
+    this.retrieveBusy = false;
+  }
+
+  private openKBSettings(datasetId: string, name: string): void {
+    this.kbSettingsId = datasetId;
+    this.kbSettingsName = name;
+    this.kbSettingsDesc = '';
+    this.kbConfirmDelete = false;
+    this.kbHint = '';
+    this.showKBSettings = true;
+  }
+
+  private async saveKBSettings(): Promise<void> {
+    if (this.kbBusy) { return; }
+    if (this.kbSettingsName.trim().length === 0) { this.kbHint = '名称必填'; return; }
+    this.kbBusy = true;
+    this.kbHint = '';
+    try {
+      const payload: RagKBUpdateRequest = {
+        name: this.kbSettingsName.trim(), description: this.kbSettingsDesc.trim()
+      };
+      const response = await this.ragProxy<Object>('PATCH', `datasets/${this.kbSettingsId}`, '', payload);
+      if (response.code !== 0) {
+        this.kbHint = response.msg || '知识库更新失败';
+      } else {
+        this.showToast('知识库已更新');
+        this.showKBSettings = false;
+        await this.loadRagDatasets();
+      }
+    } catch (_error) {
+      this.kbHint = '知识库更新失败，请检查网络';
+    }
+    this.kbBusy = false;
+  }
+
+  private async deleteKB(): Promise<void> {
+    if (!this.kbConfirmDelete) {
+      this.kbConfirmDelete = true;
+      this.kbHint = '再次点击「删除知识库」确认，删除后不可恢复';
+      return;
+    }
+    if (this.kbBusy) { return; }
+    this.kbBusy = true;
+    try {
+      const response = await this.ragProxy<Object>('DELETE', `datasets/${this.kbSettingsId}`, '');
+      if (response.code !== 0) {
+        this.kbHint = response.msg || '知识库删除失败';
+        this.kbBusy = false;
+        return;
+      }
+      this.showToast('知识库已删除');
+      this.showKBSettings = false;
+      this.kbBusy = false;
+      await this.loadRagDatasets();
+    } catch (_error) {
+      this.kbHint = '知识库删除失败，请检查网络';
+      this.kbBusy = false;
+    }
+  }
 
   private openFilePickDialog(): void {
     this.pickedFiles = [];
@@ -1030,15 +1165,6 @@ export struct WideModelManagement {
       Row({ space: 8 }) {
         Text(item.name).fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
           .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-        if (this.connRagDatasetId === item.id) {
-          Text('使用中').fontSize(11).fontColor($r('app.color.brand_blue'))
-            .padding({ left: 8, right: 8, top: 2, bottom: 2 })
-            .borderRadius(12).backgroundColor('#E8F0FE')
-        } else {
-          Text('未启用').fontSize(12).fontColor($r('sys.color.font_tertiary'))
-            .padding({ left: 8, right: 8, top: 2, bottom: 2 })
-            .borderRadius(12).backgroundColor($r('sys.color.comp_background_secondary'))
-        }
       }.width('100%').alignItems(VerticalAlign.Center)
       Text(item.description.trim().length > 0 ? item.description : 'Dify 知识库')
         .fontSize(12.5).fontColor($r('sys.color.font_secondary'))
@@ -1063,6 +1189,12 @@ export struct WideModelManagement {
           item.indexing_technique === 'economy' ? '经济' :
           ((item.indexing_technique ?? '').length > 0 ? item.indexing_technique! : '--'))
           .fontSize(12).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+      }.width('100%')
+      Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
+      Row({ space: 14 }) {
+        this.cardLink('管理文档', () => this.openRagDocs(item.id, item.name))
+        this.cardLink('测试检索', () => this.openRetrieve(item.id))
+        this.cardLink('设置', () => this.openKBSettings(item.id, item.name))
       }.width('100%')
     }.width('100%')
     .padding(16)
@@ -1116,6 +1248,84 @@ export struct WideModelManagement {
         .backgroundColor($r('sys.color.comp_background_primary'))
         .borderRadius(10).border({ width: 0.5, color: $r('sys.color.comp_divider') })
     }.width('100%').alignItems(HorizontalAlign.Start)
+  }
+
+  /** 测试检索：对绑定知识库发起 retrieve 并展示命中分段。 */
+  @Builder
+  private retrieveDialog() {
+    Column({ space: 12 }) {
+      Text('测试检索').fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+        .width('100%')
+      TextInput({ placeholder: '输入测试问题...', text: $$this.retrieveQuery })
+        .height(40).fontSize(13)
+      Button(this.retrieveBusy ? '检索中…' : '检索').width('100%').height(40).fontSize(13)
+        .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
+        .onClick(() => this.runRetrieve())
+      if (this.retrieveHint.length > 0) {
+        Text(this.retrieveHint).fontSize(12).fontColor($r('sys.color.font_secondary')).width('100%')
+      }
+      if (this.retrieveRecords.length > 0) {
+        Scroll() {
+          Column({ space: 8 }) {
+            ForEach(this.retrieveRecords, (record: RetrieveRecord, index: number) => {
+              Column({ space: 4 }) {
+                Row({ space: 8 }) {
+                  Text(`#${index + 1}`).fontSize(11).fontColor($r('sys.color.font_tertiary'))
+                  Blank()
+                  if (record.score !== undefined) {
+                    Text(`相关度 ${record.score.toFixed(3)}`).fontSize(11)
+                      .fontColor($r('app.color.brand_blue'))
+                  }
+                }.width('100%')
+                Text(record.segment?.content ?? '')
+                  .fontSize(12).fontColor($r('sys.color.font_primary'))
+                  .maxLines(4).textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
+              }.width('100%').alignItems(HorizontalAlign.Start)
+                .padding(10).borderRadius(8)
+                .backgroundColor($r('sys.color.comp_background_secondary'))
+            }, (record: RetrieveRecord, index: number) => `ret-${index}`)
+          }.width('100%').alignItems(HorizontalAlign.Start)
+        }.constraintSize({ maxHeight: 320 }).scrollBar(BarState.Off).width('100%')
+      }
+      Button('关闭').width('100%').height(40)
+        .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))
+        .onClick(() => { this.showRetrieve = false; })
+    }.width(this.compactWidth ? '92%' : 520).padding(24)
+      .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
+  }
+
+  /** 知识库设置：改名/描述与删除知识库。 */
+  @Builder
+  private kbSettingsDialog() {
+    Column({ space: 12 }) {
+      Text('知识库设置').fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+        .width('100%')
+      this.promptEditorField('知识库名称')
+      TextInput({ text: $$this.kbSettingsName }).height(40).fontSize(13)
+      this.promptEditorField('描述')
+      TextArea({ text: $$this.kbSettingsDesc, placeholder: '知识库描述...' }).height(90).fontSize(13)
+      if (this.kbHint.length > 0) {
+        Text(this.kbHint).fontSize(12).fontColor(this.kbConfirmDelete ?
+          $r('app.color.doctor_workspace_danger') : $r('sys.color.font_secondary')).width('100%')
+      }
+      Row({ space: 10 }) {
+        Button(this.kbConfirmDelete ? '确认删除' : '删除知识库').height(40)
+          .fontColor(this.kbConfirmDelete ? Color.White : $r('app.color.doctor_workspace_danger'))
+          .backgroundColor(this.kbConfirmDelete ? $r('app.color.doctor_workspace_danger') :
+            $r('sys.color.comp_background_secondary'))
+          .enabled(!this.kbBusy)
+          .onClick(() => this.deleteKB())
+        Blank()
+        Button('取消').height(40)
+          .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))
+          .onClick(() => { this.showKBSettings = false; })
+        Button('保存').height(40).fontSize(13)
+          .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
+          .enabled(!this.kbBusy)
+          .onClick(() => this.saveKBSettings())
+      }.width('100%')
+    }.width(this.compactWidth ? '92%' : 460).padding(24)
+      .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
   }
 
   /** 编辑模型网关：机构统一的模型服务连接与 Dify RAG 连接。 */
@@ -1273,6 +1483,14 @@ export struct WideModelManagement {
         .alignItems(HorizontalAlign.Center)
       }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
       .align(Alignment.TopStart)
+      if (this.showRetrieve) {
+        Row() { this.retrieveDialog() }.width('100%').height('100%')
+          .backgroundColor('#66000000').justifyContent(FlexAlign.Center)
+      }
+      if (this.showKBSettings) {
+        Row() { this.kbSettingsDialog() }.width('100%').height('100%')
+          .backgroundColor('#66000000').justifyContent(FlexAlign.Center)
+      }
       if (this.showFilePick) {
         Row() {
           Column({ space: 12 }) {

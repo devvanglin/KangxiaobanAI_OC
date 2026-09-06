@@ -10,7 +10,7 @@ import { ApiResp, Paged } from './Dto';
 import { ApiConfig } from './ApiConfig';
 import Logger from '../util/Logger';
 
-type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 function toRequestMethod(method: HttpMethod): http.RequestMethod {
   switch (method) {
@@ -171,6 +171,11 @@ export class ApiClient {
 
   public static get<T>(path: string): Promise<ApiResp<T>> {
     return ApiClient.request<T>('GET', path);
+  }
+
+  /** 通用方法发送（供需要动态 method 的调用方使用，如知识库代理）。 */
+  public static send<T>(method: HttpMethod, path: string, body?: Object): Promise<ApiResp<T>> {
+    return ApiClient.request<T>(method, path, body);
   }
 
   /** 读取服务端分页资源的全部记录，避免首屏固定 size 截断业务关系。 */

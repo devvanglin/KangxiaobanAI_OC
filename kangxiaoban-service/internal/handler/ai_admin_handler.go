@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -309,6 +310,54 @@ func (h *AIAdminHandler) RagIndexingStatus(c *gin.Context) {
 	if err != nil {
 		h.failProxy(c, err, "未配置 Dify RAG 连接，请先在「编辑模型网关」中填写", "解析进度获取失败，请检查 Dify 地址与密钥")
 		return
+	}
+	OK(c, result)
+}
+
+// RagProxy ANY /api/v1/admin/ai/rag/proxy/*path
+// 通用知识库 API 转发：更新/删除知识库、文档管理、分段、元数据、标签、检索测试等
+// 全部端点都经此代理（仅管理端可用，密钥注入在服务端）。
+func (h *AIAdminHandler) RagProxy(c *gin.Context) {
+	subPath := strings.Trim(c.Param("path"), "/")
+	if subPath == "" {
+		Fail(c, http.StatusBadRequest, 400, "缺少 API 路径")
+		return
+	}
+	allowed := strings.HasPrefix(subPath, "datasets") || strings.HasPrefix(subPath, "workspaces/") ||
+		strings.HasPrefix(subPath, "tags")
+	if !allowed {
+		Fail(c, http.StatusBadRequest, 400, "不支持的 API 路径")
+		return
+	}
+	var body []byte
+	if c.Request.Method == http.MethodPost || c.Request.Method == http.MethodPut ||
+		c.Request.Method == http.MethodPatch {
+		raw, readErr := io.ReadAll(c.Request.Body)
+		if readErr != nil {
+			Fail(c, http.StatusBadRequest, 400, "请求体读取失败")
+			return
+		}
+		body = raw
+	}
+	result, upstreamStatus, err := h.svc.RagProxyAPI(c.Request.Context(), c.Request.Method,
+		subPath, c.Request.URL.RawQuery, body)
+	if err != nil {
+		h.failProxy(c, err, "未配置 Dify RAG 连接，请先在「编辑模型网关」中填写", "知识库请求失败，请检查 Dify 地址与密钥")
+		return
+	}
+	if upstreamStatus < 200 || upstreamStatus >= 300 {
+		// 上游业务错误：把 Dify 的 message 原样带给前端（业务码 <500，避免被网络层吞掉）。
+		message := "知识库请求失败"
+		if result != nil {
+			if m, ok := result["message"].(string); ok && m != "" {
+				message = m
+			}
+		}
+		respond(c, http.StatusOK, 400, message, nil)
+		return
+	}
+	if result == nil {
+		result = gin.H{}
 	}
 	OK(c, result)
 }

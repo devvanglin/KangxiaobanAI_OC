@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"mime/multipart"
 	"net/http"
@@ -1065,6 +1066,56 @@ func (s *AIService) ProbeProviderModels(ctx context.Context, baseURL, apiKey str
 		}
 	}
 	return s.ListProviderModelsAt(ctx, baseURL, apiKey)
+}
+
+// RagProxyAPI 通用知识库 API 转发：把管理端的任意知识库子路径请求
+// （更新/删除知识库、文档管理、分段、元数据、标签、检索测试等）
+// 转发到已配置的 Dify 实例。body 为客户端构造的 JSON（可为空）。
+// 返回 Dify 的 JSON 响应与上游状态码。
+func (s *AIService) RagProxyAPI(ctx context.Context, method, subPath, rawQuery string, body []byte) (map[string]interface{}, int, error) {
+	connection := s.connectionForContext(ctx)
+	if connection == nil || !connection.RAGEnabled || strings.TrimSpace(connection.RAGBaseURL) == "" {
+		return nil, 0, ErrRAGNotConfigured
+	}
+	baseURL := normalizeAPIBase(connection.RAGBaseURL)
+	apiKey, _ := security.Decrypt(s.cfg.ConfigKey, connection.RAGAPIKeyEncrypted)
+	subPath = strings.Trim(subPath, "/")
+	if subPath == "" {
+		return nil, 0, fmt.Errorf("%w: 缺少 API 路径", ErrAIValidation)
+	}
+	target := baseURL + "/v1/" + subPath
+	if rawQuery != "" {
+		target += "?" + rawQuery
+	}
+	var reader io.Reader
+	if len(body) > 0 {
+		reader = bytes.NewReader(body)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, target, reader)
+	if err != nil {
+		return nil, 0, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+	}
+	if len(body) > 0 {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+	client := &http.Client{Timeout: 20 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, 0, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+	}
+	defer resp.Body.Close()
+	var result map[string]interface{}
+	decodeErr := json.NewDecoder(resp.Body).Decode(&result)
+	if decodeErr != nil && resp.StatusCode != http.StatusNoContent {
+		return nil, resp.StatusCode, fmt.Errorf("%w: %v", ErrRAGUnavailable, decodeErr)
+	}
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return result, resp.StatusCode, fmt.Errorf("%w: HTTP %d", ErrRAGUnavailable, resp.StatusCode)
+	}
+	return result, resp.StatusCode, nil
 }
 
 func ragStringField(item map[string]interface{}, key string) string {

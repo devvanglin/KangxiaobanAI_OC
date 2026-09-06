@@ -46,6 +46,8 @@ import { WideDoctorAiPage } from './WideDoctorAiPage';
 import { AI_BRAND_NAME } from '../component/AiTitleLabel';
 import { AiChatPage } from '../pages/AiChatPage';
 import { MineDetailPage } from '../pages/MineDetailPage';
+import { WideKnowledgeCreatePage, KBCreatePageParam } from '../component/wide/WideKnowledgeCreatePage';
+import { WideRagDocumentsPage, RagDocsPageParam } from '../component/wide/WideRagDocumentsPage';
 import { ResidentDetailPage } from '../pages/ResidentDetailPage';
 import { StorageKey } from '../common/CommonConstants';
 import { MedicationProgress, ResidentData, VitalSign } from '../model/DetailTypes';
@@ -1397,6 +1399,19 @@ struct MainPage {
         onClose: () => {
           this.pathStack.pop();
         }
+      })
+    } else if (name === 'KnowledgeCreatePage') {
+      WideKnowledgeCreatePage({
+        files: (param as KBCreatePageParam).files,
+        statusBarHeight: this.globalInfoModel.statusBarHeight,
+        naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight
+      })
+    } else if (name === 'RagDocumentsPage') {
+      WideRagDocumentsPage({
+        datasetId: (param as RagDocsPageParam).datasetId,
+        datasetName: (param as RagDocsPageParam).datasetName,
+        statusBarHeight: this.globalInfoModel.statusBarHeight,
+        naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight
       })
     }
   }

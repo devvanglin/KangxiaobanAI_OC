@@ -476,3 +476,62 @@ func TestListRAGDatasetsToleratesNullFields(t *testing.T) {
 		t.Fatalf("datasets = %+v", datasets)
 	}
 }
+
+func TestRagProxyForwardsMethodPathKeyAndBody(t *testing.T) {
+	svc, db, ctx := newAIServiceTest(t)
+	var gotMethod, gotPath, gotQuery, gotAuth, gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		gotQuery = r.URL.RawQuery
+		gotAuth = r.Header.Get("Authorization")
+		raw, _ := io.ReadAll(r.Body)
+		gotBody = string(raw)
+		fmt.Fprint(w, `{"id":"ds-1","name":"改名后"}`)
+	}))
+	t.Cleanup(server.Close)
+	storedKey, err := security.Encrypt("", "dify-key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.WithContext(ctx).Create(&model.AIConnection{
+		Provider: "http", Enabled: true,
+		RAGEnabled: true, RAGBaseURL: server.URL, RAGAPIKeyEncrypted: storedKey,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	result, upstream, err := svc.RagProxyAPI(ctx, "PATCH", "datasets/ds-1", "keyword=x", []byte(`{"name":"改名后"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if upstream != 200 || gotMethod != "PATCH" || gotPath != "/v1/datasets/ds-1" || gotQuery != "keyword=x" {
+		t.Fatalf("forward mismatch: status=%d method=%s path=%s query=%s", upstream, gotMethod, gotPath, gotQuery)
+	}
+	if gotAuth != "Bearer dify-key" || gotBody != `{"name":"改名后"}` {
+		t.Fatalf("auth/body mismatch: auth=%q body=%q", gotAuth, gotBody)
+	}
+	if result["id"] != "ds-1" {
+		t.Fatalf("result = %+v", result)
+	}
+}
+
+func TestRagProxyMapsUpstreamErrorWithMessage(t *testing.T) {
+	svc, db, ctx := newAIServiceTest(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprint(w, `{"code":"not_found","message":"Dataset not found"}`)
+	}))
+	t.Cleanup(server.Close)
+	if err := db.WithContext(ctx).Create(&model.AIConnection{
+		Provider: "http", Enabled: true, RAGEnabled: true, RAGBaseURL: server.URL,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	result, upstream, err := svc.RagProxyAPI(ctx, "DELETE", "datasets/nope", "", nil)
+	if err == nil || upstream != 404 {
+		t.Fatalf("err=%v upstream=%d, want 404 with error", err, upstream)
+	}
+	if result["message"] != "Dataset not found" {
+		t.Fatalf("result = %+v", result)
+	}
+}

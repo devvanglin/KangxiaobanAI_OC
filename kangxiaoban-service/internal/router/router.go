@@ -136,6 +136,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		authed.POST("/admin/ai/rag/datasets", perm("admin:all"), aiAdminHandler.ProbeRagDatasets)
 		authed.GET("/admin/ai/rag/embedding-models", perm("admin:all"), aiAdminHandler.RagEmbeddingModels)
 		authed.GET("/admin/ai/rag/rerank-models", perm("admin:all"), aiAdminHandler.RagRerankModels)
+		authed.Any("/admin/ai/rag/proxy/*path", perm("admin:all"), aiAdminHandler.RagProxy)
 		authed.POST("/admin/ai/rag/datasets/:datasetId/documents", perm("admin:all"), aiAdminHandler.UploadRagDocument)
 		authed.POST("/admin/ai/rag/datasets/create", perm("admin:all"), aiAdminHandler.CreateRagDataset)
 		authed.GET("/admin/ai/rag/datasets/:datasetId/documents/:batch/indexing-status", perm("admin:all"), aiAdminHandler.RagIndexingStatus)
