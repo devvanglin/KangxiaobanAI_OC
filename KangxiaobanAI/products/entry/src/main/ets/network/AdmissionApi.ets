@@ -409,6 +409,11 @@ export class AdmissionApi {
     return ApiClient.getAll<AdmissionAssessmentRecord>('/admission-assessments?status=draft&mine=true', 100);
   }
 
+  /** 医师端「病例」目录：机构内全部已提交（已归档为病历）的入院评估。 */
+  public static listCases(): Promise<ApiResp<Paged<AdmissionAssessmentRecord>>> {
+    return ApiClient.getAll<AdmissionAssessmentRecord>('/admission-assessments?status=submitted', 100);
+  }
+
   public static screeningTemplates(): Promise<ApiResp<AdmissionScreeningTemplate[]>> {
     return ApiClient.get<AdmissionScreeningTemplate[]>('/admission-assessments/screening-templates');
   }

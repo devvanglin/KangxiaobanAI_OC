@@ -25,7 +25,8 @@ export struct WideDoctorTitleActions {
     return [
       { title: '工作台', symbol: $r('sys.symbol.square_grid_2x2'), index: 0 },
       { title: '长者', symbol: $r('sys.symbol.person_2_fill'), index: 1 },
-      { title: '康小伴 AI', symbol: $r('sys.symbol.AI_model'), index: 2 }
+      { title: '康小伴 AI', symbol: $r('sys.symbol.AI_model'), index: 2 },
+      { title: '病例', symbol: $r('sys.symbol.doc_text'), index: 3 }
     ];
   }
 

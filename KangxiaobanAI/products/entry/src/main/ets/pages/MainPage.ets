@@ -38,6 +38,7 @@ import {
   WideCaregiverWorkspace
 } from '../component/wide/WideCaregiverWorkspace';
 import { WideDoctorResidentPage } from '../component/wide/WideDoctorResidentPage';
+import { WideDoctorCasesPage } from '../component/wide/WideDoctorCasesPage';
 import { WideCaregiverTitleActions } from '../component/wide/WideCaregiverTitleActions';
 import { WideAdminWorkspace } from '../component/wide/WideAdminWorkspace';
 import { WideDoctorAdmissionForm } from '../component/wide/WideDoctorAdmissionForm';
@@ -299,6 +300,10 @@ struct MainPage {
 
   private isDoctorAiWorkspace(): boolean {
     return this.isManagementWideWorkspace() && this.globalInfoModel.role === '医师' && this.managementNavIndex === 2;
+  }
+
+  private isDoctorCasesWorkspace(): boolean {
+    return this.isManagementWideWorkspace() && this.globalInfoModel.role === '医师' && this.managementNavIndex === 3;
   }
 
   private showDoctorResidentBackButton(): boolean {
@@ -1282,6 +1287,12 @@ struct MainPage {
           onDetailScrollerActive: () => {
             this.doctorResidentScrollerOwner = 'residentDetail';
           }
+        })
+      } else if (this.isDoctorCasesWorkspace()) {
+        WideDoctorCasesPage({
+          compactWidth: this.useCompactDoctorWorkspace(),
+          topBarHeight: this.wideDoctorTopBarHeight(),
+          naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight
         })
       } else if (this.isDoctorAiWorkspace()) {
         WideDoctorAiPage({
