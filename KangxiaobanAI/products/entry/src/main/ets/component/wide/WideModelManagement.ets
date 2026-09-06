@@ -204,6 +204,19 @@ export struct WideModelManagement {
   }
 
   /** 全部模型的今日加权平均响应时间。 */
+  /** 全部模型的今日加权成功率。 */
+  private successRateText(): string {
+    if (!this.modelStatsLoaded) { return '--'; }
+    let calls: number = 0;
+    let weighted: number = 0;
+    this.modelStats.forEach((item: ModelUsageStat): void => {
+      calls += item.today_calls;
+      weighted += item.today_calls * item.success_rate;
+    });
+    if (calls === 0) { return '--'; }
+    return `${(weighted / calls).toFixed(1)}%`;
+  }
+
   private avgResponseText(): string {
     if (!this.usageLoaded) { return '--'; }
     let calls: number = 0;
@@ -520,19 +533,9 @@ export struct WideModelManagement {
         }
       })
       Blank()
-      if (this.activeSection === 'models') {
-        Button('编辑模型网关').height(38).fontSize(14).borderRadius(8)
-          .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
-          .onClick(() => this.openEditor())
-      } else if (this.activeSection === 'prompts') {
-        Button('提示词设置').height(38).fontSize(14).borderRadius(8)
-          .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
-          .onClick(() => this.openPromptDialog('caregiver'))
-      } else if (this.activeSection === 'rag') {
-        Button('连接设置').height(38).fontSize(14).borderRadius(8)
-          .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
-          .onClick(() => this.openEditor())
-      }
+      Button('编辑模型网关').height(38).fontSize(14).borderRadius(8)
+        .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
+        .onClick(() => this.openEditor())
     }.width('100%')
     .alignItems(VerticalAlign.Center)
   }
@@ -566,19 +569,14 @@ export struct WideModelManagement {
       Row({ space: 8 }) {
         Text(item.id).fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
           .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-        if (this.usedByRoles(item.id).length === 0) {
-          Text('未分配').fontSize(12).fontColor($r('sys.color.font_tertiary'))
-            .padding({ left: 8, right: 8, top: 2, bottom: 2 })
-            .borderRadius(12).backgroundColor($r('sys.color.comp_background_secondary'))
-        } else {
-          ForEach(this.usedByRoles(item.id), (role: string) => {
-            this.assignBadge(role)
-          }, (role: string) => `mc-${item.id}-${role}`)
-        }
+        ForEach(this.usedByRoles(item.id), (role: string) => {
+          this.assignBadge(role)
+        }, (role: string) => `mc-${item.id}-${role}`)
+        this.cardLink('测试', () => {
+          this.loadSourceModels();
+          this.loadModelStats();
+        })
       }.width('100%').alignItems(VerticalAlign.Center)
-      Text('OpenAI 兼容接入')
-        .fontSize(13).fontColor($r('sys.color.font_secondary'))
-        .width('100%')
       Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
       Row({ space: 8 }) {
         this.modelStatCell('今日调用',
@@ -589,13 +587,6 @@ export struct WideModelManagement {
         this.modelStatCell('成功率', this.modelStatsLoaded ?
           ((this.statOf(item.id)?.today_calls ?? 0) > 0 ?
             `${(this.statOf(item.id)?.success_rate ?? 0).toFixed(1)}%` : '--') : '--')
-      }.width('100%')
-      Row({ space: 14 }) {
-        this.cardLink('配置', () => this.openPromptDialog('caregiver'))
-        this.cardLink('测试', () => {
-          this.loadSourceModels();
-          this.loadModelStats();
-        })
       }.width('100%')
     }.width('100%')
     .padding(14)
@@ -745,16 +736,6 @@ export struct WideModelManagement {
         this.modelStatCell('文档数量', `${this.formatCount(item.document_count)} 篇`)
         this.modelStatCell('总字符数', item.word_count > 0 ? `${this.formatCount(Math.round(item.word_count / 10000))} 万` : '--')
       }.width('100%')
-      Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
-      Row({ space: 14 }) {
-        if (this.connRagDatasetId === item.id) {
-          Text('检索已接入对话链路').fontSize(13.5).fontColor($r('sys.color.font_secondary'))
-        } else {
-          this.cardLink('设为机构知识库', () => this.setConnectionDataset(item.id))
-        }
-        Blank()
-        this.cardLink('连接设置', () => this.openEditor())
-      }.width('100%')
     }.width('100%')
     .padding(16)
     .backgroundColor($r('sys.color.comp_background_primary'))
@@ -889,16 +870,10 @@ export struct WideModelManagement {
                     Text(item.name).fontSize(13).fontColor($r('sys.color.font_primary'))
                       .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
                     Text(`${item.document_count} 篇`).fontSize(12).fontColor($r('sys.color.font_tertiary'))
-                    if (this.connRagDatasetId === item.id) {
-                      Text('已选择').fontSize(11).fontColor($r('app.color.brand_blue'))
-                    }
                   }.width('100%').padding({ left: 10, right: 10, top: 8, bottom: 8 })
                     .borderRadius(8)
-                    .border({ width: 0.5, color: this.connRagDatasetId === item.id ?
-                      $r('app.color.brand_blue') : $r('sys.color.comp_divider') })
-                    .backgroundColor(this.connRagDatasetId === item.id ? '#F0F5FF' :
-                      $r('sys.color.comp_background_primary'))
-                    .onClick(() => this.connRagDatasetId = item.id)
+                    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+                    .backgroundColor($r('sys.color.comp_background_primary'))
                 }, (item: RAGDataset) => `editor-rag-${item.id}`)
               }.width('100%').alignItems(HorizontalAlign.Start)
             }.constraintSize({ maxHeight: 150 }).scrollBar(BarState.Off).width('100%')
@@ -984,8 +959,8 @@ export struct WideModelManagement {
         Column() {
           Column({ space: 24 }) {
             Row({ space: 10 }) {
-              this.statTag({ label: '已接入', value: this.sourceModels.length.toString() })
-              this.statTag({ label: '启用中', value: this.configs.filter((item: AIModelConfig) => item.enabled).length.toString() })
+              this.statTag({ label: '总消耗 Token', value: this.usageValue(this.usage.total_tokens) })
+              this.statTag({ label: '成功率', value: this.successRateText() })
               this.statTag({ label: '今日调用', value: this.usageValue(this.usage.today_calls) })
               this.statTag({ label: '平均响应', value: this.avgResponseText() })
             }.width('100%')
