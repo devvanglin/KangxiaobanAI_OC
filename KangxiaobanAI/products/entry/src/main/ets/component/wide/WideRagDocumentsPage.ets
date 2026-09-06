@@ -154,6 +154,13 @@ export struct WideRagDocumentsPage {
     return '解析中';
   }
 
+  private docStatusColor(item: RagDocument): ResourceColor {
+    if (item.archived === true || item.enabled === false) { return $r('sys.color.font_tertiary'); }
+    if (item.indexing_status === 'completed') { return $r('app.color.doctor_workspace_success'); }
+    if (item.indexing_status === 'error') { return $r('app.color.doctor_workspace_danger'); }
+    return '#B45309';
+  }
+
   private categoryOptions(): string[] {
     return ['全部', '可用', '解析中', '失败', '已归档'];
   }
@@ -374,6 +381,19 @@ export struct WideRagDocumentsPage {
   }
 
   @Builder
+  private docStatusBadge(item: RagDocument) {
+    Row({ space: 4 }) {
+      Row().width(7).height(7).borderRadius(4).backgroundColor(this.docStatusText(item) === '可用' ? '#19B76A' :
+        this.docStatusText(item) === '失败' ? '#EA2261' : '#B9C0C9')
+      Text(this.docStatusText(item))
+        .fontSize(11).fontColor(this.docStatusColor(item))
+        .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+        .borderRadius(10).backgroundColor(item.indexing_status === 'completed' && item.enabled !== false && item.archived !== true ?
+          '#ECFDF5' : $r('sys.color.comp_background_secondary'))
+    }.alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
   private docCheckbox(item: RagDocument, index: number) {
     Row({ space: 6 }) {
       Checkbox({ name: item.id ?? '' }).select(this.isSelected(item.id ?? ''))
@@ -387,12 +407,17 @@ export struct WideRagDocumentsPage {
           }
         })
       Text(`${index + 1}`).fontSize(12).fontColor($r('sys.color.font_tertiary'))
+      Stack({ alignContent: Alignment.Center }) {
+        Row().width(22).height(22).borderRadius(4).backgroundColor('#2296DD')
+        Text('M').fontSize(11).fontWeight(FontWeight.Bold).fontColor(Color.White)
+      }.width(22).height(22)
     }.alignItems(VerticalAlign.Center)
   }
 
   @Builder
   private docActions(item: RagDocument) {
-    Row({ space: 8 }) {
+    Row({ space: 10 }) {
+      this.docStatusBadge(item)
       Toggle({ type: ToggleType.Switch, isOn: item.enabled !== false && item.archived !== true })
         .selectedColor($r('app.color.brand_blue'))
         .onChange((value: boolean) => {
@@ -419,7 +444,7 @@ export struct WideRagDocumentsPage {
       textItem: {
         primaryText: { text: item.name ?? '未命名文档' },
         secondaryText: {
-          text: `${this.docStatusText(item)} · ${this.docFormLabel(item)} · ${this.formatCount(item.word_count)} 字符 · 召回 ${this.formatCount(item.hit_count)} · ${this.documentTime(item)}`
+          text: `${this.docFormLabel(item)} · ${this.formatCount(item.word_count)} 字符 · 召回 ${this.formatCount(item.hit_count)} · ${this.documentTime(item)}`
         }
       },
       suffixItem: new SuffixCustomBuilder((): void => {
