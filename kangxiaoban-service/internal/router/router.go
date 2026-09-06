@@ -88,6 +88,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	userHandler := handler.NewUserHandler(db)
 	areaHandler := handler.NewAreaHandler(db)
 	carePackageHandler := handler.NewCarePackageHandler(db)
+	medicationHandler := handler.NewMedicationHandler(db)
 
 	// 访问校验封装
 	perm := func(code string) gin.HandlerFunc { return middleware.RequirePermission(userRepo, code) }
@@ -170,6 +171,11 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		areas.POST("", perm("admin:all"), areaHandler.Create)
 		areas.PUT("/:id", perm("admin:all"), areaHandler.Update)
 		areas.DELETE("/:id", perm("admin:all"), areaHandler.Delete)
+		medications := authed.Group("/admin/medications", perm("admin:all"))
+		medications.GET("", medicationHandler.List)
+		medications.POST("", medicationHandler.Create)
+		medications.PUT("/:id", medicationHandler.Update)
+		medications.DELETE("/:id", medicationHandler.Delete)
 		packages := authed.Group("/care-package-templates", perm("task:read"))
 		packages.GET("", carePackageHandler.ListTemplates)
 		packages.POST("", perm("admin:all"), carePackageHandler.CreateTemplate)

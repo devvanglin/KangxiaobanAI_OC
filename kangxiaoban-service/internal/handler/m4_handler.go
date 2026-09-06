@@ -16,14 +16,12 @@ type M4Handler struct {
 	finance    *service.FinanceService
 	medication *service.MedicationService
 	audit      *service.AuditService
-	family     *service.FamilyService
 }
 
 func NewM4Handler(schedule *service.ScheduleService, finance *service.FinanceService,
 	medication *service.MedicationService, audit *service.AuditService,
-	family *service.FamilyService,
 ) *M4Handler {
-	return &M4Handler{schedule: schedule, finance: finance, medication: medication, audit: audit, family: family}
+	return &M4Handler{schedule: schedule, finance: finance, medication: medication, audit: audit}
 }
 
 // ---- 排班 ----
@@ -77,7 +75,7 @@ func (h *M4Handler) CreateHandover(c *gin.Context) {
 // ---- 费用 ----
 func (h *M4Handler) ListBills(c *gin.Context) {
 	page, size := parsePage(c)
-	bound := boundElderIDs(c, h.family)
+	var bound []uint
 	items, total, err := h.finance.ListBillsScoped(uint(parseUint(c, "elder_id")), c.Query("month"), page, size, bound)
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "查询账单失败")

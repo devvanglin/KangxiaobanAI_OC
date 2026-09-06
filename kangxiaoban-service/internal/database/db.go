@@ -127,6 +127,9 @@ func AutoMigrateAndSeed(db *gorm.DB, seedBusiness bool) error {
 	if err := seedHealthThresholds(db); err != nil {
 		return fmt.Errorf("seed health thresholds: %w", err)
 	}
+	if err := seedMedications(db); err != nil {
+		return fmt.Errorf("seed medications: %w", err)
+	}
 	if err := ensureElderIdentityConstraint(db); err != nil {
 		return fmt.Errorf("ensure elder identity constraint: %w", err)
 	}

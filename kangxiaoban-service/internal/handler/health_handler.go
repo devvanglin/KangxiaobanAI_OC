@@ -13,24 +13,19 @@ import (
 
 // HealthHandler 健康体征。
 type HealthHandler struct {
-	svc    *service.HealthService
-	hub    *ws.Hub
-	family *service.FamilyService
+	svc *service.HealthService
+	hub *ws.Hub
 }
 
-func NewHealthHandler(svc *service.HealthService, hub *ws.Hub, family *service.FamilyService) *HealthHandler {
-	return &HealthHandler{svc: svc, hub: hub, family: family}
+func NewHealthHandler(svc *service.HealthService, hub *ws.Hub) *HealthHandler {
+	return &HealthHandler{svc: svc, hub: hub}
 }
 
 // ListByElder GET /api/v1/elders/:id/health-records
 func (h *HealthHandler) ListByElder(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	if bound := boundElderIDs(c, h.family); bound != nil && !contains(uint(id), bound) {
-		Fail(c, http.StatusForbidden, 403, "无权限查看该长者体征")
-		return
-	}
 	page, size := parsePage(c)
-	items, total, err := h.svc.ListByElder(uint(id), page, size)
+	items, total, err := h.svc.ListByElder(c.Request.Context(), uint(id), page, size)
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "查询体征失败")
 		return
@@ -49,7 +44,7 @@ func (h *HealthHandler) Create(c *gin.Context) {
 		Fail(c, http.StatusBadRequest, 400, "elder_id 必填")
 		return
 	}
-	if err := h.svc.Create(&req); err != nil {
+	if err := h.svc.Create(c.Request.Context(), &req); err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "录入体征失败")
 		return
 	}

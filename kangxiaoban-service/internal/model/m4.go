@@ -51,7 +51,11 @@ type MedicationRecord struct {
 	ElderID      uint       `gorm:"index;not null" json:"elder_id"`
 	MedicineName string     `gorm:"size:128" json:"medicine_name"`
 	Dosage       string     `gorm:"size:64" json:"dosage"`
+	Frequency    string     `gorm:"size:64;default:按医嘱" json:"frequency"`
+	Route        string     `gorm:"size:32;default:口服" json:"route"`
 	PlanTime     *time.Time `json:"plan_time"`
 	TakenTime    *time.Time `json:"taken_time"`
+	TodayTotal   int        `gorm:"default:1" json:"today_total"`
+	TodayDone    int        `gorm:"default:0" json:"today_done"`
 	Status       string     `gorm:"size:16;default:pending" json:"status"`
 }
