@@ -896,6 +896,12 @@ export struct WideModelManagement {
         }
       })
       Blank()
+      if (this.activeSection === 'rag') {
+        Button('上传文件').height(38).fontSize(14).borderRadius(8)
+          .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
+          .margin({ left: 12 })
+          .onClick(() => this.openFilePickDialog())
+      }
       Button('编辑模型网关').height(38).fontSize(14).borderRadius(8)
         .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
         .margin({ left: 12 })
@@ -1207,12 +1213,6 @@ export struct WideModelManagement {
   @Builder
   private ragModule() {
     Column({ space: 12 }) {
-      Row({ space: 10 }) {
-        Blank()
-        Button('上传文件').height(34).fontSize(12.5).borderRadius(8)
-          .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
-          .onClick(() => this.openFilePickDialog())
-      }.width('100%').alignItems(VerticalAlign.Center)
       if (this.ragLoading) {
         Text('正在从 Dify 获取知识库列表…').fontSize(14).fontColor($r('sys.color.font_secondary'))
           .width('100%').padding({ top: 24, bottom: 24 }).textAlign(TextAlign.Center)
