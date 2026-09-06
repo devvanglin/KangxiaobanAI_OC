@@ -1,7 +1,16 @@
 import ApiClient, { HttpMethod } from '../../network/ApiClient';
 import pasteboard from '@ohos.pasteboard';
 import { picker, fileIo as fs } from '@kit.CoreFileKit';
-import { hdsMaterial, HdsNavDestination, HdsNavDestinationTitleMode, ScrollEffectType, TitleBarStyleOptions } from '@kit.UIDesignKit';
+import {
+  hdsMaterial,
+  HdsNavDestination,
+  HdsNavDestinationTitleMode,
+  HdsListItemCard,
+  PrefixCustomBuilder,
+  ScrollEffectType,
+  SuffixCustomBuilder,
+  TitleBarStyleOptions
+} from '@kit.UIDesignKit';
 import { ApiResp } from '../../network/Dto';
 import { KBCreatePageParam, KBFileParam } from './WideKnowledgeCreatePage';
 
@@ -143,13 +152,6 @@ export struct WideRagDocumentsPage {
     if (item.indexing_status === 'completed') { return '可用'; }
     if (item.indexing_status === 'error') { return '失败'; }
     return '解析中';
-  }
-
-  private docStatusColor(item: RagDocument): ResourceColor {
-    if (item.archived === true || item.enabled === false) { return $r('sys.color.font_tertiary'); }
-    if (item.indexing_status === 'completed') { return $r('app.color.doctor_workspace_success'); }
-    if (item.indexing_status === 'error') { return $r('app.color.doctor_workspace_danger'); }
-    return '#B45309';
   }
 
   private categoryOptions(): string[] {
@@ -372,20 +374,11 @@ export struct WideRagDocumentsPage {
   }
 
   @Builder
-  private docStatusBadge(item: RagDocument) {
-    Text(this.docStatusText(item))
-      .fontSize(11).fontColor(this.docStatusColor(item))
-      .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-      .borderRadius(10).backgroundColor(item.indexing_status === 'completed' && item.enabled !== false && item.archived !== true ?
-        '#ECFDF5' : $r('sys.color.comp_background_secondary'))
-  }
-
-  @Builder
-  private docRow(item: RagDocument, index: number) {
-    Row() {
+  private docCheckbox(item: RagDocument, index: number) {
+    Row({ space: 6 }) {
       Checkbox({ name: item.id ?? '' }).select(this.isSelected(item.id ?? ''))
         .selectedColor($r('app.color.brand_blue'))
-        .width(30)
+        .width(26)
         .onChange((value: boolean) => {
           if (value) {
             this.toggleSelected(item.id ?? '');
@@ -393,30 +386,15 @@ export struct WideRagDocumentsPage {
             this.selectedIds = this.selectedIds.filter((id: string) => id !== (item.id ?? ''));
           }
         })
-      Text(`${index + 1}`).width(34).fontSize(13).fontColor($r('sys.color.font_secondary'))
-      Row({ space: 8 }) {
-        Stack({ alignContent: Alignment.Center }) {
-          Row().width(22).height(22).borderRadius(4).backgroundColor('#2296DD')
-          Text('M').fontSize(11).fontWeight(FontWeight.Bold).fontColor(Color.White)
-        }.width(22).height(22)
-        Text(item.name ?? '未命名文档')
-          .fontSize(14).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
-          .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-      }.layoutWeight(1).alignItems(VerticalAlign.Center)
-      Text(this.docFormLabel(item)).width(120).fontSize(12).fontColor($r('sys.color.font_secondary'))
-        .padding({ left: 9, right: 9, top: 4, bottom: 4 }).borderRadius(8)
-        .backgroundColor($r('sys.color.comp_background_secondary'))
-      Text(this.formatCount(item.word_count)).width(90).fontSize(13).fontColor($r('sys.color.font_secondary'))
-      Text(this.formatCount(item.hit_count)).width(90).fontSize(13).fontColor($r('sys.color.font_secondary'))
-      Text(this.documentTime(item)).width(160).fontSize(13).fontColor($r('sys.color.font_secondary'))
-      Row({ space: 7 }) {
-        Row().width(7).height(7).borderRadius(4).backgroundColor(this.docStatusText(item) === '可用' ? '#19B76A' :
-          this.docStatusText(item) === '失败' ? '#EA2261' : '#B9C0C9')
-        this.docStatusBadge(item)
-      }.width(90).alignItems(VerticalAlign.Center)
+      Text(`${index + 1}`).fontSize(12).fontColor($r('sys.color.font_tertiary'))
+    }.alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  private docActions(item: RagDocument) {
+    Row({ space: 8 }) {
       Toggle({ type: ToggleType.Switch, isOn: item.enabled !== false && item.archived !== true })
         .selectedColor($r('app.color.brand_blue'))
-        .width(42)
         .onChange((value: boolean) => {
           if ((item.enabled !== false && item.archived !== true) !== value) {
             this.toggleEnabled(item);
@@ -425,15 +403,31 @@ export struct WideRagDocumentsPage {
       Button({ type: ButtonType.Circle, stateEffect: true }) {
         Text('⋮').fontSize(20).fontColor($r('sys.color.font_secondary'))
       }
-        .width(38).height(38).padding(0).backgroundColor(Color.Transparent)
+        .width(36).height(36).padding(0).backgroundColor(Color.Transparent)
         .accessibilityText(`${item.name ?? '文档'}更多操作`)
         .onClick(() => this.menuDocId = item.id ?? '')
         .bindMenu(this.documentMenu, { placement: Placement.BottomRight, enableArrow: true })
-    }
-      .width('100%').height(66).padding({ left: 12, right: 8 })
-      .alignItems(VerticalAlign.Center)
-      .backgroundColor(Color.White)
-      .border({ width: { bottom: 0.5 }, color: { bottom: '#EDF0F2' } })
+    }.alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  private docRow(item: RagDocument, index: number) {
+    HdsListItemCard({
+      prefixItem: new PrefixCustomBuilder((): void => {
+        this.docCheckbox(item, index);
+      }),
+      textItem: {
+        primaryText: { text: item.name ?? '未命名文档' },
+        secondaryText: {
+          text: `${this.docStatusText(item)} · ${this.docFormLabel(item)} · ${this.formatCount(item.word_count)} 字符 · 召回 ${this.formatCount(item.hit_count)} · ${this.documentTime(item)}`
+        }
+      },
+      suffixItem: new SuffixCustomBuilder((): void => {
+        this.docActions(item);
+      }),
+      cardId: `rag-doc-${item.id ?? index}`,
+      onClick: () => this.toggleChunks(item.id ?? '')
+    })
 
     if (this.expandedDocId === item.id) {
       Column({ space: 6 }) {
@@ -452,8 +446,9 @@ export struct WideRagDocumentsPage {
               .backgroundColor($r('sys.color.comp_background_secondary'))
           }, (chunk: RagChunk, chunkIndex: number) => `chunk-${chunk.id ?? chunkIndex}`)
         }
-      }.width('100%').padding({ left: 64, right: 20, top: 8, bottom: 12 })
-        .backgroundColor('#FAFBFC').alignItems(HorizontalAlign.Start)
+      }.width('100%').padding({ left: 16, right: 16, top: 8, bottom: 12 })
+        .backgroundColor($r('sys.color.comp_background_secondary')).borderRadius(8)
+        .alignItems(HorizontalAlign.Start)
     }
   }
 
@@ -488,6 +483,20 @@ export struct WideRagDocumentsPage {
             }.width('100%').alignItems(VerticalAlign.Center)
 
             Row({ space: 10 }) {
+              Checkbox({ name: 'rag-docs-select-all' })
+                .select(this.visibleDocs().length > 0 && this.selectedIds.length >= this.visibleDocs().length)
+                .selectedColor($r('app.color.brand_blue'))
+                .width(26)
+                .onChange((value: boolean) => {
+                  if (value) {
+                    this.selectedIds = this.visibleDocs()
+                      .map((item: RagDocument): string => item.id ?? '')
+                      .filter((id: string) => id.length > 0);
+                  } else {
+                    this.selectedIds = [];
+                  }
+                })
+                .accessibilityText('全选文档')
               Stack({ alignContent: Alignment.Center }) {
                 Select(this.categoryOptions().map((item: string): SelectOption => ({ value: item } as SelectOption)))
                   .selected(this.categoryIndex).value(this.categoryOptions()[this.categoryIndex] ?? '全部')
@@ -539,22 +548,18 @@ export struct WideRagDocumentsPage {
                   .onClick(() => this.loadDocs())
               }.width('100%').padding({ top: 20, bottom: 20 })
             } else {
-              Column({ space: 0 }) {
-                Row() {
-                  Checkbox().width(30)
-                  Text('#').width(34).fontSize(12).fontColor($r('sys.color.font_tertiary'))
-                  Text('名称').layoutWeight(1).fontSize(12).fontColor($r('sys.color.font_tertiary'))
-                  Text('分段模式').width(120).fontSize(12).fontColor($r('sys.color.font_tertiary'))
-                  Text('字符数').width(90).fontSize(12).fontColor($r('sys.color.font_tertiary'))
-                  Text('召回次数 ↓').width(90).fontSize(12).fontColor($r('sys.color.font_tertiary'))
-                  Text('上传时间 ↓').width(160).fontSize(12).fontColor($r('sys.color.font_tertiary'))
-                  Text('状态').width(90).fontSize(12).fontColor($r('sys.color.font_tertiary'))
-                  Text('操作').width(80).fontSize(12).fontColor($r('sys.color.font_tertiary'))
-                }.width('100%').height(42).padding({ left: 12, right: 8 }).alignItems(VerticalAlign.Center)
+              List({ space: 6 }) {
                 ForEach(this.visibleDocs(), (item: RagDocument, index: number) => {
-                  this.docRow(item, index)
+                  ListItem() {
+                    Column({ space: 4 }) {
+                      this.docRow(item, index)
+                    }.width('100%')
+                  }
                 }, (item: RagDocument) => `doc-${item.id}`)
-              }.width('100%')
+              }
+              .width('100%')
+              .scrollBar(BarState.Off)
+              .edgeEffect(EdgeEffect.Spring)
             }
 
             if (this.selectedIds.length > 0) {
@@ -581,7 +586,7 @@ export struct WideRagDocumentsPage {
             }
           }
           .width('100%')
-          .constraintSize({ minWidth: 1060, maxWidth: 1280 })
+          .constraintSize({ maxWidth: 1280 })
           .padding({
             left: 24,
             right: 24,
