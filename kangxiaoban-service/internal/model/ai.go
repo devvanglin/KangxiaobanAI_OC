@@ -59,3 +59,22 @@ type AIMessage struct {
 	Model          string    `gorm:"size:128" json:"model"`
 	SentAt         time.Time `gorm:"index:idx_ai_messages_conversation_sent,priority:2;not null" json:"sent_at"`
 }
+
+// AIUsageLog is one immutable per-call AI gateway usage record. It powers the
+// admin model page stat cards and never contains message content.
+type AIUsageLog struct {
+	Base
+	UserID           uint   `gorm:"index;not null" json:"user_id"`
+	RoleScope        string `gorm:"size:16;index" json:"role_scope"`
+	ConfigID         uint   `gorm:"index" json:"config_id"`
+	Provider         string `gorm:"size:16" json:"provider"`
+	Model            string `gorm:"size:128" json:"model"`
+	PromptTokens     int64  `gorm:"not null;default:0" json:"prompt_tokens"`
+	CompletionTokens int64  `gorm:"not null;default:0" json:"completion_tokens"`
+	TotalTokens      int64  `gorm:"not null;default:0;index" json:"total_tokens"`
+	RAGUsed          bool   `gorm:"not null;index" json:"rag_used"`
+	Success          bool   `gorm:"not null" json:"success"`
+	DurationMS       int64  `gorm:"not null;default:0" json:"duration_ms"`
+}
+
+func (AIUsageLog) TableName() string { return "ai_usage_logs" }

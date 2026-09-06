@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -24,9 +25,13 @@ const (
 )
 
 var (
-	ErrAIConversationNotFound = errors.New("ai conversation not found")
-	ErrAIValidation           = errors.New("ai request validation failed")
-	ErrAIProviderUnavailable  = errors.New("ai provider unavailable")
+	ErrAIConversationNotFound   = errors.New("ai conversation not found")
+	ErrAIValidation             = errors.New("ai request validation failed")
+	ErrAIProviderUnavailable    = errors.New("ai provider unavailable")
+	ErrRAGNotConfigured         = errors.New("rag connection not configured")
+	ErrRAGUnavailable           = errors.New("rag service unavailable")
+	ErrModelSourceNotConfigured = errors.New("model service connection not configured")
+	ErrModelSourceUnavailable   = errors.New("model service unavailable")
 )
 
 // AIExchange is the persisted result of one user message and one AI reply.
@@ -58,7 +63,7 @@ func (s *AIService) roleScope(ctx context.Context) string {
 	return "caregiver"
 }
 
-func (s *AIService) configForContext(ctx context.Context) *config.AIConfig {
+func (s *AIService) configForContext(ctx context.Context) (*config.AIConfig, *model.AIModelConfig) {
 	base := *s.cfg
 	if base.SystemPrompt == "" {
 		base.SystemPrompt = "你是康小伴智慧康养护理平台的照护助理，回答须谨慎、贴题、仅作参考，不做临床诊断。"
@@ -67,7 +72,7 @@ func (s *AIService) configForContext(ctx context.Context) *config.AIConfig {
 	err := s.db.WithContext(ctx).Where("role_scope IN ? AND enabled = ? AND allowed = ?", []string{s.roleScope(ctx), "all"}, true, true).
 		Order("is_default DESC, id DESC").First(&row).Error
 	if err != nil {
-		return &base
+		return &base, nil
 	}
 	base.Provider, base.BaseURL, base.Model, base.APIKey = row.Provider, row.BaseURL, row.Model, ""
 	base.ConfigKey = s.cfg.ConfigKey
@@ -77,7 +82,7 @@ func (s *AIService) configForContext(ctx context.Context) *config.AIConfig {
 	if row.SystemPrompt != "" {
 		base.SystemPrompt = row.SystemPrompt
 	}
-	return &base
+	return &base, &row
 }
 
 func NewAIService(cfg *config.AIConfig, db *gorm.DB) *AIService {
@@ -100,7 +105,10 @@ func (s *AIService) ListAvailableModels(ctx context.Context) ([]model.AIModelCon
 	var rows []model.AIModelConfig
 	err := s.db.WithContext(ctx).Where("role_scope IN ? AND enabled = ? AND allowed = ?", []string{role, "all"}, true, true).
 		Order("is_default DESC, id DESC").Find(&rows).Error
-	for i := range rows { rows[i].APIKeyEncrypted = ""; rows[i].RAGAPIKeyEncrypted = "" }
+	for i := range rows {
+		rows[i].APIKeyEncrypted = ""
+		rows[i].RAGAPIKeyEncrypted = ""
+	}
 	return rows, err
 }
 
@@ -170,6 +178,45 @@ func (s *AIService) ListMessages(ctx context.Context, userID, conversationID uin
 	return messages, err
 }
 
+// AIUsageSummary is the aggregate shown by the admin model page stat cards.
+type AIUsageSummary struct {
+	TotalTokens   int64   `json:"total_tokens"`
+	TodayCalls    int64   `json:"today_calls"`
+	AvgDailyCalls float64 `json:"avg_daily_calls"`
+	RAGCalls      int64   `json:"rag_calls"`
+}
+
+// UsageSummary 汇总当前租户的按次 AI 用量：累计 token、今日调用次数、
+// 最近 30 天日均调用次数与 RAG 知识库调用次数。
+func (s *AIService) UsageSummary(ctx context.Context) (*AIUsageSummary, error) {
+	now := time.Now()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	windowStart := todayStart.AddDate(0, 0, -29)
+	var agg struct {
+		TotalTokens int64
+		TodayCalls  int64
+		WindowCalls int64
+		RAGCalls    int64
+	}
+	// 用 Find 而非 Scan：Scan 走 GORM RowQuery 处理器，会绕过统一租户隔离回调。
+	err := s.db.WithContext(ctx).Model(&model.AIUsageLog{}).Select(
+		"COALESCE(SUM(total_tokens), 0) AS total_tokens, "+
+			"COALESCE(SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END), 0) AS today_calls, "+
+			"COALESCE(SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END), 0) AS window_calls, "+
+			"COALESCE(SUM(CASE WHEN rag_used = ? THEN 1 ELSE 0 END), 0) AS rag_calls",
+		todayStart, windowStart, true,
+	).Find(&agg).Error
+	if err != nil {
+		return nil, err
+	}
+	return &AIUsageSummary{
+		TotalTokens:   agg.TotalTokens,
+		TodayCalls:    agg.TodayCalls,
+		AvgDailyCalls: float64(agg.WindowCalls) / 30.0,
+		RAGCalls:      agg.RAGCalls,
+	}, nil
+}
+
 // SendMessage asks the configured AI and atomically persists both sides of the exchange.
 func (s *AIService) SendMessage(ctx context.Context, userID, conversationID uint, content string) (*AIExchange, error) {
 	content = strings.TrimSpace(content)
@@ -181,7 +228,7 @@ func (s *AIService) SendMessage(ctx context.Context, userID, conversationID uint
 		First(&owned).Error; err != nil {
 		return nil, mapAIConversationNotFound(err)
 	}
-	answer, modelName, err := s.Chat(ctx, content)
+	answer, modelName, err := s.Chat(ctx, userID, content)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +253,7 @@ func (s *AIService) ChatAndPersistDefault(ctx context.Context, userID uint, ques
 	if userID == 0 || question == "" {
 		return "", "", fmt.Errorf("%w: user_id and question are required", ErrAIValidation)
 	}
-	answer, modelName, err := s.Chat(ctx, question)
+	answer, modelName, err := s.Chat(ctx, userID, question)
 	if err != nil {
 		return "", "", err
 	}
@@ -230,36 +277,150 @@ func (s *AIService) ChatAndPersistDefault(ctx context.Context, userID uint, ques
 	return answer, modelName, nil
 }
 
-// Chat 返回模型答复（advisory，非临床诊断）。
-func (s *AIService) Chat(ctx context.Context, question string) (string, string, error) {
+// Chat 返回模型答复（advisory，非临床诊断）。每次到达网关的调用都会记录一条
+// 用量日志，供管理端大模型页统计 token 消耗、调用次数与 RAG 知识库调用次数。
+func (s *AIService) Chat(ctx context.Context, userID uint, question string) (string, string, error) {
 	question = strings.TrimSpace(question)
 	if question == "" {
 		return "", "", fmt.Errorf("question 不能为空")
 	}
-	cfg := s.configForContext(ctx)
+	cfg, configRow := s.configForContext(ctx)
 	if cfg == nil || !cfg.Enabled {
 		return "", "", ErrAIProviderUnavailable
 	}
 	provider := strings.ToLower(strings.TrimSpace(cfg.Provider))
+	startedAt := time.Now()
+	ragUsed := false
+	if provider == "http" && configRow != nil {
+		ragContext, attempted := s.ragContextForChat(ctx, configRow, question)
+		ragUsed = attempted
+		if ragContext != "" {
+			cfg.SystemPrompt = strings.TrimSpace(cfg.SystemPrompt) +
+				"\n\n以下是机构知识库检索到的参考资料，回答时请优先依据其内容并保持谨慎：\n" + ragContext
+		}
+	}
+	answer, modelName, promptTokens, completionTokens, totalTokens, chatErr := s.dispatchChat(ctx, cfg, provider, question)
+	s.recordUsage(ctx, userID, configRow, provider, modelName, promptTokens, completionTokens, totalTokens, ragUsed, chatErr == nil, time.Since(startedAt))
+	if chatErr != nil {
+		return "", "", chatErr
+	}
+	return answer, modelName, nil
+}
+
+// dispatchChat 按 provider 分发一次对话，并返回 token 计量（无计量时由估算补齐）。
+func (s *AIService) dispatchChat(ctx context.Context, cfg *config.AIConfig, provider, question string) (string, string, int64, int64, int64, error) {
 	switch provider {
 	case "local":
 		modelName := strings.TrimSpace(cfg.Model)
 		if modelName == "" {
 			modelName = "kxb-local"
 		}
-		return s.localAnswer(ctx, question), modelName, nil
+		answer := s.localAnswer(ctx, question)
+		promptTokens := estimateTokens(question)
+		completionTokens := estimateTokens(answer)
+		return answer, modelName, promptTokens, completionTokens, promptTokens + completionTokens, nil
 	case "http":
 		if strings.TrimSpace(cfg.BaseURL) == "" || strings.TrimSpace(cfg.Model) == "" {
-			return "", "", fmt.Errorf("%w: http provider is not fully configured", ErrAIProviderUnavailable)
+			return "", "", 0, 0, 0, fmt.Errorf("%w: http provider is not fully configured", ErrAIProviderUnavailable)
 		}
-		answer, err := s.chatHTTP(ctx, cfg, question)
+		answer, promptTokens, completionTokens, totalTokens, err := s.chatHTTP(ctx, cfg, question)
 		if err != nil {
-			return "", "", fmt.Errorf("%w: %v", ErrAIProviderUnavailable, err)
+			return "", "", 0, 0, 0, fmt.Errorf("%w: %v", ErrAIProviderUnavailable, err)
 		}
-		return answer, strings.TrimSpace(cfg.Model), nil
+		return answer, strings.TrimSpace(cfg.Model), promptTokens, completionTokens, totalTokens, nil
 	default:
-		return "", "", fmt.Errorf("%w: unsupported provider %q", ErrAIProviderUnavailable, provider)
+		return "", "", 0, 0, 0, fmt.Errorf("%w: unsupported provider %q", ErrAIProviderUnavailable, provider)
 	}
+}
+
+// estimateTokens 在 provider 未返回 usage 时提供粗略估算：中文按约 1 字符
+// 1 token 计。仅用于管理端统计展示，不用于计费。
+func estimateTokens(text string) int64 {
+	return int64(len([]rune(text)))
+}
+
+// recordUsage 写入一条按次用量日志；记录失败只影响统计，不能影响对话本身。
+func (s *AIService) recordUsage(ctx context.Context, userID uint, configRow *model.AIModelConfig, provider, modelName string, promptTokens, completionTokens, totalTokens int64, ragUsed, success bool, duration time.Duration) {
+	if s.db == nil {
+		return
+	}
+	entry := model.AIUsageLog{
+		UserID:           userID,
+		RoleScope:        s.roleScope(ctx),
+		Provider:         provider,
+		Model:            modelName,
+		PromptTokens:     promptTokens,
+		CompletionTokens: completionTokens,
+		TotalTokens:      totalTokens,
+		RAGUsed:          ragUsed,
+		Success:          success,
+		DurationMS:       duration.Milliseconds(),
+	}
+	if configRow != nil {
+		entry.ConfigID = configRow.ID
+	}
+	if err := s.db.WithContext(ctx).Create(&entry).Error; err != nil {
+		log.Printf("ai usage log create failed: %v", err)
+	}
+}
+
+// ragContextForChat 调用配置的 Dify 知识库检索接口并拼接参考片段。布尔值表示
+// 是否发起了检索调用（即管理端统计的“RAG 知识库调用次数”）。检索失败不阻断对话。
+func (s *AIService) ragContextForChat(ctx context.Context, row *model.AIModelConfig, question string) (string, bool) {
+	baseURL := strings.TrimRight(strings.TrimSpace(row.RAGBaseURL), "/")
+	datasetID := strings.TrimSpace(row.RAGDatasetID)
+	if baseURL == "" || datasetID == "" {
+		return "", false
+	}
+	apiKey := ""
+	if value, err := security.Decrypt(s.cfg.ConfigKey, row.RAGAPIKeyEncrypted); err == nil {
+		apiKey = value
+	}
+	body, _ := json.Marshal(map[string]interface{}{
+		"query": question,
+		"retrieval_model": map[string]interface{}{
+			"search_method": "semantic_search", "reranking_enable": false,
+			"top_k": 3, "score_threshold_enabled": false,
+		},
+	})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/v1/datasets/"+datasetID+"/retrieve", bytes.NewReader(body))
+	if err != nil {
+		return "", true
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+	client := &http.Client{Timeout: 8 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", true
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return "", true
+	}
+	var out struct {
+		Records []struct {
+			Segment struct {
+				Content string `json:"content"`
+			} `json:"segment"`
+		} `json:"records"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return "", true
+	}
+	parts := make([]string, 0, len(out.Records))
+	for _, record := range out.Records {
+		content := strings.TrimSpace(record.Segment.Content)
+		if content != "" {
+			parts = append(parts, content)
+		}
+	}
+	if len(parts) == 0 {
+		return "", true
+	}
+	return strings.Join(parts, "\n---\n"), true
 }
 
 func persistAIExchange(tx *gorm.DB, conversation *model.AIConversation, userID uint, question, answer, modelName string, exchange *AIExchange) error {
@@ -323,8 +484,8 @@ func mapAIConversationNotFound(err error) error {
 	return err
 }
 
-// chatHTTP 兼容 OpenAI /v1/chat/completions 的远端模型。
-func (s *AIService) chatHTTP(ctx context.Context, cfg *config.AIConfig, question string) (string, error) {
+// chatHTTP 兼容 OpenAI /v1/chat/completions 的远端模型，并返回 provider 的 token 计量。
+func (s *AIService) chatHTTP(ctx context.Context, cfg *config.AIConfig, question string) (string, int64, int64, int64, error) {
 	body, _ := json.Marshal(map[string]interface{}{
 		"model": cfg.Model,
 		"messages": []map[string]string{
@@ -336,7 +497,7 @@ func (s *AIService) chatHTTP(ctx context.Context, cfg *config.AIConfig, question
 	baseURL := strings.TrimRight(strings.TrimSpace(cfg.BaseURL), "/")
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/v1/chat/completions", bytes.NewReader(body))
 	if err != nil {
-		return "", err
+		return "", 0, 0, 0, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if cfg.APIKey != "" {
@@ -345,11 +506,11 @@ func (s *AIService) chatHTTP(ctx context.Context, cfg *config.AIConfig, question
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return "", 0, 0, 0, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return "", fmt.Errorf("provider returned HTTP %d", resp.StatusCode)
+		return "", 0, 0, 0, fmt.Errorf("provider returned HTTP %d", resp.StatusCode)
 	}
 	var out struct {
 		Choices []struct {
@@ -357,14 +518,30 @@ func (s *AIService) chatHTTP(ctx context.Context, cfg *config.AIConfig, question
 				Content string `json:"content"`
 			} `json:"message"`
 		} `json:"choices"`
+		Usage struct {
+			PromptTokens     int64 `json:"prompt_tokens"`
+			CompletionTokens int64 `json:"completion_tokens"`
+			TotalTokens      int64 `json:"total_tokens"`
+		} `json:"usage"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return "", err
+		return "", 0, 0, 0, err
 	}
 	if len(out.Choices) == 0 || strings.TrimSpace(out.Choices[0].Message.Content) == "" {
-		return "", fmt.Errorf("empty response")
+		return "", 0, 0, 0, fmt.Errorf("empty response")
 	}
-	return strings.TrimSpace(out.Choices[0].Message.Content), nil
+	answer := strings.TrimSpace(out.Choices[0].Message.Content)
+	promptTokens, completionTokens := out.Usage.PromptTokens, out.Usage.CompletionTokens
+	totalTokens := out.Usage.TotalTokens
+	if totalTokens <= 0 {
+		totalTokens = promptTokens + completionTokens
+	}
+	if totalTokens <= 0 {
+		promptTokens = estimateTokens(cfg.SystemPrompt + question)
+		completionTokens = estimateTokens(answer)
+		totalTokens = promptTokens + completionTokens
+	}
+	return answer, promptTokens, completionTokens, totalTokens, nil
 }
 
 // localAnswer 本地确定性答复：按关键词给出审慎、贴题的帮助。
@@ -430,4 +607,115 @@ func describeAIHealthThreshold(threshold model.HealthThreshold) string {
 
 func formatAIThreshold(value float64) string {
 	return strconv.FormatFloat(value, 'f', -1, 64)
+}
+
+// RAGDataset is one knowledge-base inventory entry fetched from the configured Dify service.
+type RAGDataset struct {
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	DocumentCount int64  `json:"document_count"`
+}
+
+// ProviderModel is one model id fetched from the role's configured
+// OpenAI-compatible service (vLLM and friends).
+type ProviderModel struct {
+	ID string `json:"id"`
+}
+
+// ListRAGDatasets 代理读取已配置 Dify 的知识库清单，供管理端大模型页展示与选择。
+// 密钥只存在服务端，客户端永远不接触 Dify API Key。
+func (s *AIService) ListRAGDatasets(ctx context.Context) ([]RAGDataset, error) {
+	var row model.AIModelConfig
+	err := s.db.WithContext(ctx).Where("rag_enabled = ? AND rag_base_url <> ''", true).
+		Order("is_default DESC, id DESC").First(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrRAGNotConfigured
+	}
+	if err != nil {
+		return nil, err
+	}
+	baseURL := strings.TrimRight(strings.TrimSpace(row.RAGBaseURL), "/")
+	apiKey, _ := security.Decrypt(s.cfg.ConfigKey, row.RAGAPIKeyEncrypted)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/v1/datasets?page=1&limit=100", nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+	}
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+	client := &http.Client{Timeout: 8 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("%w: HTTP %d", ErrRAGUnavailable, resp.StatusCode)
+	}
+	var out struct {
+		Data []struct {
+			ID            string `json:"id"`
+			Name          string `json:"name"`
+			DocumentCount int64  `json:"document_count"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+	}
+	datasets := make([]RAGDataset, 0, len(out.Data))
+	for _, item := range out.Data {
+		datasets = append(datasets, RAGDataset{ID: item.ID, Name: item.Name, DocumentCount: item.DocumentCount})
+	}
+	return datasets, nil
+}
+
+// ListProviderModels 代理读取角色 http 模型服务（vLLM 等 OpenAI 兼容部署）的可用模型清单。
+func (s *AIService) ListProviderModels(ctx context.Context, role string) ([]ProviderModel, error) {
+	role = strings.TrimSpace(role)
+	if role == "" {
+		role = "caregiver"
+	}
+	var row model.AIModelConfig
+	err := s.db.WithContext(ctx).Where("role_scope IN ? AND provider = ? AND base_url <> ''", []string{role, "all"}, "http").
+		Order("is_default DESC, id DESC").First(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrModelSourceNotConfigured
+	}
+	if err != nil {
+		return nil, err
+	}
+	baseURL := strings.TrimRight(strings.TrimSpace(row.BaseURL), "/")
+	apiKey, _ := security.Decrypt(s.cfg.ConfigKey, row.APIKeyEncrypted)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/v1/models", nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrModelSourceUnavailable, err)
+	}
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+	client := &http.Client{Timeout: 8 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrModelSourceUnavailable, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("%w: HTTP %d", ErrModelSourceUnavailable, resp.StatusCode)
+	}
+	var out struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrModelSourceUnavailable, err)
+	}
+	models := make([]ProviderModel, 0, len(out.Data))
+	for _, item := range out.Data {
+		if strings.TrimSpace(item.ID) == "" {
+			continue
+		}
+		models = append(models, ProviderModel{ID: item.ID})
+	}
+	return models, nil
 }

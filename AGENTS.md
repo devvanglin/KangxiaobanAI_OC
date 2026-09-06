@@ -308,7 +308,15 @@ type defaults, room 3×2 and corridor 6×1), and the canvas supports tap-to-plac
 per-floor layouts persisted through the area APIs. `订阅` manages tenant-owned care-package templates and elder
 subscriptions that generate runtime
 care plans and tasks. The model page persists separate caregiver and doctor AI configurations through authenticated
-admin APIs; keys are encrypted server-side and never returned to clients. Device management accepts MQTT radar
+admin APIs; keys are encrypted server-side and never returned to clients. Its stat cards read live usage aggregates
+(total tokens, today's calls, 30-day daily average, RAG knowledge-base calls) from the protected
+`/api/v1/admin/ai/usage/summary` endpoint. The page body is a 3:1 split: the left column lists knowledge bases
+fetched from the configured Dify service through `/api/v1/admin/ai/rag/datasets`, and the right column lists models
+fetched from the role's OpenAI-compatible endpoint (vLLM) through `/api/v1/admin/ai/llm/models?role=...` under a
+caregiver/doctor capsule that also carries the prompt-routing entry (per-role model plus system prompt). The
+`编辑模型索引` dialog owns the Dify and vLLM connections, the fetch-model action, and config deletion; both proxies
+require `admin:all` and return typed not-configured/unavailable errors that the page renders as explicit states.
+Device management accepts MQTT radar
 metadata and manually configured RTSP cameras. Camera behavior remains an explicit empty state until the vision
 adapter is integrated.
 
@@ -617,6 +625,10 @@ touch/focus target size, large-font behavior, and keyboard/mouse handling on 2-i
 - new/select/delete/send flows call typed REST endpoints;
 - remote provider errors surface as service failures and are not rewritten as local answers;
 - the response records its actual provider/model identity;
+- every gateway call writes one tenant-scoped `ai_usage_logs` row (provider-reported tokens when available, a
+  character-based estimate for the local provider, RAG attempts, success flag, duration) without message content;
+- when an http model config enables RAG, the gateway performs a best-effort Dify dataset retrieval and injects the
+  fragments as reference context; retrieval failures do not block the chat and local-provider configs never retrieve;
 - UI-only feedback, copy/edit state, scrolling, focus, keyboard behavior, and simple rich-text parsing remain local.
 
 Future production hardening must still provide:

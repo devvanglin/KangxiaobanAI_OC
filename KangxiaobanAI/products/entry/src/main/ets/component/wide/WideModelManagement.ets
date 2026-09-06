@@ -1,4 +1,5 @@
 import ApiClient from '../../network/ApiClient';
+import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule';
 
 interface AIModelConfig {
   id?: number; role_scope: string; name: string; provider: string; base_url: string; model: string; system_prompt: string;
@@ -7,9 +8,13 @@ interface AIModelConfig {
 }
 interface AIConfigPage { list: AIModelConfig[]; }
 interface AIConfigRequest { role_scope: string; name: string; provider: string; base_url: string; model: string; api_key: string; system_prompt: string; rag_enabled: boolean; rag_base_url: string; rag_dataset_id: string; enabled: boolean; allowed: boolean; is_default: boolean; }
+interface AIUsageSummary { total_tokens: number; today_calls: number; avg_daily_calls: number; rag_calls: number; }
+interface RAGDataset { id: string; name: string; document_count: number; }
+interface ProviderModel { id: string; }
 interface StatCardParam { label: string; value: string; }
 
 const DARK_BUTTON_BG: string = '#1D63ED';
+const DEFAULT_SYSTEM_PROMPT: string = '你是康小伴智慧康养护理平台的照护助理，回答谨慎、贴题，仅作参考，不做临床诊断。';
 
 @ComponentV2
 export struct WideModelManagement {
@@ -24,16 +29,37 @@ export struct WideModelManagement {
   @Local baseUrl: string = '';
   @Local modelName: string = 'kxb-local';
   @Local apiKey: string = '';
-  @Local systemPrompt: string = '你是康小伴智慧康养护理平台的照护助理，回答谨慎、贴题，仅作参考，不做临床诊断。';
+  @Local systemPrompt: string = DEFAULT_SYSTEM_PROMPT;
   @Local ragEnabled: boolean = false;
   @Local ragBaseUrl: string = '';
   @Local ragDatasetId: string = '';
   @Local editorEnabled: boolean = true;
   @Local showEditor: boolean = false;
+  @Local editorFetched: ProviderModel[] = [];
+  @Local editorFetching: boolean = false;
+  @Local editorFetchHint: string = '';
+  @Local showPrompts: boolean = false;
+  @Local promptRole: string = 'caregiver';
+  @Local promptText: string = '';
+  @Local promptError: string = '';
+  @Local sourceRole: string = 'caregiver';
+  @Local sourceModels: ProviderModel[] = [];
+  @Local sourceLoading: boolean = false;
+  @Local sourceError: string = '';
+  @Local ragDatasets: RAGDataset[] = [];
+  @Local ragLoading: boolean = false;
+  @Local ragError: string = '';
   @Local saved: boolean = false;
   @Local error: string = '';
+  @Local usage: AIUsageSummary = { total_tokens: 0, today_calls: 0, avg_daily_calls: 0, rag_calls: 0 };
+  @Local usageLoaded: boolean = false;
 
-  aboutToAppear(): void { this.load(); }
+  aboutToAppear(): void {
+    this.load();
+    this.loadUsage();
+    this.loadRagDatasets();
+    this.loadSourceModels();
+  }
 
   private async load(): Promise<void> {
     try {
@@ -43,8 +69,59 @@ export struct WideModelManagement {
     } catch (_error) { this.error = 'AI 配置加载失败'; }
   }
 
-  private configsOfRole(role: string): AIModelConfig[] {
-    return this.configs.filter((item: AIModelConfig) => item.role_scope === role);
+  private async loadUsage(): Promise<void> {
+    try {
+      const response = await ApiClient.get<AIUsageSummary>('/admin/ai/usage/summary');
+      if (response.code !== 0 || response.data === undefined) throw new Error(response.msg);
+      this.usage = response.data;
+      this.usageLoaded = true;
+    } catch (_error) { this.usageLoaded = false; }
+  }
+
+  private async loadRagDatasets(): Promise<void> {
+    this.ragLoading = true;
+    this.ragError = '';
+    try {
+      const response = await ApiClient.get<RAGDataset[]>('/admin/ai/rag/datasets');
+      if (response.code !== 0 || response.data === undefined) {
+        this.ragError = response.msg.length > 0 ? response.msg : '知识库列表获取失败';
+        this.ragDatasets = [];
+      } else {
+        this.ragDatasets = response.data;
+      }
+    } catch (error) {
+      this.ragError = error instanceof Error && error.message.length > 0 ? error.message : '知识库列表获取失败';
+      this.ragDatasets = [];
+    }
+    this.ragLoading = false;
+  }
+
+  private async loadSourceModels(): Promise<void> {
+    const role: string = this.sourceRole;
+    const config: AIModelConfig | undefined = this.defaultConfigOfRole(role);
+    if (config === undefined || config.provider !== 'http' || config.base_url.trim().length === 0) {
+      this.sourceModels = [];
+      this.sourceError = config === undefined ? '该角色尚未创建模型配置' : '当前为本地模型，无需获取远程列表';
+      return;
+    }
+    this.sourceLoading = true;
+    this.sourceError = '';
+    try {
+      const response = await ApiClient.get<ProviderModel[]>(`/admin/ai/llm/models?role=${role}`);
+      if (this.sourceRole !== role) { return; }
+      if (response.code !== 0 || response.data === undefined) {
+        this.sourceError = response.msg.length > 0 ? response.msg : '模型列表获取失败';
+        this.sourceModels = [];
+      } else {
+        this.sourceModels = response.data;
+        if (response.data.length === 0) { this.sourceError = '模型服务未返回任何模型'; }
+      }
+    } catch (error) {
+      if (this.sourceRole !== role) { return; }
+      this.sourceError = error instanceof Error && error.message.length > 0 ? error.message : '模型列表获取失败';
+      this.sourceModels = [];
+    }
+    this.sourceLoading = false;
   }
 
   private defaultConfigOfRole(role: string): AIModelConfig | undefined {
@@ -52,16 +129,108 @@ export struct WideModelManagement {
       this.configs.find((item: AIModelConfig) => item.role_scope === role);
   }
 
+  private bindingsOf(datasetId: string): string[] {
+    return this.configs
+      .filter((item: AIModelConfig) => item.rag_enabled && item.rag_dataset_id === datasetId)
+      .map((item: AIModelConfig) => item.role_scope);
+  }
+
   private roleLabel(role: string): string {
     return role === 'doctor' ? '医师 AI' : '护工 AI';
   }
 
-  private enabledCount(): number {
-    return this.configs.filter((item: AIModelConfig) => item.enabled).length;
+  private sourceTabs(): WideSlidingCapsuleItem[] {
+    return [
+      { title: '护工', index: 0 },
+      { title: '医师', index: 1 },
+      { title: '提示词', index: 2 }
+    ];
   }
 
-  private ragEnabledCount(): number {
-    return this.configs.filter((item: AIModelConfig) => item.rag_enabled).length;
+  private onSourceTab(index: number): void {
+    if (index === 2) {
+      this.openPromptDialog();
+      return;
+    }
+    const role: string = index === 1 ? 'doctor' : 'caregiver';
+    if (role === this.sourceRole) { return; }
+    this.sourceRole = role;
+    this.loadSourceModels();
+  }
+
+  private appliedModelId(): string {
+    const config: AIModelConfig | undefined = this.defaultConfigOfRole(this.sourceRole);
+    return config !== undefined ? config.model : '';
+  }
+
+  private async applyModel(modelId: string): Promise<void> {
+    const item: AIModelConfig | undefined = this.defaultConfigOfRole(this.sourceRole);
+    if (item === undefined || item.id === undefined) {
+      this.sourceError = '该角色尚未创建模型配置，请先在「编辑模型索引」中保存';
+      return;
+    }
+    const payload: AIConfigRequest = {
+      role_scope: item.role_scope, name: item.name, provider: item.provider, base_url: item.base_url,
+      model: modelId, api_key: '', system_prompt: item.system_prompt, rag_enabled: item.rag_enabled,
+      rag_base_url: item.rag_base_url, rag_dataset_id: item.rag_dataset_id,
+      enabled: item.enabled, allowed: item.allowed, is_default: item.is_default
+    };
+    const response = await ApiClient.put<AIModelConfig>(`/admin/ai/configs/${item.id}`, payload);
+    if (response.code !== 0) { this.sourceError = response.msg || '模型应用失败'; return; }
+    this.sourceError = '';
+    await this.load();
+  }
+
+  private async fetchEditorModels(): Promise<void> {
+    const config: AIModelConfig | undefined = this.defaultConfigOfRole(this.selectedRole);
+    if (config === undefined || config.provider !== 'http' || config.base_url.trim().length === 0) {
+      this.editorFetched = [];
+      this.editorFetchHint = '请先保存该角色的 vLLM 连接后再获取模型';
+      return;
+    }
+    if (this.baseUrl.trim() !== config.base_url.trim()) {
+      this.editorFetched = [];
+      this.editorFetchHint = 'Base URL 已修改，请先保存配置再获取模型';
+      return;
+    }
+    this.editorFetching = true;
+    this.editorFetchHint = '';
+    try {
+      const response = await ApiClient.get<ProviderModel[]>(`/admin/ai/llm/models?role=${this.selectedRole}`);
+      if (response.code !== 0 || response.data === undefined) {
+        this.editorFetched = [];
+        this.editorFetchHint = response.msg.length > 0 ? response.msg : '模型获取失败';
+      } else {
+        this.editorFetched = response.data;
+        if (response.data.length === 0) { this.editorFetchHint = '模型服务未返回任何模型'; }
+      }
+    } catch (_error) {
+      this.editorFetched = [];
+      this.editorFetchHint = '模型获取失败，请检查连接';
+    }
+    this.editorFetching = false;
+  }
+
+  /** 千分位格式化，用于 token 与调用次数展示。 */
+  private formatCount(value: number): string {
+    const rounded: number = Math.round(value);
+    const sign: string = rounded < 0 ? '-' : '';
+    const digits: string = Math.abs(rounded).toString();
+    let grouped: string = '';
+    for (let i = 0; i < digits.length; i++) {
+      if (i > 0 && (digits.length - i) % 3 === 0) { grouped += ','; }
+      grouped += digits[i];
+    }
+    return sign + grouped;
+  }
+
+  private usageValue(value: number): string {
+    return this.usageLoaded ? this.formatCount(value) : '--';
+  }
+
+  private avgCallsValue(): string {
+    if (!this.usageLoaded) { return '--'; }
+    return `${this.usage.avg_daily_calls.toFixed(1)} 次/日`;
   }
 
   private async requestPayload(): Promise<AIConfigRequest> {
@@ -84,57 +253,94 @@ export struct WideModelManagement {
     this.showEditor = false;
     this.apiKey = '';
     await this.load();
+    this.loadRagDatasets();
+    this.loadSourceModels();
   }
 
-  private async toggleEnabled(item: AIModelConfig): Promise<void> {
-    const payload: AIConfigRequest = {
-      role_scope: item.role_scope, name: item.name, provider: item.provider, base_url: item.base_url,
-      model: item.model, api_key: '', system_prompt: item.system_prompt, rag_enabled: item.rag_enabled,
-      rag_base_url: item.rag_base_url, rag_dataset_id: item.rag_dataset_id,
-      enabled: !item.enabled, allowed: item.allowed, is_default: item.is_default
-    };
-    const response = await ApiClient.put<AIModelConfig>(`/admin/ai/configs/${item.id}`, payload);
-    if (response.code !== 0) { this.error = response.msg || 'AI 配置更新失败'; return; }
-    this.error = '';
-    await this.load();
-  }
-
-  private async remove(item: AIModelConfig): Promise<void> {
-    const response = await ApiClient.delete<Object>(`/admin/ai/configs/${item.id}`);
+  private async removeSelected(): Promise<void> {
+    if (this.configId <= 0) { return; }
+    const response = await ApiClient.delete<Object>(`/admin/ai/configs/${this.configId}`);
     if (response.code !== 0) { this.error = response.msg || 'AI 配置删除失败'; return; }
     this.error = '';
-    if (this.configId === item.id) { this.configId = 0; }
+    this.configId = 0;
+    this.showEditor = false;
     await this.load();
+    this.loadRagDatasets();
+    this.loadSourceModels();
   }
 
-  private openEditor(item?: AIModelConfig): void {
-    this.error = '';
-    this.saved = false;
-    if (item !== undefined) {
-      this.selectedRole = item.role_scope;
-      this.configId = item.id ?? 0;
-      this.provider = item.provider;
-      this.baseUrl = item.base_url;
-      this.modelName = item.model;
-      this.systemPrompt = item.system_prompt;
-      this.ragEnabled = item.rag_enabled;
-      this.ragBaseUrl = item.rag_base_url;
-      this.ragDatasetId = item.rag_dataset_id;
-      this.editorEnabled = item.enabled;
+  private selectEditorRole(role: string): void {
+    this.selectedRole = role;
+    const config: AIModelConfig | undefined = this.defaultConfigOfRole(role);
+    if (config !== undefined) {
+      this.configId = config.id ?? 0;
+      this.provider = config.provider;
+      this.baseUrl = config.base_url;
+      this.modelName = config.model;
+      this.systemPrompt = config.system_prompt;
+      this.ragEnabled = config.rag_enabled;
+      this.ragBaseUrl = config.rag_base_url;
+      this.ragDatasetId = config.rag_dataset_id;
+      this.editorEnabled = config.enabled;
     } else {
-      this.selectedRole = 'caregiver';
       this.configId = 0;
       this.provider = 'local';
       this.baseUrl = '';
       this.modelName = 'kxb-local';
-      this.systemPrompt = '你是康小伴智慧康养护理平台的照护助理，回答谨慎、贴题，仅作参考，不做临床诊断。';
+      this.systemPrompt = DEFAULT_SYSTEM_PROMPT;
       this.ragEnabled = false;
       this.ragBaseUrl = '';
       this.ragDatasetId = '';
       this.editorEnabled = true;
     }
     this.apiKey = '';
+    this.editorFetched = [];
+    this.editorFetchHint = '';
+    this.saved = false;
+  }
+
+  private openEditor(): void {
+    this.error = '';
+    this.saved = false;
+    this.selectEditorRole(this.sourceRole);
     this.showEditor = true;
+  }
+
+  private openPromptDialog(): void {
+    this.promptRole = this.sourceRole;
+    const config: AIModelConfig | undefined = this.defaultConfigOfRole(this.promptRole);
+    this.promptText = config !== undefined ? config.system_prompt : '';
+    this.promptError = '';
+    this.saved = false;
+    this.showPrompts = true;
+  }
+
+  private selectPromptRole(role: string): void {
+    this.promptRole = role;
+    const config: AIModelConfig | undefined = this.defaultConfigOfRole(role);
+    this.promptText = config !== undefined ? config.system_prompt : '';
+    this.promptError = '';
+    this.saved = false;
+  }
+
+  private async savePrompt(): Promise<void> {
+    const config: AIModelConfig | undefined = this.defaultConfigOfRole(this.promptRole);
+    if (config === undefined || config.id === undefined) {
+      this.promptError = '该角色尚未创建模型配置，请先在「编辑模型索引」中保存';
+      return;
+    }
+    const payload: AIConfigRequest = {
+      role_scope: config.role_scope, name: config.name, provider: config.provider, base_url: config.base_url,
+      model: config.model, api_key: '', system_prompt: this.promptText.trim(), rag_enabled: config.rag_enabled,
+      rag_base_url: config.rag_base_url, rag_dataset_id: config.rag_dataset_id,
+      enabled: config.enabled, allowed: config.allowed, is_default: config.is_default
+    };
+    const response = await ApiClient.put<AIModelConfig>(`/admin/ai/configs/${config.id}`, payload);
+    if (response.code !== 0) { this.promptError = response.msg || '提示词保存失败'; return; }
+    this.promptError = '';
+    this.saved = true;
+    this.showPrompts = false;
+    await this.load();
   }
 
   @Builder
@@ -149,31 +355,25 @@ export struct WideModelManagement {
       .borderRadius(12).border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
-  private roleStatusValue(role: string): string {
-    const config: AIModelConfig | undefined = this.defaultConfigOfRole(role);
-    if (config === undefined) { return '未配置'; }
-    return config.enabled ? '已启用' : '已停用';
-  }
-
   @Builder
   private statCards() {
     if (this.compactWidth) {
       Column({ space: 12 }) {
         Row({ space: 12 }) {
-          Row() { this.statCard({ label: '接入模型', value: String(this.configs.length) }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
-          Row() { this.statCard({ label: '护工端', value: this.roleStatusValue('caregiver') }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+          Row() { this.statCard({ label: '总消耗 Token', value: this.usageValue(this.usage.total_tokens) }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+          Row() { this.statCard({ label: '今日调用次数', value: this.usageValue(this.usage.today_calls) }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
         }.width('100%')
         Row({ space: 12 }) {
-          Row() { this.statCard({ label: '医师端', value: this.roleStatusValue('doctor') }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
-          Row() { this.statCard({ label: 'RAG 知识库', value: `${this.ragEnabledCount()} 项启用` }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+          Row() { this.statCard({ label: '平均请求次数', value: this.avgCallsValue() }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+          Row() { this.statCard({ label: 'RAG 知识库调用次数', value: this.usageValue(this.usage.rag_calls) }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
         }.width('100%')
       }.width('100%')
     } else {
       Row({ space: 12 }) {
-        Row() { this.statCard({ label: '接入模型', value: String(this.configs.length) }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
-        Row() { this.statCard({ label: '护工端', value: this.roleStatusValue('caregiver') }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
-        Row() { this.statCard({ label: '医师端', value: this.roleStatusValue('doctor') }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
-        Row() { this.statCard({ label: 'RAG 知识库', value: `${this.ragEnabledCount()} 项启用` }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+        Row() { this.statCard({ label: '总消耗 Token', value: this.usageValue(this.usage.total_tokens) }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+        Row() { this.statCard({ label: '今日调用次数', value: this.usageValue(this.usage.today_calls) }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+        Row() { this.statCard({ label: '平均请求次数', value: this.avgCallsValue() }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
+        Row() { this.statCard({ label: 'RAG 知识库调用次数', value: this.usageValue(this.usage.rag_calls) }) }.layoutWeight(1).alignItems(VerticalAlign.Top)
       }.width('100%')
     }
   }
@@ -189,82 +389,54 @@ export struct WideModelManagement {
 
   @Builder
   private actionText(label: string, danger: boolean, onTap: () => void) {
-    Text(label).fontSize(13).fontColor(danger ? $r('app.color.doctor_workspace_danger') : $r('sys.color.font_primary'))
+    Text(label).fontSize(13).fontColor(danger ? $r('app.color.doctor_workspace_danger') : $r('app.color.brand_blue'))
       .padding({ left: 8, right: 8, top: 6, bottom: 6 })
       .onClick(() => onTap())
   }
 
+  /** 左 3/4：从 Dify 获取的知识库清单。 */
   @Builder
-  private modelListCard() {
-    Column({ space: 0 }) {
-      Text('模型列表').fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
-        .width('100%').padding({ bottom: 6 })
-      if (this.configs.length === 0) {
-        Text('暂无模型配置，点击右上角「新增模型」为护工或医师创建配置。')
-          .fontSize(12).fontColor($r('sys.color.font_secondary'))
-          .width('100%').padding({ top: 20, bottom: 20 })
-      } else {
-        ForEach(this.configs, (item: AIModelConfig, index: number) => {
-          Column({ space: 10 }) {
-            Row({ space: 10 }) {
-              Column({ space: 3 }) {
-                Row({ space: 6 }) {
-                  Text(this.roleLabel(item.role_scope))
-                    .fontSize(10).fontColor(Color.White)
-                    .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-                    .borderRadius(4)
-                    .backgroundColor(item.role_scope === 'doctor' ? $r('app.color.doctor_workspace_accent') : $r('app.color.brand_blue'))
-                  Text(item.name).fontSize(15).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
-                }.alignItems(VerticalAlign.Center)
-                Text(`${item.provider} · ${item.model}`).fontSize(12).fontColor($r('sys.color.font_secondary'))
-                if (item.base_url.length > 0) {
-                  Text(item.base_url).fontSize(11).fontColor($r('sys.color.font_tertiary'))
-                    .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-                }
-              }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-              this.statusBadge(item.enabled)
-              this.actionText('配置', false, () => this.openEditor(item))
-              this.actionText(item.enabled ? '停用' : '启用', false, () => this.toggleEnabled(item))
-              this.actionText('删除', true, () => this.remove(item))
-            }.width('100%').alignItems(VerticalAlign.Center)
-            .constraintSize({ maxWidth: '100%' })
-          }.width('100%').padding({ top: 14, bottom: 14 })
-          if (index < this.configs.length - 1) {
-            Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
-          }
-        }, (item: AIModelConfig) => `ai-config-${item.id}`)
-      }
-    }.width('100%').padding(16)
-      .backgroundColor($r('sys.color.comp_background_primary'))
-      .borderRadius(12).border({ width: 0.5, color: $r('sys.color.comp_divider') })
-      .alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  private apiKeyCard() {
+  private ragLibraryCard() {
     Column({ space: 12 }) {
-      Text('API Key 管理').fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
-      ForEach(this.configs, (item: AIModelConfig, index: number) => {
-        Column({ space: 10 }) {
+      Row({ space: 8 }) {
+        Text('RAG 知识库').fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+        Text('从 Dify 获取').fontSize(11).fontColor($r('sys.color.font_tertiary'))
+        Blank()
+        this.actionText('刷新', false, () => this.loadRagDatasets())
+      }.width('100%').alignItems(VerticalAlign.Center)
+      if (this.ragLoading) {
+        Text('正在获取知识库列表…').fontSize(12).fontColor($r('sys.color.font_secondary'))
+          .width('100%').padding({ top: 16, bottom: 16 })
+      } else if (this.ragError.length > 0) {
+        Text(this.ragError).fontSize(12).fontColor($r('app.color.doctor_workspace_danger'))
+          .width('100%').padding({ top: 12, bottom: 4 })
+        this.actionText('重试', false, () => this.loadRagDatasets())
+      } else if (this.ragDatasets.length === 0) {
+        Text('未获取到知识库，请确认 Dify 服务中已创建知识库。')
+          .fontSize(12).fontColor($r('sys.color.font_secondary'))
+          .width('100%').padding({ top: 16, bottom: 16 })
+      } else {
+        ForEach(this.ragDatasets, (item: RAGDataset, index: number) => {
           Row({ space: 10 }) {
             Column({ space: 3 }) {
-              Text(`${this.roleLabel(item.role_scope)}密钥`).fontSize(14).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
-              Text(item.api_key_configured ? 'sk-****（服务端加密存储，输入新值即更换）' : '未配置密钥，AI 调用将失败')
-                .fontSize(12).fontColor($r('sys.color.font_secondary'))
+              Text(item.name).fontSize(14).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+                .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+              Text(`ID ${item.id} · ${item.document_count} 个文档`)
+                .fontSize(11).fontColor($r('sys.color.font_tertiary'))
+                .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
             }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-            Text(item.api_key_configured ? '已配置' : '未配置')
-              .fontSize(11).fontColor(item.api_key_configured ? $r('app.color.doctor_workspace_success') : $r('sys.color.font_tertiary'))
-            this.actionText('更换密钥', false, () => this.openEditor(item))
+            ForEach(this.bindingsOf(item.id), (role: string) => {
+              Text(role === 'doctor' ? '医师绑定' : '护工绑定')
+                .fontSize(10).fontColor($r('app.color.brand_blue'))
+                .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+                .borderRadius(10).backgroundColor('#E8F0FE')
+            }, (role: string) => `binding-${item.id}-${role}`)
           }.width('100%').alignItems(VerticalAlign.Center)
-          .constraintSize({ maxWidth: '100%' })
-        }.width('100%').padding({ top: 10, bottom: 10 })
-        if (index < this.configs.length - 1) {
-          Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
-        }
-      }, (item: AIModelConfig) => `ai-key-${item.id}`)
-      if (this.configs.length === 0) {
-        Text('暂无配置。新增模型并保存 API Key 后，这里会显示密钥状态。')
-          .fontSize(12).fontColor($r('sys.color.font_tertiary'))
+          .padding({ top: 10, bottom: 10 })
+          if (index < this.ragDatasets.length - 1) {
+            Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
+          }
+        }, (item: RAGDataset) => `rag-ds-${item.id}`)
       }
     }.width('100%').padding(16)
       .backgroundColor($r('sys.color.comp_background_primary'))
@@ -272,48 +444,45 @@ export struct WideModelManagement {
       .alignItems(HorizontalAlign.Start)
   }
 
+  /** 右 1/4：从 vLLM 获取的模型清单，带角色胶囊与提示词入口。 */
   @Builder
-  private ragCard() {
+  private modelSourceCard() {
     Column({ space: 12 }) {
-      Text('RAG 知识库').fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
-      if (this.configs.length === 0) {
-        Text('暂无模型配置。新增模型后在配置里开启 RAG。')
-          .fontSize(12).fontColor($r('sys.color.font_tertiary'))
+      Text('模型获取').fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+        .width('100%')
+      WideSlidingCapsule({
+        items: this.sourceTabs(),
+        selectedIndex: this.sourceRole === 'doctor' ? 1 : 0,
+        itemWidth: 60,
+        onSelect: (index: number) => this.onSourceTab(index)
+      })
+      if (this.sourceLoading) {
+        Text('正在获取模型列表…').fontSize(12).fontColor($r('sys.color.font_secondary'))
+          .width('100%').padding({ top: 12, bottom: 12 })
+      } else if (this.sourceError.length > 0) {
+        Text(this.sourceError).fontSize(12).fontColor($r('sys.color.font_secondary'))
+          .width('100%').padding({ top: 8, bottom: 4 })
+        this.actionText('重试', false, () => this.loadSourceModels())
       } else {
-        ForEach(this.configs, (item: AIModelConfig, index: number) => {
-          Column({ space: 10 }) {
-            Row({ space: 10 }) {
-              Column({ space: 3 }) {
-                Row({ space: 6 }) {
-                  Text(this.roleLabel(item.role_scope))
-                    .fontSize(10).fontColor(Color.White)
-                    .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-                    .borderRadius(4)
-                    .backgroundColor(item.role_scope === 'doctor' ? $r('app.color.doctor_workspace_accent') : $r('app.color.brand_blue'))
-                  Text('知识库接入').fontSize(14).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
-                }.alignItems(VerticalAlign.Center)
-                if (item.rag_enabled) {
-                  Text(item.rag_base_url.length > 0 ? item.rag_base_url : '未填写 Dify URL')
-                    .fontSize(12).fontColor($r('sys.color.font_secondary'))
-                    .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-                  Text(`数据集 ${item.rag_dataset_id.length > 0 ? item.rag_dataset_id : '未填写'} · RAG 密钥${item.rag_api_key_configured ? '已配置' : '未配置'}`)
-                    .fontSize(11).fontColor($r('sys.color.font_tertiary'))
-                    .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-                } else {
-                  Text('未接入知识库检索，回答仅依赖模型本身。')
-                    .fontSize(12).fontColor($r('sys.color.font_tertiary'))
-                }
-              }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-              this.statusBadge(item.rag_enabled)
-              this.actionText('配置', false, () => this.openEditor(item))
-            }.width('100%').alignItems(VerticalAlign.Center)
-            .constraintSize({ maxWidth: '100%' })
-          }.width('100%').padding({ top: 10, bottom: 10 })
-          if (index < this.configs.length - 1) {
+        ForEach(this.sourceModels, (item: ProviderModel, index: number) => {
+          Row({ space: 8 }) {
+            Text(item.id).fontSize(13).fontColor($r('sys.color.font_primary'))
+              .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+            if (this.appliedModelId() === item.id) {
+              Text('使用中').fontSize(10).fontColor($r('app.color.doctor_workspace_success'))
+                .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+                .borderRadius(10).backgroundColor('#E8F5EE')
+            }
+          }.width('100%').alignItems(VerticalAlign.Center)
+          .padding({ top: 8, bottom: 8 })
+          .onClick(() => this.applyModel(item.id))
+          if (index < this.sourceModels.length - 1) {
             Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
           }
-        }, (item: AIModelConfig) => `ai-rag-${item.id}`)
+        }, (item: ProviderModel) => `source-model-${item.id}`)
       }
+      Text('点击模型应用到当前角色').fontSize(11).fontColor($r('sys.color.font_tertiary'))
+        .width('100%')
     }.width('100%').padding(16)
       .backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius(12).border({ width: 0.5, color: $r('sys.color.comp_divider') })
@@ -323,39 +492,72 @@ export struct WideModelManagement {
   @Builder
   private editorDialog() {
     Column({ space: 12 }) {
+      Text('编辑模型索引').fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+        .width('100%')
       Scroll() {
         Column({ space: 12 }) {
           Row({ space: 10 }) {
             Button('护工 AI').layoutWeight(1).height(36)
               .backgroundColor(this.selectedRole === 'caregiver' ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
               .fontColor(this.selectedRole === 'caregiver' ? Color.White : $r('sys.color.font_secondary'))
-              .onClick(() => this.selectedRole = 'caregiver')
+              .onClick(() => this.selectEditorRole('caregiver'))
             Button('医师 AI').layoutWeight(1).height(36)
               .backgroundColor(this.selectedRole === 'doctor' ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
               .fontColor(this.selectedRole === 'doctor' ? Color.White : $r('sys.color.font_secondary'))
-              .onClick(() => this.selectedRole = 'doctor')
+              .onClick(() => this.selectEditorRole('doctor'))
           }.width('100%')
           Row({ space: 14 }) {
             Column({ space: 6 }) {
               Text('Provider').fontSize(12).fontColor($r('sys.color.font_secondary'))
-              Text(this.provider).fontSize(14).padding(10).borderRadius(6)
+              Text(this.provider === 'local' ? '本地模型' : 'vLLM 兼容')
+                .fontSize(14).padding(10).borderRadius(6)
                 .border({ width: 0.5, color: $r('sys.color.comp_divider') })
                 .onClick(() => this.provider = this.provider === 'local' ? 'http' : 'local')
             }.layoutWeight(1).alignItems(HorizontalAlign.Start)
             Column({ space: 6 }) {
               Text('模型名称').fontSize(12).fontColor($r('sys.color.font_secondary'))
-              TextInput({ text: $$this.modelName, placeholder: '例如 qwen-plus' }).height(40).fontSize(13)
+              TextInput({ text: $$this.modelName, placeholder: '例如 Qwen2.5-7B-Instruct' }).height(40).fontSize(13)
             }.layoutWeight(2).alignItems(HorizontalAlign.Start)
           }.width('100%')
-          TextInput({ placeholder: 'API Base URL', text: $$this.baseUrl }).height(40)
+          if (this.provider === 'http') {
+            Row({ space: 8 }) {
+              TextInput({ placeholder: 'vLLM API Base URL', text: $$this.baseUrl }).height(40).layoutWeight(1)
+              Button('获取模型').height(40).fontSize(13)
+                .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
+                .onClick(() => this.fetchEditorModels())
+            }.width('100%')
+            if (this.editorFetching) {
+              Text('正在获取模型…').fontSize(12).fontColor($r('sys.color.font_secondary')).width('100%')
+            } else if (this.editorFetchHint.length > 0) {
+              Text(this.editorFetchHint).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
+            }
+            if (this.editorFetched.length > 0) {
+              Scroll() {
+                Column({ space: 4 }) {
+                  ForEach(this.editorFetched, (item: ProviderModel) => {
+                    Text(item.id).fontSize(12).fontColor($r('sys.color.font_primary'))
+                      .padding({ top: 6, bottom: 6, left: 10, right: 10 })
+                      .borderRadius(6).backgroundColor($r('sys.color.comp_background_secondary'))
+                      .width('100%').maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+                      .onClick(() => { this.modelName = item.id; })
+                  }, (item: ProviderModel) => `editor-model-${item.id}`)
+                }.width('100%').alignItems(HorizontalAlign.Start)
+              }.width('100%').constraintSize({ maxHeight: 110 }).scrollBar(BarState.Off)
+            }
+          } else {
+            TextInput({ placeholder: 'API Base URL', text: $$this.baseUrl }).height(40)
+          }
           TextInput({ placeholder: 'API Key（留空表示保留原密钥）', text: $$this.apiKey }).height(40).type(InputType.Password)
-          TextArea({ placeholder: '系统提示词', text: $$this.systemPrompt }).height(100).fontSize(13)
+          Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
+          Text('Dify RAG 知识库连接').fontSize(13).fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary')).width('100%')
           Row({ space: 8 }) {
             Toggle({ type: ToggleType.Switch, isOn: this.ragEnabled })
               .selectedColor($r('app.color.brand_blue'))
               .onChange((isOn: boolean) => this.ragEnabled = isOn)
             Text('启用 Dify RAG').fontSize(13).fontColor($r('sys.color.font_primary'))
-            Text('检索适配后生效').fontSize(11).fontColor($r('sys.color.font_tertiary'))
+            Blank()
+            Text('检索已接入对话链路').fontSize(11).fontColor($r('sys.color.font_tertiary'))
           }.width('100%').alignItems(VerticalAlign.Center)
           if (this.ragEnabled) {
             TextInput({ placeholder: 'Dify RAG URL', text: $$this.ragBaseUrl }).height(40)
@@ -370,19 +572,61 @@ export struct WideModelManagement {
           Text(this.configId > 0 ? '已连接服务端配置，密钥留空则保留原值' : '保存后将创建该角色的新配置')
             .fontSize(11).fontColor($r('sys.color.font_tertiary'))
         }.width('100%')
-      }.scrollBar(BarState.Off).constraintSize({ maxHeight: 420 }).width('100%')
+      }.scrollBar(BarState.Off).constraintSize({ maxHeight: 460 }).width('100%')
       if (this.error.length > 0) {
         Text(this.error).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
       }
       Row({ space: 10 }) {
-        Button('取消').layoutWeight(1).height(40)
+        if (this.configId > 0) {
+          Text('删除配置').fontSize(13).fontColor($r('app.color.doctor_workspace_danger'))
+            .padding({ left: 8, right: 8, top: 10, bottom: 10 })
+            .onClick(() => this.removeSelected())
+        }
+        Blank()
+        Button('取消').height(40).fontSize(13)
           .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))
           .onClick(() => { this.showEditor = false; this.error = ''; })
-        Button(this.saved ? '已保存' : '保存配置').layoutWeight(1).height(40).fontSize(13)
+        Button(this.saved ? '已保存' : '保存配置').height(40).fontSize(13).layoutWeight(2)
           .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
           .onClick(() => this.save())
       }.width('100%')
-    }.width(this.compactWidth ? '92%' : 520).padding(24)
+    }.width(this.compactWidth ? '92%' : 560).padding(24)
+      .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
+  }
+
+  /** 提示词路由：不同角色的 AI 页面各自路由到该角色的模型与系统提示词。 */
+  @Builder
+  private promptDialog() {
+    Column({ space: 12 }) {
+      Text('提示词').fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+        .width('100%')
+      Text('不同角色的 AI 页面各自路由到以下模型与系统提示词。')
+        .fontSize(11).fontColor($r('sys.color.font_tertiary')).width('100%')
+      Row({ space: 10 }) {
+        Button('护工 AI').layoutWeight(1).height(36)
+          .backgroundColor(this.promptRole === 'caregiver' ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
+          .fontColor(this.promptRole === 'caregiver' ? Color.White : $r('sys.color.font_secondary'))
+          .onClick(() => this.selectPromptRole('caregiver'))
+        Button('医师 AI').layoutWeight(1).height(36)
+          .backgroundColor(this.promptRole === 'doctor' ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
+          .fontColor(this.promptRole === 'doctor' ? Color.White : $r('sys.color.font_secondary'))
+          .onClick(() => this.selectPromptRole('doctor'))
+      }.width('100%')
+      Text(`路由模型：${this.defaultConfigOfRole(this.promptRole)?.model ?? '未配置'}`)
+        .fontSize(12).fontColor($r('sys.color.font_secondary')).width('100%')
+      TextArea({ placeholder: '系统提示词', text: $$this.promptText }).height(140).fontSize(13)
+      if (this.promptError.length > 0) {
+        Text(this.promptError).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
+      }
+      Row({ space: 10 }) {
+        Button('取消').layoutWeight(1).height(40)
+          .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))
+          .onClick(() => { this.showPrompts = false; })
+        Button(this.saved ? '已保存' : '保存提示词').layoutWeight(1).height(40).fontSize(13)
+          .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
+          .onClick(() => this.savePrompt())
+      }.width('100%')
+    }.width(this.compactWidth ? '92%' : 480).padding(24)
       .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
   }
 
@@ -392,7 +636,7 @@ export struct WideModelManagement {
         Column({ space: 16 }) {
           Row({ space: 12 }) {
             Blank()
-            Button('新增模型').height(38).fontSize(13).borderRadius(8)
+            Button('编辑模型索引').height(38).fontSize(13).borderRadius(8)
               .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
               .onClick(() => this.openEditor())
           }.width('100%').alignItems(VerticalAlign.Center)
@@ -400,9 +644,17 @@ export struct WideModelManagement {
             Text(this.error).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
           }
           this.statCards()
-          this.modelListCard()
-          this.ragCard()
-          this.apiKeyCard()
+          if (this.compactWidth) {
+            Column({ space: 16 }) {
+              this.ragLibraryCard()
+              this.modelSourceCard()
+            }.width('100%').alignItems(HorizontalAlign.Start)
+          } else {
+            Row({ space: 16 }) {
+              Column() { this.ragLibraryCard() }.layoutWeight(3)
+              Column() { this.modelSourceCard() }.layoutWeight(1)
+            }.width('100%').alignItems(VerticalAlign.Top)
+          }
         }.width('100%').padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28,
           top: 88 + this.statusBarHeight, bottom: 24 + this.naviIndicatorHeight })
           .constraintSize({ minHeight: '100%' })
@@ -410,6 +662,10 @@ export struct WideModelManagement {
       }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
       if (this.showEditor) {
         Row() { this.editorDialog() }.width('100%').height('100%')
+          .backgroundColor('#66000000').justifyContent(FlexAlign.Center)
+      }
+      if (this.showPrompts) {
+        Row() { this.promptDialog() }.width('100%').height('100%')
           .backgroundColor('#66000000').justifyContent(FlexAlign.Center)
       }
     }.width('100%').height('100%')

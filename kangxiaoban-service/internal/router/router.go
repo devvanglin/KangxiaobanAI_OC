@@ -76,6 +76,8 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	supplyHandler := handler.NewSupplyHandler(supplySvc)
 	aiHandler := handler.NewAIHandler(aiSvc)
 	aiConfigHandler := handler.NewAIConfigHandler(db, &cfg.AI)
+	aiUsageHandler := handler.NewAIUsageHandler(aiSvc)
+	aiAdminHandler := handler.NewAIAdminHandler(aiSvc)
 	careHandler := handler.NewCareHandler(careSvc)
 	photoSvc := service.NewAdmissionPhotoService(db, cfg.Server.UploadDir)
 	admissionHandler := handler.NewAdmissionHandler(admissionSvc, photoSvc)
@@ -126,6 +128,9 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		authed.POST("/admin/ai/configs", perm("admin:all"), aiConfigHandler.Create)
 		authed.PUT("/admin/ai/configs/:id", perm("admin:all"), aiConfigHandler.Update)
 		authed.DELETE("/admin/ai/configs/:id", perm("admin:all"), aiConfigHandler.Delete)
+		authed.GET("/admin/ai/usage/summary", perm("admin:all"), aiUsageHandler.Summary)
+		authed.GET("/admin/ai/rag/datasets", perm("admin:all"), aiAdminHandler.ListRAGDatasets)
+		authed.GET("/admin/ai/llm/models", perm("admin:all"), aiAdminHandler.ListProviderModels)
 
 		// 长者档案（读）
 		elders := authed.Group("/elders", perm("elder:read"))

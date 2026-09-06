@@ -225,7 +225,7 @@ func TestAILegacyChatPersistsOneDefaultConversation(t *testing.T) {
 
 func TestAILocalVitalAnswerUsesTenantThresholds(t *testing.T) {
 	svc, db, ctx := newAIServiceTest(t)
-	answer, _, err := svc.Chat(ctx, "呼吸和心率异常怎么判断？")
+	answer, _, err := svc.Chat(ctx, 51, "呼吸和心率异常怎么判断？")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,7 +237,7 @@ func TestAILocalVitalAnswerUsesTenantThresholds(t *testing.T) {
 		Updates(map[string]interface{}{"critical_min": 43, "critical_max": 135}).Error; err != nil {
 		t.Fatal(err)
 	}
-	answer, _, err = svc.Chat(ctx, "心率异常怎么判断？")
+	answer, _, err = svc.Chat(ctx, 51, "心率异常怎么判断？")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -273,7 +273,7 @@ func TestAIHTTPFailureDoesNotFallBackOrPersistMessages(t *testing.T) {
 func TestAIDisabledProviderReturnsUnavailable(t *testing.T) {
 	svc, _, ctx := newAIServiceTest(t)
 	svc.cfg = &config.AIConfig{Enabled: false, Provider: "local", Model: "disabled-local"}
-	if _, _, err := svc.Chat(ctx, "测试"); !errors.Is(err, ErrAIProviderUnavailable) {
+	if _, _, err := svc.Chat(ctx, 52, "测试"); !errors.Is(err, ErrAIProviderUnavailable) {
 		t.Fatalf("Chat error = %v, want provider unavailable", err)
 	}
 }
