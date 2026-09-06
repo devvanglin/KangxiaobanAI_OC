@@ -28,8 +28,8 @@ interface RagDocument {
   word_count?: number;
   hit_count?: number;
   doc_form?: string;
-  created_at?: string;
-  updated_at?: string;
+  created_at?: string | number;
+  updated_at?: string | number;
   display_status?: string;
 }
 
@@ -161,11 +161,26 @@ export struct WideRagDocumentsPage {
     return ['上传时间', '字符数', '召回次数'];
   }
 
+  /** Dify 透传的时间戳是 Unix 秒数字，字符串形态则可能是数字文本或 ISO 时间。 */
   private documentTime(item: RagDocument): string {
-    const raw: string = item.created_at ?? item.updated_at ?? '';
-    if (raw.length === 0) { return '--'; }
-    const date: Date = new Date(raw);
-    if (isNaN(date.getTime())) { return raw; }
+    const raw: string | number | undefined = item.created_at ?? item.updated_at;
+    if (raw === undefined || raw === null) { return '--'; }
+    let timestampMs: number;
+    if (typeof raw === 'number') {
+      timestampMs = raw < 100000000000 ? raw * 1000 : raw;
+    } else {
+      const text: string = raw.trim();
+      if (text.length === 0) { return '--'; }
+      if (/^\d+$/.test(text)) {
+        const seconds: number = Number(text);
+        timestampMs = seconds < 100000000000 ? seconds * 1000 : seconds;
+      } else {
+        const parsed: number = Date.parse(text);
+        if (isNaN(parsed)) { return text; }
+        timestampMs = parsed;
+      }
+    }
+    const date: Date = new Date(timestampMs);
     const pad = (value: number): string => value.toString().padStart(2, '0');
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
   }

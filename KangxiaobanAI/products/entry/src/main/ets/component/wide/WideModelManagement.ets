@@ -484,7 +484,10 @@ export struct WideModelManagement {
   private openRagDocs(datasetId: string, name: string): void {
     this.pathStack.pushPath({
       name: 'RagDocumentsPage',
-      param: new RagDocsPageParam(datasetId, name, this.statusBarHeight, this.naviIndicatorHeight)
+      param: new RagDocsPageParam(datasetId, name, this.statusBarHeight, this.naviIndicatorHeight),
+      onPop: () => {
+        this.loadRagDatasets();
+      }
     });
   }
 
@@ -892,7 +895,12 @@ export struct WideModelManagement {
         itemWidth: 118,
         itemFontSize: 16,
         onSelect: (index: number) => {
-          this.activeSection = SECTION_IDS[index] ?? 'models';
+          const next: string = SECTION_IDS[index] ?? 'models';
+          const changed: boolean = next !== this.activeSection;
+          this.activeSection = next;
+          if (changed && next === 'rag') {
+            this.loadRagDatasets();
+          }
         }
       })
       Blank()
