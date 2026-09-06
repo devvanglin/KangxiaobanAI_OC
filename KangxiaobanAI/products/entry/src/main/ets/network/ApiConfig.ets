@@ -6,7 +6,7 @@
 /**
  * 后端接口地址配置。
  * 开发时把 Kangxiaoban Go 后端跑在一台机器上，真机通过局域网访问。
- * 当前部署目标后端：10.10.1.12（HTTP 80）。
+ * 当前部署目标后端：10.10.1.12（HTTP 80，Docker 容器 kangxiaoban-service）。
  */
 export class ApiConfig {
   // REST 接口根路径
