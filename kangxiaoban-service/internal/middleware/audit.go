@@ -1,8 +1,6 @@
 package middleware
 
 import (
-	"context"
-
 	"github.com/gin-gonic/gin"
 
 	"kangxiaoban-service/internal/model"
@@ -20,20 +18,12 @@ func Audit(auditRepo *repository.AuditRepository) gin.HandlerFunc {
 		if cl == nil {
 			return
 		}
-		// Gin's request context is canceled as soon as the response is returned.
-		// Detach the asynchronous write while preserving the authenticated tenant.
-		auditCtx := context.WithoutCancel(c.Request.Context())
-		auditCtx = context.WithValue(auditCtx, model.TenantContextKey, cl.TenantID)
-		userID := cl.UserID
-		method := c.Request.Method
-		path := c.Request.URL.Path
-		ip := c.ClientIP()
 		go func() {
-			_ = auditRepo.CreateContext(auditCtx, &model.AuditLog{
-				UserID: userID,
-				Method: method,
-				Path:   path,
-				IP:     ip,
+			_ = auditRepo.Create(&model.AuditLog{
+				UserID: cl.UserID,
+				Method: c.Request.Method,
+				Path:   c.Request.URL.Path,
+				IP:     c.ClientIP(),
 			})
 		}()
 	}

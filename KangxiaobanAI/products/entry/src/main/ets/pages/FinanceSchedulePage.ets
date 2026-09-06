@@ -5,7 +5,7 @@
 
 import ApiClient from '../network/ApiClient';
 import AuthStore from '../network/AuthStore';
-import { Bill, Elder, FundFlow, Schedule } from '../network/Dto';
+import { Bill, Elder, FundFlow, Paged, Schedule } from '../network/Dto';
 import Logger from '../util/Logger';
 
 const TAG: string = '[FinanceSchedulePage]';
@@ -18,11 +18,10 @@ const TAG: string = '[FinanceSchedulePage]';
 @Entry
 @ComponentV2
 struct FinanceSchedulePage {
-  @Local selectedTab: number = 0;
+  @Local activeTabIndex: number = 0;
   @Local bills: Bill[] = [];
   @Local flows: FundFlow[] = [];
   @Local schedules: Schedule[] = [];
-  @Local elders: Elder[] = [];
   @Local loading: boolean = false;
   @Local error: string = '';
 
@@ -37,49 +36,51 @@ struct FinanceSchedulePage {
     }
     this.loading = true;
     try {
-      const elderResp = await ApiClient.getAll<Elder>('/elders');
-      if (elderResp.code !== 0) {
-        throw new Error(elderResp.msg || '长者数据加载失败');
-      }
-      this.elders = elderResp.data.list ?? [];
       this.schedules = await this.loadSchedules();
       this.bills = await this.loadBills();
       this.flows = await this.loadFlows();
-    } catch {
+    } catch (err) {
       this.error = '数据加载失败，请确认后端已运行';
-      Logger.error(TAG, 'load failed');
+      Logger.error(TAG, `load failed: ${JSON.stringify(err)}`);
     }
     this.loading = false;
   }
 
   private async loadBills(): Promise<Bill[]> {
-    const resp = await ApiClient.getAll<Bill>('/bills');
+    const resp = await ApiClient.get<Paged<Bill>>('/bills?size=50');
+    if (resp.code !== 0 || !resp.data) {
+      throw new Error(resp.msg || '账单数据加载失败');
+    }
     return resp.data.list ?? [];
   }
 
   private async loadFlows(): Promise<FundFlow[]> {
+    const elderResp = await ApiClient.getAll<Elder>('/elders');
+    if (elderResp.code !== 0 || !elderResp.data) {
+      throw new Error(elderResp.msg || '长者数据加载失败');
+    }
     const flows: FundFlow[] = [];
-    for (let index: number = 0; index < this.elders.length; index++) {
-      const elder: Elder = this.elders[index];
+    for (let index: number = 0; index < elderResp.data.list.length; index++) {
+      const elder: Elder = elderResp.data.list[index];
       const resp = await ApiClient.getAll<FundFlow>(`/elders/${elder.id}/flows`);
-      for (let flowIndex: number = 0; flowIndex < resp.data.list.length; flowIndex++) {
-        flows.push(resp.data.list[flowIndex]);
+      if (resp.code !== 0 || !resp.data) {
+        throw new Error(resp.msg || '资金流水加载失败');
       }
+      flows.push(...(resp.data.list ?? []));
     }
     return flows;
   }
 
   private async loadSchedules(): Promise<Schedule[]> {
-    const resp = await ApiClient.getAll<Schedule>('/schedules');
+    const resp = await ApiClient.get<Paged<Schedule>>('/schedules?size=50');
+    if (resp.code !== 0 || !resp.data) {
+      throw new Error(resp.msg || '排班数据加载失败');
+    }
     return resp.data.list ?? [];
   }
 
   private static money(v: number): string {
     return '¥' + v.toFixed(2);
-  }
-
-  private elderName(elderId: number): string {
-    return this.elders.find((elder: Elder): boolean => elder.id === elderId)?.name ?? '长者姓名未返回';
   }
 
   private tabItems: string[] = ['费用账单', '排班', '资金流水'];
@@ -90,11 +91,11 @@ struct FinanceSchedulePage {
       ForEach(this.tabItems, (item: string, idx: number) => {
         Text(item)
           .fontSize(15)
-          .fontWeight(this.selectedTab === idx ? FontWeight.Bold : FontWeight.Normal)
-          .fontColor(this.selectedTab === idx ? $r('app.color.brand_blue') : $r('sys.color.font_secondary'))
+          .fontWeight(this.activeTabIndex === idx ? FontWeight.Bold : FontWeight.Normal)
+          .fontColor(this.activeTabIndex === idx ? $r('app.color.brand_blue') : $r('sys.color.font_secondary'))
           .padding({ left: 16, right: 16, top: 12, bottom: 12 })
           .onClick(() => {
-            this.selectedTab = idx;
+            this.activeTabIndex = idx;
           })
       })
     }
@@ -113,7 +114,7 @@ struct FinanceSchedulePage {
               Text(b.bill_month)
                 .fontSize(16)
                 .fontWeight(FontWeight.Medium)
-              Text(this.elderName(b.elder_id))
+              Text(`长者#${b.elder_id}`)
                 .fontSize(12)
                 .fontColor($r('sys.color.font_tertiary'))
             }
@@ -183,7 +184,7 @@ struct FinanceSchedulePage {
               Text(f.reason || f.direction)
                 .fontSize(16)
                 .fontWeight(FontWeight.Medium)
-              Text(`${f.related_month ?? ''} · ${this.elderName(f.elder_id)}`)
+              Text(`${f.related_month ?? ''} · 长者#${f.elder_id}`)
                 .fontSize(12)
                 .fontColor($r('sys.color.font_tertiary'))
             }
@@ -245,9 +246,9 @@ struct FinanceSchedulePage {
           .fontSize(12)
           .fontColor($r('sys.color.font_tertiary'))
         Blank()
-      } else if (this.selectedTab === 0) {
+      } else if (this.activeTabIndex === 0) {
         this.billList()
-      } else if (this.selectedTab === 1) {
+      } else if (this.activeTabIndex === 1) {
         this.scheduleList()
       } else {
         this.flowList()

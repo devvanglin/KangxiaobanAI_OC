@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"errors"
 
 	"golang.org/x/crypto/bcrypt"
@@ -31,15 +30,7 @@ func NewAuthService(repo *repository.UserRepository, cfg *config.JWTConfig) *Aut
 
 // Login 校验凭据并签发 access token；失败返回业务错误。
 func (s *AuthService) Login(username, password string) (string, *model.User, error) {
-	return s.LoginInTenant(context.Background(), username, password, 1)
-}
-
-func (s *AuthService) LoginInTenant(ctx context.Context, username, password string, tenantID uint) (string, *model.User, error) {
-	if tenantID == 0 {
-		tenantID = 1
-	}
-	ctx = context.WithValue(ctx, model.TenantContextKey, tenantID)
-	user, err := s.repo.FindByUsernameInTenant(ctx, username, tenantID)
+	user, err := s.repo.FindByUsername(username)
 	if err != nil || user.ID == 0 {
 		return "", nil, ErrInvalidCredentials
 	}
@@ -53,7 +44,7 @@ func (s *AuthService) LoginInTenant(ctx context.Context, username, password stri
 	for _, r := range user.Roles {
 		roles = append(roles, r.Code)
 	}
-	token, err := auth.GenerateTokenForTenant(s.cfg.Secret, s.cfg.Expire, user.ID, user.TenantID, user.Username, roles)
+	token, err := auth.GenerateToken(s.cfg.Secret, s.cfg.Expire, user.ID, user.Username, roles)
 	if err != nil {
 		return "", nil, err
 	}
@@ -65,10 +56,6 @@ func (s *AuthService) LoginInTenant(ctx context.Context, username, password stri
 // Permissions 取用户角色对应的权限码集合。
 func (s *AuthService) Permissions(roles []string) ([]string, error) {
 	return s.repo.PermissionsByRoleCodes(roles)
-}
-
-func (s *AuthService) TenantByCode(code string) (*model.Tenant, error) {
-	return s.repo.TenantByCode(code)
 }
 
 // HashPassword 暴露给种子/管理用（可选）。

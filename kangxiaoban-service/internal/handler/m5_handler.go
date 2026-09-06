@@ -11,18 +11,14 @@ import (
 )
 
 // SupplyHandler 药物库存 + 餐饮订餐。
-type SupplyHandler struct {
-	svc *service.SupplyService
-}
+type SupplyHandler struct{ svc *service.SupplyService }
 
-func NewSupplyHandler(svc *service.SupplyService) *SupplyHandler {
-	return &SupplyHandler{svc: svc}
-}
+func NewSupplyHandler(svc *service.SupplyService) *SupplyHandler { return &SupplyHandler{svc: svc} }
 
 // ---- 药物库存 ----
 func (h *SupplyHandler) ListStock(c *gin.Context) {
 	page, size := parsePage(c)
-	items, total, err := h.svc.ListStock(c.Request.Context(), c.Query("keyword"), page, size)
+	items, total, err := h.svc.ListStock(c.Query("keyword"), page, size)
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "查询库存失败")
 		return
@@ -36,8 +32,7 @@ func (h *SupplyHandler) CreateStock(c *gin.Context) {
 		Fail(c, http.StatusBadRequest, 400, "参数错误: medicine_name 必填")
 		return
 	}
-	req.Base = model.Base{}
-	if err := h.svc.CreateStock(c.Request.Context(), &req); err != nil {
+	if err := h.svc.CreateStock(&req); err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "创建库存失败")
 		return
 	}
@@ -56,7 +51,7 @@ func (h *SupplyHandler) AdjustStock(c *gin.Context) {
 		Fail(c, http.StatusBadRequest, 400, "参数错误")
 		return
 	}
-	if err := h.svc.AdjustStock(c.Request.Context(), uint(id), req.Delta); err != nil {
+	if err := h.svc.AdjustStock(uint(id), req.Delta); err != nil {
 		Fail(c, http.StatusNotFound, 404, "库存条目不存在")
 		return
 	}
@@ -66,8 +61,7 @@ func (h *SupplyHandler) AdjustStock(c *gin.Context) {
 // ---- 餐饮 ----
 func (h *SupplyHandler) ListDining(c *gin.Context) {
 	page, size := parsePage(c)
-	elderID := uint(parseUint(c, "elder_id"))
-	items, total, err := h.svc.ListDining(c.Request.Context(), elderID, c.Query("meal_time"), page, size)
+	items, total, err := h.svc.ListDining(uint(parseUint(c, "elder_id")), c.Query("meal_time"), page, size)
 	if err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "查询订餐失败")
 		return
@@ -81,9 +75,8 @@ func (h *SupplyHandler) CreateDining(c *gin.Context) {
 		Fail(c, http.StatusBadRequest, 400, "参数错误: elder_id 与 items 必填")
 		return
 	}
-	req.Base = model.Base{}
 	req.TotalAmount = float64(req.Qty) * req.UnitPrice
-	if err := h.svc.CreateDining(c.Request.Context(), &req); err != nil {
+	if err := h.svc.CreateDining(&req); err != nil {
 		Fail(c, http.StatusInternalServerError, 500, "创建订餐失败")
 		return
 	}

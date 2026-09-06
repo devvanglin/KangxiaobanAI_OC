@@ -21,26 +21,6 @@ type ShiftHandover struct {
 	Issues    string `gorm:"size:1024" json:"issues"`
 }
 
-const (
-	BillingRateKindBed     = "bed"
-	BillingRateKindMeal    = "meal"
-	BillingRateKindNursing = "nursing"
-)
-
-// BillingRate is the tenant-owned monthly charge configuration. Bills copy
-// these values when they are generated so later rate changes do not rewrite
-// historical charges. CareLevel is 0 for flat fees and 1-5 for nursing fees.
-type BillingRate struct {
-	Base
-	Kind        string  `gorm:"size:16;not null;index" json:"kind"`
-	CareLevel   int8    `gorm:"not null;default:0;index" json:"care_level"`
-	DisplayName string  `gorm:"size:64;not null" json:"display_name"`
-	Amount      float64 `gorm:"type:decimal(12,2);not null" json:"amount"`
-	Currency    string  `gorm:"size:3;not null;default:CNY" json:"currency"`
-	Unit        string  `gorm:"size:16;not null;default:month" json:"unit"`
-	Enabled     bool    `gorm:"not null;default:true;index" json:"enabled"`
-}
-
 // Bill 月度账单。状态 unpaid/partial/paid。
 type Bill struct {
 	Base
@@ -58,11 +38,11 @@ type Bill struct {
 // FundFlow 资金流水。方向 in 预缴/out 抵扣。
 type FundFlow struct {
 	Base
-	ElderID      uint    `gorm:"index" json:"elder_id"`
-	Direction    string  `gorm:"size:8" json:"direction"` // in / out
-	RelatedMonth string  `gorm:"size:10" json:"related_month"`
-	Reason       string  `gorm:"size:128" json:"reason"`
-	Amount       float64 `json:"amount"`
+	ElderID       uint    `gorm:"index" json:"elder_id"`
+	Direction     string  `gorm:"size:8" json:"direction"` // in / out
+	RelatedMonth  string  `gorm:"size:10" json:"related_month"`
+	Reason        string  `gorm:"size:128" json:"reason"`
+	Amount        float64 `json:"amount"`
 }
 
 // MedicationRecord 用药记录。状态 pending/taken/refused/missed。
@@ -71,11 +51,7 @@ type MedicationRecord struct {
 	ElderID      uint       `gorm:"index;not null" json:"elder_id"`
 	MedicineName string     `gorm:"size:128" json:"medicine_name"`
 	Dosage       string     `gorm:"size:64" json:"dosage"`
-	Frequency    string     `gorm:"size:64;default:按医嘱" json:"frequency"`
-	Route        string     `gorm:"size:32;default:口服" json:"route"`
 	PlanTime     *time.Time `json:"plan_time"`
 	TakenTime    *time.Time `json:"taken_time"`
-	TodayTotal   int        `gorm:"default:1" json:"today_total"`
-	TodayDone    int        `gorm:"default:0" json:"today_done"`
 	Status       string     `gorm:"size:16;default:pending" json:"status"`
 }

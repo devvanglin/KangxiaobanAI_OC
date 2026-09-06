@@ -160,7 +160,7 @@
     <div class="grid">
       <div class="panel"><div class="phead"><h3>排班</h3><span class="tag" id="schCount">-</span></div>
         <div class="pbody"><table><thead><tr><th>日期</th><th>员工</th><th>班次</th><th>负责房间</th></tr></thead><tbody id="scheduleRows"></tbody></table></div>
-        <div class="formbar"><input id="scStaff" placeholder="员工"><input id="scDate" placeholder="日期 YYYY-MM-DD"><input id="scShift" placeholder="班次"><button class="btn pri" onclick="addSchedule()">新增</button></div></div>
+        <div class="formbar"><input id="scStaff" placeholder="员工"><input id="scDate" placeholder="日期 2026-08-28"><input id="scShift" placeholder="班次"><button class="btn pri" onclick="addSchedule()">新增</button></div></div>
       <div class="panel"><div class="phead"><h3>交接班</h3></div>
         <div class="pbody"><table><thead><tr><th>日期</th><th>交班 → 接班</th><th>摘要</th><th>问题</th></tr></thead><tbody id="handoverRows"></tbody></table></div>
         <div class="formbar"><input id="hoFrom" placeholder="交班"><input id="hoTo" placeholder="接班"><textarea style="flex:2;min-width:130px;display:block" id="hoSum" placeholder="交接摘要"></textarea><button class="btn pri" onclick="addHandover()">记录</button></div></div>
@@ -172,21 +172,18 @@
 <div class="overlay" id="loginOverlay">
   <form class="login" onsubmit="return doLogin(event)">
     <h3>进入康养护理中枢</h3>
-    <div class="lsub">使用机构分配的正式账号登录</div>
-    <input id="user" autocomplete="username" placeholder="账号">
-    <input id="pass" type="password" autocomplete="current-password" placeholder="密码">
+    <div class="lsub">演示登录 · 说明：需要运行康小伴后端（1280 段内网）</div>
+    <input id="user" value="admin">
+    <input id="pass" type="password" value="Admin@123456">
     <button type="submit">登录</button>
     <div class="err" id="loginErr"></div>
   </form>
 </div>
 
 <script>
-const API_BASE='/api/v1';
-const WS_BASE=(location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/api/v1/ws';
+const API_BASE='http://127.0.0.1:8080/api/v1', WS_BASE='ws://127.0.0.1:8080/api/v1/ws';
 const $=id=>document.getElementById(id);
-let token=sessionStorage.getItem('kxb_token')||'', ws=null;
-let elderNames=new Map();
-let elderNamesPromise=null;
+let token=localStorage.getItem('kxb_token')||'', ws=null;
 
 document.getElementById('tabBar').addEventListener('click',e=>{
   const a=e.target.closest('a'); if(!a)return;
@@ -200,50 +197,11 @@ function clock(){const d=new Date(),p=n=>String(n).padStart(2,'0');
   $('clock').textContent=p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());}
 function api(p){return fetch(API_BASE+p,{headers:{'Authorization':'Bearer '+token}}).then(r=>r.json());}
 function auth(p,o){o=o||{};o.headers=Object.assign({'Content-Type':'application/json','Authorization':'Bearer '+token},o.headers||{});return fetch(API_BASE+p,o).then(r=>r.json());}
-async function apiAll(path,size=200){
-  const list=[]; let page=1,total=0;
-  while(page<=1000){
-    const sep=path.includes('?')?'&':'?';
-    const r=await api(path+sep+'page='+page+'&size='+size);
-    if(r.code!==0||!r.data)return r;
-    const batch=r.data.list||[]; list.push(...batch); total=Number(r.data.total||0);
-    if(batch.length===0||list.length>=total||batch.length<size)break;
-    page++;
-  }
-  return {code:0,msg:'',data:{list:list,total:Math.max(total,list.length),page:1,size:list.length}};
-}
-
-async function refreshElderNames(){
-  if(elderNamesPromise)return elderNamesPromise;
-  elderNamesPromise=apiAll('/elders').then(r=>{
-    if(r.code!==0||!r.data)return;
-    const next=new Map();
-    (r.data.list||[]).forEach(e=>{
-      const id=Number(e.id),name=String(e.name||'').trim();
-      if(id>0&&name)next.set(id,name);
-    });
-    elderNames=next;
-  }).catch(()=>{}).finally(()=>{elderNamesPromise=null;});
-  return elderNamesPromise;
-}
-
-function elderDisplayName(id){
-  return elderNames.get(Number(id))||'长者姓名未返回';
-}
 
 async function doLogin(e){e.preventDefault();$('loginErr').textContent='';
   const r=await auth('/auth/login',{method:'POST',body:JSON.stringify({username:$('user').value,password:$('pass').value})});
-  if(r.code===0&&r.data&&r.data.token){token=r.data.token;sessionStorage.setItem('kxb_token',token);$('loginOverlay').classList.remove('show');connectWs();refreshAll();}
+  if(r.code===0&&r.data&&r.data.token){token=r.data.token;localStorage.setItem('kxb_token',token);$('loginOverlay').classList.remove('show');connectWs();refreshAll();}
   else $('loginErr').textContent=r.msg||'登录失败';}
-
-async function restoreSession(){
-  if(!token){$('loginOverlay').classList.add('show');return;}
-  try{
-    const r=await api('/auth/me');
-    if(r.code===0){$('loginOverlay').classList.remove('show');connectWs();refreshAll();return;}
-  }catch(_){ }
-  token='';sessionStorage.removeItem('kxb_token');$('loginOverlay').classList.add('show');
-}
 
 const LVN={emergency:'紧急',important:'重要',info:'提示'};
 function lvc(l){return l==='emergency'?'lv emergency':(l==='important'?'lv important':'lv info');}
@@ -258,37 +216,36 @@ function refreshSummary(){api('/dashboard/summary').then(r=>{if(r.code!==0||!r.d
   $('stTasks').innerHTML=d.tasks.todo+'<em>项</em>';
   $('stBills').innerHTML=money(d.bills.unpaid_sum)+'<em>元</em>';});}
 
-function refreshAlerts(){apiAll('/alerts').then(r=>{if(r.code!==0)return;const l=r.data.list||[];
+function refreshAlerts(){api('/alerts?size=300').then(r=>{if(r.code!==0)return;const l=r.data.list||[];
   const o={emergency:0,important:1,info:2};l.sort((a,b)=>(o[a.level]||9)-(o[b.level]||9));
   $('alertRows').innerHTML=l.map(a=>`<tr><td>${ft(a.create_time)}</td><td><span class="${lvc(a.level)}">${LVN[a.level]||a.level}</span></td><td>${esc(a.content)}</td><td style="color:var(--mute)">${esc(a.device_id)}</td><td><span class="st ${a.status==='closed'?'closed':''}">${a.status}</span></td></tr>`).join('')||'<tr><td colspan="5" style="color:var(--mute)">暂无告警</td></tr>';});}
-function refreshDevices(){apiAll('/iot/devices').then(r=>{if(r.code!==0)return;const l=r.data.list||[];let on=0;l.forEach(d=>{if(d.online===1)on++;});$('devCount').textContent=String(on)+' / '+l.length+' 在线';
+function refreshDevices(){api('/iot/devices?size=200').then(r=>{if(r.code!==0)return;const l=r.data.list||[];let on=0;l.forEach(d=>{if(d.online===1)on++;});$('devCount').textContent=String(on)+' / '+l.length+' 在线';
   l.sort((a,b)=>(b.online||0)-(a.online||0));
   $('deviceRows').innerHTML=l.map(d=>`<tr><td>${esc(d.device_id)}</td><td style="color:var(--mute)">${esc(d.product)}</td><td>${d.online===1?'<span class="ok">● 在线</span>':'<span class="bad">● 离线</span>'}</td><td style="color:var(--mute)">${d.last_seen?ft(d.last_seen):'-'}</td></tr>`).join('')||'<tr><td colspan="4" style="color:var(--mute)">暂无设备</td></tr>';});}
 
-async function refreshBills(){if(elderNames.size===0)await refreshElderNames();return apiAll('/bills').then(r=>{if(r.code!==0)return;const l=r.data.list||[];let sum=0,paid=0;
+function refreshBills(){api('/bills?size=300').then(r=>{if(r.code!==0)return;const l=r.data.list||[];let sum=0,paid=0;
   l.forEach(b=>{sum+=b.amount;paid+=b.paid;});
   $('bCount').textContent=l.length;$('bSum').textContent=money(sum);$('bPaid').textContent=money(paid);$('bDue').textContent=money(sum-paid);
   $('bRate').textContent=(sum?Math.round(paid/sum*100):0)+'%';
-  $('billRows').innerHTML=l.map(b=>`<tr><td>${esc(b.bill_month)}</td><td>${esc(elderDisplayName(b.elder_id))}</td><td>${b.bed_fee}</td><td>${b.nursing_fee}</td><td>${b.meal_fee}</td><td class="money">${b.amount}</td><td>${b.paid}</td><td><span class="st ${b.status==='paid'?'paid':(b.status==='partial'?'partial':'')}">${b.status}</span></td><td>${b.paid>=b.amount?'':`<button class="btn sec" onclick="payBill(${b.elder_id},'${b.bill_month}')">缴费</button>`}</td></tr>`).join('')||'<tr><td colspan="9" style="color:var(--mute)">暂无账单</td></tr>';});}
+  $('billRows').innerHTML=l.map(b=>`<tr><td>${esc(b.bill_month)}</td><td>长者 #${b.elder_id}</td><td>${b.bed_fee}</td><td>${b.nursing_fee}</td><td>${b.meal_fee}</td><td class="money">${b.amount}</td><td>${b.paid}</td><td><span class="st ${b.status==='paid'?'paid':(b.status==='partial'?'partial':'')}">${b.status}</span></td><td>${b.paid>=b.amount?'':`<button class="btn sec" onclick="payBill(${b.elder_id},'${b.bill_month}')">缴费</button>`}</td></tr>`).join('')||'<tr><td colspan="9" style="color:var(--mute)">暂无账单</td></tr>';});}
 function genBills(){auth('/bills/generate',{method:'POST'}).then(r=>{alert('本月账单已生成：'+(r.data?r.data.created:0)+' 笔');refreshBills();});}
-function payBill(eld,month){const amt=parseFloat(prompt('为'+elderDisplayName(eld)+'缴纳 '+month+' 金额：'));if(!amt)return;
-  auth('/bills/pay',{method:'POST',body:JSON.stringify({elder_id:Number(eld),month:month,amount:amt})}).then(()=>refreshBills());}
+function payBill(eld,month){const amt=parseFloat(prompt('为长者 #'+eld+' 缴纳 '+month+' 金额：'));if(!amt)return;
+  auth('/bills/pay',{method:'POST',body:JSON.stringify({elder_id:Number(eld),month:month,amount:amt,reason:'大屏缴费'})}).then(()=>refreshBills());}
 
-function refreshSchedules(){apiAll('/schedules').then(r=>{if(r.code!==0)return;const l=r.data.list||[];$('schCount').textContent=l.length+' 条';
+function refreshSchedules(){api('/schedules?size=300').then(r=>{if(r.code!==0)return;const l=r.data.list||[];$('schCount').textContent=l.length+' 条';
   $('scheduleRows').innerHTML=l.map(s=>`<tr><td>${esc(s.work_date)}</td><td>${esc(s.staff)}</td><td>${esc(s.shift)}</td><td style="color:var(--mute)">${esc(s.room_scope)}</td></tr>`).join('')||'<tr><td colspan="4" style="color:var(--mute)">暂无排班</td></tr>';});}
-function refreshHandovers(){apiAll('/handovers').then(r=>{if(r.code!==0)return;const l=r.data.list||[];
+function refreshHandovers(){api('/handovers?size=300').then(r=>{if(r.code!==0)return;const l=r.data.list||[];
   $('handoverRows').innerHTML=l.map(h=>`<tr><td>${esc(h.work_date)}</td><td>${esc(h.from_staff)} → ${esc(h.to_staff)}</td><td>${esc(h.summary)}</td><td style="color:var(--amber)">${esc(h.issues)}</td></tr>`).join('')||'<tr><td colspan="4" style="color:var(--mute)">暂无交接</td></tr>';});}
 function addSchedule(){auth('/schedules',{method:'POST',body:JSON.stringify({staff:$('scStaff').value,work_date:$('scDate').value,shift:$('scShift').value,room_scope:''})}).then(refreshSchedules);}
-function localDate(){const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
-function addHandover(){auth('/handovers',{method:'POST',body:JSON.stringify({from_staff:$('hoFrom').value,to_staff:$('hoTo').value,work_date:localDate(),summary:$('hoSum').value})}).then(refreshHandovers);}
+function addHandover(){auth('/handovers',{method:'POST',body:JSON.stringify({from_staff:$('hoFrom').value,to_staff:$('hoTo').value,work_date:new Date().toISOString().slice(0,10),summary:$('hoSum').value})}).then(refreshHandovers);}
 
 function connectWs(){if(!token)return;if(ws){try{ws.close();}catch(e){}}ws=new WebSocket(WS_BASE+'?token='+encodeURIComponent(token));
   ws.onopen=()=>setWs(true,'实时连接');ws.onmessage=e=>{let ev;try{ev=JSON.parse(e.data);}catch(_){return;}if(ev.type==='alert.new'){refreshAlerts();}};
   ws.onclose=()=>{setWs(false,'重连中');setTimeout(connectWs,3000);};ws.onerror=()=>{try{ws.close();}catch(_){}};}
-async function refreshAll(){await refreshElderNames();refreshSummary();refreshAlerts();refreshDevices();refreshBills();refreshSchedules();refreshHandovers();}
+function refreshAll(){refreshSummary();refreshAlerts();refreshDevices();refreshBills();refreshSchedules();refreshHandovers();}
 
 setInterval(clock,1000);clock();
-restoreSession();
+if(token)doLogin({preventDefault:()=>{}});else $('loginOverlay').classList.add('show');
 setInterval(refreshAll,6000);
 </script>
 </body>

@@ -1,8 +1,6 @@
 package repository
 
 import (
-	"context"
-
 	"kangxiaoban-service/internal/model"
 
 	"gorm.io/gorm"
@@ -13,8 +11,8 @@ type ScheduleRepository struct{ db *gorm.DB }
 
 func NewScheduleRepository(db *gorm.DB) *ScheduleRepository { return &ScheduleRepository{db: db} }
 
-func (r *ScheduleRepository) ListSchedules(ctx context.Context, date string, page, size int) ([]model.Schedule, int64, error) {
-	q := r.db.WithContext(ctx).Model(&model.Schedule{})
+func (r *ScheduleRepository) ListSchedules(date string, page, size int) ([]model.Schedule, int64, error) {
+	q := r.db.Model(&model.Schedule{})
 	if date != "" {
 		q = q.Where("work_date = ?", date)
 	}
@@ -27,12 +25,10 @@ func (r *ScheduleRepository) ListSchedules(ctx context.Context, date string, pag
 	return items, total, err
 }
 
-func (r *ScheduleRepository) CreateSchedule(ctx context.Context, s *model.Schedule) error {
-	return r.db.WithContext(ctx).Create(s).Error
-}
+func (r *ScheduleRepository) CreateSchedule(s *model.Schedule) error { return r.db.Create(s).Error }
 
-func (r *ScheduleRepository) ListHandovers(ctx context.Context, date string, page, size int) ([]model.ShiftHandover, int64, error) {
-	q := r.db.WithContext(ctx).Model(&model.ShiftHandover{})
+func (r *ScheduleRepository) ListHandovers(date string, page, size int) ([]model.ShiftHandover, int64, error) {
+	q := r.db.Model(&model.ShiftHandover{})
 	if date != "" {
 		q = q.Where("work_date = ?", date)
 	}
@@ -45,17 +41,24 @@ func (r *ScheduleRepository) ListHandovers(ctx context.Context, date string, pag
 	return items, total, err
 }
 
-func (r *ScheduleRepository) CreateHandover(ctx context.Context, h *model.ShiftHandover) error {
-	return r.db.WithContext(ctx).Create(h).Error
-}
+func (r *ScheduleRepository) CreateHandover(h *model.ShiftHandover) error { return r.db.Create(h).Error }
 
 // FinanceRepository 费用账单 + 资金流水。
 type FinanceRepository struct{ db *gorm.DB }
 
 func NewFinanceRepository(db *gorm.DB) *FinanceRepository { return &FinanceRepository{db: db} }
 
-func (r *FinanceRepository) ListBills(ctx context.Context, elderID uint, month string, page, size int) ([]model.Bill, int64, error) {
-	q := r.db.WithContext(ctx).Model(&model.Bill{})
+func (r *FinanceRepository) ListBills(elderID uint, month string, page, size int) ([]model.Bill, int64, error) {
+	return r.ListBillsScoped(elderID, month, page, size, nil)
+}
+
+// ListBillsScoped 账单列表；allowed 非空时仅返回其中长者（用于家属隔离）。
+func (r *FinanceRepository) ListBillsScoped(elderID uint, month string, page, size int, allowed []uint) ([]model.Bill, int64, error) {
+	q := r.db.Model(&model.Bill{})
+	if len(allowed) > 0 {
+		q = q.Where("elder_id IN ?", allowed)
+		elderID = 0 // 家属不按任意 elder_id 过滤
+	}
 	if elderID > 0 {
 		q = q.Where("elder_id = ?", elderID)
 	}
@@ -71,18 +74,16 @@ func (r *FinanceRepository) ListBills(ctx context.Context, elderID uint, month s
 	return items, total, err
 }
 
-func (r *FinanceRepository) GetBill(ctx context.Context, id uint) (*model.Bill, error) {
+func (r *FinanceRepository) GetBill(id uint) (*model.Bill, error) {
 	var b model.Bill
-	err := r.db.WithContext(ctx).First(&b, id).Error
+	err := r.db.First(&b, id).Error
 	return &b, err
 }
 
-func (r *FinanceRepository) Save(ctx context.Context, b *model.Bill) error {
-	return r.db.WithContext(ctx).Save(b).Error
-}
+func (r *FinanceRepository) Save(b *model.Bill) error { return r.db.Save(b).Error }
 
-func (r *FinanceRepository) ListFlows(ctx context.Context, elderID uint, page, size int) ([]model.FundFlow, int64, error) {
-	q := r.db.WithContext(ctx).Model(&model.FundFlow{})
+func (r *FinanceRepository) ListFlows(elderID uint, page, size int) ([]model.FundFlow, int64, error) {
+	q := r.db.Model(&model.FundFlow{})
 	if elderID > 0 {
 		q = q.Where("elder_id = ?", elderID)
 	}
@@ -95,17 +96,15 @@ func (r *FinanceRepository) ListFlows(ctx context.Context, elderID uint, page, s
 	return items, total, err
 }
 
-func (r *FinanceRepository) CreateFlow(ctx context.Context, f *model.FundFlow) error {
-	return r.db.WithContext(ctx).Create(f).Error
-}
+func (r *FinanceRepository) CreateFlow(f *model.FundFlow) error { return r.db.Create(f).Error }
 
 // MedicationRepository 用药记录。
 type MedicationRepository struct{ db *gorm.DB }
 
 func NewMedicationRepository(db *gorm.DB) *MedicationRepository { return &MedicationRepository{db: db} }
 
-func (r *MedicationRepository) List(ctx context.Context, elderID uint, status string, page, size int) ([]model.MedicationRecord, int64, error) {
-	q := r.db.WithContext(ctx).Model(&model.MedicationRecord{})
+func (r *MedicationRepository) List(elderID uint, status string, page, size int) ([]model.MedicationRecord, int64, error) {
+	q := r.db.Model(&model.MedicationRecord{})
 	if elderID > 0 {
 		q = q.Where("elder_id = ?", elderID)
 	}
@@ -121,38 +120,27 @@ func (r *MedicationRepository) List(ctx context.Context, elderID uint, status st
 	return items, total, err
 }
 
-func (r *MedicationRepository) Create(ctx context.Context, m *model.MedicationRecord) error {
-	return r.db.WithContext(ctx).Create(m).Error
-}
-func (r *MedicationRepository) Get(ctx context.Context, id uint) (*model.MedicationRecord, error) {
+func (r *MedicationRepository) Create(m *model.MedicationRecord) error { return r.db.Create(m).Error }
+func (r *MedicationRepository) Get(id uint) (*model.MedicationRecord, error) {
 	var m model.MedicationRecord
-	err := r.db.WithContext(ctx).First(&m, id).Error
+	err := r.db.First(&m, id).Error
 	return &m, err
 }
-func (r *MedicationRepository) Save(ctx context.Context, m *model.MedicationRecord) error {
-	return r.db.WithContext(ctx).Save(m).Error
-}
+func (r *MedicationRepository) Save(m *model.MedicationRecord) error { return r.db.Save(m).Error }
 
 // AuditRepository 审计日志。
 type AuditRepository struct{ db *gorm.DB }
 
 func NewAuditRepository(db *gorm.DB) *AuditRepository { return &AuditRepository{db: db} }
 
-func (r *AuditRepository) List(ctx context.Context, page, size int) ([]model.AuditLog, int64, error) {
-	db := r.db.WithContext(ctx)
+func (r *AuditRepository) List(page, size int) ([]model.AuditLog, int64, error) {
 	var total int64
-	if err := db.Model(&model.AuditLog{}).Count(&total).Error; err != nil {
+	if err := r.db.Model(&model.AuditLog{}).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 	var items []model.AuditLog
-	err := db.Order("id desc").Offset((page - 1) * size).Limit(size).Find(&items).Error
+	err := r.db.Order("id desc").Offset((page - 1) * size).Limit(size).Find(&items).Error
 	return items, total, err
 }
 
-func (r *AuditRepository) CreateContext(ctx context.Context, a *model.AuditLog) error {
-	return r.db.WithContext(ctx).Create(a).Error
-}
-
-func (r *AuditRepository) Create(a *model.AuditLog) error {
-	return r.CreateContext(context.Background(), a)
-}
+func (r *AuditRepository) Create(a *model.AuditLog) error { return r.db.Create(a).Error }

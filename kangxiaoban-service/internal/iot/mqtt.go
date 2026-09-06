@@ -1,7 +1,6 @@
 package iot
 
 import (
-	"context"
 	"encoding/json"
 	"log"
 	"strings"
@@ -10,7 +9,6 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"kangxiaoban-service/internal/config"
 	"kangxiaoban-service/internal/model"
-	"kangxiaoban-service/internal/operationpolicy"
 )
 
 // StartMQTT 连接 Broker 并订阅睡眠/跌倒雷达 topic（自动重连；失败仅记日志不阻塞服务）。
@@ -64,7 +62,7 @@ func (s *IotService) onMQTTMessage(topic string, payload []byte) {
 		return
 	}
 	values := extractFields(raw)
-	if err := s.IngestContext(s.contextForDevice(deviceID), deviceID, product, values); err != nil {
+	if err := s.Ingest(deviceID, product, values); err != nil {
 		log.Printf("[IoT] ingest %s failed: %v", deviceID, err)
 	}
 }
@@ -102,26 +100,23 @@ func (s *IotService) StartOfflineScanner() {
 	ticker := time.NewTicker(30 * time.Second)
 	for range ticker.C {
 		now := time.Now()
-		for _, tenantID := range s.tenantIDs() {
-			ctx := context.WithValue(context.Background(), model.TenantContextKey, tenantID)
-			db := s.db.WithContext(ctx)
-			policy := operationpolicy.LoadOrDefault(db)
-			offlineAfter := operationpolicy.Seconds(policy.DeviceOfflineSeconds)
-			cooldownWindow := operationpolicy.Seconds(policy.AlertCooldownSeconds)
-			var devs []model.IotDevice
-			if err := db.Where("online = 1").Find(&devs).Error; err != nil {
-				continue
-			}
-			for _, d := range devs {
-				if d.LastSeen != nil && now.Sub(*d.LastSeen) > offlineAfter {
-					if err := db.Model(&d).Update("online", 0).Error; err != nil {
-						continue
-					}
-					if s.okCooldown("offline", d.DeviceID, now, cooldownWindow) {
-						s.createAlert(db, d, "offline", "info", "设备离线(超过"+offlineAfter.String()+"无上报)", now)
-					}
+		var devs []model.IotDevice
+		if err := s.db.Where("online = 1").Find(&devs).Error; err != nil {
+			continue
+		}
+		for _, d := range devs {
+			if d.LastSeen != nil && now.Sub(*d.LastSeen) > offlineAfter {
+				s.db.Model(&d).Update("online", 0)
+				if s.okCooldown("offline", d.DeviceID, now) {
+					s.createAlert(d, "offline", "info", "设备离线(超过"+offlineWindow+"无上报)", now)
 				}
 			}
 		}
 	}
 }
+
+const (
+	offlineAfter   = 60 * time.Second
+	offlineWindow  = "60s"
+	escalationAfter = 60 * time.Second
+)

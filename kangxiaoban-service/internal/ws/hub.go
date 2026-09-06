@@ -75,71 +75,13 @@ func (h *Hub) BroadcastEvent(eventType string, data interface{}) {
 	}
 }
 
-// SendToUser 向指定用户的所有在线连接发送事件。
-func (h *Hub) SendToUser(userID uint, eventType string, data interface{}) {
-	payload, _ := json.Marshal(map[string]interface{}{"type": eventType, "data": data})
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	for c := range h.clients {
-		if c.UserID != userID {
-			continue
-		}
-		select {
-		case c.Send <- payload:
-		default:
-		}
-	}
-}
-
-// SendToRole sends an event only to clients with the role in the same tenant.
-func (h *Hub) SendToRole(tenantID uint, role, eventType string, data interface{}) {
-	payload, _ := json.Marshal(map[string]interface{}{"type": eventType, "data": data})
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	for c := range h.clients {
-		if c.TenantID != tenantID || !clientHasRole(c.Roles, role) {
-			continue
-		}
-		select {
-		case c.Send <- payload:
-		default:
-		}
-	}
-}
-
-// SendToTenant sends an event to authenticated clients in one tenant only.
-func (h *Hub) SendToTenant(tenantID uint, eventType string, data interface{}) {
-	payload, _ := json.Marshal(map[string]interface{}{"type": eventType, "data": data})
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	for c := range h.clients {
-		if c.TenantID != tenantID {
-			continue
-		}
-		select {
-		case c.Send <- payload:
-		default:
-		}
-	}
-}
-
-func clientHasRole(roles []string, role string) bool {
-	for _, candidate := range roles {
-		if candidate == role {
-			return true
-		}
-	}
-	return false
-}
-
 // Client 单个 WebSocket 连接。
 type Client struct {
-	Hub      *Hub
-	Conn     *websocket.Conn
-	Send     chan []byte
-	UserID   uint
-	TenantID uint
-	Roles    []string
+	Hub   *Hub
+	Conn  *websocket.Conn
+	Send  chan []byte
+	UserID uint
+	Roles  []string
 
 	writeMu sync.Mutex
 }
