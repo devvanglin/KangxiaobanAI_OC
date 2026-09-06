@@ -66,14 +66,14 @@ struct MonitorStatusRing {
         Column({ space: 2 }) {
           Text(this.valueText).fontSize(26).fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary'))
-          Text(this.label).fontSize(14).fontColor($r('sys.color.font_secondary'))
+          Text(this.label).fontSize(15).fontColor($r('sys.color.font_secondary'))
         }.alignItems(HorizontalAlign.Center)
       }.width(144).height(144)
-      Text(this.detail).fontSize(11).fontColor($r('sys.color.font_secondary'))
+      Text(this.detail).fontSize(12).fontColor($r('sys.color.font_secondary'))
         .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
       // Always reserve the secondary line so the card keeps its height when
       // monitoring data lands, otherwise the whole overview layout jumps.
-      Text(this.secondaryDetail).fontSize(10).fontColor($r('sys.color.font_tertiary'))
+      Text(this.secondaryDetail).fontSize(11).fontColor($r('sys.color.font_tertiary'))
         .maxLines(1).height(14)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
     }.width('100%').alignItems(HorizontalAlign.Center)
@@ -91,12 +91,12 @@ struct ServerMetricRow {
   build() {
     Row({ space: 10 }) {
       Column({ space: 2 }) {
-        Text(this.label).fontSize(13).fontColor($r('sys.color.font_primary'))
+        Text(this.label).fontSize(14).fontColor($r('sys.color.font_primary'))
         if (this.note.length > 0) {
-          Text(this.note).fontSize(11).fontColor($r('sys.color.font_secondary'))
+          Text(this.note).fontSize(12).fontColor($r('sys.color.font_secondary'))
         }
       }.alignItems(HorizontalAlign.Start).layoutWeight(1)
-      Text(this.value).fontSize(12).fontColor($r('sys.color.font_primary'))
+      Text(this.value).fontSize(13).fontColor($r('sys.color.font_primary'))
         .textAlign(TextAlign.End).maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
     }.width('100%').height(38).padding({ left: 0, right: 0, top: 4, bottom: 4 })
       .border({
@@ -458,7 +458,7 @@ export struct WideServerMonitor {
   @Builder
   private sectionTitle(title: string) {
     Row() {
-      Text(title).fontSize(14).fontWeight(FontWeight.Bold)
+      Text(title).fontSize(15).fontWeight(FontWeight.Bold)
         .fontColor($r('sys.color.font_primary'))
     }.width('100%').height(40).padding({ left: 14, right: 14 })
       .alignItems(VerticalAlign.Center)
@@ -516,7 +516,7 @@ export struct WideServerMonitor {
       this.sectionTitle('系统信息')
       Column({ space: 8 }) {
         Column() {
-          Text('服务器信息').fontSize(13).fontWeight(FontWeight.Medium)
+          Text('服务器信息').fontSize(14).fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary')).width('100%').height(30)
           ServerMetricRow({ label: '服务器名称', value: this.currentServer().hostname })
           ServerMetricRow({ label: '服务器 IP', value: this.currentServer().ip })
@@ -526,7 +526,7 @@ export struct WideServerMonitor {
           ServerMetricRow({ label: '主机名', value: this.currentServer().hostname, showBottomDivider: false })
         }.width('100%').alignItems(HorizontalAlign.Start)
         Column() {
-          Text('运行时信息').fontSize(13).fontWeight(FontWeight.Medium)
+          Text('运行时信息').fontSize(14).fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary')).width('100%').height(30)
           ServerMetricRow({ label: 'Go 版本', value: this.currentServer().go_version })
           ServerMetricRow({ label: '启动时间', value: this.formatFullTime(this.currentServer().started_at) })
@@ -548,7 +548,7 @@ export struct WideServerMonitor {
   private networkLegend(color: string, label: string, value: string) {
     Row({ space: 6 }) {
       Row().width(8).height(8).borderRadius(4).backgroundColor(color)
-      Text(`${label} ${value}`).fontSize(12).fontColor($r('sys.color.font_secondary'))
+      Text(`${label} ${value}`).fontSize(13).fontColor($r('sys.color.font_secondary'))
     }
   }
 
@@ -556,20 +556,20 @@ export struct WideServerMonitor {
   private networkCard() {
     Column() {
       Row() {
-      Text('网络监控').fontSize(14).fontWeight(FontWeight.Bold)
+      Text('网络监控').fontSize(15).fontWeight(FontWeight.Bold)
           .fontColor($r('sys.color.font_primary'))
         Blank()
         Text(this.networkAvailable ? (this.networkInterface === 'all' ? '全部网卡' : this.networkInterface) :
-          '网络数据不可用').fontSize(11)
+          '网络数据不可用').fontSize(12)
           .fontColor(this.networkAvailable ? $r('sys.color.font_secondary') : $r('sys.color.font_tertiary'))
       }.width('100%').height(42).padding({ left: 14, right: 14 })
         .border({ width: { bottom: 0.5 }, color: { bottom: $r('sys.color.comp_divider') } })
       Row({ space: 10 }) {
         this.networkLegend(NETWORK_UPLOAD_COLOR, '上行', this.rate(this.networkTransmitRateBps))
         this.networkLegend(NETWORK_DOWNLOAD_COLOR, '下行', this.rate(this.networkReceiveRateBps))
-        Text(`总发送 ${this.networkAvailable ? this.bytes(this.networkTransmitBytes) : '--'}`).fontSize(11)
+        Text(`总发送 ${this.networkAvailable ? this.bytes(this.networkTransmitBytes) : '--'}`).fontSize(12)
           .fontColor($r('sys.color.font_secondary'))
-        Text(`总接收 ${this.networkAvailable ? this.bytes(this.networkReceiveBytes) : '--'}`).fontSize(11)
+        Text(`总接收 ${this.networkAvailable ? this.bytes(this.networkReceiveBytes) : '--'}`).fontSize(12)
           .fontColor($r('sys.color.font_secondary'))
       }.width('100%').padding({ left: 14, right: 14, top: 12, bottom: 4 })
         .alignItems(VerticalAlign.Center)
@@ -588,7 +588,7 @@ export struct WideServerMonitor {
   private monitorContent() {
       Column({ space: 10 }) {
         if (this.error.length > 0) {
-          Text(this.error).fontSize(12).fontColor($r('app.color.doctor_workspace_danger'))
+          Text(this.error).fontSize(13).fontColor($r('app.color.doctor_workspace_danger'))
             .width('100%').padding(12).borderRadius(10)
             .backgroundColor($r('app.color.doctor_workspace_accent_soft'))
         }

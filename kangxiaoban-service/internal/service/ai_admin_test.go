@@ -204,3 +204,153 @@ func TestChatUsesConnectionEndpointAndAssignmentModel(t *testing.T) {
 		t.Fatalf("unexpected chat result %q / %q", answer, modelName)
 	}
 }
+
+func TestListRAGDatasetsFetchesAllPages(t *testing.T) {
+	svc, db, ctx := newAIServiceTest(t)
+	page := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		page += 1
+		w.Header().Set("Content-Type", "application/json")
+		if page == 1 {
+			fmt.Fprint(w, `{"data":[{"id":"ds-1","name":"第一页"}],"has_more":true}`)
+			return
+		}
+		fmt.Fprint(w, `{"data":[{"id":"ds-2","name":"第二页"}],"has_more":false}`)
+	}))
+	t.Cleanup(server.Close)
+	if err := db.WithContext(ctx).Create(&model.AIConnection{
+		Provider: "http", Enabled: true,
+		RAGEnabled: true, RAGBaseURL: server.URL,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	datasets, err := svc.ListRAGDatasets(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page != 2 {
+		t.Fatalf("pages fetched = %d, want 2", page)
+	}
+	if len(datasets) != 2 || datasets[0].ID != "ds-1" || datasets[1].ID != "ds-2" {
+		t.Fatalf("datasets = %+v", datasets)
+	}
+}
+
+func TestProbeProviderModelsWithoutSavedConnection(t *testing.T) {
+	svc, _, ctx := newAIServiceTest(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer probe-key" {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		fmt.Fprint(w, `{"data":[{"id":"probe-model"}]}`)
+	}))
+	t.Cleanup(server.Close)
+	models, err := svc.ProbeProviderModels(ctx, server.URL, "probe-key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(models) != 1 || models[0].ID != "probe-model" {
+		t.Fatalf("models = %+v", models)
+	}
+}
+
+func TestProbeProviderModelsFallsBackToStoredKey(t *testing.T) {
+	svc, db, ctx := newAIServiceTest(t)
+	var auth string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth = r.Header.Get("Authorization")
+		fmt.Fprint(w, `{"data":[]}`)
+	}))
+	t.Cleanup(server.Close)
+	storedKey, err := security.Encrypt("", "stored-key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.WithContext(ctx).Create(&model.AIConnection{
+		Provider: "http", BaseURL: server.URL, APIKeyEncrypted: storedKey, Enabled: true,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.ProbeProviderModels(ctx, server.URL, ""); err != nil {
+		t.Fatal(err)
+	}
+	if auth != "Bearer stored-key" {
+		t.Fatalf("auth = %q, want stored key fallback", auth)
+	}
+}
+
+func TestTestProviderModelsReportsPerModel(t *testing.T) {
+	svc, _, ctx := newAIServiceTest(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Model string `json:"model"`
+		}
+		raw, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(raw, &body)
+		if body.Model == "bad-model" {
+			http.Error(w, "boom", http.StatusInternalServerError)
+			return
+		}
+		fmt.Fprint(w, `{"choices":[{"message":{"content":"pong"}}]}`)
+	}))
+	t.Cleanup(server.Close)
+	results, err := svc.TestProviderModels(ctx, server.URL, "k", []string{"good-model", "bad-model", "bad-model", " "})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("results = %+v, want 2 (deduped)", results)
+	}
+	if !results[0].Success || results[0].LatencyMS < 0 {
+		t.Fatalf("good model result = %+v", results[0])
+	}
+	if results[1].Success || results[1].Error != "HTTP 500" {
+		t.Fatalf("bad model result = %+v", results[1])
+	}
+}
+
+func TestTestProviderModelsUsesTypedEndpoints(t *testing.T) {
+	svc, _, ctx := newAIServiceTest(t)
+	paths := map[string]int{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths[r.URL.Path] += 1
+		fmt.Fprint(w, `{"ok":true}`)
+	}))
+	t.Cleanup(server.Close)
+	_, err := svc.TestProviderModels(ctx, server.URL, "k", []string{
+		"Qwen3-VL-4B-Instruct", "Qwen3-VL-Embedding-2B", "Qwen3-Reranker-0.6B", "bge-large-zh",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if paths["/v1/chat/completions"] != 1 || paths["/v1/embeddings"] != 2 || paths["/v1/rerank"] != 1 {
+		t.Fatalf("endpoint hits = %v", paths)
+	}
+}
+
+func TestListRAGDatasetsToleratesV1Suffix(t *testing.T) {
+	svc, db, ctx := newAIServiceTest(t)
+	var hit string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hit = r.URL.Path
+		fmt.Fprint(w, `{"data":[{"id":"ds-1","name":"知识库"}]}`)
+	}))
+	t.Cleanup(server.Close)
+	if err := db.WithContext(ctx).Create(&model.AIConnection{
+		Provider: "http", Enabled: true,
+		RAGEnabled: true, RAGBaseURL: server.URL + "/v1",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	datasets, err := svc.ListRAGDatasets(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hit != "/v1/datasets" {
+		t.Fatalf("probed path = %q, want /v1/datasets", hit)
+	}
+	if len(datasets) != 1 || datasets[0].ID != "ds-1" {
+		t.Fatalf("datasets = %+v", datasets)
+	}
+}

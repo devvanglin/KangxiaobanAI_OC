@@ -543,10 +543,10 @@ export struct WideAreaManagement {
   private floorChip(floor: AreaDto) {
     Row({ space: 4 }) {
       Text(floor.name)
-        .fontSize(12)
+        .fontSize(13)
         .fontColor(floor.id === this.selectedFloorId ? Color.White : $r('sys.color.font_primary'))
       if (this.floorEditMode) {
-        Text('✕').fontSize(12).fontWeight(FontWeight.Medium)
+        Text('✕').fontSize(13).fontWeight(FontWeight.Medium)
           .fontColor($r('app.color.doctor_workspace_danger'))
           .onClick(() => this.deleteArea(floor))
       }
@@ -565,7 +565,7 @@ export struct WideAreaManagement {
   private floorToolbarCard() {
     Column({ space: 12 }) {
       Row({ space: 10 }) {
-        Text('楼层').fontSize(13).fontColor($r('sys.color.font_secondary'))
+        Text('楼层').fontSize(14).fontColor($r('sys.color.font_secondary'))
         Scroll() {
           Row({ space: 8 }) {
             Repeat(this.floors())
@@ -578,20 +578,20 @@ export struct WideAreaManagement {
         if (this.floorEditMode) {
           Button() {
             Row({ space: 4 }) {
-              Text('编辑楼层').fontSize(12).fontColor(Color.White)
-              Text('✕').fontSize(12).fontWeight(FontWeight.Medium).fontColor(Color.White)
+              Text('编辑楼层').fontSize(13).fontColor(Color.White)
+              Text('✕').fontSize(13).fontWeight(FontWeight.Medium).fontColor(Color.White)
             }.padding({ left: 12, right: 12 })
           }.height(34).borderRadius(8)
             .backgroundColor($r('app.color.doctor_workspace_danger'))
             .onClick(() => { this.floorEditMode = false; })
         } else {
-          Button('编辑楼层').height(34).fontSize(12).borderRadius(8)
+          Button('编辑楼层').height(34).fontSize(13).borderRadius(8)
             .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
             .enabled(this.selectedFloorId > 0)
             .opacity(this.selectedFloorId > 0 ? 1 : 0.4)
             .onClick(() => { this.floorEditMode = true; this.kindEditMode = false; })
         }
-        Button('新增楼层').height(34).fontSize(12).borderRadius(8)
+        Button('新增楼层').height(34).fontSize(13).borderRadius(8)
           .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
           .onClick(() => {
             this.floorEditMode = false;
@@ -604,15 +604,15 @@ export struct WideAreaManagement {
           })
       }.width('100%').alignItems(VerticalAlign.Center)
       Row({ space: 10 }) {
-        Text('在平面图上新增：').fontSize(13).fontColor($r('sys.color.font_secondary'))
+        Text('在平面图上新增：').fontSize(14).fontColor($r('sys.color.font_secondary'))
         Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.vp(8), cross: LengthMetrics.vp(8) } }) {
           Repeat(this.areaKinds())
             .each((ri: RepeatItem<AreaKind>) => {
               Row({ space: 6 }) {
-                Text(ri.item.label).fontSize(12).fontColor(Color.White)
+                Text(ri.item.label).fontSize(13).fontColor(Color.White)
                   .onClick(() => this.openItemDialog(ri.item.value))
                 if (this.kindEditMode) {
-                  Text('✕').fontSize(11).fontWeight(FontWeight.Medium).fontColor(Color.White)
+                  Text('✕').fontSize(12).fontWeight(FontWeight.Medium).fontColor(Color.White)
                     .width(18).height(18).textAlign(TextAlign.Center)
                     .borderRadius(9).backgroundColor($r('app.color.doctor_workspace_danger'))
                     .onClick(() => this.removeKind(ri.item))
@@ -627,32 +627,32 @@ export struct WideAreaManagement {
         if (this.kindEditMode) {
           Button() {
             Row({ space: 4 }) {
-              Text('编辑区域').fontSize(12).fontColor(Color.White)
-              Text('✕').fontSize(12).fontWeight(FontWeight.Medium).fontColor(Color.White)
+              Text('编辑区域').fontSize(13).fontColor(Color.White)
+              Text('✕').fontSize(13).fontWeight(FontWeight.Medium).fontColor(Color.White)
             }.padding({ left: 12, right: 12 })
           }.height(34).borderRadius(8)
             .backgroundColor($r('app.color.doctor_workspace_danger'))
             .onClick(() => { this.kindEditMode = false; })
         } else {
-          Button('编辑区域').height(34).fontSize(12).borderRadius(8)
+          Button('编辑区域').height(34).fontSize(13).borderRadius(8)
             .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
             .onClick(() => {
               this.kindEditMode = true;
               this.floorEditMode = false;
             })
         }
-        Button('新增区域').height(34).fontSize(12).borderRadius(8)
+        Button('新增区域').height(34).fontSize(13).borderRadius(8)
           .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
           .onClick(() => { this.kindDialogName = ''; this.showKindDialog = true; })
       }.width('100%').alignItems(VerticalAlign.Center)
       if (this.unplacedAreas().length > 0) {
         Column({ space: 8 }) {
-          Text('未布置（点击标签放到平面图上）').fontSize(13).fontColor($r('sys.color.font_secondary'))
+          Text('未布置（点击标签放到平面图上）').fontSize(14).fontColor($r('sys.color.font_secondary'))
           Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.vp(8), cross: LengthMetrics.vp(8) } }) {
             Repeat(this.unplacedAreas())
               .each((ri: RepeatItem<AreaDto>) => {
                 Text(`${this.typeLabel(ri.item.type)} · ${ri.item.name}`)
-                  .fontSize(13)
+                  .fontSize(14)
                   .fontColor(this.placingId === ri.item.id ? Color.White : $r('sys.color.font_primary'))
                   .padding({ left: 12, right: 12, top: 7, bottom: 7 })
                   .borderRadius(6)
@@ -747,15 +747,15 @@ export struct WideAreaManagement {
   private mapCard() {
     Column({ space: 10 }) {
       Row() {
-        Text(this.selectedFloor()?.name ?? '楼层平面图').fontSize(15).fontWeight(FontWeight.Bold)
+        Text(this.selectedFloor()?.name ?? '楼层平面图').fontSize(16).fontWeight(FontWeight.Bold)
           .fontColor($r('sys.color.font_primary'))
         Blank()
         if (this.placingId > 0) {
-          Text('点击地图放置，放置后可拖动').fontSize(12).fontColor($r('app.color.brand_blue'))
+          Text('点击地图放置，放置后可拖动').fontSize(13).fontColor($r('app.color.brand_blue'))
         } else if (this.kindEditMode) {
-          Text('编辑中：点类型按钮的✕移除该类型').fontSize(12).fontColor($r('app.color.doctor_workspace_danger'))
+          Text('编辑中：点类型按钮的✕移除该类型').fontSize(13).fontColor($r('app.color.doctor_workspace_danger'))
         } else {
-          Text('点选房间后可拖动改位').fontSize(12).fontColor($r('sys.color.font_tertiary'))
+          Text('点选房间后可拖动改位').fontSize(13).fontColor($r('sys.color.font_tertiary'))
         }
       }.width('100%')
       Stack() {
@@ -769,8 +769,8 @@ export struct WideAreaManagement {
           .onTouch((event: TouchEvent) => this.handleTouch(event))
         if (this.selectedFloorId === 0 && !this.loading) {
           Column({ space: 8 }) {
-            Text('暂无楼层').fontSize(14).fontColor($r('sys.color.font_tertiary'))
-            Text('请先在上方新增楼层').fontSize(12).fontColor($r('sys.color.font_tertiary'))
+            Text('暂无楼层').fontSize(15).fontColor($r('sys.color.font_tertiary'))
+            Text('请先在上方新增楼层').fontSize(13).fontColor($r('sys.color.font_tertiary'))
           }.width('100%').height('100%').justifyContent(FlexAlign.Center)
             .backgroundColor('#FBFCFE')
         }
@@ -791,7 +791,7 @@ export struct WideAreaManagement {
     Row({ space: 6 }) {
       Row().width(12).height(12).backgroundColor(fill).borderRadius(3)
         .border({ width: 1, color: border })
-      Text(label).fontSize(12).fontColor($r('sys.color.font_secondary'))
+      Text(label).fontSize(13).fontColor($r('sys.color.font_secondary'))
     }
   }
 
@@ -799,39 +799,39 @@ export struct WideAreaManagement {
   private selectedPanelCard() {
     Column({ space: 10 }) {
       if (this.error.length > 0) {
-        Text(this.error).fontSize(13).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
+        Text(this.error).fontSize(14).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
       }
       Row({ space: 8 }) {
-        Text('已选中').fontSize(13).fontColor($r('sys.color.font_secondary'))
+        Text('已选中').fontSize(14).fontColor($r('sys.color.font_secondary'))
         Text(`${this.typeLabel(this.selectedArea()?.type ?? '')} · ${this.selectedArea()?.name ?? ''}`)
-          .fontSize(15).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+          .fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
         Blank()
-        Text('取消选择').fontSize(12).fontColor($r('app.color.brand_blue'))
+        Text('取消选择').fontSize(13).fontColor($r('app.color.brand_blue'))
           .onClick(() => { this.selectedAreaId = 0; this.drawPlan(); })
       }.width('100%').alignItems(VerticalAlign.Center)
       Row({ space: 10 }) {
-        Text(`编码 ${this.selectedArea()?.code ?? '--'}`).fontSize(12).fontColor($r('sys.color.font_secondary'))
+        Text(`编码 ${this.selectedArea()?.code ?? '--'}`).fontSize(13).fontColor($r('sys.color.font_secondary'))
         if (this.selectedArea()?.type === 'room') {
-          Text(`床位 ${this.bedCountOfSelected()}`).fontSize(12).fontColor($r('sys.color.font_secondary'))
+          Text(`床位 ${this.bedCountOfSelected()}`).fontSize(13).fontColor($r('sys.color.font_secondary'))
         }
-        Text(`尺寸 ${this.selectedArea()?.size_w ?? 0}×${this.selectedArea()?.size_h ?? 0} 格`).fontSize(12)
+        Text(`尺寸 ${this.selectedArea()?.size_w ?? 0}×${this.selectedArea()?.size_h ?? 0} 格`).fontSize(13)
           .fontColor($r('sys.color.font_secondary'))
       }.width('100%')
       Row({ space: 10 }) {
-        Button('编辑').height(34).fontSize(12).borderRadius(8)
+        Button('编辑').height(34).fontSize(13).borderRadius(8)
           .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
           .onClick(() => {
             const area = this.selectedArea();
             if (area !== undefined) { this.openItemEdit(area); }
           })
-        Button('调整尺寸').height(34).fontSize(12).borderRadius(8)
+        Button('调整尺寸').height(34).fontSize(13).borderRadius(8)
           .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
           .onClick(() => {
             this.dialogWidth = String(this.selectedArea()?.size_w ?? 3);
             this.dialogHeight = String(this.selectedArea()?.size_h ?? 2);
             this.showSizeDialog = true;
           })
-        Button('删除').height(34).fontSize(12).borderRadius(8)
+        Button('删除').height(34).fontSize(13).borderRadius(8)
           .fontColor(Color.White).backgroundColor($r('app.color.doctor_workspace_danger'))
           .onClick(() => {
             const area = this.selectedArea();
@@ -840,16 +840,16 @@ export struct WideAreaManagement {
       }.width('100%')
       if (this.selectedArea()?.type === 'room') {
         Row({ space: 8 }) {
-          Text('床位设置').fontSize(13).fontColor($r('sys.color.font_secondary'))
-          Button('1 床').height(34).fontSize(12).borderRadius(8)
+          Text('床位设置').fontSize(14).fontColor($r('sys.color.font_secondary'))
+          Button('1 床').height(34).fontSize(13).borderRadius(8)
             .fontColor(this.bedCountOfSelected() === 1 ? Color.White : $r('sys.color.font_primary'))
             .backgroundColor(this.bedCountOfSelected() === 1 ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
             .onClick(() => this.setBedCount(1))
-          Button('2 床').height(34).fontSize(12).borderRadius(8)
+          Button('2 床').height(34).fontSize(13).borderRadius(8)
             .fontColor(this.bedCountOfSelected() === 2 ? Color.White : $r('sys.color.font_primary'))
             .backgroundColor(this.bedCountOfSelected() === 2 ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
             .onClick(() => this.setBedCount(2))
-          Text(`当前 ${this.bedCountOfSelected()} 张`).fontSize(12).fontColor($r('sys.color.font_tertiary'))
+          Text(`当前 ${this.bedCountOfSelected()} 张`).fontSize(13).fontColor($r('sys.color.font_tertiary'))
         }.width('100%').alignItems(VerticalAlign.Center)
       }
     }.width('100%').padding(16).backgroundColor($r('sys.color.comp_background_primary'))
@@ -860,8 +860,8 @@ export struct WideAreaManagement {
   @Builder
   private numberField(label: string, value: string, onChange: (text: string) => void) {
     Row({ space: 8 }) {
-      Text(label).fontSize(13).fontColor($r('sys.color.font_secondary'))
-      TextInput({ text: value }).width(72).height(38).fontSize(13).borderRadius(6).type(InputType.Number)
+      Text(label).fontSize(14).fontColor($r('sys.color.font_secondary'))
+      TextInput({ text: value }).width(72).height(38).fontSize(14).borderRadius(6).type(InputType.Number)
         .onChange((text: string) => onChange(text))
     }.alignItems(VerticalAlign.Center)
   }
@@ -873,7 +873,7 @@ export struct WideAreaManagement {
       TextInput({ placeholder: '区域名称，例如 电梯', text: $$this.kindDialogName }).height(42)
         .onSubmit(() => this.saveKind())
       Text('保存后会出现在上方的类型按钮行，可在平面图上放置该类型区域')
-        .fontSize(12).fontColor($r('sys.color.font_tertiary')).width('100%')
+        .fontSize(13).fontColor($r('sys.color.font_tertiary')).width('100%')
       Row({ space: 10 }) {
         Button('取消').layoutWeight(1).height(40)
           .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))
@@ -896,7 +896,7 @@ export struct WideAreaManagement {
       TextInput({ placeholder: '楼层号，例如 3', text: $$this.dialogFloorNo }).height(42).type(InputType.Number)
       TextInput({ placeholder: '楼层编码', text: $$this.dialogCode }).height(42)
       if (this.floorEditMode) {
-        Text('删除楼层前需先删除楼层内的房间、走廊等区域').fontSize(12).fontColor($r('sys.color.font_tertiary'))
+        Text('删除楼层前需先删除楼层内的房间、走廊等区域').fontSize(13).fontColor($r('sys.color.font_tertiary'))
       }
       Row({ space: 10 }) {
         Button('取消').layoutWeight(1).height(40)
@@ -933,10 +933,10 @@ export struct WideAreaManagement {
         this.numberField('高（格）', this.dialogHeight, (text: string) => this.dialogHeight = text)
       }.width('100%')
       if (this.itemEditMode) {
-        Text('未布置的区域保存后仍停留在未布置区，点击标签即可放置').fontSize(12)
+        Text('未布置的区域保存后仍停留在未布置区，点击标签即可放置').fontSize(13)
           .fontColor($r('sys.color.font_tertiary'))
       } else {
-        Text('可立即放置到平面图，或先保存到未布置区稍后再放').fontSize(12)
+        Text('可立即放置到平面图，或先保存到未布置区稍后再放').fontSize(13)
           .fontColor($r('sys.color.font_tertiary'))
       }
       if (this.itemEditMode) {
@@ -1002,7 +1002,7 @@ export struct WideAreaManagement {
         Column({ space: 16 }) {
           this.floorToolbarCard()
           if (this.error.length > 0) {
-            Text(this.error).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
+            Text(this.error).fontSize(13).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
           }
           this.mapCard()
         }.width('100%').padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28,

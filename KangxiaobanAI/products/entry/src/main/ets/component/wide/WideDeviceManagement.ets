@@ -296,7 +296,7 @@ export struct WideDeviceManagement {
   @Builder
   private statCard($$: StatCardParam) {
     Column({ space: 6 }) {
-      Text($$.label).fontSize(12).fontColor($r('sys.color.font_secondary'))
+      Text($$.label).fontSize(13).fontColor($r('sys.color.font_secondary'))
       Text($$.value).fontSize(24).fontWeight(FontWeight.Bold)
         .fontColor($$.valueColor !== undefined && $$.valueColor.length > 0 ? $$.valueColor : $r('sys.color.font_primary'))
     }.alignItems(HorizontalAlign.Start)
@@ -320,7 +320,7 @@ export struct WideDeviceManagement {
     Row({ space: 8 }) {
       ForEach(this.typeFilters, (label: string) => {
         Text(label)
-          .fontSize(13)
+          .fontSize(14)
           .fontColor(this.typeFilter === label ? Color.White : $r('sys.color.font_primary'))
           .padding({ left: 16, right: 16, top: 8, bottom: 8 })
           .borderRadius(8)
@@ -332,7 +332,7 @@ export struct WideDeviceManagement {
 
   @Builder
   private tableHeaderCell(label: string, weight: number) {
-    Text(label).fontSize(12).fontColor($r('sys.color.font_tertiary')).layoutWeight(weight)
+    Text(label).fontSize(13).fontColor($r('sys.color.font_tertiary')).layoutWeight(weight)
   }
 
   @Builder
@@ -352,30 +352,30 @@ export struct WideDeviceManagement {
   private tableRow(device: IotDevice) {
     Row({ space: 12 }) {
       Column({ space: 3 }) {
-        Text(this.productName(device.product)).fontSize(14).fontWeight(FontWeight.Medium)
+        Text(this.productName(device.product)).fontSize(15).fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.font_primary')).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(this.deviceIdValue(device)).fontSize(11).fontColor($r('sys.color.font_tertiary'))
+        Text(this.deviceIdValue(device)).fontSize(12).fontColor($r('sys.color.font_tertiary'))
           .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
       }.layoutWeight(2.2).alignItems(HorizontalAlign.Start)
-      Text(this.deviceTypeName(device)).fontSize(13).fontColor($r('sys.color.font_primary'))
+      Text(this.deviceTypeName(device)).fontSize(14).fontColor($r('sys.color.font_primary'))
         .layoutWeight(1.3).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-      Text(this.deviceLocation(device)).fontSize(13).fontColor($r('sys.color.font_primary'))
+      Text(this.deviceLocation(device)).fontSize(14).fontColor($r('sys.color.font_primary'))
         .layoutWeight(1.6).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
       Text(device.bed !== undefined && device.bed.length > 0 ? device.bed + '床' : '—')
-        .fontSize(13).fontColor($r('sys.color.font_primary')).layoutWeight(1)
+        .fontSize(14).fontColor($r('sys.color.font_primary')).layoutWeight(1)
       Row() {
         Text(this.deviceStatus(device))
-          .fontSize(11).fontColor(this.statusTintFg(device))
+          .fontSize(12).fontColor(this.statusTintFg(device))
           .padding({ left: 10, right: 10, top: 4, bottom: 4 }).borderRadius(8)
           .backgroundColor(this.statusTintBg(device))
       }.layoutWeight(1)
-      Text(this.relativeHeartbeat(device.last_seen)).fontSize(13).fontColor($r('sys.color.font_primary'))
+      Text(this.relativeHeartbeat(device.last_seen)).fontSize(14).fontColor($r('sys.color.font_primary'))
         .layoutWeight(1.3).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
       Row({ space: 10 }) {
-        Button('详情').height(30).fontSize(12).borderRadius(8)
+        Button('详情').height(30).fontSize(13).borderRadius(8)
           .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
           .onClick(() => this.openDeviceDetail(device))
-        Button('配置').height(30).fontSize(12).borderRadius(8)
+        Button('配置').height(30).fontSize(13).borderRadius(8)
           .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
           .onClick(() => this.openEdit(device))
       }.layoutWeight(1.4)
@@ -391,9 +391,9 @@ export struct WideDeviceManagement {
         Column({ space: 8 }) {
           SymbolGlyph($r('sys.symbol.beacon_tower_fill')).fontSize(32).fontColor([$r('sys.color.icon_secondary')])
           Text(this.searchQuery.length > 0 || this.typeFilter !== '全部' ? '没有符合条件的设备' : '暂无设备')
-            .fontSize(15).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+            .fontSize(16).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
           Text('毫米波设备可通过 MQTT 自动发现，摄像头可手动添加。')
-            .fontSize(12).fontColor($r('sys.color.font_secondary'))
+            .fontSize(13).fontColor($r('sys.color.font_secondary'))
         }.width('100%').padding({ top: 36, bottom: 36 }).alignItems(HorizontalAlign.Center)
       } else {
         ForEach(this.filteredDevices(), (device: IotDevice, index: number) => {
@@ -421,7 +421,7 @@ export struct WideDeviceManagement {
             Row({ space: 6 }) {
               SymbolGlyph($r('sys.symbol.dot_radiowaves_left_and_right')).fontSize(16)
                 .fontColor([this.deviceType === '毫米波雷达' ? Color.White : $r('sys.color.icon_secondary')])
-              Text('毫米波').fontSize(13)
+              Text('毫米波').fontSize(14)
                 .fontColor(this.deviceType === '毫米波雷达' ? Color.White : $r('sys.color.font_secondary'))
             }
           }.layoutWeight(1).height(36).borderRadius(8).backgroundColor(this.deviceType === '毫米波雷达' ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
@@ -430,7 +430,7 @@ export struct WideDeviceManagement {
             Row({ space: 6 }) {
               SymbolGlyph($r('sys.symbol.camera_fill')).fontSize(16)
                 .fontColor([this.deviceType === '摄像头' ? Color.White : $r('sys.color.icon_secondary')])
-              Text('摄像头').fontSize(13)
+              Text('摄像头').fontSize(14)
                 .fontColor(this.deviceType === '摄像头' ? Color.White : $r('sys.color.font_secondary'))
             }
           }.layoutWeight(1).height(36).borderRadius(8).backgroundColor(this.deviceType === '摄像头' ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
@@ -439,7 +439,7 @@ export struct WideDeviceManagement {
             Row({ space: 6 }) {
               SymbolGlyph($r('sys.symbol.device_2')).fontSize(16)
                 .fontColor([this.deviceType === '其他' ? Color.White : $r('sys.color.icon_secondary')])
-              Text('其他').fontSize(13)
+              Text('其他').fontSize(14)
                 .fontColor(this.deviceType === '其他' ? Color.White : $r('sys.color.font_secondary'))
             }
           }.layoutWeight(1).height(36).borderRadius(8)
@@ -449,17 +449,17 @@ export struct WideDeviceManagement {
         if (this.deviceType === '摄像头') { TextInput({ placeholder: '摄像头 IP，例如 192.168.1.20', text: $$this.cameraIp }).height(42) }
         TextInput({ placeholder: '绑定房间号，可选，例如 101', text: $$this.room }).height(42)
         TextInput({ placeholder: '床位号，可选，例如 1', text: $$this.bed }).height(42)
-        Text('绑定区域（可选）').fontSize(12).fontColor($r('sys.color.font_secondary'))
+        Text('绑定区域（可选）').fontSize(13).fontColor($r('sys.color.font_secondary'))
         Select(this.areaOptions())
           .selected(this.selectedAreaIndex()).value(this.selectedAreaName())
           .fontColor($r('sys.color.font_primary')).font({ size: 13 })
           .onSelect((index: number) => this.areaId = index === 0 ? 0 : (this.areas[index - 1]?.id ?? 0))
           .width('100%').height(42)
         Row({ space: 10 }) {
-          Button('取消').layoutWeight(1).height(40).fontSize(13).borderRadius(8)
+          Button('取消').layoutWeight(1).height(40).fontSize(14).borderRadius(8)
             .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))
             .onClick(() => { this.showCreate = false; this.resetEditor(); })
-          Button('保存').layoutWeight(1).height(40).fontSize(13).borderRadius(8)
+          Button('保存').layoutWeight(1).height(40).fontSize(14).borderRadius(8)
             .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
             .onClick(() => this.saveDevice())
         }.width('100%')
@@ -475,7 +475,7 @@ export struct WideDeviceManagement {
           Search({ value: this.searchQuery, placeholder: '搜索设备编号/名称' })
             .width(this.compactWidth ? 200 : 260).height(38)
             .onChange((value: string) => this.searchQuery = value)
-          Button('新增设备').height(38).fontSize(13).borderRadius(8)
+          Button('新增设备').height(38).fontSize(14).borderRadius(8)
             .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
             .onClick(() => { this.resetEditor(); this.showCreate = true; })
         }.width('100%').alignItems(VerticalAlign.Center)
@@ -493,8 +493,8 @@ export struct WideDeviceManagement {
       if (this.showSignals) Row() {
         Column({ space: 12 }) {
           Text(`毫米波信号 · ${this.signalDeviceName}`).fontSize(18).fontWeight(FontWeight.Medium)
-          if (this.signals.length === 0) Text('暂无信号记录，等待设备上报').fontSize(13).fontColor($r('sys.color.font_secondary')).padding(24)
-          ForEach(this.signals, (signal: SignalRecord) => Row() { Text(signal.type).width(150).fontSize(12); Text(signal.value).layoutWeight(1).fontSize(13); Text(signal.ts.length >= 19 ? signal.ts.slice(11, 19) : signal.ts).fontSize(11).fontColor($r('sys.color.font_secondary')) }.width('100%').height(36), (signal: SignalRecord) => `signal-${signal.id}`)
+          if (this.signals.length === 0) Text('暂无信号记录，等待设备上报').fontSize(14).fontColor($r('sys.color.font_secondary')).padding(24)
+          ForEach(this.signals, (signal: SignalRecord) => Row() { Text(signal.type).width(150).fontSize(13); Text(signal.value).layoutWeight(1).fontSize(14); Text(signal.ts.length >= 19 ? signal.ts.slice(11, 19) : signal.ts).fontSize(12).fontColor($r('sys.color.font_secondary')) }.width('100%').height(36), (signal: SignalRecord) => `signal-${signal.id}`)
           Button('关闭').width('100%').height(40).onClick(() => this.showSignals = false)
         }.width(this.compactWidth ? '90%' : 520).padding(20).backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
       }.width('100%').height('100%').backgroundColor('#66000000').justifyContent(FlexAlign.Center)

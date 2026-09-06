@@ -80,6 +80,61 @@ func (h *AIAdminHandler) UpdateConnection(c *gin.Context) {
 	OK(c, connectionView(row))
 }
 
+type aiEndpointProbeReq struct {
+	BaseURL string   `json:"base_url"`
+	APIKey  string   `json:"api_key"`
+	Models  []string `json:"models"`
+}
+
+// ProbeModels POST /api/v1/admin/ai/llm/models 用表单值探测模型清单（保存前测试）。
+func (h *AIAdminHandler) ProbeModels(c *gin.Context) {
+	var req aiEndpointProbeReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Fail(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	models, err := h.svc.ProbeProviderModels(c.Request.Context(), req.BaseURL, req.APIKey)
+	if err != nil {
+		h.failProxy(c, err, "请填写模型服务 Base URL", "模型服务连接失败，请检查地址与密钥")
+		return
+	}
+	OK(c, models)
+}
+
+// TestModels POST /api/v1/admin/ai/llm/test 对所选模型逐个发起最小对话补全测试。
+func (h *AIAdminHandler) TestModels(c *gin.Context) {
+	var req aiEndpointProbeReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Fail(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	if len(req.Models) == 0 {
+		Fail(c, http.StatusBadRequest, 400, "请先选择要测试的模型")
+		return
+	}
+	results, err := h.svc.TestProviderModels(c.Request.Context(), req.BaseURL, req.APIKey, req.Models)
+	if err != nil {
+		h.failProxy(c, err, "请填写模型服务 Base URL", "模型服务连接失败，请检查地址与密钥")
+		return
+	}
+	OK(c, results)
+}
+
+// ProbeRagDatasets POST /api/v1/admin/ai/rag/datasets 用表单值探测知识库清单（保存前测试）。
+func (h *AIAdminHandler) ProbeRagDatasets(c *gin.Context) {
+	var req aiEndpointProbeReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Fail(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	datasets, err := h.svc.ProbeRAGDatasets(c.Request.Context(), req.BaseURL, req.APIKey)
+	if err != nil {
+		h.failProxy(c, err, "请填写 Dify RAG URL", "知识库连接失败，请检查 Dify 地址与密钥")
+		return
+	}
+	OK(c, datasets)
+}
+
 // ListRAGDatasets GET /api/v1/admin/ai/rag/datasets
 func (h *AIAdminHandler) ListRAGDatasets(c *gin.Context) {
 	datasets, err := h.svc.ListRAGDatasets(c.Request.Context())
@@ -100,13 +155,15 @@ func (h *AIAdminHandler) ListProviderModels(c *gin.Context) {
 	OK(c, models)
 }
 
+// failProxy 探测/测试类失败统一以 HTTP 200 + 业务码返回，让网关编辑弹窗
+// 能把具体原因（未配置/连接失败）原样展示给管理员，而不是被网络层吞掉。
 func (h *AIAdminHandler) failProxy(c *gin.Context, err error, notConfiguredMsg, unavailableMsg string) {
 	switch {
 	case errors.Is(err, service.ErrRAGNotConfigured), errors.Is(err, service.ErrModelSourceNotConfigured):
-		Fail(c, http.StatusBadRequest, 400, notConfiguredMsg)
+		respond(c, http.StatusOK, 400, notConfiguredMsg, nil)
 	case errors.Is(err, service.ErrRAGUnavailable), errors.Is(err, service.ErrModelSourceUnavailable):
-		Fail(c, http.StatusBadGateway, 502, unavailableMsg)
+		respond(c, http.StatusOK, 502, unavailableMsg, nil)
 	default:
-		Fail(c, http.StatusInternalServerError, 500, "AI 管理代理请求失败")
+		respond(c, http.StatusOK, 500, "AI 管理代理请求失败", nil)
 	}
 }

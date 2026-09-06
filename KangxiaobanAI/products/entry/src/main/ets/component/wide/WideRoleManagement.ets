@@ -204,7 +204,7 @@ export struct WideRoleManagement {
     Row() {
       Text('角色列表').fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
       Blank()
-      Button('新增角色').height(34).fontSize(13).borderRadius(8)
+      Button('新增角色').height(34).fontSize(14).borderRadius(8)
         .fontColor(Color.White).backgroundColor(ACTION_BUTTON_BG)
         .padding({ left: 16, right: 16 })
         .onClick(() => this.openCreate())
@@ -226,7 +226,7 @@ export struct WideRoleManagement {
   private listStat(count: number, label: string) {
     Column({ space: 5 }) {
       Text(count.toString()).fontSize(19).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
-      Text(label).fontSize(12).fontColor($r('sys.color.font_secondary'))
+      Text(label).fontSize(13).fontColor($r('sys.color.font_secondary'))
     }.alignItems(HorizontalAlign.Center).width(62)
   }
 
@@ -235,7 +235,7 @@ export struct WideRoleManagement {
     Row({ space: 16 }) {
       this.listStat(this.permissionCountOf(role), '权限数')
       this.listStat(this.userCount(role), '用户数')
-      Text('编辑').fontSize(14).fontColor($r('sys.color.font_primary'))
+      Text('编辑').fontSize(15).fontColor($r('sys.color.font_primary'))
         .padding({ left: 8, right: 8, top: 8, bottom: 8 })
         .onClick(() => { this.selectedRoleId = role.id; this.openEdit(role); })
     }
@@ -249,9 +249,9 @@ export struct WideRoleManagement {
           .borderRadius(2)
           .backgroundColor(this.selectedRoleId === role.id ? ACTION_BUTTON_BG : Color.Transparent)
         Column({ space: 5 }) {
-          Text(role.name || '--').fontSize(15).fontWeight(FontWeight.Medium)
+          Text(role.name || '--').fontSize(16).fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary'))
-          Text(role.description || '暂无描述').fontSize(13).fontColor($r('sys.color.font_secondary'))
+          Text(role.description || '暂无描述').fontSize(14).fontColor($r('sys.color.font_secondary'))
             .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
         }.alignItems(HorizontalAlign.Start).layoutWeight(1)
         this.roleRowSuffix(role)
@@ -292,7 +292,7 @@ export struct WideRoleManagement {
         }.width('100%')
       } else if (this.roles.length === 0) {
         Column() {
-          Text(this.error.length > 0 ? this.error : '暂无角色数据').fontSize(13).fontColor($r('sys.color.font_tertiary'))
+          Text(this.error.length > 0 ? this.error : '暂无角色数据').fontSize(14).fontColor($r('sys.color.font_tertiary'))
         }.width('100%').padding({ top: 44, bottom: 44 })
       } else {
         Repeat(this.roles)
@@ -311,13 +311,13 @@ export struct WideRoleManagement {
   private detailStat(count: number, label: string) {
     Column({ space: 6 }) {
       Text(count.toString()).fontSize(26).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
-      Text(label).fontSize(12).fontColor($r('sys.color.font_secondary'))
+      Text(label).fontSize(13).fontColor($r('sys.color.font_secondary'))
     }.alignItems(HorizontalAlign.Start).layoutWeight(1)
   }
 
   @Builder
   private permissionChip(label: string) {
-    Text(label).fontSize(13).fontColor($r('sys.color.font_primary'))
+    Text(label).fontSize(14).fontColor($r('sys.color.font_primary'))
       .padding({ left: 12, right: 12, top: 7, bottom: 7 })
       .backgroundColor($r('sys.color.comp_background_secondary'))
       .borderRadius(6)
@@ -326,7 +326,7 @@ export struct WideRoleManagement {
   @Builder
   private permissionGroupBlock(group: PermissionGroup) {
     Column({ space: 10 }) {
-      Text(group.title).fontSize(15).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+      Text(group.title).fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
       Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.vp(8), cross: LengthMetrics.vp(8) } }) {
         ForEach(group.items, (item: RolePermission) => {
           this.permissionChip(item.name || item.code)
@@ -339,13 +339,13 @@ export struct WideRoleManagement {
   private roleDetailContent() {
     if (this.selectedRole() === undefined) {
       Column() {
-        Text('请选择左侧角色查看详情').fontSize(13).fontColor($r('sys.color.font_tertiary'))
+        Text('请选择左侧角色查看详情').fontSize(14).fontColor($r('sys.color.font_tertiary'))
       }.width('100%').padding({ top: 44, bottom: 44 })
     } else {
       Column({ space: 14 }) {
         Text(this.selectedRole()?.name ?? '--').fontSize(20).fontWeight(FontWeight.Bold)
           .fontColor($r('sys.color.font_primary'))
-        Text(this.selectedRole()?.description ?? '暂无描述').fontSize(13).fontColor($r('sys.color.font_secondary'))
+        Text(this.selectedRole()?.description ?? '暂无描述').fontSize(14).fontColor($r('sys.color.font_secondary'))
         Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
         Row() {
           this.detailStat(this.selectedPermissionCount(), '权限数量')
@@ -377,18 +377,18 @@ export struct WideRoleManagement {
       TextInput({ placeholder: '角色名称，例如护理组长', text: $$this.roleName }).height(42)
       TextInput({ placeholder: '角色编码，例如 head_nurse', text: $$this.roleCode }).height(42)
       Column({ space: 10 }) {
-        Text('权限选择').fontSize(14).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+        Text('权限选择').fontSize(15).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
         Scroll() {
           Column({ space: 12 }) {
             Repeat(this.allPermissionGroups())
               .each((ri: RepeatItem<PermissionGroup>) => {
                 Column({ space: 8 }) {
-                  Text(ri.item.title).fontSize(12).fontColor($r('sys.color.font_secondary'))
+                  Text(ri.item.title).fontSize(13).fontColor($r('sys.color.font_secondary'))
                   Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.vp(8), cross: LengthMetrics.vp(8) } }) {
                     Repeat(ri.item.items)
                       .each((chip: RepeatItem<RolePermission>) => {
                         Text(chip.item.name || chip.item.code)
-                          .fontSize(13)
+                          .fontSize(14)
                           .fontColor(this.isPermissionSelected(chip.item.code) ? Color.White : $r('sys.color.font_primary'))
                           .padding({ left: 12, right: 12, top: 7, bottom: 7 })
                           .borderRadius(6)
@@ -407,16 +407,16 @@ export struct WideRoleManagement {
       }.width('100%').alignItems(HorizontalAlign.Start)
       TextArea({ placeholder: '备注，可选', text: $$this.roleRemark }).height(76)
       Row({ space: 10 }) {
-        Text('状态').fontSize(14).fontColor($r('sys.color.font_primary'))
+        Text('状态').fontSize(15).fontColor($r('sys.color.font_primary'))
         Toggle({ type: ToggleType.Switch, isOn: $$this.editStatusOn })
-        Text(this.editStatusOn ? '正常' : '停用').fontSize(13).fontColor($r('sys.color.font_secondary'))
+        Text(this.editStatusOn ? '正常' : '停用').fontSize(14).fontColor($r('sys.color.font_secondary'))
       }.width('100%')
       Row({ space: 10 }) {
-        Button('取消').layoutWeight(1).height(40).fontSize(14)
+        Button('取消').layoutWeight(1).height(40).fontSize(15)
           .fontColor($r('sys.color.font_secondary'))
           .backgroundColor($r('sys.color.comp_background_secondary'))
           .onClick(() => this.showDialog = false)
-        Button('保存').layoutWeight(1).height(40).fontSize(14)
+        Button('保存').layoutWeight(1).height(40).fontSize(15)
           .fontColor(Color.White).backgroundColor(ACTION_BUTTON_BG)
           .onClick(() => this.saveRole())
       }.width('100%')
@@ -429,7 +429,7 @@ export struct WideRoleManagement {
       Scroll(this.managementScroller) {
         Column({ space: 16 }) {
           if (this.error.length > 0) {
-            Text(this.error).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
+            Text(this.error).fontSize(13).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
           }
           GridRow({ columns: 12, gutter: { x: 14, y: 14 } }) {
             GridCol({ span: this.compactWidth ? 12 : 8 }) {
@@ -439,7 +439,7 @@ export struct WideRoleManagement {
               this.roleDetailCard()
             }
           }.width('100%')
-          Text(`共 ${this.roles.length} 个角色`).fontSize(11).fontColor($r('sys.color.font_tertiary')).width('100%')
+          Text(`共 ${this.roles.length} 个角色`).fontSize(12).fontColor($r('sys.color.font_tertiary')).width('100%')
             .textAlign(TextAlign.End)
         }.width('100%').padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28,
           top: 88 + this.statusBarHeight, bottom: 24 + this.naviIndicatorHeight })

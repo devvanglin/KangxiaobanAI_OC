@@ -92,25 +92,25 @@ export struct WideUserManagement {
     Row({ space: 14 }) {
       TextInput({ placeholder: '请输入用户名/姓名/手机号', text: $$this.keyword })
         .width(this.compactWidth ? 200 : 300).height(38).borderRadius(6)
-      Text('状态').fontSize(12).fontColor($r('sys.color.font_secondary'))
+      Text('状态').fontSize(13).fontColor($r('sys.color.font_secondary'))
       Text(this.statusFilter === '1' ? '正常' : this.statusFilter === '0' ? '停用' : '用户状态')
         .width(110).height(38).padding(10).borderRadius(6)
         .border({ width: 0.5, color: $r('sys.color.comp_divider') })
         .onClick(() => this.statusFilter = this.statusFilter === '' ? '1' : this.statusFilter === '1' ? '0' : '')
-      Button('搜索').height(38).fontSize(13).borderRadius(6)
+      Button('搜索').height(38).fontSize(14).borderRadius(6)
         .fontColor(Color.White).backgroundColor($r('app.color.brand_blue'))
         .onClick(() => this.loadUsers())
-      Button('重置').height(38).fontSize(13).borderRadius(6)
+      Button('重置').height(38).fontSize(14).borderRadius(6)
         .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))
         .onClick(() => { this.keyword = ''; this.statusFilter = ''; this.loadUsers(); })
       Blank().layoutWeight(1)
-      Button('新增').height(36).fontSize(12).borderRadius(6)
+      Button('新增').height(36).fontSize(13).borderRadius(6)
         .fontColor(Color.White).backgroundColor(ACTION_BUTTON_BG)
         .onClick(() => this.showCreate = true)
-      Button('修改').height(36).fontSize(12).borderRadius(6).enabled(false)
-      Button('删除').height(36).fontSize(12).borderRadius(6).enabled(false)
-      Button('导入').height(36).fontSize(12).borderRadius(6).enabled(false)
-      Button('导出').height(36).fontSize(12).borderRadius(6).enabled(false)
+      Button('修改').height(36).fontSize(13).borderRadius(6).enabled(false)
+      Button('删除').height(36).fontSize(13).borderRadius(6).enabled(false)
+      Button('导入').height(36).fontSize(13).borderRadius(6).enabled(false)
+      Button('导出').height(36).fontSize(13).borderRadius(6).enabled(false)
     }.width('100%').padding(16).backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius(8).border({ width: 0.5, color: $r('sys.color.comp_divider') })
       .alignItems(VerticalAlign.Center)
@@ -119,17 +119,17 @@ export struct WideUserManagement {
   @Builder
   private tableHeaderRow() {
     Row({ space: 10 }) {
-      Text('用户').fontSize(12).fontColor($r('sys.color.font_secondary'))
+      Text('用户').fontSize(13).fontColor($r('sys.color.font_secondary'))
         .layoutWeight(1.4)
-      Text('角色').fontSize(12).fontColor($r('sys.color.font_secondary'))
+      Text('角色').fontSize(13).fontColor($r('sys.color.font_secondary'))
         .layoutWeight(1)
-      Text('手机号').fontSize(12).fontColor($r('sys.color.font_secondary'))
+      Text('手机号').fontSize(13).fontColor($r('sys.color.font_secondary'))
         .width(this.compactWidth ? 100 : 130)
-      Text('状态').fontSize(12).fontColor($r('sys.color.font_secondary'))
+      Text('状态').fontSize(13).fontColor($r('sys.color.font_secondary'))
         .width(this.compactWidth ? 70 : 90)
-      Text('创建时间').fontSize(12).fontColor($r('sys.color.font_secondary'))
+      Text('创建时间').fontSize(13).fontColor($r('sys.color.font_secondary'))
         .width(this.compactWidth ? 130 : 170)
-      Text('操作').fontSize(12).fontColor($r('sys.color.font_secondary'))
+      Text('操作').fontSize(13).fontColor($r('sys.color.font_secondary'))
         .width(this.compactWidth ? 110 : 130).textAlign(TextAlign.End)
     }.width('100%').height(44).padding({ left: 18, right: 18 })
       .backgroundColor($r('sys.color.comp_background_secondary'))
@@ -138,7 +138,7 @@ export struct WideUserManagement {
 
   @Builder
   private statusPill(user: UserRecord) {
-    Button(user.status === 1 ? '正常' : '停用').height(26).fontSize(11).borderRadius(13)
+    Button(user.status === 1 ? '正常' : '停用').height(26).fontSize(12).borderRadius(13)
       .fontColor(Color.White)
       .backgroundColor(user.status === 1 ? $r('app.color.doctor_workspace_success') : $r('sys.color.font_tertiary'))
       .onClick(() => this.toggleStatus(user))
@@ -149,28 +149,28 @@ export struct WideUserManagement {
     Column() {
       Row({ space: 10 }) {
         Column({ space: 3 }) {
-          Text(user.real_name || user.username).fontSize(14).fontWeight(FontWeight.Medium)
+          Text(user.real_name || user.username).fontSize(15).fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary'))
             .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text(user.username).fontSize(11).fontColor($r('sys.color.font_tertiary'))
+          Text(user.username).fontSize(12).fontColor($r('sys.color.font_tertiary'))
             .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
         }.layoutWeight(1.4).alignItems(HorizontalAlign.Start)
         Text(user.roles?.map((role: UserRole) => role.name).join('、') || '--')
-          .fontSize(13).fontColor($r('sys.color.font_primary'))
+          .fontSize(14).fontColor($r('sys.color.font_primary'))
           .layoutWeight(1)
           .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(user.phone || '--').fontSize(13).fontColor($r('sys.color.font_primary'))
+        Text(user.phone || '--').fontSize(14).fontColor($r('sys.color.font_primary'))
           .width(this.compactWidth ? 100 : 130)
           .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
         Column() {
           this.statusPill(user)
         }.width(this.compactWidth ? 70 : 90).alignItems(HorizontalAlign.Start)
-        Text(this.formatTime(user.created_at)).fontSize(11).fontColor($r('sys.color.font_secondary'))
+        Text(this.formatTime(user.created_at)).fontSize(12).fontColor($r('sys.color.font_secondary'))
           .width(this.compactWidth ? 130 : 170)
           .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
         Row({ space: 12 }) {
-          Text('修改').fontSize(13).fontColor($r('sys.color.font_tertiary'))
-          Text('角色分配').fontSize(13).fontColor($r('app.color.brand_blue'))
+          Text('修改').fontSize(14).fontColor($r('sys.color.font_tertiary'))
+          Text('角色分配').fontSize(14).fontColor($r('app.color.brand_blue'))
             .onClick(() => this.error = '角色分配入口已准备，使用后端多角色接口')
         }.width(this.compactWidth ? 110 : 130).justifyContent(FlexAlign.End)
       }.width('100%').height(64).padding({ left: 18, right: 18 })
@@ -193,7 +193,7 @@ export struct WideUserManagement {
         }.width('100%').padding({ top: 44, bottom: 44 })
       } else if (this.users.length === 0) {
         Column() {
-          Text(this.error.length > 0 ? this.error : '暂无用户数据').fontSize(13).fontColor($r('sys.color.font_tertiary'))
+          Text(this.error.length > 0 ? this.error : '暂无用户数据').fontSize(14).fontColor($r('sys.color.font_tertiary'))
         }.width('100%').padding({ top: 44, bottom: 44 })
       } else {
         Repeat(this.users)
@@ -204,7 +204,7 @@ export struct WideUserManagement {
       }
       Row() {
         Blank()
-        Text(`共 ${this.users.length} 条`).fontSize(11).fontColor($r('sys.color.font_tertiary'))
+        Text(`共 ${this.users.length} 条`).fontSize(12).fontColor($r('sys.color.font_tertiary'))
       }.width('100%').padding({ left: 18, right: 18, top: 12, bottom: 12 })
     }.width('100%').backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius(8).border({ width: 0.5, color: $r('sys.color.comp_divider') })
@@ -223,7 +223,7 @@ export struct WideUserManagement {
         TextInput({ placeholder: '手机号', text: $$this.phone }).width('100%').height(42).margin({ top: 10 })
         Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.vp(8), cross: LengthMetrics.vp(8) } }) {
           ForEach(this.availableRoles, (role: UserRole) => {
-            Button(role.name).height(34).fontSize(11).borderRadius(17)
+            Button(role.name).height(34).fontSize(12).borderRadius(17)
               .backgroundColor(this.selectedRoleCodes.indexOf(role.code) >= 0 ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
               .fontColor(this.selectedRoleCodes.indexOf(role.code) >= 0 ? Color.White : $r('sys.color.font_secondary'))
               .onClick(() => this.toggleRole(role.code))
@@ -248,7 +248,7 @@ export struct WideUserManagement {
         Column({ space: 16 }) {
           this.toolbarCard()
           if (this.error.length > 0 && this.users.length > 0) {
-            Text(this.error).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
+            Text(this.error).fontSize(13).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
           }
           this.userTableCard()
         }.width('100%').padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28,

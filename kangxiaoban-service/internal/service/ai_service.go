@@ -658,6 +658,99 @@ func formatAIThreshold(value float64) string {
 	return strconv.FormatFloat(value, 'f', -1, 64)
 }
 
+// ModelTestResult is one model's real connectivity test outcome.
+type ModelTestResult struct {
+	Model     string `json:"model"`
+	Success   bool   `json:"success"`
+	LatencyMS int64  `json:"latency_ms"`
+	Error     string `json:"error,omitempty"`
+}
+
+// TestProviderModels 对选定模型逐个发起一次最小对话补全，验证网关连通性。
+// 只返回测试结果（耗时与失败原因），不落库、不影响对话统计。
+func (s *AIService) TestProviderModels(ctx context.Context, baseURL, apiKey string, models []string) ([]ModelTestResult, error) {
+	baseURL = normalizeAPIBase(baseURL)
+	if baseURL == "" {
+		return nil, ErrModelSourceNotConfigured
+	}
+	cleaned := make([]string, 0, len(models))
+	seen := map[string]bool{}
+	for _, item := range models {
+		model := strings.TrimSpace(item)
+		if model == "" || seen[model] {
+			continue
+		}
+		seen[model] = true
+		cleaned = append(cleaned, model)
+		if len(cleaned) >= 20 {
+			break
+		}
+	}
+	results := make([]ModelTestResult, 0, len(cleaned))
+	client := &http.Client{Timeout: 10 * time.Second}
+	for _, model := range cleaned {
+		endpoint, body := modelProbeRequest(model)
+		result := ModelTestResult{Model: model}
+		startedAt := time.Now()
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+endpoint, bytes.NewReader(body))
+		if err != nil {
+			result.Error = "请求构造失败"
+			result.LatencyMS = time.Since(startedAt).Milliseconds()
+			results = append(results, result)
+			continue
+		}
+		req.Header.Set("Content-Type", "application/json")
+		if apiKey != "" {
+			req.Header.Set("Authorization", "Bearer "+apiKey)
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			result.Error = "连接失败"
+			result.LatencyMS = time.Since(startedAt).Milliseconds()
+			results = append(results, result)
+			continue
+		}
+		resp.Body.Close()
+		result.LatencyMS = time.Since(startedAt).Milliseconds()
+		if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+			result.Error = fmt.Sprintf("HTTP %d", resp.StatusCode)
+		} else {
+			result.Success = true
+		}
+		results = append(results, result)
+	}
+	return results, nil
+}
+
+// modelProbeRequest 按模型角色选择正确的探测端点与请求体：
+// 对话模型走 /v1/chat/completions，向量模型走 /v1/embeddings，重排模型走 /v1/rerank。
+func modelProbeRequest(model string) (string, []byte) {
+	lower := strings.ToLower(model)
+	switch {
+	case strings.Contains(lower, "rerank"):
+		body, _ := json.Marshal(map[string]interface{}{
+			"model":     model,
+			"query":     "ping",
+			"documents": []string{"ping"},
+		})
+		return "/v1/rerank", body
+	case strings.Contains(lower, "embed"), strings.Contains(lower, "bge"), strings.Contains(lower, "gte"):
+		body, _ := json.Marshal(map[string]interface{}{
+			"model": model,
+			"input": []string{"ping"},
+		})
+		return "/v1/embeddings", body
+	default:
+		body, _ := json.Marshal(map[string]interface{}{
+			"model":       model,
+			"messages":    []map[string]string{{"role": "user", "content": "ping"}},
+			"max_tokens":  1,
+			"temperature": 0,
+		})
+		return "/v1/chat/completions", body
+	}
+}
+
 // RAGDataset is one knowledge-base inventory entry fetched from the configured Dify service.
 type RAGDataset struct {
 	ID            string `json:"id"`
@@ -680,40 +773,70 @@ func (s *AIService) ListRAGDatasets(ctx context.Context) ([]RAGDataset, error) {
 	if connection == nil || !connection.RAGEnabled || strings.TrimSpace(connection.RAGBaseURL) == "" {
 		return nil, ErrRAGNotConfigured
 	}
-	baseURL := strings.TrimRight(strings.TrimSpace(connection.RAGBaseURL), "/")
-	apiKey, _ := security.Decrypt(s.cfg.ConfigKey, connection.RAGAPIKeyEncrypted)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/v1/datasets?page=1&limit=100", nil)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+	ragAPIKey, _ := security.Decrypt(s.cfg.ConfigKey, connection.RAGAPIKeyEncrypted)
+	return s.ListRAGDatasetsAt(ctx, connection.RAGBaseURL, ragAPIKey)
+}
+
+// ProbeRAGDatasets 用调用方提供的地址/密钥做保存前探测；密钥留空时回退到已存密钥。
+func (s *AIService) ProbeRAGDatasets(ctx context.Context, baseURL, apiKey string) ([]RAGDataset, error) {
+	if strings.TrimSpace(apiKey) == "" {
+		if connection := s.connectionForContext(ctx); connection != nil {
+			if value, decryptErr := security.Decrypt(s.cfg.ConfigKey, connection.RAGAPIKeyEncrypted); decryptErr == nil {
+				apiKey = value
+			}
+		}
 	}
-	if apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+apiKey)
+	return s.ListRAGDatasetsAt(ctx, baseURL, apiKey)
+}
+
+// ListRAGDatasetsAt 直接按给定 Dify 端点分页拉取全部知识库。
+func (s *AIService) ListRAGDatasetsAt(ctx context.Context, baseURL, apiKey string) ([]RAGDataset, error) {
+	baseURL = normalizeAPIBase(baseURL)
+	if baseURL == "" {
+		return nil, ErrRAGNotConfigured
 	}
+	// 分页拉全量知识库清单（每页 100，最多 20 页），避免大机构列表被截断。
 	client := &http.Client{Timeout: 8 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return nil, fmt.Errorf("%w: HTTP %d", ErrRAGUnavailable, resp.StatusCode)
-	}
-	var out struct {
-		Data []struct {
-			ID            string `json:"id"`
-			Name          string `json:"name"`
-			Description   string `json:"description"`
-			DocumentCount int64  `json:"document_count"`
-			WordCount     int64  `json:"word_count"`
-		} `json:"data"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
-	}
-	datasets := make([]RAGDataset, 0, len(out.Data))
-	for _, item := range out.Data {
-		datasets = append(datasets, RAGDataset{ID: item.ID, Name: item.Name, Description: item.Description,
-			DocumentCount: item.DocumentCount, WordCount: item.WordCount})
+	datasets := make([]RAGDataset, 0, 64)
+	for page := 1; page <= 20; page++ {
+		pageReq, err := http.NewRequestWithContext(ctx, http.MethodGet,
+			baseURL+"/v1/datasets?page="+strconv.Itoa(page)+"&limit=100", nil)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+		}
+		if apiKey != "" {
+			pageReq.Header.Set("Authorization", "Bearer "+apiKey)
+		}
+		resp, err := client.Do(pageReq)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
+		}
+		if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+			resp.Body.Close()
+			return nil, fmt.Errorf("%w: HTTP %d", ErrRAGUnavailable, resp.StatusCode)
+		}
+		var out struct {
+			Data []struct {
+				ID            string `json:"id"`
+				Name          string `json:"name"`
+				Description   string `json:"description"`
+				DocumentCount int64  `json:"document_count"`
+				WordCount     int64  `json:"word_count"`
+			} `json:"data"`
+			HasMore bool `json:"has_more"`
+		}
+		decodeErr := json.NewDecoder(resp.Body).Decode(&out)
+		resp.Body.Close()
+		if decodeErr != nil {
+			return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, decodeErr)
+		}
+		for _, item := range out.Data {
+			datasets = append(datasets, RAGDataset{ID: item.ID, Name: item.Name, Description: item.Description,
+				DocumentCount: item.DocumentCount, WordCount: item.WordCount})
+		}
+		if !out.HasMore || len(out.Data) == 0 {
+			break
+		}
 	}
 	return datasets, nil
 }
@@ -724,8 +847,35 @@ func (s *AIService) ListProviderModels(ctx context.Context) ([]ProviderModel, er
 	if connection == nil || connection.Provider != "http" || strings.TrimSpace(connection.BaseURL) == "" {
 		return nil, ErrModelSourceNotConfigured
 	}
-	baseURL := strings.TrimRight(strings.TrimSpace(connection.BaseURL), "/")
 	apiKey, _ := security.Decrypt(s.cfg.ConfigKey, connection.APIKeyEncrypted)
+	return s.ListProviderModelsAt(ctx, connection.BaseURL, apiKey)
+}
+
+// ProbeProviderModels 用调用方提供的地址/密钥做保存前探测；密钥留空时回退到已存密钥。
+func (s *AIService) ProbeProviderModels(ctx context.Context, baseURL, apiKey string) ([]ProviderModel, error) {
+	if strings.TrimSpace(apiKey) == "" {
+		if connection := s.connectionForContext(ctx); connection != nil {
+			if value, decryptErr := security.Decrypt(s.cfg.ConfigKey, connection.APIKeyEncrypted); decryptErr == nil {
+				apiKey = value
+			}
+		}
+	}
+	return s.ListProviderModelsAt(ctx, baseURL, apiKey)
+}
+
+// normalizeAPIBase 统一网关地址：去尾部斜杠与冗余的 /v1 后缀，
+// 内部统一补 /v1 前缀（Dify/OpenAI 文档的基础 URL 本身带 /v1）。
+func normalizeAPIBase(baseURL string) string {
+	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	return strings.TrimSuffix(base, "/v1")
+}
+
+// ListProviderModelsAt 直接按给定 OpenAI 兼容端点拉取模型清单。
+func (s *AIService) ListProviderModelsAt(ctx context.Context, baseURL, apiKey string) ([]ProviderModel, error) {
+	baseURL = normalizeAPIBase(baseURL)
+	if baseURL == "" {
+		return nil, ErrModelSourceNotConfigured
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/v1/models", nil)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrModelSourceUnavailable, err)

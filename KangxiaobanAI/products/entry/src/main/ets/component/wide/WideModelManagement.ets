@@ -21,6 +21,9 @@ interface AIConnectionRequest {
   provider: string; base_url: string; api_key: string; rag_enabled: boolean;
   rag_base_url: string; rag_dataset_id: string; rag_api_key: string; enabled: boolean;
 }
+interface ModelTestResult { model: string; success: boolean; latency_ms: number; error?: string; }
+interface AIModelProbeRequest { base_url: string; api_key: string; models?: string[]; }
+interface AIRagProbeRequest { base_url: string; api_key: string; }
 interface StatTagParam { label: string; value: string; }
 
 const DARK_BUTTON_BG: string = '#1D63ED';
@@ -36,16 +39,16 @@ export struct WideModelManagement {
   @Local configs: AIModelConfig[] = [];
   @Local activeSection: string = 'models';
   @Local promptFilter: string = 'all';
-  @Local connProvider: string = 'local';
   @Local connBaseUrl: string = '';
   @Local connApiKey: string = '';
-  @Local connRagEnabled: boolean = false;
   @Local connRagBaseUrl: string = '';
   @Local connRagDatasetId: string = '';
   @Local connRagApiKey: string = '';
-  @Local connEnabled: boolean = true;
-  @Local savedConnBaseUrl: string = '';
-  @Local savedConnProvider: string = 'local';
+  @Local editorSelectedModels: string[] = [];
+  @Local editorTesting: boolean = false;
+  @Local editorTestResults: ModelTestResult[] = [];
+  @Local editorRagFetching: boolean = false;
+  @Local editorRagHint: string = '';
   @Local showEditor: boolean = false;
   @Local editorFetched: ProviderModel[] = [];
   @Local editorFetching: boolean = false;
@@ -117,14 +120,9 @@ export struct WideModelManagement {
       const response = await ApiClient.get<AIConnectionView>('/admin/ai/connection');
       if (response.code !== 0 || response.data === undefined) throw new Error(response.msg);
       const view: AIConnectionView = response.data;
-      this.connProvider = view.provider;
       this.connBaseUrl = view.base_url;
-      this.connRagEnabled = view.rag_enabled;
       this.connRagBaseUrl = view.rag_base_url;
       this.connRagDatasetId = view.rag_dataset_id;
-      this.connEnabled = view.enabled;
-      this.savedConnBaseUrl = view.base_url;
-      this.savedConnProvider = view.provider;
     } catch (_error) { this.showToast('AI 连接加载失败'); }
   }
 
@@ -225,21 +223,109 @@ export struct WideModelManagement {
   }
 
   private async fetchEditorModels(): Promise<void> {
-    if (this.connProvider !== 'http' || this.connBaseUrl.trim().length === 0) {
+    if (this.connBaseUrl.trim().length === 0) {
       this.editorFetched = [];
-      this.editorFetchHint = '请先选择 vLLM 兼容并填写 Base URL，保存后即可获取模型';
+      this.editorSelectedModels = [];
+      this.editorTestResults = [];
+      this.editorFetchHint = '请先填写模型服务 Base URL';
       return;
     }
-    if (this.connBaseUrl.trim() !== this.savedConnBaseUrl.trim() || this.connProvider !== this.savedConnProvider) {
+    this.editorFetching = true;
+    this.editorFetchHint = '';
+    this.editorSelectedModels = [];
+    this.editorTestResults = [];
+    try {
+      const payload: AIModelProbeRequest = {
+        base_url: this.connBaseUrl.trim(), api_key: this.connApiKey
+      };
+      const response = await ApiClient.post<ProviderModel[]>('/admin/ai/llm/models', payload);
+      if (response.code !== 0 || response.data === undefined) {
+        this.editorFetched = [];
+        this.editorFetchHint = response.msg.length > 0 ? response.msg : '模型获取失败，请检查地址与密钥';
+      } else {
+        this.editorFetched = response.data;
+        if (response.data.length === 0) { this.editorFetchHint = '模型服务未返回任何模型'; }
+      }
+    } catch (_error) {
       this.editorFetched = [];
-      this.editorFetchHint = '连接信息已修改，请先保存配置再获取模型';
+      this.editorFetchHint = '模型获取失败，请检查网络';
+    }
+    this.editorFetching = false;
+  }
+
+  private toggleModelSelection(modelId: string): void {
+    if (this.editorSelectedModels.indexOf(modelId) >= 0) {
+      this.editorSelectedModels = this.editorSelectedModels.filter((item: string) => item !== modelId);
+    } else {
+      this.editorSelectedModels = this.editorSelectedModels.concat(modelId);
+    }
+  }
+
+  private allModelsSelected(): boolean {
+    return this.editorFetched.length > 0 && this.editorSelectedModels.length === this.editorFetched.length;
+  }
+
+  private toggleSelectAllModels(): void {
+    if (this.allModelsSelected()) {
+      this.editorSelectedModels = [];
+    } else {
+      this.editorSelectedModels = this.editorFetched.map((item: ProviderModel) => item.id);
+    }
+  }
+
+  private testResultOf(modelId: string): ModelTestResult | undefined {
+    return this.editorTestResults.find((item: ModelTestResult) => item.model === modelId);
+  }
+
+  private async testSelectedModels(): Promise<void> {
+    if (this.editorSelectedModels.length === 0) {
+      this.editorFetchHint = '请先选择要测试的模型';
       return;
     }
-    await this.loadSourceModels();
-    this.editorFetched = this.sourceModels;
-    if (this.editorFetched.length === 0 && this.sourceError.length === 0) {
-      this.editorFetchHint = '模型服务未返回任何模型';
+    if (this.editorTesting) { return; }
+    this.editorTesting = true;
+    this.editorFetchHint = '';
+    try {
+      const payload: AIModelProbeRequest = {
+        base_url: this.connBaseUrl.trim(), api_key: this.connApiKey,
+        models: this.editorSelectedModels
+      };
+      const response = await ApiClient.post<ModelTestResult[]>('/admin/ai/llm/test', payload);
+      if (response.code !== 0 || response.data === undefined) {
+        this.editorFetchHint = response.msg.length > 0 ? response.msg : '模型测试失败';
+      } else {
+        this.editorTestResults = response.data;
+      }
+    } catch (_error) {
+      this.editorFetchHint = '模型测试失败，请检查网络';
     }
+    this.editorTesting = false;
+  }
+
+  private async fetchEditorRag(): Promise<void> {
+    if (this.connRagBaseUrl.trim().length === 0) {
+      this.editorRagHint = '请先填写 Dify RAG URL';
+      return;
+    }
+    this.editorRagFetching = true;
+    this.editorRagHint = '';
+    try {
+      const payload: AIRagProbeRequest = {
+        base_url: this.connRagBaseUrl.trim(), api_key: this.connRagApiKey
+      };
+      const response = await ApiClient.post<RAGDataset[]>('/admin/ai/rag/datasets', payload);
+      if (response.code !== 0 || response.data === undefined) {
+        this.ragDatasets = [];
+        this.editorRagHint = response.msg.length > 0 ? response.msg : '知识库获取失败，请检查地址与密钥';
+      } else {
+        this.ragDatasets = response.data;
+        if (response.data.length === 0) { this.editorRagHint = 'Dify 服务未返回任何知识库'; }
+      }
+    } catch (_error) {
+      this.ragDatasets = [];
+      this.editorRagHint = '知识库获取失败，请检查网络';
+    }
+    this.editorRagFetching = false;
   }
 
   /** 千分位格式化，用于 token 与调用次数展示。 */
@@ -261,14 +347,14 @@ export struct WideModelManagement {
 
   private async saveConnection(): Promise<void> {
     const payload: AIConnectionRequest = {
-      provider: this.connProvider,
+      provider: 'http',
       base_url: this.connBaseUrl.trim(),
       api_key: this.connApiKey,
-      rag_enabled: this.connRagEnabled,
+      rag_enabled: true,
       rag_base_url: this.connRagBaseUrl.trim(),
       rag_dataset_id: this.connRagDatasetId.trim(),
       rag_api_key: this.connRagApiKey,
-      enabled: this.connEnabled
+      enabled: true
     };
     const response = await ApiClient.put<AIConnectionView>('/admin/ai/connection', payload);
     if (response.code !== 0) { this.error = response.msg || 'AI 连接保存失败'; return; }
@@ -285,14 +371,14 @@ export struct WideModelManagement {
   /** 把某个 Dify 知识库设为机构当前使用的知识库。 */
   private async setConnectionDataset(datasetId: string): Promise<void> {
     const payload: AIConnectionRequest = {
-      provider: this.connProvider,
+      provider: 'http',
       base_url: this.connBaseUrl.trim(),
       api_key: '',
       rag_enabled: true,
       rag_base_url: this.connRagBaseUrl.trim(),
       rag_dataset_id: datasetId,
       rag_api_key: '',
-      enabled: this.connEnabled
+      enabled: true
     };
     const response = await ApiClient.put<AIConnectionView>('/admin/ai/connection', payload);
     if (response.code !== 0) { this.showToast(response.msg.length > 0 ? response.msg : '知识库切换失败'); return; }
@@ -305,6 +391,11 @@ export struct WideModelManagement {
     this.saved = false;
     this.editorFetched = [];
     this.editorFetchHint = '';
+    this.editorRagHint = '';
+    this.editorRagFetching = false;
+    this.editorSelectedModels = [];
+    this.editorTestResults = [];
+    this.editorTesting = false;
     this.showEditor = true;
   }
 
@@ -366,7 +457,7 @@ export struct WideModelManagement {
       const payload: AIConfigRequest = {
         role_scope: this.promptRole,
         name: this.promptRole === 'doctor' ? '医师默认模型' : '护工默认模型',
-        provider: this.connProvider, base_url: '', model: modelId, api_key: '',
+        provider: 'http', base_url: '', model: modelId, api_key: '',
         system_prompt: this.promptText.trim(), rag_enabled: false, rag_base_url: '', rag_dataset_id: '',
         enabled: true, allowed: true, is_default: true
       };
@@ -485,7 +576,7 @@ export struct WideModelManagement {
           }, (role: string) => `mc-${item.id}-${role}`)
         }
       }.width('100%').alignItems(VerticalAlign.Center)
-      Text(`统一连接 · ${this.connProvider === 'local' ? '本地' : 'vLLM'}`)
+      Text('OpenAI 兼容接入')
         .fontSize(13).fontColor($r('sys.color.font_secondary'))
         .width('100%')
       Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
@@ -720,58 +811,99 @@ export struct WideModelManagement {
         .width('100%')
       Scroll() {
         Column({ space: 12 }) {
-          Row({ space: 14 }) {
-            Column({ space: 6 }) {
-              Text('Provider').fontSize(12).fontColor($r('sys.color.font_secondary'))
-              Text(this.connProvider === 'local' ? '本地模型' : 'vLLM 兼容')
-                .fontSize(14).padding(10).borderRadius(6)
-                .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-                .onClick(() => this.connProvider = this.connProvider === 'local' ? 'http' : 'local')
-            }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-            Column({ space: 6 }) {
-              Text('连接状态').fontSize(12).fontColor($r('sys.color.font_secondary'))
-              Row({ space: 8 }) {
-                Toggle({ type: ToggleType.Switch, isOn: this.connEnabled })
-                  .selectedColor($r('app.color.brand_blue'))
-                  .onChange((isOn: boolean) => this.connEnabled = isOn)
-                Text(this.connEnabled ? '已启用' : '已停用').fontSize(13).fontColor($r('sys.color.font_primary'))
-              }.alignItems(VerticalAlign.Center)
-            }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-          }.width('100%')
-          if (this.connProvider === 'http') {
-            Row({ space: 8 }) {
-              TextInput({ placeholder: '模型服务 Base URL（vLLM 等 OpenAI 兼容）', text: $$this.connBaseUrl })
-                .height(40).layoutWeight(1)
-              Button('获取模型').height(40).fontSize(13)
-                .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
-                .onClick(() => this.fetchEditorModels())
-            }.width('100%')
-            TextInput({ placeholder: 'API Key（留空表示保留原密钥）', text: $$this.connApiKey })
-              .height(40).type(InputType.Password)
-            if (this.editorFetching) {
-              Text('正在获取模型…').fontSize(12).fontColor($r('sys.color.font_secondary')).width('100%')
-            } else if (this.editorFetchHint.length > 0) {
-              Text(this.editorFetchHint).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
-            }
-          }
-          Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
-          Text('Dify RAG 知识库连接').fontSize(13).fontWeight(FontWeight.Medium)
+          Text('模型服务（OpenAI 兼容）').fontSize(13).fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary')).width('100%')
           Row({ space: 8 }) {
-            Toggle({ type: ToggleType.Switch, isOn: this.connRagEnabled })
-              .selectedColor($r('app.color.brand_blue'))
-              .onChange((isOn: boolean) => this.connRagEnabled = isOn)
-            Text('启用 Dify RAG').fontSize(13).fontColor($r('sys.color.font_primary'))
-            Blank()
-            Text('检索已接入对话链路').fontSize(12).fontColor($r('sys.color.font_tertiary'))
-          }.width('100%').alignItems(VerticalAlign.Center)
-          if (this.connRagEnabled) {
-            TextInput({ placeholder: 'Dify RAG URL', text: $$this.connRagBaseUrl }).height(40)
-            TextInput({ placeholder: '知识库 ID', text: $$this.connRagDatasetId }).height(40)
-            TextInput({ placeholder: 'RAG API Key（留空表示保留原密钥）', text: $$this.connRagApiKey })
-              .height(40).type(InputType.Password)
+            TextInput({ placeholder: '模型服务 Base URL', text: $$this.connBaseUrl })
+              .height(40).layoutWeight(1)
+            Button('获取模型测试').height(40).fontSize(13)
+              .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
+              .onClick(() => this.fetchEditorModels())
+          }.width('100%')
+          TextInput({ placeholder: 'API Key（留空表示保留原密钥）', text: $$this.connApiKey })
+            .height(40).type(InputType.Password)
+          if (this.editorFetching) {
+            Text('正在获取模型…').fontSize(12).fontColor($r('sys.color.font_secondary')).width('100%')
+          } else if (this.editorFetchHint.length > 0) {
+            Text(this.editorFetchHint).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
           }
-          Text('统一连接对全部端生效；护工/医师各自在「提示词」里分配模型与提示词。')
+          if (this.editorFetched.length > 0) {
+            Row({ space: 10 }) {
+              Text(`已选 ${this.editorSelectedModels.length}/${this.editorFetched.length}`)
+                .fontSize(12).fontColor($r('sys.color.font_secondary'))
+              Blank()
+              Text('全选').fontSize(13).fontColor($r('app.color.brand_blue'))
+                .onClick(() => this.toggleSelectAllModels())
+              Text(this.editorTesting ? '测试中…' : '测试所选').fontSize(13).fontColor($r('app.color.brand_blue'))
+                .onClick(() => this.testSelectedModels())
+            }.width('100%')
+            Scroll() {
+              Column({ space: 6 }) {
+                ForEach(this.editorFetched, (item: ProviderModel) => {
+                  Row({ space: 8 }) {
+                    Text(this.editorSelectedModels.indexOf(item.id) >= 0 ? '✓' : '')
+                      .fontSize(12).fontColor($r('app.color.brand_blue'))
+                      .width(20).height(20).textAlign(TextAlign.Center)
+                      .borderRadius(10)
+                      .border({ width: 0.5, color: this.editorSelectedModels.indexOf(item.id) >= 0 ?
+                        $r('app.color.brand_blue') : $r('sys.color.comp_divider') })
+                    Text(item.id).fontSize(13).fontColor($r('sys.color.font_primary'))
+                      .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+                    if (this.testResultOf(item.id) !== undefined) {
+                      Text(this.testResultOf(item.id)!.success ?
+                        `✓ ${this.testResultOf(item.id)!.latency_ms}ms` :
+                        `✗ ${this.testResultOf(item.id)!.error}`)
+                        .fontSize(12).fontColor(this.testResultOf(item.id)!.success ?
+                          $r('app.color.doctor_workspace_success') : $r('app.color.doctor_workspace_danger'))
+                    }
+                  }.width('100%').padding({ left: 10, right: 10, top: 8, bottom: 8 })
+                    .borderRadius(8)
+                    .border({ width: 0.5, color: this.editorSelectedModels.indexOf(item.id) >= 0 ?
+                      $r('app.color.brand_blue') : $r('sys.color.comp_divider') })
+                    .backgroundColor(this.editorSelectedModels.indexOf(item.id) >= 0 ? '#F0F5FF' :
+                      $r('sys.color.comp_background_primary'))
+                    .onClick(() => this.toggleModelSelection(item.id))
+                }, (item: ProviderModel) => `editor-model-${item.id}`)
+              }.width('100%').alignItems(HorizontalAlign.Start)
+            }.constraintSize({ maxHeight: 150 }).scrollBar(BarState.Off).width('100%')
+          }
+          Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
+          Text('Dify RAG 知识库').fontSize(13).fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary')).width('100%')
+          TextInput({ placeholder: 'Dify RAG URL', text: $$this.connRagBaseUrl }).height(40)
+          TextInput({ placeholder: 'RAG API Key（留空表示保留原密钥）', text: $$this.connRagApiKey })
+            .height(40).type(InputType.Password)
+          Button('获取知识库测试').width('100%').height(40).fontSize(13)
+            .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
+            .onClick(() => this.fetchEditorRag())
+          if (this.editorRagFetching) {
+            Text('正在获取知识库…').fontSize(12).fontColor($r('sys.color.font_secondary')).width('100%')
+          } else if (this.editorRagHint.length > 0) {
+            Text(this.editorRagHint).fontSize(12).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
+          }
+          if (this.ragDatasets.length > 0) {
+            Scroll() {
+              Column({ space: 6 }) {
+                ForEach(this.ragDatasets, (item: RAGDataset) => {
+                  Row({ space: 8 }) {
+                    Text(item.name).fontSize(13).fontColor($r('sys.color.font_primary'))
+                      .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+                    Text(`${item.document_count} 篇`).fontSize(12).fontColor($r('sys.color.font_tertiary'))
+                    if (this.connRagDatasetId === item.id) {
+                      Text('已选择').fontSize(11).fontColor($r('app.color.brand_blue'))
+                    }
+                  }.width('100%').padding({ left: 10, right: 10, top: 8, bottom: 8 })
+                    .borderRadius(8)
+                    .border({ width: 0.5, color: this.connRagDatasetId === item.id ?
+                      $r('app.color.brand_blue') : $r('sys.color.comp_divider') })
+                    .backgroundColor(this.connRagDatasetId === item.id ? '#F0F5FF' :
+                      $r('sys.color.comp_background_primary'))
+                    .onClick(() => this.connRagDatasetId = item.id)
+                }, (item: RAGDataset) => `editor-rag-${item.id}`)
+              }.width('100%').alignItems(HorizontalAlign.Start)
+            }.constraintSize({ maxHeight: 150 }).scrollBar(BarState.Off).width('100%')
+          }
+          Text('网关对全部端默认开启；护工/医师各自在「提示词」里分配模型与提示词。')
             .fontSize(12).fontColor($r('sys.color.font_tertiary'))
         }.width('100%')
       }.scrollBar(BarState.Off).constraintSize({ maxHeight: 420 }).width('100%')
