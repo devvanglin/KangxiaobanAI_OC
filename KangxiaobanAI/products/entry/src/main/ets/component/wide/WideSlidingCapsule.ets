@@ -80,7 +80,12 @@ export struct WideSlidingCapsule {
   }
 
   private slideTo(index: number): void {
-    if (index === this.visualSelectedIndex) {
+    // Only skip when the parent has actually confirmed this item. If the
+    // highlight already moved but a deferred onSelect was cancelled (token bump
+    // from a rebuild or an external selection change), re-running slideTo is
+    // the only way out of the "highlight here, content there" desync — the old
+    // early return stranded the capsule until the user clicked another item.
+    if (index === this.visualSelectedIndex && index === this.selectedIndex) {
       return;
     }
     const position: number = this.items.findIndex((item: WideSlidingCapsuleItem) => item.index === index);

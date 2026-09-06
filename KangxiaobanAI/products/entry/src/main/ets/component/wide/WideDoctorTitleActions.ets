@@ -75,7 +75,9 @@ export struct WideDoctorTitleActions {
         selectedIndex: this.selectedIndex,
         itemWidth: this.compactWidth ? (this.isDoctor ? 46 : 64) : (this.isDoctor ? 104 : 88),
         iconOnly: this.isDoctor && this.compactWidth,
-        deferSelectionUntilAnimation: true,
+        // 管理端/医师端点击立即切换内容：延迟选中会让首次点击感觉无效，
+        // 高亮弹簧动画与内容切换并行播放即可。
+        deferSelectionUntilAnimation: false,
         onSelect: (index: number) => this.onSelect(index)
       })
       this.accountEntry()
