@@ -1396,24 +1396,6 @@ export struct WideDoctorAiPage {
   }
 
   @Builder
-  private embeddedComposerTool(symbol: Resource, label: string) {
-    Row({ space: 5 }) {
-      SymbolGlyph(symbol)
-        .fontSize(18)
-        .fontColor([$r('sys.color.icon_primary')])
-      Text(label)
-        .fontSize($r('sys.float.Body_S'))
-        .fontColor($r('sys.color.font_primary'))
-    }
-    .height(34)
-    .padding({ left: 6, right: 6 })
-    .borderRadius(8)
-    .onClick(() => {
-      this.showToast(`${label}功能接入中`);
-    })
-  }
-
-  @Builder
   private embeddedComposer() {
     Column({ space: 8 }) {
       TextArea({ text: this.inputText, placeholder: '发消息或按住空格说话...' })
@@ -1435,44 +1417,6 @@ export struct WideDoctorAiPage {
         })
 
       Row({ space: 12 }) {
-        Scroll() {
-          Row({ space: 4 }) {
-            Button({ type: ButtonType.Circle, stateEffect: true }) {
-              SymbolGlyph($r('sys.symbol.plus'))
-                .fontSize(21)
-                .fontColor([$r('sys.color.icon_primary')])
-            }
-            .buttonStyle(ButtonStyleMode.TEXTUAL)
-            .width(36)
-            .height(36)
-            .accessibilityText('更多工具')
-
-            Divider()
-              .vertical(true)
-              .height(22)
-              .strokeWidth(0.5)
-              .color($r('sys.color.comp_divider'))
-
-            this.embeddedComposerTool($r('sys.symbol.message_on_message_fill'), '对话')
-            this.embeddedComposerTool($r('sys.symbol.paintpalette'), '图像生成')
-            this.embeddedComposerTool($r('sys.symbol.doc_text'), 'PPT 生成')
-            this.embeddedComposerTool($r('sys.symbol.pencil_line'), '帮我写作')
-            this.embeddedComposerTool($r('sys.symbol.square_on_square_fill'), '视频生成')
-            this.embeddedComposerTool($r('sys.symbol.waveform_path_ecg_square'), '录音转写')
-            this.embeddedComposerTool($r('sys.symbol.checkmark_circle_fill'), '解题答疑')
-            this.embeddedComposerTool($r('sys.symbol.square_grid_2x2'), '更多')
-          }
-          .height(42)
-          .alignItems(VerticalAlign.Center)
-        }
-        .layoutWeight(1)
-        .height(42)
-        .scrollable(ScrollDirection.Horizontal)
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.Spring)
-        .align(Alignment.Start)
-        .clip(true)
-
         Row({ space: 8 }) {
           Text('康小伴·快速')
             .fontSize($r('sys.float.Body_S'))
