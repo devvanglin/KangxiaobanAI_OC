@@ -58,6 +58,7 @@ interface RagDocsListResponse {
 
 interface RagDownloadResponse {
   download_url?: string;
+  url?: string;
 }
 
 interface RagChunksResponse {
@@ -266,7 +267,7 @@ export struct WideRagDocumentsPage {
       if (response.code !== 0 || response.data === undefined) {
         this.hint = response.msg || '下载链接获取失败';
       } else {
-        const url: string = response.data.download_url ?? '';
+        const url: string = response.data.download_url ?? response.data.url ?? '';
         if (url.length === 0) {
           this.hint = '该文档没有可下载的原始文件';
         } else {
