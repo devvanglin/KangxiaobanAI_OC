@@ -272,10 +272,15 @@ bar dynamically binds the visible Home/task, resident master/detail, or message 
 the binding to the pane the user selects or scrolls. Wide scroll content uses a title-bar-aware initial inset and can
 then scroll behind the HDS material surface. Do not replace this with a custom blur Row, an opaque structural panel, or
 another nested navigation destination.
-The home root is an on-shift workbench with four shift metric cards and a responsive modular card grid that separates
-daily tasks, medication care, care records, contact communication, exception reporting, and server-backed risk reminders;
-each populated card opens the existing on-demand task or reminder detail surface, while the care-rhythm card remains a
-separate timeline. Resident and message roots use an open shared canvas with independent work surfaces: at
+The home root is an on-shift workbench. On wide split layouts (1180vp and above, full-window) it shows a greeting
+header with the day's schedule shift badge, four metric cards (today's tasks done/total, visible elders with a
+building/floor summary, open alerts with emergency count, unread messages with a doctor-sender count), a 2:1 split of
+a today-task list (tap opens the existing task detail sheet; the `全部` toggle shows every task) beside quick actions
+(check-in hint, assistance request through MessageApi, exception report that creates a real `report`-category task via
+`POST /tasks`, and a schedule viewer) plus a focus-elder list that merges open alerts per elder and opens resident
+details. Narrower widths keep the responsive modular card grid that separates daily tasks, medication care, care
+records, contact communication, exception reporting, and server-backed risk reminders; each populated card opens the
+existing on-demand task or reminder detail surface, while the care-rhythm card remains a separate timeline. Resident and message roots use an open shared canvas with independent work surfaces: at
 1180vp and above they retain side-by-side master/detail interaction; below 1180vp they use a full-width list followed by
 a full-width detail view whose return action is the native root HDS title-bar back control, not a page-wide return row.
 Wide doctor layouts use the shared management title shell and `WideAdminWorkspace` only for the workbench

@@ -21,7 +21,8 @@ import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule
 import { BusinessStore } from '../../network/BusinessStore';
 import ApiClient from '../../network/ApiClient';
 import AuthStore from '../../network/AuthStore';
-import { Alert, Bed, CareTask as BackendCareTask, Elder, Room, Schedule, TaskStatusRequest } from '../../network/Dto';
+import { MessageApi } from '../../network/MessageApi';
+import { Alert, Bed, CareTask as BackendCareTask, Elder, MessageContact, Room, RoleInfo, Schedule, TaskStatusRequest, UserMessage } from '../../network/Dto';
 
 const HOME_LG_MIN_WIDTH: number = 840;
 const HOME_SUMMARY_SPLIT_MIN_WIDTH: number = 960;
@@ -73,6 +74,24 @@ interface CareCheckpoint {
   completed: boolean;
 }
 
+/** 关注老人行：按未闭环告警严重度归并到每位长者。 */
+interface FocusElderRow {
+  elderId: number;
+  name: string;
+  location: string;
+  priority: CarePriority;
+}
+
+/** 快捷操作的异常上报创建请求（ elder_id 与 title 服务端必填）。 */
+interface ReportTaskRequest {
+  elder_id: number;
+  title: string;
+  kind: string;
+  category: string;
+  priority: string;
+  remark: string;
+}
+
 @ComponentV2
 export struct WideHomePage {
   @Param compactWidth: boolean = false;
@@ -119,6 +138,16 @@ export struct WideHomePage {
   @Local checkpoints: CareCheckpoint[] = [];
   @Local riskTrendValues: number[] = [];
   @Local closureTrendValues: number[] = [];
+  @Local showAllTasks: boolean = false;
+  @Local quickActionDialog: string = '';
+  @Local assistTargetId: number = 0;
+  @Local assistText: string = '';
+  @Local assistError: string = '';
+  @Local assistSending: boolean = false;
+  @Local reportElderId: number = 0;
+  @Local reportText: string = '';
+  @Local reportError: string = '';
+  @Local reportSending: boolean = false;
 
   @Styles
   keyboardFocusStyle() {
@@ -133,7 +162,9 @@ export struct WideHomePage {
 
   @Monitor('backRequestToken')
   onBackRequestTokenChange(): void {
-    if (this.isTaskPanelOpen) {
+    if (this.quickActionDialog.length > 0) {
+      this.closeQuickActionDialog();
+    } else if (this.isTaskPanelOpen) {
       this.closeTaskPanel();
     } else if (this.isAiFocusSheetOpen) {
       this.closeAiFocusSheet();
@@ -1670,13 +1701,742 @@ export struct WideHomePage {
     .alignItems(HorizontalAlign.Start)
   }
 
+  /** 新版宽屏首页：问候头部 + 四指标卡 + 今日任务/快捷操作/关注老人。 */
   @Builder
   private wideDashboard() {
     Column({ space: this.sectionGap() }) {
-      this.wideFunctionGrid()
+      this.homeHeader()
+      this.homeStatCards()
+      Row({ space: this.sectionGap() }) {
+        Column() {
+          this.todayTaskCard()
+        }.layoutWeight(2)
+        Column({ space: this.sectionGap() }) {
+          this.quickActionsCard()
+          this.focusEldersCard()
+        }.layoutWeight(1)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Top)
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
+  }
+
+  private myScheduleToday(): Schedule | undefined {
+    const user = AuthStore.getUser();
+    const names: string[] = [user?.real_name ?? '', user?.username ?? ''];
+    return this.businessStore.schedules.find((item: Schedule) =>
+      item.work_date === this.dateValue() && names.includes(item.staff));
+  }
+
+  private shiftLabel(value: string): string {
+    if (value === 'morning') {
+      return '白班';
+    }
+    if (value === 'afternoon') {
+      return '晚班';
+    }
+    if (value === 'night') {
+      return '夜班';
+    }
+    return value;
+  }
+
+  private headerSubtitle(): string {
+    const schedule: Schedule | undefined = this.myScheduleToday();
+    if (!schedule) {
+      return `今天是${this.dateText()} · 今日排班未登记`;
+    }
+    const scope: string = schedule.room_scope && schedule.room_scope.length > 0 ?
+      ` · 负责区域 ${schedule.room_scope}` : '';
+    return `今天是${this.dateText()} · ${this.shiftLabel(schedule.shift)}${scope}`;
+  }
+
+  /** 负责长者的楼栋与楼层概览，全部来自服务器房间记录。 */
+  private areaSummaryText(): string {
+    const buildings: string[] = [];
+    let minFloor: number = 0;
+    let maxFloor: number = 0;
+    this.businessStore.elders.forEach((elder: Elder): void => {
+      const bed: Bed | undefined = this.businessStore.beds.find((item: Bed) => item.id === elder.bed_id);
+      const room: Room | undefined = bed === undefined ? undefined :
+        this.businessStore.rooms.find((item: Room) => item.id === bed.room_id);
+      if (room === undefined) {
+        return;
+      }
+      if (room.building.trim().length > 0 && !buildings.includes(room.building.trim())) {
+        buildings.push(room.building.trim());
+      }
+      if (minFloor === 0 || room.floor < minFloor) {
+        minFloor = room.floor;
+      }
+      if (room.floor > maxFloor) {
+        maxFloor = room.floor;
+      }
+    });
+    if (buildings.length === 0 && maxFloor === 0) {
+      return '床位待分配';
+    }
+    const floorText: string = maxFloor > 0 ? `${minFloor}-${maxFloor} 楼` : '';
+    return `${buildings.join('、')}${buildings.length > 0 && floorText.length > 0 ? ' ' : ''}${floorText}`;
+  }
+
+  private currentUserId(): number {
+    return AuthStore.getUser()?.id ?? 0;
+  }
+
+  private unreadMessages(): UserMessage[] {
+    const me: number = this.currentUserId();
+    return this.businessStore.messages
+      .filter((item: UserMessage) => item.receiver_id === me && !item.read_at);
+  }
+
+  private unreadFromDoctorCount(): number {
+    const unread: UserMessage[] = this.unreadMessages();
+    if (unread.length === 0) {
+      return 0;
+    }
+    return unread.filter((item: UserMessage) => {
+      const contact: MessageContact | undefined =
+        this.businessStore.messageContacts.find((peer: MessageContact) => peer.id === item.sender_id);
+      return contact !== undefined && contact.roles.some((role: RoleInfo) =>
+        role.code === 'doctor' || role.name.includes('医师') || role.name.includes('医生'));
+    }).length;
+  }
+
+  private priorityRank(priority: CarePriority): number {
+    return priority === 'danger' ? 0 : priority === 'warning' ? 1 : 2;
+  }
+
+  /** 关注老人：按未闭环告警的严重度归并到每位长者，无告警即为正常。 */
+  private focusElderRows(): FocusElderRow[] {
+    const worstByElder: Map<number, CarePriority> = new Map();
+    const openAlerts: Alert[] = this.businessStore.alerts
+      .filter((item: Alert) => item.status !== 'handled' && item.status !== 'closed');
+    openAlerts.forEach((alert: Alert): void => {
+      const elderId: number | undefined = alert.elder_id;
+      if (elderId === undefined) {
+        return;
+      }
+      const priority: CarePriority = this.serverAlertPriority(alert.level);
+      const current: CarePriority | undefined = worstByElder.get(elderId);
+      if (current === undefined || this.priorityRank(priority) < this.priorityRank(current)) {
+        worstByElder.set(elderId, priority);
+      }
+    });
+    const rows: FocusElderRow[] = this.businessStore.elders.map((elder: Elder): FocusElderRow => {
+      return {
+        elderId: elder.id,
+        name: elder.name,
+        location: this.elderLocation(elder.id),
+        priority: worstByElder.get(elder.id) ?? 'normal'
+      };
+    });
+    rows.sort((left: FocusElderRow, right: FocusElderRow): number =>
+      this.priorityRank(left.priority) - this.priorityRank(right.priority));
+    return rows.slice(0, 6);
+  }
+
+  private focusElderText(priority: CarePriority): string {
+    if (priority === 'danger') {
+      return '需关注';
+    }
+    return priority === 'warning' ? '观察中' : '正常';
+  }
+
+  private taskBadgeText(task: CareTaskData): string {
+    const state: CareTaskState = this.effectiveTaskState(task);
+    if (state === 'done') {
+      return '已完成';
+    }
+    if (state === 'doing') {
+      return '进行中';
+    }
+    return task.priority === 'danger' ? '紧急' : '待处理';
+  }
+
+  private homeTaskList(): CareTaskData[] {
+    if (this.showAllTasks) {
+      return this.activeTaskData()
+        .slice()
+        .sort((left: CareTaskData, right: CareTaskData): number =>
+          `${left.dueDate} ${left.time}`.localeCompare(`${right.dueDate} ${right.time}`));
+    }
+    return this.allTodayPlanTasks();
+  }
+
+  private openQuickAction(action: string): void {
+    this.assistError = '';
+    this.reportError = '';
+    this.quickActionDialog = action;
+  }
+
+  private closeQuickActionDialog(): void {
+    this.quickActionDialog = '';
+    this.assistError = '';
+    this.reportError = '';
+    this.assistSending = false;
+    this.reportSending = false;
+  }
+
+  private quickActionTitle(): string {
+    if (this.quickActionDialog === 'checkin') {
+      return '签到打卡';
+    }
+    if (this.quickActionDialog === 'schedule') {
+      return '查看排班';
+    }
+    return this.quickActionDialog === 'report' ? '上报异常' : '申请协助';
+  }
+
+  private async sendAssistRequest(): Promise<void> {
+    const content: string = this.assistText.trim();
+    if (this.assistTargetId <= 0 || content.length === 0 || this.assistSending) {
+      return;
+    }
+    this.assistSending = true;
+    try {
+      const response = await MessageApi.send(this.assistTargetId, content, undefined, 'chat');
+      if (response.code !== 0) {
+        this.assistError = response.msg.length > 0 ? response.msg : '协助请求发送失败';
+      } else {
+        this.closeQuickActionDialog();
+      }
+    } catch (_error) {
+      this.assistError = '协助请求发送失败，请检查网络';
+    }
+    this.assistSending = false;
+  }
+
+  private async submitReport(): Promise<void> {
+    const remark: string = this.reportText.trim();
+    if (this.reportElderId <= 0 || remark.length === 0 || this.reportSending) {
+      return;
+    }
+    this.reportSending = true;
+    const payload: ReportTaskRequest = {
+      elder_id: this.reportElderId,
+      title: '异常上报',
+      kind: 'report',
+      category: 'report',
+      priority: 'warning',
+      remark: remark
+    };
+    try {
+      const response = await ApiClient.post<Object>('/tasks', payload);
+      if (response.code !== 0) {
+        this.reportError = response.msg.length > 0 ? response.msg : '异常上报失败';
+      } else {
+        this.closeQuickActionDialog();
+        await this.loadBackendTasks();
+      }
+    } catch (_error) {
+      this.reportError = '异常上报失败，请检查网络';
+    }
+    this.reportSending = false;
+  }
+
+  @Builder
+  private homeHeader() {
+    Row({ space: 16 }) {
+      Column({ space: 6 }) {
+        Text(this.greetingText())
+          .fontSize(this.useXlLayout() ? 26 : 24)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('sys.color.font_primary'))
+        Text(this.headerSubtitle())
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor($r('sys.color.font_secondary'))
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      Text(this.myScheduleToday() ? this.shiftLabel(this.myScheduleToday()!.shift) : '未排班')
+        .fontSize($r('sys.float.Body_M'))
+        .fontWeight(FontWeight.Medium)
+        .fontColor(Color.White)
+        .padding({ left: 14, right: 14, top: 8, bottom: 8 })
+        .borderRadius(8)
+        .backgroundColor(this.myScheduleToday() ? '#111111' : $r('sys.color.comp_background_secondary'))
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  private homeMetricCard(big: string, label: string, sub: string, subDanger: boolean) {
+    Column({ space: 8 }) {
+      Text(big)
+        .fontSize(30)
+        .fontWeight(FontWeight.Bold)
+        .fontColor($r('sys.color.font_primary'))
+        .maxLines(1)
+      Text(label)
+        .fontSize($r('sys.float.Body_M'))
+        .fontColor($r('sys.color.font_secondary'))
+      Text(sub)
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor(subDanger ? $r('app.color.doctor_workspace_danger') : $r('sys.color.font_tertiary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .layoutWeight(1)
+    .alignItems(HorizontalAlign.Start)
+    .padding({ left: 18, right: 18, top: 18, bottom: 18 })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(14)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+  }
+
+  @Builder
+  private homeStatCards() {
+    Row({ space: this.sectionGap() }) {
+      this.homeMetricCard(`${this.todayCompletedCount()}/${this.allTodayPlanTasks().length}`,
+        '今日任务', `剩余 ${this.todayPendingCount()} 项`, false)
+      this.homeMetricCard(`${this.visibleResidentCount()}`,
+        '负责老人', this.areaSummaryText(), false)
+      this.homeMetricCard(`${this.aiFocusItems.length}`,
+        '待处理', this.aiFocusItems.some((item: AiFocusItem) => item.priority === 'danger') ?
+          `${this.aiFocusItems.filter((item: AiFocusItem) => item.priority === 'danger').length} 项紧急` : '暂无紧急',
+        this.aiFocusItems.some((item: AiFocusItem) => item.priority === 'danger'))
+      this.homeMetricCard(`${this.unreadMessages().length}`,
+        '未读消息', this.unreadMessages().length === 0 ? '已全部阅读' :
+          `${this.unreadFromDoctorCount()} 条来自医师`, false)
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Top)
+  }
+
+  @Builder
+  private taskStateBadge(task: CareTaskData) {
+    Text(this.taskBadgeText(task))
+      .fontSize($r('sys.float.Caption_M'))
+      .fontWeight(FontWeight.Medium)
+      .fontColor(this.effectiveTaskState(task) === 'done' ? $r('sys.color.font_secondary') :
+        this.effectiveTaskState(task) === 'doing' || this.taskBadgeText(task) === '紧急' ?
+          Color.White : $r('sys.color.font_primary'))
+      .padding({ left: 10, right: 10, top: 4, bottom: 4 })
+      .borderRadius(8)
+      .backgroundColor(this.effectiveTaskState(task) === 'doing' ? '#1D1D1D' :
+        this.taskBadgeText(task) === '紧急' ? '#E5484D' : $r('sys.color.comp_background_secondary'))
+  }
+
+  @Builder
+  private homeTaskRow(task: CareTaskData, isLast: boolean) {
+    Row({ space: 14 }) {
+      Text(task.time)
+        .width(52)
+        .fontSize($r('sys.float.Body_M'))
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+      Text(task.title)
+        .layoutWeight(2)
+        .fontSize($r('sys.float.Body_M'))
+        .fontColor($r('sys.color.font_primary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      Text(task.resident)
+        .layoutWeight(1)
+        .fontSize($r('sys.float.Body_M'))
+        .fontColor($r('sys.color.font_secondary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      Text(task.room)
+        .width(84)
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor($r('sys.color.font_tertiary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      this.taskStateBadge(task)
+    }
+    .width('100%')
+    .padding({ left: 18, right: 18, top: 13, bottom: 13 })
+    .alignItems(VerticalAlign.Center)
+    .keyboardFocusStyle()
+    .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => this.openTask(task.id)))
+    .onClick(() => this.openTask(task.id))
+    if (!isLast) {
+      Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
+    }
+  }
+
+  @Builder
+  private todayTaskCard() {
+    Column({ space: 0 }) {
+      Row({ space: 10 }) {
+        Text('今日任务')
+          .fontSize(17)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('sys.color.font_primary'))
+        Blank()
+        this.actionTextButton(this.showAllTasks ? '今日' : '全部', () => this.showAllTasks = !this.showAllTasks)
+      }
+      .width('100%')
+      .padding({ left: 18, right: 12, top: 16, bottom: 12 })
+      .alignItems(VerticalAlign.Center)
+
+      if (this.homeTaskList().length === 0) {
+        Text(this.isInitialLoading() ? '正在加载服务器任务' :
+          (this.showAllTasks ? '暂无任务记录' : '今日暂无任务'))
+          .width('100%')
+          .padding({ top: 32, bottom: 32 })
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor($r('sys.color.font_secondary'))
+          .textAlign(TextAlign.Center)
+      } else {
+        ForEach(this.homeTaskList(), (task: CareTaskData, index: number) => {
+          this.homeTaskRow(task, index === this.homeTaskList().length - 1)
+        }, (task: CareTaskData) => `home-task-${task.id}`)
+      }
+    }
+    .width('100%')
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(14)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .clip(true)
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private actionTextButton(label: string, onTap: () => void) {
+    Text(label)
+      .fontSize($r('sys.float.Body_M'))
+      .fontColor($r('sys.color.font_secondary'))
+      .padding({ left: 10, right: 10, top: 6, bottom: 6 })
+      .borderRadius(8)
+      .keyboardFocusStyle()
+      .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, onTap))
+      .onClick(() => onTap())
+  }
+
+  @Builder
+  private quickActionButton(label: string, action: string) {
+    Button({ type: ButtonType.Normal, stateEffect: true }) {
+      Text(label)
+        .fontSize($r('sys.float.Body_M'))
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+    }
+    .height(62)
+    .layoutWeight(1)
+    .borderRadius(10)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .keyboardFocusStyle()
+    .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => this.openQuickAction(action)))
+    .onClick(() => this.openQuickAction(action))
+  }
+
+  @Builder
+  private quickActionsCard() {
+    Column({ space: 14 }) {
+      Text('快捷操作')
+        .fontSize(17)
+        .fontWeight(FontWeight.Bold)
+        .fontColor($r('sys.color.font_primary'))
+        .width('100%')
+      Row({ space: 12 }) {
+        this.quickActionButton('签到打卡', 'checkin')
+        this.quickActionButton('申请协助', 'assist')
+      }.width('100%')
+      Row({ space: 12 }) {
+        this.quickActionButton('上报异常', 'report')
+        this.quickActionButton('查看排班', 'schedule')
+      }.width('100%')
+    }
+    .width('100%')
+    .padding(18)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(14)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private focusElderBadge(priority: CarePriority) {
+    Text(this.focusElderText(priority))
+      .fontSize($r('sys.float.Caption_M'))
+      .fontColor(priority === 'danger' ? $r('app.color.doctor_workspace_danger') :
+        priority === 'warning' ? '#B45309' : $r('app.color.doctor_workspace_success'))
+      .padding({ left: 10, right: 10, top: 4, bottom: 4 })
+      .borderRadius(8)
+      .backgroundColor(priority === 'danger' ? '#FDEBEC' :
+        priority === 'warning' ? '#FDF3E7' : '#E8F5EE')
+  }
+
+  @Builder
+  private focusElderRow(row: FocusElderRow, isLast: boolean) {
+    Row({ space: 10 }) {
+      Text(row.name)
+        .fontSize($r('sys.float.Body_M'))
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      Text(row.location)
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor($r('sys.color.font_tertiary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      Blank()
+      this.focusElderBadge(row.priority)
+    }
+    .width('100%')
+    .padding({ top: 12, bottom: 12 })
+    .alignItems(VerticalAlign.Center)
+    .keyboardFocusStyle()
+    .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, () => this.onOpenResident(`${row.elderId}`)))
+    .onClick(() => this.onOpenResident(`${row.elderId}`))
+    if (!isLast) {
+      Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
+    }
+  }
+
+  @Builder
+  private focusEldersCard() {
+    Column({ space: 0 }) {
+      Row({ space: 10 }) {
+        Text('关注老人')
+          .fontSize(17)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('sys.color.font_primary'))
+        Blank()
+        this.actionTextButton('更多', () => this.isAiFocusSheetOpen = true)
+      }
+      .width('100%')
+      .padding({ left: 18, right: 12, top: 16, bottom: 8 })
+      .alignItems(VerticalAlign.Center)
+
+      if (this.businessStore.elders.length === 0) {
+        Text(this.isInitialLoading() ? '正在加载长者档案' : '暂无长者档案')
+          .width('100%')
+          .padding({ top: 24, bottom: 24 })
+          .fontSize($r('sys.float.Body_M'))
+          .fontColor($r('sys.color.font_secondary'))
+          .textAlign(TextAlign.Center)
+      } else {
+        ForEach(this.focusElderRows(), (row: FocusElderRow, index: number) => {
+          this.focusElderRow(row, index === this.focusElderRows().length - 1)
+        }, (row: FocusElderRow) => `focus-elder-${row.elderId}`)
+      }
+    }
+    .width('100%')
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(14)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .clip(true)
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private quickActionOverlay() {
+    Column({ space: 14 }) {
+      Row({ space: 10 }) {
+        Text(this.quickActionTitle())
+          .fontSize(16)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('sys.color.font_primary'))
+        Blank()
+        this.actionTextButton('关闭', () => this.closeQuickActionDialog())
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      Scroll() {
+        Column({ space: 12 }) {
+          if (this.quickActionDialog === 'checkin') {
+            this.checkinDialogContent()
+          }
+          if (this.quickActionDialog === 'schedule') {
+            this.scheduleDialogContent()
+          }
+          if (this.quickActionDialog === 'assist') {
+            this.assistDialogContent()
+          }
+          if (this.quickActionDialog === 'report') {
+            this.reportDialogContent()
+          }
+        }.width('100%')
+      }
+      .constraintSize({ maxHeight: 380 })
+      .scrollBar(BarState.Off)
+      .width('100%')
+    }
+    .width(this.compactWidth ? '92%' : 480)
+    .padding(22)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(16)
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private checkinDialogContent() {
+    if (this.myScheduleToday()) {
+      Text(`今天(${this.dateText()})已登记 ${this.shiftLabel(this.myScheduleToday()!.shift)}` +
+        (this.myScheduleToday()!.room_scope && this.myScheduleToday()!.room_scope!.length > 0 ?
+          ` · 负责区域 ${this.myScheduleToday()!.room_scope}` : ''))
+        .fontSize($r('sys.float.Body_M'))
+        .fontColor($r('sys.color.font_primary'))
+        .width('100%')
+    } else {
+      Text('今天没有你的排班记录。')
+        .fontSize($r('sys.float.Body_M'))
+        .fontColor($r('sys.color.font_secondary'))
+        .width('100%')
+    }
+    Text('考勤打卡由机构考勤系统统一记录，能力开通前请以线下签到为准。')
+      .fontSize($r('sys.float.Caption_M'))
+      .fontColor($r('sys.color.font_tertiary'))
+      .width('100%')
+  }
+
+  @Builder
+  private scheduleDialogContent() {
+    if (this.businessStore.schedules.length === 0) {
+      Text('服务器暂无排班记录。')
+        .fontSize($r('sys.float.Body_M'))
+        .fontColor($r('sys.color.font_secondary'))
+        .width('100%')
+    } else {
+      ForEach(this.businessStore.schedules
+        .slice()
+        .sort((left: Schedule, right: Schedule): number => left.work_date.localeCompare(right.work_date)),
+        (item: Schedule, index: number) => {
+          Column({ space: 3 }) {
+            Text(`${item.work_date} · ${item.staff}`)
+              .fontSize($r('sys.float.Body_M'))
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+            Text(`${this.shiftLabel(item.shift)}` +
+              (item.room_scope && item.room_scope.length > 0 ? ` · 负责区域 ${item.room_scope}` : ''))
+              .fontSize($r('sys.float.Caption_M'))
+              .fontColor($r('sys.color.font_secondary'))
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Start)
+          .padding({ top: 8, bottom: 8 })
+          if (index < this.businessStore.schedules.length - 1) {
+            Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
+          }
+        }, (item: Schedule) => `home-schedule-${item.id}`)
+    }
+  }
+
+  @Builder
+  private selectableRow(label: string, detail: string, selected: boolean, onSelect: () => void) {
+    Row({ space: 10 }) {
+      Column({ space: 2 }) {
+        Text(label)
+          .fontSize($r('sys.float.Body_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        if (detail.length > 0) {
+          Text(detail)
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('sys.color.font_tertiary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      if (selected) {
+        Text('已选择')
+          .fontSize($r('sys.float.Caption_M'))
+          .fontColor($r('app.color.brand_blue'))
+      }
+    }
+    .width('100%')
+    .padding({ left: 12, right: 12, top: 10, bottom: 10 })
+    .borderRadius(10)
+    .border({ width: 0.5, color: selected ? $r('app.color.brand_blue') : $r('sys.color.comp_divider') })
+    .backgroundColor(selected ? '#F0F5FF' : $r('sys.color.comp_background_primary'))
+    .keyboardFocusStyle()
+    .onKeyEvent((event: KeyEvent) => this.activateWithKeyboard(event, onSelect))
+    .onClick(() => onSelect())
+  }
+
+  @Builder
+  private assistDialogContent() {
+    Text('选择协助对象')
+      .fontSize($r('sys.float.Caption_M'))
+      .fontColor($r('sys.color.font_secondary'))
+      .width('100%')
+    if (this.businessStore.messageContacts.length === 0) {
+      Text('暂无可联系的人员，请先在消息页确认联系人。')
+        .fontSize($r('sys.float.Body_M'))
+        .fontColor($r('sys.color.font_secondary'))
+        .width('100%')
+    } else {
+      Column({ space: 8 }) {
+        ForEach(this.businessStore.messageContacts, (contact: MessageContact) => {
+          this.selectableRow(contact.real_name || contact.username,
+            contact.roles.map((role: RoleInfo) => role.name).join('、'),
+            this.assistTargetId === contact.id,
+            () => this.assistTargetId = contact.id)
+        }, (contact: MessageContact) => `assist-contact-${contact.id}`)
+      }.width('100%')
+    }
+    TextArea({ placeholder: '描述需要的协助内容…', text: $$this.assistText })
+      .height(90)
+      .fontSize($r('sys.float.Body_M'))
+    if (this.assistError.length > 0) {
+      Text(this.assistError)
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor($r('app.color.doctor_workspace_danger'))
+        .width('100%')
+    }
+    Button(this.assistSending ? '发送中…' : '发送协助请求')
+      .width('100%')
+      .height(42)
+      .fontSize($r('sys.float.Body_M'))
+      .fontColor(Color.White)
+      .backgroundColor($r('app.color.brand_blue'))
+      .enabled(this.assistTargetId > 0 && this.assistText.trim().length > 0 && !this.assistSending)
+      .onClick(() => this.sendAssistRequest())
+  }
+
+  @Builder
+  private reportDialogContent() {
+    Text('选择相关长者')
+      .fontSize($r('sys.float.Caption_M'))
+      .fontColor($r('sys.color.font_secondary'))
+      .width('100%')
+    if (this.businessStore.elders.length === 0) {
+      Text('暂无长者档案，无法上报异常。')
+        .fontSize($r('sys.float.Body_M'))
+        .fontColor($r('sys.color.font_secondary'))
+        .width('100%')
+    } else {
+      Column({ space: 8 }) {
+        ForEach(this.businessStore.elders, (elder: Elder) => {
+          this.selectableRow(elder.name, this.elderLocation(elder.id),
+            this.reportElderId === elder.id,
+            () => this.reportElderId = elder.id)
+        }, (elder: Elder) => `report-elder-${elder.id}`)
+      }.width('100%')
+    }
+    TextArea({ placeholder: '描述异常情况（时间、地点、现象、已采取措施）…', text: $$this.reportText })
+      .height(90)
+      .fontSize($r('sys.float.Body_M'))
+    if (this.reportError.length > 0) {
+      Text(this.reportError)
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor($r('app.color.doctor_workspace_danger'))
+        .width('100%')
+    }
+    Button(this.reportSending ? '提交中…' : '提交异常上报')
+      .width('100%')
+      .height(42)
+      .fontSize($r('sys.float.Body_M'))
+      .fontColor(Color.White)
+      .backgroundColor('#E5484D')
+      .enabled(this.reportElderId > 0 && this.reportText.trim().length > 0 && !this.reportSending)
+      .onClick(() => this.submitReport())
   }
 
   @Builder
@@ -2740,6 +3500,15 @@ export struct WideHomePage {
       .align(Alignment.TopStart)
       .backgroundColor($r('sys.color.background_secondary'))
 
+      if (this.quickActionDialog.length > 0) {
+        Row() {
+          this.quickActionOverlay()
+        }
+        .width('100%')
+        .height('100%')
+        .backgroundColor('#66000000')
+        .justifyContent(FlexAlign.Center)
+      }
     }
     .width('100%')
     .height('100%')
