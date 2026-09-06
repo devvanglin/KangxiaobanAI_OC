@@ -49,7 +49,6 @@ interface RetrievalSettings {
 
 interface RagStatusBatchRequest {
   document_ids: string[];
-  action: string;
 }
 
 interface RagDocsListResponse {
@@ -295,9 +294,9 @@ export struct WideRagDocumentsPage {
     this.busy = true;
     this.hint = '';
     try {
-      const payload: RagStatusBatchRequest = { document_ids: this.selectedIds, action: action };
-      const response = await this.proxy<Object>('POST',
-        `datasets/${this.datasetId}/documents/status`, '', payload);
+      const payload: RagStatusBatchRequest = { document_ids: this.selectedIds };
+      const response = await this.proxy<Object>('PATCH',
+        `datasets/${this.datasetId}/documents/status/${action}`, '', payload);
       if (response.code !== 0) {
         this.hint = response.msg || '批量操作失败';
       } else {
