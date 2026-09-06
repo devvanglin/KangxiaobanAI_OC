@@ -25,7 +25,9 @@ func seedMedications(db *gorm.DB) error {
 		tenantDB := db.WithContext(ctx)
 		for _, med := range defaultMedications {
 			var item model.Medication
-			if err := tenantDB.Where("name = ? AND specification = ?", med.Name, med.Specification).FirstOrCreate(&item).Error; err != nil {
+			// Attrs 把完整字段带入 FirstOrCreate 的创建分支，Where 只负责判重。
+			if err := tenantDB.Where("name = ? AND specification = ?", med.Name, med.Specification).
+				Attrs(med).FirstOrCreate(&item).Error; err != nil {
 				return err
 			}
 		}
