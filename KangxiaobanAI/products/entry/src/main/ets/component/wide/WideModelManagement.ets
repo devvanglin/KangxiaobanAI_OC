@@ -395,12 +395,12 @@ export struct WideModelManagement {
   @Builder
   private statTag($$: StatTagParam) {
     Column({ space: 4 }) {
-      Text($$.label).fontSize(13).fontColor($r('sys.color.font_secondary'))
-      Text($$.value).fontSize(22).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+      Text($$.label).fontSize(14).fontColor($r('sys.color.font_secondary'))
+      Text($$.value).fontSize(20).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
         .maxLines(1)
-    }.alignItems(HorizontalAlign.Center)
+    }.alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
-      .padding({ top: 16, bottom: 16 })
+      .padding({ left: 18, right: 18, top: 16, bottom: 16 })
       .backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius(10)
       .border({ width: 0.5, color: $r('sys.color.comp_divider') })
@@ -422,22 +422,23 @@ export struct WideModelManagement {
       WideSlidingCapsule({
         items: this.sectionTabs(),
         selectedIndex: SECTION_IDS.indexOf(this.activeSection) < 0 ? 0 : SECTION_IDS.indexOf(this.activeSection),
-        itemWidth: 112,
+        itemWidth: 118,
+        itemFontSize: 16,
         onSelect: (index: number) => {
           this.activeSection = SECTION_IDS[index] ?? 'models';
         }
       })
       Blank()
       if (this.activeSection === 'models') {
-        Button('编辑模型网关').height(36).fontSize(12.5).borderRadius(8)
+        Button('编辑模型网关').height(38).fontSize(14).borderRadius(8)
           .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
           .onClick(() => this.openEditor())
       } else if (this.activeSection === 'prompts') {
-        Button('提示词设置').height(36).fontSize(12.5).borderRadius(8)
+        Button('提示词设置').height(38).fontSize(14).borderRadius(8)
           .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
           .onClick(() => this.openPromptDialog('caregiver'))
       } else if (this.activeSection === 'rag') {
-        Button('连接设置').height(36).fontSize(12.5).borderRadius(8)
+        Button('连接设置').height(38).fontSize(14).borderRadius(8)
           .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
           .onClick(() => this.openEditor())
       }
@@ -456,15 +457,15 @@ export struct WideModelManagement {
   @Builder
   private modelStatCell(label: string, value: string) {
     Column({ space: 2 }) {
-      Text(label).fontSize(11).fontColor($r('sys.color.font_tertiary'))
-      Text(value).fontSize(13).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+      Text(label).fontSize(12).fontColor($r('sys.color.font_tertiary'))
+      Text(value).fontSize(14).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
         .maxLines(1)
     }.layoutWeight(1).alignItems(HorizontalAlign.Start)
   }
 
   @Builder
   private cardLink(label: string, onTap: () => void) {
-    Text(label).fontSize(12.5).fontColor($r('sys.color.font_secondary'))
+    Text(label).fontSize(13.5).fontColor($r('sys.color.font_secondary'))
       .onClick(() => onTap())
   }
 
@@ -472,10 +473,10 @@ export struct WideModelManagement {
   private modelCard(item: ProviderModel) {
     Column({ space: 8 }) {
       Row({ space: 8 }) {
-        Text(item.id).fontSize(14).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+        Text(item.id).fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
           .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
         if (this.usedByRoles(item.id).length === 0) {
-          Text('未分配').fontSize(11).fontColor($r('sys.color.font_tertiary'))
+          Text('未分配').fontSize(12).fontColor($r('sys.color.font_tertiary'))
             .padding({ left: 8, right: 8, top: 2, bottom: 2 })
             .borderRadius(12).backgroundColor($r('sys.color.comp_background_secondary'))
         } else {
@@ -485,7 +486,7 @@ export struct WideModelManagement {
         }
       }.width('100%').alignItems(VerticalAlign.Center)
       Text(`统一连接 · ${this.connProvider === 'local' ? '本地' : 'vLLM'}`)
-        .fontSize(12).fontColor($r('sys.color.font_secondary'))
+        .fontSize(13).fontColor($r('sys.color.font_secondary'))
         .width('100%')
       Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
       Row({ space: 8 }) {
@@ -517,13 +518,13 @@ export struct WideModelManagement {
   private modelsModule() {
     Column({ space: 12 }) {
       if (this.sourceLoading) {
-        Text('正在从统一连接获取模型列表…').fontSize(13).fontColor($r('sys.color.font_secondary'))
+        Text('正在从统一连接获取模型列表…').fontSize(14).fontColor($r('sys.color.font_secondary'))
           .width('100%').padding({ top: 24, bottom: 24 }).textAlign(TextAlign.Center)
       } else if (this.sourceError.length > 0) {
         Column({ space: 8 }) {
-          Text(this.sourceError).fontSize(13).fontColor($r('sys.color.font_secondary'))
+          Text(this.sourceError).fontSize(14).fontColor($r('sys.color.font_secondary'))
             .textAlign(TextAlign.Center).width('100%')
-          Text('重试').fontSize(13).fontColor($r('app.color.brand_blue'))
+          Text('重试').fontSize(14).fontColor($r('app.color.brand_blue'))
             .onClick(() => this.loadSourceModels())
         }.width('100%').padding({ top: 20, bottom: 20 })
       } else {
@@ -556,19 +557,19 @@ export struct WideModelManagement {
   private promptRow(role: string, isLast: boolean) {
     Row({ space: 12 }) {
       Text(this.roleLabel(role) + ' 对话')
-        .fontSize(13).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+        .fontSize(14).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
         .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-      Text(this.roleShort(role) + '端').fontSize(11).fontColor($r('sys.color.font_secondary'))
+      Text(this.roleShort(role) + '端').fontSize(12).fontColor($r('sys.color.font_secondary'))
         .padding({ left: 8, right: 8, top: 2, bottom: 2 })
         .borderRadius(10).backgroundColor($r('sys.color.comp_background_secondary'))
         .constraintSize({ minWidth: 64 })
       Text(this.defaultConfigOfRole(role)?.model ?? '--')
         .fontSize(13).fontColor($r('sys.color.font_primary'))
         .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-      Text('--').fontSize(13).fontColor($r('sys.color.font_secondary'))
+      Text('--').fontSize(14).fontColor($r('sys.color.font_secondary'))
         .constraintSize({ minWidth: 56 })
       Text(this.updatedDateText(this.defaultConfigOfRole(role)?.updated_at))
-        .fontSize(13).fontColor($r('sys.color.font_secondary'))
+        .fontSize(14).fontColor($r('sys.color.font_secondary'))
         .constraintSize({ minWidth: 64 })
       Text(this.defaultConfigOfRole(role) === undefined ? '未配置' :
         (this.defaultConfigOfRole(role)!.enabled ? '启用' : '停用'))
@@ -601,19 +602,19 @@ export struct WideModelManagement {
       }.width('100%')
       Column({ space: 0 }) {
         Row({ space: 12 }) {
-          Text('名称').fontSize(12).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_secondary'))
+          Text('名称').fontSize(13).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_secondary'))
             .layoutWeight(1)
-          Text('分类').fontSize(12).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_secondary'))
+          Text('分类').fontSize(13).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_secondary'))
             .constraintSize({ minWidth: 64 })
-          Text('模型').fontSize(12).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_secondary'))
+          Text('模型').fontSize(13).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_secondary'))
             .layoutWeight(1)
-          Text('版本').fontSize(12).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_secondary'))
+          Text('版本').fontSize(13).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_secondary'))
             .constraintSize({ minWidth: 56 })
-          Text('更新时间').fontSize(12).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_secondary'))
+          Text('更新时间').fontSize(13).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_secondary'))
             .constraintSize({ minWidth: 64 })
-          Text('状态').fontSize(12).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_secondary'))
+          Text('状态').fontSize(13).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_secondary'))
             .constraintSize({ minWidth: 56 })
-          Text('操作').fontSize(12).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_secondary'))
+          Text('操作').fontSize(13).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_secondary'))
         }.width('100%')
         .padding({ top: 10, bottom: 10, left: 14, right: 14 })
         .backgroundColor($r('sys.color.comp_background_secondary'))
@@ -632,14 +633,14 @@ export struct WideModelManagement {
   private ragCard(item: RAGDataset) {
     Column({ space: 8 }) {
       Row({ space: 8 }) {
-        Text(item.name).fontSize(15).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+        Text(item.name).fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
           .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
         if (this.connRagDatasetId === item.id) {
           Text('使用中').fontSize(11).fontColor($r('app.color.brand_blue'))
             .padding({ left: 8, right: 8, top: 2, bottom: 2 })
             .borderRadius(12).backgroundColor('#E8F0FE')
         } else {
-          Text('未启用').fontSize(11).fontColor($r('sys.color.font_tertiary'))
+          Text('未启用').fontSize(12).fontColor($r('sys.color.font_tertiary'))
             .padding({ left: 8, right: 8, top: 2, bottom: 2 })
             .borderRadius(12).backgroundColor($r('sys.color.comp_background_secondary'))
         }
@@ -656,7 +657,7 @@ export struct WideModelManagement {
       Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
       Row({ space: 14 }) {
         if (this.connRagDatasetId === item.id) {
-          Text('检索已接入对话链路').fontSize(12.5).fontColor($r('sys.color.font_secondary'))
+          Text('检索已接入对话链路').fontSize(13.5).fontColor($r('sys.color.font_secondary'))
         } else {
           this.cardLink('设为机构知识库', () => this.setConnectionDataset(item.id))
         }
@@ -675,18 +676,18 @@ export struct WideModelManagement {
   private ragModule() {
     Column({ space: 12 }) {
       if (this.ragLoading) {
-        Text('正在从 Dify 获取知识库列表…').fontSize(13).fontColor($r('sys.color.font_secondary'))
+        Text('正在从 Dify 获取知识库列表…').fontSize(14).fontColor($r('sys.color.font_secondary'))
           .width('100%').padding({ top: 24, bottom: 24 }).textAlign(TextAlign.Center)
       } else if (this.ragError.length > 0) {
         Column({ space: 8 }) {
-          Text(this.ragError).fontSize(13).fontColor($r('sys.color.font_secondary'))
+          Text(this.ragError).fontSize(14).fontColor($r('sys.color.font_secondary'))
             .textAlign(TextAlign.Center).width('100%')
-          Text('重试').fontSize(13).fontColor($r('app.color.brand_blue'))
+          Text('重试').fontSize(14).fontColor($r('app.color.brand_blue'))
             .onClick(() => this.loadRagDatasets())
         }.width('100%').padding({ top: 20, bottom: 20 })
       } else if (this.ragDatasets.length === 0) {
         Text('未获取到知识库，请确认 Dify 服务中已创建知识库。')
-          .fontSize(13).fontColor($r('sys.color.font_secondary'))
+          .fontSize(14).fontColor($r('sys.color.font_secondary'))
           .width('100%').padding({ top: 24, bottom: 24 }).textAlign(TextAlign.Center)
       } else {
         GridRow({ columns: 12, gutter: 14 }) {
@@ -704,7 +705,7 @@ export struct WideModelManagement {
   private wipModule(title: string) {
     Column({ space: 12 }) {
       Text('「' + title + '」在当前版本规划中，尚未接入服务端。')
-        .fontSize(13).fontColor($r('sys.color.font_secondary'))
+        .fontSize(14).fontColor($r('sys.color.font_secondary'))
         .width('100%').padding({ top: 32, bottom: 32 }).textAlign(TextAlign.Center)
         .backgroundColor($r('sys.color.comp_background_primary'))
         .borderRadius(10).border({ width: 0.5, color: $r('sys.color.comp_divider') })
@@ -762,7 +763,7 @@ export struct WideModelManagement {
               .onChange((isOn: boolean) => this.connRagEnabled = isOn)
             Text('启用 Dify RAG').fontSize(13).fontColor($r('sys.color.font_primary'))
             Blank()
-            Text('检索已接入对话链路').fontSize(11).fontColor($r('sys.color.font_tertiary'))
+            Text('检索已接入对话链路').fontSize(12).fontColor($r('sys.color.font_tertiary'))
           }.width('100%').alignItems(VerticalAlign.Center)
           if (this.connRagEnabled) {
             TextInput({ placeholder: 'Dify RAG URL', text: $$this.connRagBaseUrl }).height(40)
@@ -771,7 +772,7 @@ export struct WideModelManagement {
               .height(40).type(InputType.Password)
           }
           Text('统一连接对全部端生效；护工/医师各自在「提示词」里分配模型与提示词。')
-            .fontSize(11).fontColor($r('sys.color.font_tertiary'))
+            .fontSize(12).fontColor($r('sys.color.font_tertiary'))
         }.width('100%')
       }.scrollBar(BarState.Off).constraintSize({ maxHeight: 420 }).width('100%')
       if (this.error.length > 0) {
@@ -796,7 +797,7 @@ export struct WideModelManagement {
       Text('提示词').fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
         .width('100%')
       Text('为该端 AI 分配模型并设置系统提示词。')
-        .fontSize(11).fontColor($r('sys.color.font_tertiary')).width('100%')
+        .fontSize(12).fontColor($r('sys.color.font_tertiary')).width('100%')
       WideSlidingCapsule({
         items: this.promptTabs(),
         selectedIndex: this.promptRole === 'doctor' ? 1 : 0,

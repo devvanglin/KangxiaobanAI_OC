@@ -31,6 +31,7 @@ export struct WideSlidingCapsule {
   @Param @Require items: WideSlidingCapsuleItem[];
   @Param @Require selectedIndex: number;
   @Param @Require itemWidth: number;
+  @Param itemFontSize: number = 16;
   @Param fillWidth: boolean = false;
   @Param iconOnly: boolean = false;
   @Param deferSelectionUntilAnimation: boolean = false;
@@ -179,7 +180,7 @@ export struct WideSlidingCapsule {
 
         if (!this.iconOnly) {
           Text(item.title)
-            .fontSize(16)
+            .fontSize(this.itemFontSize)
             .fontWeight(this.visualSelectedIndex === item.index ? FontWeight.Medium : FontWeight.Regular)
             .fontColor(this.visualSelectedIndex === item.index ? $r('app.color.brand_blue') :
               $r('sys.color.font_primary'))
