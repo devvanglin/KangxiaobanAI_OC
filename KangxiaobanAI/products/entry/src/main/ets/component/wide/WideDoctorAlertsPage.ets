@@ -675,8 +675,8 @@ export struct WideDoctorAlertsPage {
       .width('100%')
       .constraintSize({ maxWidth: 980 })
       .padding({
-        left: this.compactWidth ? 16 : 28,
-        right: this.compactWidth ? 16 : 28,
+        left: this.compactWidth ? 16 : 80,
+        right: this.compactWidth ? 16 : 80,
         bottom: 24 + this.naviIndicatorHeight
       })
     }
@@ -769,8 +769,8 @@ export struct WideDoctorAlertsPage {
         }
         .width('100%')
         .padding({
-          left: this.compactWidth ? 16 : 28,
-          right: this.compactWidth ? 16 : 28,
+          left: this.compactWidth ? 16 : 80,
+          right: this.compactWidth ? 16 : 80,
           top: 88 + this.statusBarHeight
         })
 
@@ -787,8 +787,8 @@ export struct WideDoctorAlertsPage {
         .layoutWeight(1)
         .width('100%')
         .padding({
-          left: this.compactWidth ? 16 : 28,
-          right: this.compactWidth ? 16 : 28,
+          left: this.compactWidth ? 16 : 80,
+          right: this.compactWidth ? 16 : 80,
           top: 12,
           bottom: 24 + this.naviIndicatorHeight
         })

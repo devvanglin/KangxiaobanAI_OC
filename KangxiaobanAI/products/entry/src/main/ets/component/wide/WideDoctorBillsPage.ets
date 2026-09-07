@@ -447,8 +447,8 @@ export struct WideDoctorBillsPage {
         }
         .width('100%')
         .padding({
-          left: this.compactWidth ? 16 : 28,
-          right: this.compactWidth ? 16 : 28,
+          left: this.compactWidth ? 16 : 80,
+          right: this.compactWidth ? 16 : 80,
           top: 88 + this.statusBarHeight
         })
 
@@ -494,8 +494,8 @@ export struct WideDoctorBillsPage {
         .layoutWeight(1)
         .width('100%')
         .margin({
-          left: this.compactWidth ? 16 : 28,
-          right: this.compactWidth ? 16 : 28,
+          left: this.compactWidth ? 16 : 80,
+          right: this.compactWidth ? 16 : 80,
           bottom: 24 + this.naviIndicatorHeight
         })
         .backgroundColor($r('sys.color.comp_background_primary'))
