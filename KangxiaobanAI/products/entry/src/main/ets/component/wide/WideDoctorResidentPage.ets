@@ -342,36 +342,11 @@ export struct WideDoctorResidentPage {
     return pending.plan_time ? `下次 ${this.timeText(pending.plan_time)}` : '待执行';
   }
 
-  private medicationSummary(resident: ResidentData): string {
-    const records: MedicationRecord[] = this.residentMedications(resident);
-    if (records.length === 0) {
-      return '服务器暂无用药计划';
-    }
-    const pending: MedicationRecord | undefined = records.find((item: MedicationRecord): boolean =>
-      item.status !== 'taken');
-    const current: MedicationRecord = pending ?? records[records.length - 1];
-    return `${current.medicine_name} · ${current.dosage}`;
-  }
-
   private residentCareTasks(resident: ResidentData): CareTask[] {
     return this.businessStore.tasks
       .filter((item: CareTask): boolean => item.elder_id === Number(resident.id))
       .sort((left: CareTask, right: CareTask): number =>
         (left.due_at ?? '').localeCompare(right.due_at ?? ''));
-  }
-
-  private taskStateText(status: string): string {
-    if (status === 'done') {
-      return '已完成';
-    }
-    if (status === 'doing') {
-      return '进行中';
-    }
-    return '待执行';
-  }
-
-  private taskStateLevel(status: string): StatusLevel {
-    return status === 'done' ? 'normal' : 'warning';
   }
 
   private responsibleCaregiver(resident: ResidentData): string {
@@ -1227,28 +1202,7 @@ export struct WideDoctorResidentPage {
   @Builder
   private primaryOverviewGroup(resident: ResidentData) {
     Column({ space: 0 }) {
-      this.carePlanCard(resident)
-      Divider()
-        .strokeWidth(0.5)
-        .color($r('sys.color.comp_divider'))
-        .margin({ left: 16, right: 16 })
       this.basicInfoCard(resident)
-    }
-    .width('100%')
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .clip(true)
-  }
-
-  @Builder
-  private secondaryOverviewGroup(resident: ResidentData) {
-    Column({ space: 0 }) {
-      this.riskCard(resident)
-      Divider()
-        .strokeWidth(0.5)
-        .color($r('sys.color.comp_divider'))
-        .margin({ left: 16, right: 16 })
-      this.medicationCard(resident)
       Divider()
         .strokeWidth(0.5)
         .color($r('sys.color.comp_divider'))
@@ -1262,60 +1216,14 @@ export struct WideDoctorResidentPage {
   }
 
   @Builder
-  private carePlanCard(resident: ResidentData) {
+  private secondaryOverviewGroup(resident: ResidentData) {
     Column({ space: 0 }) {
-      this.cardTitle('今日护理', `${this.residentCareTasks(resident).length} 项 · 已完成 ${
-        this.residentCareTasks(resident).filter((item: CareTask): boolean => item.status === 'done').length} 项`)
-      if (this.residentCareTasks(resident).length === 0) {
-        Text('服务器暂无护理任务')
-          .width('100%')
-          .height(72)
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_tertiary'))
-          .textAlign(TextAlign.Center)
-      } else {
-        Repeat(this.residentCareTasks(resident))
-          .each((repeatItem: RepeatItem<CareTask>) => {
-            this.carePlanRow(repeatItem.item,
-              repeatItem.index === this.residentCareTasks(resident).length - 1)
-          })
-          .key((item: CareTask) => item.id.toString())
-      }
+      this.riskCard(resident)
     }
     .width('100%')
-    .padding({ left: 16, right: 16, top: 4, bottom: 10 })
-  }
-
-  @Builder
-  private carePlanRow(task: CareTask, isLast: boolean) {
-    Column({ space: 0 }) {
-      Row({ space: 12 }) {
-        Text(task.due_at ? this.timeText(task.due_at) : '--')
-          .width(48)
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_tertiary'))
-        Text(task.title)
-          .layoutWeight(1)
-          .fontSize($r('sys.float.Body_M'))
-          .fontColor($r('sys.color.font_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(this.taskStateText(task.status))
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor(this.statusColor(this.taskStateLevel(task.status)))
-          .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-          .backgroundColor(this.statusBackground(this.taskStateLevel(task.status)))
-          .borderRadius(5)
-      }
-      .width('100%')
-      .height(48)
-      .alignItems(VerticalAlign.Center)
-
-      if (!isLast) {
-        Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
-      }
-    }
-    .width('100%')
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(16)
+    .clip(true)
   }
 
   @Builder
@@ -1334,7 +1242,7 @@ export struct WideDoctorResidentPage {
   @Builder
   private riskCard(resident: ResidentData) {
     Column({ space: 0 }) {
-      this.cardTitle('风险评估', '来自服务器告警记录')
+      this.cardTitle('预警情况', '来自服务器告警记录')
       Repeat(this.riskRows(resident))
         .each((repeatItem: RepeatItem<RiskRow>) => {
           Row() {
@@ -1352,45 +1260,57 @@ export struct WideDoctorResidentPage {
           .alignItems(VerticalAlign.Center)
         })
         .key((item: RiskRow) => item.label)
+      this.openAlertList(resident)
     }
     .width('100%')
     .padding({ left: 16, right: 16, top: 4, bottom: 10 })
   }
 
-  @Builder
-  private medicationCard(resident: ResidentData) {
-    Column({ space: 10 }) {
-      this.cardTitle('今日用药', '按医嘱执行')
-      Row() {
-        Column({ space: 4 }) {
-          Text(`${this.residentMedicationProgress(resident).done}/${this.residentMedicationProgress(resident).total}`)
-            .fontSize($r('sys.float.Title_L'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.brand_blue'))
-          Text('已完成次数')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_tertiary'))
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
+  /** 该长者的未处理服务器告警（与工作台「重点关注」同一过滤口径）。 */
+  private openAlertsOf(resident: ResidentData): Alert[] {
+    return this.businessStore.alerts
+      .filter((item: Alert): boolean => item.elder_id?.toString() === resident.id &&
+        item.status !== 'handled' && item.status !== 'closed')
+      .sort((left: Alert, right: Alert): number => right.create_time.localeCompare(left.create_time));
+  }
 
-        Column({ space: 4 }) {
-          Text(this.nextMedicationText(resident))
-            .fontSize($r('sys.float.Body_M'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor(this.residentMedicationProgress(resident).done ===
-              this.residentMedicationProgress(resident).total ?
-              $r('app.color.status_normal') : $r('app.color.status_warning'))
-          Text(this.medicationSummary(resident))
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_tertiary'))
-        }
-        .alignItems(HorizontalAlign.End)
+  @Builder
+  private openAlertList(resident: ResidentData) {
+    Column({ space: 0 }) {
+      Divider()
+        .strokeWidth(0.5)
+        .color($r('sys.color.comp_divider'))
+        .margin({ top: 6, bottom: 6 })
+      if (this.openAlertsOf(resident).length === 0) {
+        Text('当前无未处理预警')
+          .width('100%')
+          .height(38)
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_tertiary'))
+      } else {
+        ForEach(this.openAlertsOf(resident), (alert: Alert) => {
+          Row({ space: 8 }) {
+            Text(alert.level === 'emergency' ? '紧急' : alert.level === 'important' ? '重要' : '一般')
+              .fontSize($r('sys.float.Caption_M'))
+              .fontColor(alert.level === 'emergency' ? $r('app.color.doctor_workspace_danger') :
+                $r('app.color.doctor_workspace_warning'))
+            Text(alert.content)
+              .fontSize($r('sys.float.Body_S'))
+              .fontColor($r('sys.color.font_primary'))
+              .layoutWeight(1)
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+            Text(this.timeText(alert.create_time))
+              .fontSize($r('sys.float.Caption_M'))
+              .fontColor($r('sys.color.font_tertiary'))
+          }
+          .width('100%')
+          .height(38)
+          .alignItems(VerticalAlign.Center)
+        }, (alert: Alert) => `alert-${alert.id}`)
       }
-      .width('100%')
     }
     .width('100%')
-    .padding({ left: 16, right: 16, top: 4, bottom: 16 })
   }
 
   @Builder
