@@ -246,7 +246,8 @@ export struct WideDoctorBillsPage {
   private headerCell(title: string, weight: number, alignEnd: boolean) {
     Text(title)
       .layoutWeight(weight)
-      .fontSize(12)
+      .fontSize(14)
+      .fontWeight(FontWeight.Medium)
       .fontColor($r('sys.color.font_secondary'))
       .textAlign(alignEnd ? TextAlign.End : TextAlign.Start)
       .maxLines(1)
@@ -276,7 +277,7 @@ export struct WideDoctorBillsPage {
 
   @Builder
   private tableHeader() {
-    Row({ space: 10 }) {
+    Row({ space: 12 }) {
       this.headerCell('账单编号', 3, false)
       this.headerCell('老人姓名', 2, false)
       this.headerCell('账单月份', 2, false)
@@ -289,14 +290,15 @@ export struct WideDoctorBillsPage {
       this.headerCell('操作', 2, false)
     }
     .width('100%')
-    .padding({ left: 16, right: 16, top: 12, bottom: 12 })
-    .backgroundColor($r('sys.color.comp_background_secondary'))
+    .height(48)
+    .padding({ left: 16, right: 16 })
+    .backgroundColor($r('sys.color.comp_background_tertiary'))
     .alignItems(VerticalAlign.Center)
   }
 
   @Builder
   private billRow(bill: Bill) {
-    Row({ space: 10 }) {
+    Row({ space: 12 }) {
       Text(this.billNo(bill))
         .layoutWeight(3)
         .fontSize(12)
@@ -341,9 +343,11 @@ export struct WideDoctorBillsPage {
       .alignItems(VerticalAlign.Center)
     }
     .width('100%')
-    .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+    .height(60)
+    .padding({ left: 16, right: 16 })
     .backgroundColor(this.hoveredBillId === bill.id ? $r('sys.color.interactive_hover') : Color.Transparent)
     .alignItems(VerticalAlign.Center)
+    .border({ width: { bottom: 0.5 }, color: $r('sys.color.comp_divider') })
     .onHover((isHover: boolean) => {
       this.hoveredBillId = isHover ? bill.id : -1;
     })
@@ -351,7 +355,7 @@ export struct WideDoctorBillsPage {
 
   @Builder
   private totalRow() {
-    Row({ space: 10 }) {
+    Row({ space: 12 }) {
       Text(`合计（${this.filteredBills().length} 张）`)
         .layoutWeight(3)
         .fontSize(13)
@@ -385,7 +389,7 @@ export struct WideDoctorBillsPage {
     }
     .width('100%')
     .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-    .backgroundColor($r('sys.color.comp_background_secondary'))
+    .backgroundColor($r('sys.color.comp_background_tertiary'))
     .alignItems(VerticalAlign.Center)
   }
 
@@ -448,6 +452,7 @@ export struct WideDoctorBillsPage {
         }
         .width('100%')
         .padding({ top: 88 + this.statusBarHeight })
+        .margin({ bottom: 16 })
 
         Column() {
           this.tableHeader()

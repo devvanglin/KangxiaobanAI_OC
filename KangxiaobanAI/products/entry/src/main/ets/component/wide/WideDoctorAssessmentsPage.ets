@@ -274,14 +274,15 @@ export struct WideDoctorAssessmentsPage {
   private headerCell(title: string, weight: number) {
     Text(title)
       .layoutWeight(weight)
-      .fontSize(12)
+      .fontSize(14)
+      .fontWeight(FontWeight.Medium)
       .fontColor($r('sys.color.font_secondary'))
       .maxLines(1)
   }
 
   @Builder
   private tableHeader() {
-    Row({ space: 10 }) {
+    Row({ space: 12 }) {
       this.headerCell('评估编号', 3)
       this.headerCell('老人姓名', 2)
       this.headerCell('年龄', 1)
@@ -293,15 +294,16 @@ export struct WideDoctorAssessmentsPage {
       this.headerCell('操作', 2)
     }
     .width('100%')
-    .padding({ left: 16, right: 16, top: 12, bottom: 12 })
-    .backgroundColor($r('sys.color.comp_background_secondary'))
+    .height(48)
+    .padding({ left: 16, right: 16 })
+    .backgroundColor($r('sys.color.comp_background_tertiary'))
     .alignItems(VerticalAlign.Center)
   }
 
   @Builder
   private assessmentRow(item: Assessment) {
     Column({ space: 0 }) {
-      Row({ space: 10 }) {
+      Row({ space: 12 }) {
         Text(this.assessmentNo(item))
           .layoutWeight(3)
           .fontSize(12)
@@ -351,9 +353,11 @@ export struct WideDoctorAssessmentsPage {
         .layoutWeight(2)
       }
       .width('100%')
-      .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+      .height(60)
+      .padding({ left: 16, right: 16 })
       .backgroundColor(this.hoveredId === item.id ? $r('sys.color.interactive_hover') : Color.Transparent)
       .alignItems(VerticalAlign.Center)
+      .border({ width: { bottom: 0.5 }, color: $r('sys.color.comp_divider') })
       .onHover((isHover: boolean) => {
         this.hoveredId = isHover ? item.id : -1;
       })
@@ -579,6 +583,7 @@ export struct WideDoctorAssessmentsPage {
         }
         .width('100%')
         .padding({ top: 88 + this.statusBarHeight })
+        .margin({ bottom: 16 })
 
         if (this.formVisible) {
           this.createFormCard()
