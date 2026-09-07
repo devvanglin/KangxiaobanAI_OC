@@ -886,7 +886,7 @@ export struct WideDoctorResidentPage {
           Column() {
             this.profileMetaStrip(resident)
           }
-          .width('42%')
+          .width('52%')
         }
         .width('100%')
         .padding({ left: 20, right: 20, top: 22, bottom: 20 })
@@ -916,13 +916,15 @@ export struct WideDoctorResidentPage {
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
 
-      Text(this.statusText(resident.level))
-        .fontSize($r('sys.float.Caption_M'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor(this.statusColor(resident.level))
-        .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-        .backgroundColor(this.statusBackground(resident.level))
-        .borderRadius(5)
+      if (this.compactWidth) {
+        Text(this.statusText(resident.level))
+          .fontSize($r('sys.float.Caption_M'))
+          .fontWeight(FontWeight.Medium)
+          .fontColor(this.statusColor(resident.level))
+          .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+          .backgroundColor(this.statusBackground(resident.level))
+          .borderRadius(5)
+      }
     }
     .width('100%')
     .alignItems(VerticalAlign.Center)
@@ -944,13 +946,21 @@ export struct WideDoctorResidentPage {
         .strokeWidth(0.5)
         .color($r('sys.color.comp_divider'))
       this.profileMetaItem('责任护工', this.responsibleCaregiver(resident))
+      if (!this.compactWidth) {
+        Divider()
+          .vertical(true)
+          .height(34)
+          .strokeWidth(0.5)
+          .color($r('sys.color.comp_divider'))
+        this.profileMetaItem('健康状态', this.statusText(resident.level), this.statusColor(resident.level))
+      }
     }
     .width('100%')
     .alignItems(VerticalAlign.Center)
   }
 
   @Builder
-  private profileMetaItem(label: string, value: string) {
+  private profileMetaItem(label: string, value: string, valueColor?: ResourceColor) {
     Column({ space: 5 }) {
       Text(label)
         .width('100%')
@@ -962,7 +972,7 @@ export struct WideDoctorResidentPage {
         .width('100%')
         .fontSize($r('sys.float.Body_M'))
         .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
+        .fontColor(valueColor ?? $r('sys.color.font_primary'))
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
     }
