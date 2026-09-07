@@ -100,11 +100,13 @@ export struct WideAdminWorkspace {
   @Param isDoctor: boolean = false;
   @Param managementScroller: Scroller = new Scroller();
   @Param managementNavIndex: number = 0;
+  @Param adminBackRequestToken: number = 0;
   @Event onOpenAbout: () => void = () => {};
   @Event onOpenGeneral: () => void = () => {};
   @Event onOpenAdmission: () => void = () => {};
   @Event onLogout: () => void = () => {};
   @Event onManagementNavSelect: (index: number) => void = (_index: number) => {};
+  @Event onLocalNavLayerChange: (hasLayer: boolean) => void = (_hasLayer: boolean) => {};
   @Local selectedNavId: string = 'overview';
   @Local isSidebarCollapsed: boolean = false;
   @Local selectedPeriod: number = 0;
@@ -159,6 +161,21 @@ export struct WideAdminWorkspace {
     }
   }
 
+  @Monitor('selectedNavId')
+  onSelectedNavIdChange(): void {
+    this.onLocalNavLayerChange(this.selectedNavId !== 'overview');
+  }
+
+  @Monitor('adminBackRequestToken')
+  onAdminBackRequest(): void {
+    if (this.selectedNavId !== 'overview') {
+      this.selectedNavId = 'overview';
+      if (!this.isDoctor) {
+        void this.loadAuditLogs();
+      }
+    }
+  }
+
   @Monitor('businessStore.coreVersion', 'businessStore.loaded')
   onBusinessDataChange(): void {
     this.coreLoadReady = this.businessStore.loaded;
@@ -172,6 +189,7 @@ export struct WideAdminWorkspace {
   }
 
   aboutToAppear(): void {
+    this.onLocalNavLayerChange(this.selectedNavId !== 'overview');
     this.onManagementNavIndexChange();
     this.coreLoadReady = this.businessStore.loaded;
     this.refreshMetricSnapshot();
@@ -439,8 +457,7 @@ export struct WideAdminWorkspace {
       { id: 'tasks', label: '护理任务', symbol: $r('sys.symbol.checkmark_circle_fill'), tone: 'warning', target: 'overview' },
       { id: 'alerts', label: '告警处理', symbol: $r('sys.symbol.exclamationmark_triangle_fill'), tone: 'danger', target: 'overview' },
       { id: 'assessment', label: '健康评估', symbol: $r('sys.symbol.heart_fill'), tone: 'focus', target: 'residents' },
-      { id: 'billing', label: '账单管理', symbol: $r('sys.symbol.doc_text'), tone: 'success', target: 'residents' },
-      { id: 'schedule', label: '日常总览', symbol: $r('sys.symbol.calendar_badge_clock'), tone: 'focus', target: 'overview' }
+      { id: 'billing', label: '账单管理', symbol: $r('sys.symbol.doc_text'), tone: 'success', target: 'residents' }
     ];
   }
 

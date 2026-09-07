@@ -143,6 +143,8 @@ struct MainPage {
   @Local caregiverUnreadMessageCount: number = 0;
   @Local caregiverMaterialScrollerOwner: CaregiverMaterialScrollerOwner = 'residentDetail';
   @Local managementNavIndex: number = 0;
+  @Local adminHasLocalNavLayer: boolean = false;
+  @Local adminBackRequestToken: number = 0;
   @Local doctorResidentDetailVisible: boolean = false;
   @Local doctorResidentBackRequestToken: number = 0;
   @Local doctorResidentScrollerOwner: DoctorResidentScrollerOwner = 'residentDetail';
@@ -730,7 +732,19 @@ struct MainPage {
       this.caregiverBackRequestToken += 1;
       return true;
     }
-    if (this.isWideLayout() && this.pathStack.size() === 0 && this.currentTabIndex !== 0) {
+    if (this.pathStack.size() > 0) {
+      this.pathStack.pop();
+      return true;
+    }
+    if (this.isManagementWideWorkspace() && this.managementNavIndex === 0 && this.adminHasLocalNavLayer) {
+      this.adminBackRequestToken += 1;
+      return true;
+    }
+    if (this.isManagementWideWorkspace() && this.managementNavIndex !== 0) {
+      this.updateManagementNav(0);
+      return true;
+    }
+    if (this.currentTabIndex !== 0) {
       this.switchTab(0);
       return true;
     }
@@ -1316,6 +1330,10 @@ struct MainPage {
           compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
           managementScroller: this.wideManagementScroller,
           managementNavIndex: this.managementNavIndex,
+          adminBackRequestToken: this.adminBackRequestToken,
+          onLocalNavLayerChange: (hasLayer: boolean) => {
+            this.adminHasLocalNavLayer = hasLayer;
+          },
           onManagementNavSelect: (index: number) => {
             this.updateManagementNav(index);
           },
