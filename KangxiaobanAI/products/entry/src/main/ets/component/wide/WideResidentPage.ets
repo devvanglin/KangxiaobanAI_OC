@@ -1509,25 +1509,20 @@ export struct WideResidentPage {
   @Builder
   private vitalTrendContent(resident: ResidentData) {
     Column({ space: 16 }) {
-      if (this.compactWidth) {
-        this.heartTrendCard(resident)
-        this.respiratoryTrendCard(resident)
-      } else {
-        // 宽屏双列：心率/呼吸趋势并排，测量记录整宽在下。
-        Row({ space: 16 }) {
-          Column() {
-            this.heartTrendCard(resident)
-          }
-          .layoutWeight(1)
-
-          Column() {
-            this.respiratoryTrendCard(resident)
-          }
-          .layoutWeight(1)
+      // 心率/呼吸趋势始终并排，测量记录整宽在下。
+      Row({ space: 16 }) {
+        Column() {
+          this.heartTrendCard(resident)
         }
-        .width('100%')
-        .alignItems(VerticalAlign.Top)
+        .layoutWeight(1)
+
+        Column() {
+          this.respiratoryTrendCard(resident)
+        }
+        .layoutWeight(1)
       }
+      .width('100%')
+      .alignItems(VerticalAlign.Top)
 
       Column({ space: 0 }) {
         this.cardTitle('测量记录', `${this.trendRows(resident).length} 次`)
@@ -1631,6 +1626,10 @@ export struct WideResidentPage {
         Text('当前仅完成摄像头设备配置与在线状态展示，行为分析适配后将在这里显示事件。').fontSize(12).fontColor($r('sys.color.font_secondary')).textAlign(TextAlign.Center)
       }.width('100%').padding(28).backgroundColor($r('sys.color.comp_background_secondary')).borderRadius(10).alignItems(HorizontalAlign.Center)
     }.width('100%')
+    .padding({ left: 18, right: 18, top: 4, bottom: 18 })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(12)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   private medicationStateText(status: string): string {
@@ -1768,7 +1767,7 @@ export struct WideResidentPage {
 
   @Builder
   private deviceContent(resident: ResidentData) {
-    Column({ space: 12 }) {
+    Column({ space: 0 }) {
       Row() {
         Column({ space: 3 }) {
           Text('房间设备')
@@ -1782,15 +1781,27 @@ export struct WideResidentPage {
         .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)
 
-        Text(this.residentDevices(resident).some((item: RoomDeviceData) => item.level === 'danger') ?
+        Text(this.residentDevices(resident).length === 0 ? '暂无设备' :
+          this.residentDevices(resident).some((item: RoomDeviceData) => item.level === 'danger') ?
           '存在离线设备' : '设备运行正常')
           .fontSize($r('sys.float.Body_S'))
-          .fontColor(this.residentDevices(resident).some((item: RoomDeviceData) => item.level === 'danger') ?
+          .fontColor(this.residentDevices(resident).length === 0 ? $r('sys.color.font_tertiary') :
+            this.residentDevices(resident).some((item: RoomDeviceData) => item.level === 'danger') ?
             $r('app.color.status_danger') : $r('app.color.status_normal'))
       }
       .width('100%')
+      .height(44)
+      .padding({ left: 16, right: 16 })
       .alignItems(VerticalAlign.Center)
 
+      if (this.residentDevices(resident).length === 0) {
+        Text('暂无设备接入')
+          .width('100%')
+          .height(48)
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_tertiary'))
+          .textAlign(TextAlign.Center)
+      } else {
       Grid() {
         Repeat(this.residentDevices(resident))
           .each((repeatItem: RepeatItem<RoomDeviceData>) => {
@@ -1838,9 +1849,8 @@ export struct WideResidentPage {
               .width('100%')
               .height('100%')
               .padding(this.compactWidth ? 14 : 16)
-              .backgroundColor($r('sys.color.comp_background_primary'))
+              .backgroundColor($r('sys.color.comp_background_secondary'))
               .borderRadius(12)
-              .border({ width: 0.5, color: $r('sys.color.comp_divider') })
               .justifyContent(FlexAlign.Center)
             }
           })
@@ -1854,8 +1864,13 @@ export struct WideResidentPage {
       .height(Math.ceil(this.residentDevices(resident).length / 2) * this.deviceCardHeight() +
         Math.max(0, Math.ceil(this.residentDevices(resident).length / 2) - 1) *
           (this.compactWidth ? 12 : 14))
+      .padding({ left: 16, right: 16, bottom: 16 })
+      }
     }
     .width('100%')
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(16)
+    .clip(true)
   }
 
   @Builder

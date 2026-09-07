@@ -1371,27 +1371,31 @@ export struct AiChatPage {
         .width('100%')
 
       this.embeddedModeSwitcher()
+    }
+    .width('100%')
+    .constraintSize({ maxWidth: 720 })
+    .alignItems(HorizontalAlign.Center)
+  }
 
-      Column({ space: 12 }) {
-        Text('为你推荐')
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_tertiary'))
-          .width('100%')
-
-        Column({ space: 10 }) {
-          ForEach(this.embeddedSuggestions(), (item: AiInformationFeedItem) => {
-            this.embeddedSuggestionItem(item)
-          }, (item: AiInformationFeedItem) => `embedded-${item.id}`)
-        }
+  @Builder
+  private embeddedAssistantSuggestions() {
+    Column({ space: 12 }) {
+      Text('为你推荐')
+        .fontSize($r('sys.float.Body_S'))
+        .fontColor($r('sys.color.font_tertiary'))
         .width('100%')
-        .alignItems(HorizontalAlign.Start)
+
+      Column({ space: 10 }) {
+        ForEach(this.embeddedSuggestions(), (item: AiInformationFeedItem) => {
+          this.embeddedSuggestionItem(item)
+        }, (item: AiInformationFeedItem) => `embedded-${item.id}`)
       }
       .width('100%')
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
     .constraintSize({ maxWidth: 720 })
-    .alignItems(HorizontalAlign.Center)
+    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
@@ -1429,13 +1433,13 @@ export struct AiChatPage {
           this.showToast('更多工具接入中');
         })
 
+        Blank()
+
         Text('康小伴·快速')
           .fontSize($r('sys.float.Body_S'))
           .fontColor($r('sys.color.font_primary'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-        Blank()
 
         Button({ type: ButtonType.Circle, stateEffect: true }) {
           SymbolGlyph($r('sys.symbol.arrow_up'))
@@ -1512,13 +1516,26 @@ export struct AiChatPage {
   private wideEmptyConversationPage(transparentBackground: boolean = false) {
     Column() {
       if (transparentBackground && this.embeddedCaregiverWide) {
+        Blank()
+          .layoutWeight(1)
+
         this.embeddedAssistantStart()
+
+        Blank()
+          .layoutWeight(1)
       } else {
         this.wideEmptyInformationHero()
+
+        Blank()
+          .layoutWeight(1)
       }
 
-      Blank()
-        .layoutWeight(1)
+      if (transparentBackground && this.embeddedCaregiverWide) {
+        Column() {
+          this.embeddedAssistantSuggestions()
+        }
+        .margin({ bottom: 12 })
+      }
 
       this.inputArea(true, transparentBackground)
     }
