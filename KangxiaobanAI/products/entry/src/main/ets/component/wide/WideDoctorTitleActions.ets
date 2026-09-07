@@ -30,43 +30,6 @@ export struct WideDoctorTitleActions {
     ];
   }
 
-  @Builder
-  private accountMenu() {
-    Menu() {
-      MenuItem({ content: '通用设置' })
-        .height(46)
-        .onClick(() => this.onOpenGeneral())
-      MenuItem({ content: '关于我们' })
-        .height(46)
-        .onClick(() => this.onOpenAbout())
-      MenuItem({ content: '退出登录' })
-        .height(46)
-        .contentFontColor($r('app.color.doctor_workspace_danger'))
-        .onClick(() => this.onLogout())
-    }
-    .width(220)
-    .radius(16)
-  }
-
-  @Builder
-  private accountEntry() {
-    Button({ type: ButtonType.Circle, stateEffect: true }) {
-      SymbolGlyph($r('sys.symbol.person_crop_circle_fill'))
-        .fontSize(22)
-        .fontColor([$r('sys.color.icon_primary')])
-    }
-    .width(42)
-    .height(42)
-    .padding(0)
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .accessibilityText(this.isDoctor ? '医师账户' : '管理端账户')
-    .bindMenu(this.accountMenu, {
-      placement: Placement.BottomRight,
-      enableArrow: true,
-      offset: { x: 0, y: 8 }
-    })
-  }
-
   build() {
     Row({ space: 8 }) {
       Blank()
@@ -78,11 +41,11 @@ export struct WideDoctorTitleActions {
         iconOnly: this.isDoctor && this.compactWidth,
         onSelect: (index: number) => this.onSelect(index)
       })
-      this.accountEntry()
     }
     .width('100%')
     .height('100%')
-    .padding({ right: this.compactWidth ? 18 : 28 })
+    // 头像由 MainPage 的稳定节点承载，这里预留其宽度避免胶囊与其重叠。
+    .padding({ right: (this.compactWidth ? 18 : 28) + 50 })
     .justifyContent(FlexAlign.End)
     .alignItems(VerticalAlign.Center)
   }

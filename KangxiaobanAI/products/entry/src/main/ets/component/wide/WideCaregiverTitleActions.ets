@@ -13,10 +13,7 @@
  * limitations under the License.
  */
 
-import { SymbolGlyphModifier } from '@kit.ArkUI';
 import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule';
-import AuthStore from '../../network/AuthStore';
-import { LoginUser, RoleInfo } from '../../network/Dto';
 
 @ComponentV2
 export struct WideCaregiverTitleActions {
@@ -36,16 +33,6 @@ export struct WideCaregiverTitleActions {
   @Event onOpenAbout: () => void = () => {};
   @Event onOpenGeneral: () => void = () => {};
   @Event onLogout: () => void = () => {};
-  @Local hoveredTarget: string = '';
-  @Local generalSettingsIcon: SymbolGlyphModifier = new SymbolGlyphModifier($r('sys.symbol.gearshape'))
-    .fontSize(18)
-    .fontColor([$r('sys.color.icon_primary')]);
-  @Local aboutIcon: SymbolGlyphModifier = new SymbolGlyphModifier($r('sys.symbol.info_circle'))
-    .fontSize(18)
-    .fontColor([$r('sys.color.icon_primary')]);
-  @Local logoutIcon: SymbolGlyphModifier = new SymbolGlyphModifier($r('sys.symbol.xmark'))
-    .fontSize(18)
-    .fontColor([$r('app.color.status_danger')]);
 
   private navigationItems(): WideSlidingCapsuleItem[] {
     return [
@@ -133,33 +120,6 @@ export struct WideCaregiverTitleActions {
     .animation({ duration: 240, curve: Curve.Friction })
   }
 
-  private targetBackground(id: string): ResourceColor {
-    return this.hoveredTarget === id ? $r('sys.color.interactive_hover') :
-      $r('sys.color.ohos_id_color_background_transparent');
-  }
-
-  private currentUserName(): string {
-    const user: LoginUser | null = AuthStore.getUser();
-    if (user === null) {
-      return '未登录';
-    }
-    const realName: string = user.real_name.trim();
-    return realName.length > 0 ? realName : user.username;
-  }
-
-  private currentUserRoles(): string {
-    const user: LoginUser | null = AuthStore.getUser();
-    if (user === null || user.roles.length === 0) {
-      return '未分配角色';
-    }
-    return user.roles.map((role: RoleInfo): string => role.name).join(' · ');
-  }
-
-  private currentUserAvatar(): string {
-    const name: string = this.currentUserName();
-    return name === '未登录' ? '--' : name.slice(Math.max(0, name.length - 2));
-  }
-
   @Builder
   private primaryNavigation() {
     Row() {
@@ -181,114 +141,17 @@ export struct WideCaregiverTitleActions {
     .alignItems(VerticalAlign.Center)
   }
 
-  @Builder
-  private profileMenuHeader() {
-    Column({ space: 4 }) {
-      Row({ space: 7 }) {
-        Text(this.currentUserName())
-          .fontSize(17)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
-      }
-      .alignItems(VerticalAlign.Center)
-
-      Text(this.currentUserRoles())
-        .fontSize(12)
-        .fontColor($r('sys.color.font_secondary'))
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-    }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 14, bottom: 10 })
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  private profileMenu() {
-    Menu() {
-      MenuItemGroup({ header: this.profileMenuHeader }) {
-        MenuItem({
-          symbolStartIcon: this.generalSettingsIcon,
-          content: '通用设置'
-        })
-          .height(46)
-          .contentFont({ size: 14, weight: FontWeight.Medium })
-          .onClick(() => this.onOpenGeneral())
-
-        MenuItem({
-          symbolStartIcon: this.aboutIcon,
-          content: '关于我们'
-        })
-          .height(46)
-          .contentFont({ size: 14, weight: FontWeight.Medium })
-          .onClick(() => this.onOpenAbout())
-      }
-
-      MenuItemGroup() {
-        MenuItem({
-          symbolStartIcon: this.logoutIcon,
-          content: '退出登录'
-        })
-          .height(46)
-          .contentFont({ size: 14, weight: FontWeight.Medium })
-          .contentFontColor($r('app.color.status_danger'))
-          .onClick(() => this.onLogout())
-      }
-    }
-    .width(280)
-    .radius(16)
-  }
-
-  @Builder
-  private accountEntry() {
-    Button({ type: ButtonType.Normal, stateEffect: true }) {
-      Stack({ alignContent: Alignment.Center }) {
-        Row()
-          .width(34)
-          .height(34)
-          .borderRadius(17)
-          .backgroundColor($r('app.color.brand_blue'))
-        Text(this.currentUserAvatar())
-          .fontSize(11)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.text_on_brand'))
-      }
-      .width(34)
-      .height(34)
-    }
-    .width(48)
-    .height(48)
-    .padding(0)
-    .borderRadius(24)
-    .backgroundColor(this.targetBackground('account-entry'))
-    .hoverEffect(HoverEffect.None)
-    .accessibilityText(`${this.currentUserName()}，${this.currentUserRoles()}，打开账户菜单`)
-    .focusable(true)
-    .focusOnTouch(true)
-    .onHover((isHover: boolean) => this.hoveredTarget = isHover ? 'account-entry' : '')
-    .bindMenu(this.profileMenu, {
-      placement: Placement.BottomRight,
-      enableArrow: true,
-      offset: { x: 0, y: 8 }
-    })
-    .bindContextMenu(this.profileMenu, ResponseType.RightClick, {
-      placement: Placement.BottomRight,
-      enableArrow: true,
-      offset: { x: 0, y: 8 }
-    })
-  }
-
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
       Row({ space: 6 }) {
         Blank()
           .layoutWeight(1)
         this.primaryNavigation()
-        this.accountEntry()
       }
       .width('100%')
       .height('100%')
-      .padding({ right: this.compactWidth ? 18 : 28 })
+      // 头像由 MainPage 的稳定节点承载，这里预留其宽度避免胶囊与其重叠。
+      .padding({ right: (this.compactWidth ? 18 : 28) + 54 })
       .justifyContent(FlexAlign.End)
       .alignItems(VerticalAlign.Center)
 

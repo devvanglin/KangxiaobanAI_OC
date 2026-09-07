@@ -170,6 +170,8 @@ struct MainPage {
   @Local doctorResidentScrollerOwner: DoctorResidentScrollerOwner = 'residentDetail';
   @Local doctorAiHistoryCollapsed: boolean = false;
   @Local workspaceClockTime: string = '--:--';
+  /** 标题栏账户菜单显隐：头像与面板都挂在页面自身树上，不受 stackBuilder 重建影响。 */
+  @Local titleAccountMenuVisible: boolean = false;
   @Local businessStore: BusinessStore = BusinessStore.getShared();
   private managementContentTimerId: number = -1;
   private wideHomeScroller: Scroller = new Scroller();
@@ -353,6 +355,160 @@ struct MainPage {
       this.managementContentTimerId = -1;
       this.managementContentIndex = index;
     }, 280);
+  }
+
+  /**
+   * 标题栏账户入口 + 菜单：头像本体放在页面自身树上——标题栏 stackBuilder
+   * 每次重建都会销毁其内节点和弹层（点击有动画但菜单被吞的根因），
+   * 因此头像与菜单都由这个稳定节点承载，菜单为自绘面板 + 点外关闭层。
+   */
+  private toggleTitleAccountMenu(): void {
+    this.titleAccountMenuVisible = !this.titleAccountMenuVisible;
+  }
+
+  private closeTitleAccountMenu(): void {
+    this.titleAccountMenuVisible = false;
+  }
+
+  private accountAvatarInitials(): string {
+    const name: string = this.currentUserDisplayName();
+    return name === '当前用户' ? '--' : name.slice(Math.max(0, name.length - 2));
+  }
+
+  private titleAccountAnchorX(buttonWidth: number): number {
+    const edgePadding: number = this.isCaregiverWideWorkspace() && this.useCompactCaregiverWorkspace() ? 18 : 28;
+    return this.globalInfoModel.deviceWidth - edgePadding - buttonWidth;
+  }
+
+  private titleAccountPanelWidth(): number {
+    return this.isCaregiverWideWorkspace() ? 280 : 220;
+  }
+
+  @Builder
+  private titleAccountMenuAnchor() {
+    if (this.isRoleAdapted() && this.isWideLayout() && !this.isAiChatShow && !this.isResidentDetailShow) {
+      if (this.titleAccountMenuVisible) {
+        // 点外关闭层：盖住整窗，点击任意处收起菜单。
+        Column()
+          .width('100%')
+          .height('100%')
+          .backgroundColor(Color.Transparent)
+          .onClick(() => this.closeTitleAccountMenu())
+      }
+      if (this.isCaregiverWideWorkspace()) {
+        Button({ type: ButtonType.Normal, stateEffect: true }) {
+          Stack({ alignContent: Alignment.Center }) {
+            Row()
+              .width(34)
+              .height(34)
+              .borderRadius(17)
+              .backgroundColor($r('app.color.brand_blue'))
+            Text(this.accountAvatarInitials())
+              .fontSize(11)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('app.color.text_on_brand'))
+          }
+          .width(34)
+          .height(34)
+        }
+        .width(48)
+        .height(48)
+        .padding(0)
+        .borderRadius(24)
+        .backgroundColor($r('sys.color.comp_background_primary'))
+        .accessibilityText(`${this.currentUserDisplayName()}，${this.currentUserRoleLabel()}，打开账户菜单`)
+        .onClick(() => this.toggleTitleAccountMenu())
+        .position({
+          x: this.titleAccountAnchorX(48),
+          y: this.globalInfoModel.statusBarHeight + 4
+        })
+      } else {
+        Button({ type: ButtonType.Circle, stateEffect: true }) {
+          SymbolGlyph($r('sys.symbol.person_crop_circle_fill'))
+            .fontSize(22)
+            .fontColor([$r('sys.color.icon_primary')])
+        }
+        .width(42)
+        .height(42)
+        .padding(0)
+        .backgroundColor($r('sys.color.comp_background_primary'))
+        .accessibilityText(this.globalInfoModel.role === '医师' ? '医师账户' : '管理端账户')
+        .onClick(() => this.toggleTitleAccountMenu())
+        .position({
+          x: this.titleAccountAnchorX(42),
+          y: this.globalInfoModel.statusBarHeight + 7
+        })
+      }
+      if (this.titleAccountMenuVisible) {
+        this.titleAccountMenuPanel()
+      }
+    }
+  }
+
+  @Builder
+  private titleAccountMenuItem(symbol: Resource, label: string, danger: boolean, action: () => void) {
+    Row({ space: 10 }) {
+      SymbolGlyph(symbol)
+        .fontSize(18)
+        .fontColor([danger ? $r('app.color.status_danger') : $r('sys.color.icon_primary')])
+      Text(label)
+        .fontSize(14)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(danger ? $r('app.color.status_danger') : $r('sys.color.font_primary'))
+        .layoutWeight(1)
+    }
+    .width('100%')
+    .height(46)
+    .padding({ left: 16, right: 16 })
+    .borderRadius(10)
+    .onClick(() => {
+      this.closeTitleAccountMenu();
+      action();
+    })
+  }
+
+  @Builder
+  private titleAccountMenuPanel() {
+    Column({ space: 2 }) {
+      if (this.isCaregiverWideWorkspace()) {
+        Column({ space: 4 }) {
+          Text(this.currentUserDisplayName())
+            .fontSize(17)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('sys.color.font_primary'))
+          Text(this.currentUserRoleLabel())
+            .fontSize(12)
+            .fontColor($r('sys.color.font_secondary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .width('100%')
+        .padding({ left: 16, right: 16, top: 10, bottom: 8 })
+        .alignItems(HorizontalAlign.Start)
+
+        Divider().strokeWidth(0.5).color($r('sys.color.comp_divider')).margin({ bottom: 4 })
+      }
+      this.titleAccountMenuItem($r('sys.symbol.gearshape'), '通用设置', false, (): void => {
+        this.pathStack.pushPath({ name: 'GeneralSettingsPage' });
+      })
+      this.titleAccountMenuItem($r('sys.symbol.info_circle'), '关于我们', false, (): void => {
+        this.pathStack.pushPath({ name: 'AboutPage' });
+      })
+      Divider().strokeWidth(0.5).color($r('sys.color.comp_divider')).margin({ top: 4, bottom: 4 })
+      this.titleAccountMenuItem($r('sys.symbol.xmark'), '退出登录', true, (): void => {
+        this.handleLogout();
+      })
+    }
+    .width(this.titleAccountPanelWidth())
+    .padding({ top: 6, bottom: 6 })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(16)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .shadow(ShadowStyle.OUTER_DEFAULT_MD)
+    .position({
+      x: this.globalInfoModel.deviceWidth - this.titleAccountPanelWidth() - 12,
+      y: this.globalInfoModel.statusBarHeight + 56 + 8
+    })
   }
 
   @Builder
@@ -1585,6 +1741,8 @@ struct MainPage {
       if (this.isResidentDetailShow) {
         this.residentDetailCover()
       }
+
+      this.titleAccountMenuAnchor()
     }
     .width('100%')
     .height('100%')
