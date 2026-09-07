@@ -295,17 +295,8 @@ export struct WideResidentPage {
     return { done: done, total: total };
   }
 
-  private hasBloodPressure(resident: ResidentData): boolean {
-    const vital: VitalSign = this.residentVitalSign(resident);
-    return vital.systolic > 0 && vital.diastolic > 0;
-  }
-
   private hasHeartRate(resident: ResidentData): boolean {
     return this.residentVitalSign(resident).heartRate > 0;
-  }
-
-  private hasOxygen(resident: ResidentData): boolean {
-    return this.residentVitalSign(resident).oxygen > 0;
   }
 
   private previousVitalValue(resident: ResidentData, pick: (item: HealthRecord) => number): number | undefined {
@@ -535,10 +526,6 @@ export struct WideResidentPage {
   private measuredAtText(resident: ResidentData): string {
     const measuredAt: string = this.residentVitalSign(resident).measuredAt;
     return measuredAt === '--' ? '暂无体征记录' : `${measuredAt} 更新`;
-  }
-
-  private vitalText(value: number): string {
-    return value > 0 ? value.toString() : '--';
   }
 
   private careRecords(resident: ResidentData): CareRecordRow[] {
@@ -1085,10 +1072,10 @@ export struct WideResidentPage {
       }
 
       Row({ space: this.compactWidth ? 10 : 12 }) {
-        this.bloodPressureMetric(resident)
+        this.respiratoryMetric(resident)
         this.heartRateMetric(resident)
-        this.oxygenMetric(resident)
-        this.temperatureMetric(resident)
+        this.fallStatusMetric(resident)
+        this.inBedMetric(resident)
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)
@@ -1119,16 +1106,15 @@ export struct WideResidentPage {
   }
 
   @Builder
-  private bloodPressureMetric(resident: ResidentData) {
-    if (this.hasBloodPressure(resident)) {
-      this.overviewVitalCard('血压',
-        `${this.residentVitalSign(resident).systolic}/${this.residentVitalSign(resident).diastolic}`, 'mmHg',
-        this.metricTrendText(this.residentVitalSign(resident).systolic,
-          this.previousVitalValue(resident, (item: HealthRecord): number => item.systolic ?? 0), 0, true),
-        this.metricTrendColor(this.residentVitalSign(resident).systolic,
-          this.previousVitalValue(resident, (item: HealthRecord): number => item.systolic ?? 0), 0, true))
+  private respiratoryMetric(resident: ResidentData) {
+    if (this.residentVitalSign(resident).respiratory > 0) {
+      this.overviewVitalCard('呼吸', this.residentVitalSign(resident).respiratory.toString(), '次/分',
+        this.metricTrendText(this.residentVitalSign(resident).respiratory,
+          this.previousVitalValue(resident, (item: HealthRecord): number => item.respiratory_rate ?? 0), 0, true),
+        this.metricTrendColor(this.residentVitalSign(resident).respiratory,
+          this.previousVitalValue(resident, (item: HealthRecord): number => item.respiratory_rate ?? 0), 0, true))
     } else {
-      this.overviewVitalCard('血压', '--', '', '暂无数据', $r('sys.color.font_tertiary'))
+      this.overviewVitalCard('呼吸', '--', '', '暂无数据', $r('sys.color.font_tertiary'))
     }
   }
 
@@ -1145,29 +1131,38 @@ export struct WideResidentPage {
     }
   }
 
+  /** 跌倒状态：存在未处理的服务器跌倒告警即视为跌倒，其余为正常。 */
+  private hasOpenFallAlert(resident: ResidentData): boolean {
+    return this.businessStore.alerts.some((item: Alert): boolean =>
+      item.elder_id === Number(resident.id) && item.type === 'fall' &&
+      item.status !== 'handled' && item.status !== 'closed');
+  }
+
+  /** 在床状态：与后端在住统计同口径（登记状态 status=2 视为在床）。 */
+  private isInBed(resident: ResidentData): boolean {
+    const elder: Elder | undefined = this.businessStore.elders.find(
+      (item: Elder): boolean => item.id === Number(resident.id));
+    return elder !== undefined && elder.status === 2;
+  }
+
   @Builder
-  private oxygenMetric(resident: ResidentData) {
-    if (this.hasOxygen(resident)) {
-      this.overviewVitalCard('血氧', this.residentVitalSign(resident).oxygen.toString(), '%',
-        this.metricTrendText(this.residentVitalSign(resident).oxygen,
-          this.previousVitalValue(resident, (item: HealthRecord): number => item.spo2 ?? 0), 0, false),
-        this.metricTrendColor(this.residentVitalSign(resident).oxygen,
-          this.previousVitalValue(resident, (item: HealthRecord): number => item.spo2 ?? 0), 0, false))
+  private fallStatusMetric(resident: ResidentData) {
+    if (this.hasOpenFallAlert(resident)) {
+      this.overviewVitalCard('跌倒状态', '跌倒', '',
+        '有未处理跌倒告警', $r('app.color.status_danger'))
     } else {
-      this.overviewVitalCard('血氧', '--', '', '暂无数据', $r('sys.color.font_tertiary'))
+      this.overviewVitalCard('跌倒状态', '正常', '',
+        this.residentVitalSign(resident).measuredAt === '--' ? '暂无监测数据' : '无跌倒告警',
+        $r('app.color.status_normal'))
     }
   }
 
   @Builder
-  private temperatureMetric(resident: ResidentData) {
-    if (this.residentVitalSign(resident).temperature > 0) {
-      this.overviewVitalCard('体温', this.vitalText(this.residentVitalSign(resident).temperature), '℃',
-        this.metricTrendText(this.residentVitalSign(resident).temperature,
-          this.previousVitalValue(resident, (item: HealthRecord): number => item.temperature ?? 0), 1, true),
-        this.metricTrendColor(this.residentVitalSign(resident).temperature,
-          this.previousVitalValue(resident, (item: HealthRecord): number => item.temperature ?? 0), 1, true))
+  private inBedMetric(resident: ResidentData) {
+    if (this.isInBed(resident)) {
+      this.overviewVitalCard('在床状态', '在床', '', '按在住登记', $r('app.color.status_normal'))
     } else {
-      this.overviewVitalCard('体温', '--', '', '暂无数据', $r('sys.color.font_tertiary'))
+      this.overviewVitalCard('在床状态', '离床', '', '未登记在住', $r('app.color.status_warning'))
     }
   }
 
