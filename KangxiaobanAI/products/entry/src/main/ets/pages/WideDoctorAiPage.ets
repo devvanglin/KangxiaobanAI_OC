@@ -759,7 +759,7 @@ export struct WideDoctorAiPage {
 
   private pagePadding(): number {
     if (this.isWideLayout()) {
-      return 24;
+      return 28;
     }
     return 16;
   }

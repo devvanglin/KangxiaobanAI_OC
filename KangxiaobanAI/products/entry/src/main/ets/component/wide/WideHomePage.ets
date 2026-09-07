@@ -29,7 +29,6 @@ const HOME_SUMMARY_SPLIT_MIN_WIDTH: number = 960;
 const HOME_WORK_SPLIT_MIN_WIDTH: number = 1180;
 const HOME_FULL_WIDTH_RATIO: number = 0.9;
 const HOME_XL_MIN_WIDTH: number = 1440;
-const HOME_XL_MAX_CONTENT_WIDTH: number = 1600;
 
 type CarePriority = 'danger' | 'warning' | 'normal';
 type CareTaskState = 'pending' | 'doing' | 'done';
@@ -568,11 +567,11 @@ export struct WideHomePage {
   }
 
   private contentHorizontalPadding(): number {
-    return this.useXlLayout() ? 32 : 16;
+    return this.compactWidth ? 16 : 28;
   }
 
   private contentMaxWidth(): number {
-    return this.useXlLayout() ? HOME_XL_MAX_CONTENT_WIDTH : 1440;
+    return 1280;
   }
 
   private aiFocusSheetWidth(): number {
@@ -586,7 +585,7 @@ export struct WideHomePage {
     if (!this.useWorkSplitLayout() || this.layoutHeight <= 0) {
       return 0;
     }
-    const topInset: number = this.topBarHeight + (this.compactWidth ? 16 : 20);
+    const topInset: number = this.topBarHeight + 32;
     const bottomInset: number = 28 + this.naviIndicatorHeight;
     let availableHeight: number = this.layoutHeight - topInset - bottomInset;
     if (!this.isTabletDevice()) {
@@ -2289,8 +2288,8 @@ export struct WideHomePage {
         .padding({
           left: this.contentHorizontalPadding(),
           right: this.contentHorizontalPadding(),
-          top: this.topBarHeight + (this.compactWidth ? 16 : 20),
-          bottom: 28 + this.naviIndicatorHeight
+          top: this.topBarHeight + 32,
+          bottom: 24 + this.naviIndicatorHeight
         })
         .alignItems(HorizontalAlign.Center)
         .justifyContent(FlexAlign.Start)

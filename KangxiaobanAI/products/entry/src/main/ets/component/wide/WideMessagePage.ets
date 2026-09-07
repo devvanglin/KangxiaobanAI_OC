@@ -569,7 +569,7 @@ export struct WideMessagePage {
       }
       .width('100%')
       .height('100%')
-      .padding({ left: 14, right: 14, bottom: 16 + this.naviIndicatorHeight })
+      .padding({ left: 16, right: 16, bottom: 24 + this.naviIndicatorHeight })
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
       .onScrollStart(() => {
@@ -983,7 +983,7 @@ export struct WideMessagePage {
       }
       .width('100%')
       .height('100%')
-      .padding({ left: 16, right: 16, bottom: 16 })
+      .padding({ left: 16, right: 16, bottom: 24 + this.naviIndicatorHeight })
       .backgroundColor($r('sys.color.background_secondary'))
     } else {
       Row({ space: 20 }) {
@@ -998,7 +998,7 @@ export struct WideMessagePage {
       }
       .width('100%')
       .height('100%')
-      .padding({ left: 24, right: 24, bottom: 24 })
+      .padding({ left: 28, right: 28, bottom: 24 + this.naviIndicatorHeight })
       .backgroundColor($r('sys.color.background_secondary'))
     }
   }

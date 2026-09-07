@@ -566,7 +566,7 @@ export struct WideDoctorResidentPage {
       }
       .width('100%')
       .height('100%')
-      .padding({ left: 16, right: 16, bottom: 16 })
+      .padding({ left: 16, right: 16, bottom: 24 + this.naviIndicatorHeight })
       .backgroundColor($r('sys.color.background_secondary'))
       .justifyContent(FlexAlign.Center)
     } else {
@@ -576,7 +576,7 @@ export struct WideDoctorResidentPage {
       }
       .width('100%')
       .height('100%')
-      .padding({ left: 24, right: 24, bottom: 24 })
+      .padding({ left: 28, right: 28, bottom: 24 + this.naviIndicatorHeight })
       .backgroundColor($r('sys.color.background_secondary'))
       .alignItems(VerticalAlign.Top)
     }
