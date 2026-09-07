@@ -145,12 +145,12 @@ export struct WideDoctorAssessmentsPage {
             this.assessmentsCard()
           }
           .width('100%')
-          .constraintSize({ maxWidth: this.compactWidth ? 1040 : 1320 })
+          .constraintSize({ maxWidth: 1280 })
           .padding({
-            left: this.compactWidth ? 16 : 24,
-            right: this.compactWidth ? 16 : 24,
-            top: this.statusBarHeight + 56,
-            bottom: 20 + this.naviIndicatorHeight
+            left: this.compactWidth ? 16 : 28,
+            right: this.compactWidth ? 16 : 28,
+            top: 88 + this.statusBarHeight,
+            bottom: 24 + this.naviIndicatorHeight
           })
           .alignItems(HorizontalAlign.Center)
         }
