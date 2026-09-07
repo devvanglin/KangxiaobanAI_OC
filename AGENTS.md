@@ -590,6 +590,20 @@ title bar uses the `56vp + statusBarHeight` rhythm, keeps identity/title on the 
 AI, and avatar-only account action on the right. The message badge owns notification count; do not add a duplicate bell
 or shift chip. Detailed shift progress remains in the home workbench.
 
+**stackBuilder-hosted components must not depend on their own survival.** Title bar `stackBuilder` content
+(`WideSlidingCapsule`, `WideCaregiverTitleActions`, `WideDoctorTitleActions`) is torn down and rebuilt whenever
+`HdsNavigation` title-bar options change — and `navigationTitleBarOptions()` returns a fresh object on every
+`MainPage` build, so with the seconds-precision `workspaceClockTime` clock as `mainTitle` this can happen every
+second. Rules that follow from the `0fb6edb7` capsule fix:
+
+- A user selection made inside such a component must be raised to the parent **synchronously**. Never defer an
+  `onSelect`/callback with `setTimeout` plus a cancellation token: if the rebuild lands inside the window, the
+  callback is silently swallowed (the "click animates then springs back / does nothing" bug class).
+- "Do the heavy thing later" belongs to the parent, whose lifecycle is stable: the parent updates its confirmed
+  state immediately (so a rebuilt child reads the new value in `aboutToAppear`) and defers the expensive content
+  swap on its own timer (see `MainPage.updateManagementNav` and `managementContentIndex`).
+- When reviewing any new title-bar interaction, assume the host builder can be destroyed at any frame boundary.
+
 ### 8.2 Safe areas and window classes
 
 Immersive rendering has two separate responsibilities:
