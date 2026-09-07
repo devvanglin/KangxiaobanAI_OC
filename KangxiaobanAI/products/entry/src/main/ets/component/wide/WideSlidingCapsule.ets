@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 
-import { curves } from '@kit.ArkUI';
 import { KeyCode } from '@kit.InputKit';
 
 export interface WideSlidingCapsuleItem {
@@ -34,37 +33,71 @@ export struct WideSlidingCapsule {
   @Param itemFontSize: number = 16;
   @Param fillWidth: boolean = false;
   @Param iconOnly: boolean = false;
-  @Param deferSelectionUntilAnimation: boolean = false;
   @Event onSelect: (index: number) => void = (_index: number) => {};
   @Local hoveredIndex: number = -1;
   @Local focusedIndex: number = -1;
   @Local measuredWidth: number = 0;
+  @Local animatedPosition: number = 0;
   @Local visualSelectedIndex: number = -1;
   @Local selectionRequestToken: number = 0;
+  private slideTimerId: number = -1;
 
   private selectedPosition(): number {
     return this.items.findIndex((item: WideSlidingCapsuleItem) => item.index === this.visualSelectedIndex);
   }
 
-  // 高亮位置直接由 visualSelectedIndex 派生，滑动效果交给声明式
-  // .animation() 驱动。不使用 animateTo：立即切换内容的端点（医师/管理端）
-  // 会在同一帧重建大块内容区，隐式动画容易被整帧重绘吞掉，表现为高亮瞬移。
   private selectionOffset(): number {
-    const position: number = this.selectedPosition();
-    return (position < 0 ? 0 : position) * (this.effectiveItemWidth() + 4);
+    return this.animatedPosition * (this.effectiveItemWidth() + 4);
   }
 
   aboutToAppear(): void {
     this.visualSelectedIndex = this.selectedIndex;
+    const position: number = this.selectedPosition();
+    this.animatedPosition = position < 0 ? 0 : position;
   }
 
   aboutToDisappear(): void {
+    if (this.slideTimerId >= 0) {
+      clearInterval(this.slideTimerId);
+      this.slideTimerId = -1;
+    }
     this.selectionRequestToken += 1;
   }
 
   @Monitor('selectedIndex')
   onSelectedIndexChange(): void {
+    if (this.selectedIndex === this.visualSelectedIndex) {
+      return;
+    }
+    this.selectionRequestToken += 1;
     this.visualSelectedIndex = this.selectedIndex;
+    const position: number = this.selectedPosition();
+    if (position < 0 || position === this.animatedPosition) {
+      return;
+    }
+    this.animatePillTo(position);
+  }
+
+  // 显式帧驱动滑动：不依赖 animateTo/.animation() 等隐式动画机制。实测隐式
+  // 动画对该 translate 不生效（滑块瞬移），逐帧推进状态变量在任何环境都必然
+  // 渲染出滑动过程；easeOutCubic 提供平滑减速的收尾手感。
+  private animatePillTo(target: number): void {
+    if (this.slideTimerId >= 0) {
+      clearInterval(this.slideTimerId);
+    }
+    const start: number = this.animatedPosition;
+    const startedAt: number = Date.now();
+    const duration: number = 280;
+    this.slideTimerId = setInterval((): void => {
+      const progress: number = Math.min(1, (Date.now() - startedAt) / duration);
+      const eased: number = 1 - Math.pow(1 - progress, 3);
+      this.animatedPosition = start + (target - start) * eased;
+      if (progress >= 1) {
+        clearInterval(this.slideTimerId);
+        this.slideTimerId = -1;
+        this.animatedPosition = target;
+      }
+    }, 16);
   }
 
   private slideTo(index: number): void {
@@ -83,10 +116,9 @@ export struct WideSlidingCapsule {
     this.selectionRequestToken += 1;
     const requestToken: number = this.selectionRequestToken;
     this.visualSelectedIndex = index;
-    if (!this.deferSelectionUntilAnimation) {
-      this.onSelect(index);
-      return;
-    }
+    this.animatePillTo(position);
+    // 所有端统一延迟切换内容：先让滑块滑动动画完整播放，再做页面级重建。
+    // 立即切换会让同一帧的大块内容重建挤掉动画帧，滑块表现为瞬移。
     setTimeout(() => {
       if (requestToken === this.selectionRequestToken) {
         this.onSelect(index);
@@ -243,12 +275,6 @@ export struct WideSlidingCapsule {
         .shadow({ radius: 6, color: 'rgba(0,0,0,0.05)', offsetY: 1 })
         .translate({ x: this.selectionOffset() })
         .opacity(this.selectedPosition() >= 0 ? 1 : 0)
-        // 声明式动画：任何导致 translate/opacity 变化的状态更新都会平滑过渡，
-        // 不受同帧内容区重建影响。弹簧曲线带来轻微回弹的胶囊滑动手感。
-        .animation({
-          duration: 320,
-          curve: curves.interpolatingSpring(0, 1, 320, 34)
-        })
 
       Row({ space: 4 }) {
         ForEach(this.items, (item: WideSlidingCapsuleItem) => {
