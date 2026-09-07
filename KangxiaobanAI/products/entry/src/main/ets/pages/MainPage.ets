@@ -164,6 +164,8 @@ struct MainPage {
   @Local adminHasLocalNavLayer: boolean = false;
   @Local adminBackRequestToken: number = 0;
   @Local doctorResidentDetailVisible: boolean = false;
+  /** 医师选中的长者：提升到 MainPage，离开「长者」页再回来时保留选中。 */
+  @Local doctorSelectedResidentId: string = '';
   @Local doctorResidentBackRequestToken: number = 0;
   @Local doctorResidentScrollerOwner: DoctorResidentScrollerOwner = 'residentDetail';
   @Local doctorAiHistoryCollapsed: boolean = false;
@@ -1318,6 +1320,10 @@ struct MainPage {
           detailScroller: this.wideDoctorResidentDetailScroller,
           naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
           backRequestToken: this.doctorResidentBackRequestToken,
+          selectedResidentId: this.doctorSelectedResidentId,
+          onSelectResident: (id: string) => {
+            this.doctorSelectedResidentId = id;
+          },
           onLocalDetailVisibilityChange: (visible: boolean) => {
             this.doctorResidentDetailVisible = visible;
           },

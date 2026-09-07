@@ -91,10 +91,11 @@ export struct WideDoctorResidentPage {
     { title: '行为', index: 4 },
     { title: '药物', index: 5 }
   ];
-  @Local selectedResidentId: string = '';
+  @Param selectedResidentId: string = '';
   @Local selectedTab: ResidentDetailTab = 'overview';
   @Local hoveredResidentId: string = '';
   @Local compactDetailVisible: boolean = false;
+  @Event onSelectResident: (id: string) => void = (_id: string) => {};
 
   @Monitor('backRequestToken')
   onBackRequestTokenChange(): void {
@@ -127,7 +128,7 @@ export struct WideDoctorResidentPage {
       return;
     }
 
-    this.selectedResidentId = requestedResident.id;
+    this.onSelectResident(requestedResident.id);
     this.selectedTab = 'overview';
     if (this.compactWidth) {
       this.showCompactDetail();
@@ -649,12 +650,6 @@ export struct WideDoctorResidentPage {
               ListItem() {
                 Column({ space: 0 }) {
                   this.residentListRow(repeatItem.item)
-                  if (repeatItem.index !== this.filteredResidents().length - 1) {
-                    Divider()
-                      .strokeWidth(0.5)
-                      .color($r('sys.color.comp_divider'))
-                      .margin({ left: 68, right: 12 })
-                  }
                 }
                 .width('100%')
               }
@@ -731,7 +726,7 @@ export struct WideDoctorResidentPage {
               .layoutWeight(1)
 
             Text(this.statusText(resident.level))
-              .fontSize($r('sys.float.Body_S'))
+              .fontSize($r('sys.float.Body_M'))
               .fontColor($r('sys.color.font_secondary'))
           }
           .width('100%')
@@ -758,7 +753,7 @@ export struct WideDoctorResidentPage {
       this.hoveredResidentId = isHover ? resident.id : '';
     })
     .onClick(() => {
-      this.selectedResidentId = resident.id;
+      this.onSelectResident(resident.id);
       this.selectedTab = 'overview';
       if (this.compactWidth) {
         this.showCompactDetail();
@@ -769,10 +764,20 @@ export struct WideDoctorResidentPage {
     })
   }
 
+  private selectedResident(): ResidentData | undefined {
+    if (this.selectedResidentId.length === 0) {
+      return undefined;
+    }
+    return this.allResidents().find(
+      (resident: ResidentData): boolean => resident.id === this.selectedResidentId);
+  }
+
   @Builder
   private detailPane() {
     if (this.allResidents().length === 0) {
       this.emptyResidentDetail()
+    } else if (this.selectedResident() === undefined) {
+      this.selectResidentHint()
     } else {
       this.residentDetailPane(this.selectedResidentOrFirst())
     }
@@ -783,6 +788,26 @@ export struct WideDoctorResidentPage {
     const selected: ResidentData | undefined = residents.find(
       (resident: ResidentData): boolean => resident.id === this.selectedResidentId);
     return selected ?? residents[0];
+  }
+
+  @Builder
+  private selectResidentHint() {
+    Column({ space: 10 }) {
+      SymbolGlyph($r('sys.symbol.person_2_fill'))
+        .fontSize(44)
+        .fontColor([$r('sys.color.font_tertiary')])
+      Text('在左侧选择一位长者')
+        .fontSize($r('sys.float.Body_L'))
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_secondary'))
+      Text('点击长者名字即可查看健康与护理情况')
+        .fontSize($r('sys.float.Body_S'))
+        .fontColor($r('sys.color.font_tertiary'))
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
   }
 
   @Builder
