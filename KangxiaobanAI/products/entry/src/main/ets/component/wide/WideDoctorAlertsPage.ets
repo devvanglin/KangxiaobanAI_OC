@@ -8,7 +8,7 @@ import {
 import { BusinessStore } from '../../network/BusinessStore';
 import { AlertApi } from '../../network/AlertApi';
 import { Alert, AlertAction, HealthRecord } from '../../network/Dto';
-import { QuickEmptyHint, quickElderName } from './WideDoctorQuickPageKit';
+import { quickElderName } from './WideDoctorQuickPageKit';
 
 interface CategoryTab {
   key: string;
@@ -340,27 +340,35 @@ export struct WideDoctorAlertsPage {
 
   @Builder
   private categoryTabBar() {
-    Row({ space: 26 }) {
-      ForEach(this.categoryTabs, (tab: CategoryTab) => {
-        Column({ space: 6 }) {
-          Text(tab.label)
-            .fontSize(15)
-            .fontWeight(this.category === tab.key ? FontWeight.Medium : FontWeight.Regular)
-            .fontColor(this.category === tab.key ? $r('sys.color.font_primary') : $r('sys.color.font_secondary'))
-          Row()
-            .width(20)
-            .height(3)
-            .borderRadius(1.5)
-            .backgroundColor(this.category === tab.key ? $r('sys.color.font_primary') : Color.Transparent)
-        }
-        .onClick(() => {
-          this.category = tab.key;
-        })
-      }, (tab: CategoryTab) => tab.key)
+    Column() {
+      Row({ space: 26 }) {
+        ForEach(this.categoryTabs, (tab: CategoryTab) => {
+          Column({ space: 6 }) {
+            Text(tab.label)
+              .fontSize(15)
+              .fontWeight(this.category === tab.key ? FontWeight.Medium : FontWeight.Regular)
+              .fontColor(this.category === tab.key ? $r('sys.color.font_primary') : $r('sys.color.font_secondary'))
+            Row()
+              .width(20)
+              .height(3)
+              .borderRadius(1.5)
+              .backgroundColor(this.category === tab.key ? $r('sys.color.font_primary') : Color.Transparent)
+          }
+          .onClick(() => {
+            this.category = tab.key;
+          })
+        }, (tab: CategoryTab) => tab.key)
+      }
+      .width('100%')
+      .height(46)
+      .padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28 })
+      .alignItems(VerticalAlign.Center)
+
+      Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
     }
     .width('100%')
-    .padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28, bottom: 10 })
-    .alignItems(VerticalAlign.Center)
+    .padding({ top: this.statusBarHeight + 56 })
+    .backgroundColor($r('sys.color.comp_background_primary'))
   }
 
   @Builder
@@ -406,7 +414,11 @@ export struct WideDoctorAlertsPage {
     .width('100%')
     .padding(12)
     .borderRadius(10)
-    .backgroundColor(this.selectedAlertId === alert.id ? 'rgba(29,99,237,0.06)' : Color.Transparent)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .border({
+      width: 0.5,
+      color: this.selectedAlertId === alert.id ? $r('app.color.brand_blue') : $r('sys.color.comp_divider')
+    })
     .alignItems(HorizontalAlign.Start)
     .onClick(() => {
       this.selectAlert(alert);
@@ -429,8 +441,20 @@ export struct WideDoctorAlertsPage {
       Scroll(this.scroller) {
         Column({ space: 8 }) {
           if (this.filteredAlerts().length === 0) {
-            QuickEmptyHint({ text: '当前筛选下暂无告警', loading: this.businessStore.loading })
-              .margin({ top: 40 })
+            Column({ space: 8 }) {
+              SymbolGlyph($r('sys.symbol.bell_fill'))
+                .fontSize(36)
+                .fontColor([$r('sys.color.font_tertiary')])
+              Text(this.businessStore.loading && !this.businessStore.loaded ? '正在加载告警…' : '暂无告警记录')
+                .fontSize($r('sys.float.Body_M'))
+                .fontColor($r('sys.color.font_secondary'))
+              Text('设备接入并产生事件后，告警将自动推送到这里')
+                .fontSize($r('sys.float.Body_S'))
+                .fontColor($r('sys.color.font_tertiary'))
+            }
+            .width('100%')
+            .padding({ top: 48, bottom: 48 })
+            .alignItems(HorizontalAlign.Center)
           } else {
             ForEach(this.filteredAlerts(), (alert: Alert) => {
               this.alertCard(alert)
@@ -728,6 +752,7 @@ export struct WideDoctorAlertsPage {
         }
         .layoutWeight(1)
         .width('100%')
+        .padding({ top: 12 })
         .alignItems(VerticalAlign.Top)
       }
       .width('100%')
