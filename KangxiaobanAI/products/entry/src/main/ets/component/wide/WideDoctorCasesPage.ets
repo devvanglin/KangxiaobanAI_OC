@@ -15,6 +15,7 @@ export struct WideDoctorCasesPage {
   @Param compactWidth: boolean = false;
   @Param topBarHeight: number = 0;
   @Param naviIndicatorHeight: number = 0;
+  @Event onClose: () => void = () => {};
   @Local cases: AdmissionAssessmentRecord[] = [];
   @Local casesLoading: boolean = false;
   @Local caseSearch: string = '';
@@ -186,6 +187,17 @@ export struct WideDoctorCasesPage {
   private masterPane() {
     Column({ space: 12 }) {
       Row({ space: 8 }) {
+        Button({ type: ButtonType.Circle, stateEffect: true }) {
+          SymbolGlyph($r('sys.symbol.chevron_left'))
+            .fontSize(18)
+            .fontColor([$r('sys.color.icon_primary')])
+        }
+        .width(30)
+        .height(30)
+        .backgroundColor($r('sys.color.comp_background_secondary'))
+        .accessibilityText('返回工作台')
+        .onClick(() => this.onClose())
+
         Text('病例')
           .fontSize(17)
           .fontWeight(FontWeight.Bold)

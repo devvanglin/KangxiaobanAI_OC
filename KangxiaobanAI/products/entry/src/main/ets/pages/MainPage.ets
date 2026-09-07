@@ -80,7 +80,6 @@ const DOCTOR_AI_HISTORY_COLLAPSED_KEY: string = 'doctor_ai_history_collapsed';
 function doctorQuickRouteName(moduleId: string): string {
   switch (moduleId) {
     case 'beds': return 'DoctorBedsPage';
-    case 'tasks': return 'DoctorTasksPage';
     case 'alerts': return 'DoctorAlertsPage';
     case 'assessment': return 'DoctorAssessmentsPage';
     case 'billing': return 'DoctorBillsPage';
@@ -166,6 +165,8 @@ struct MainPage {
   @Local doctorResidentDetailVisible: boolean = false;
   /** 医师选中的长者：提升到 MainPage，离开「长者」页再回来时保留选中。 */
   @Local doctorSelectedResidentId: string = '';
+  /** 工作台「查看病例」打开的病例界面；独立于胶囊导航，返回时关闭。 */
+  @Local doctorCasesVisible: boolean = false;
   @Local doctorResidentBackRequestToken: number = 0;
   @Local doctorResidentScrollerOwner: DoctorResidentScrollerOwner = 'residentDetail';
   @Local doctorAiHistoryCollapsed: boolean = false;
@@ -321,10 +322,6 @@ struct MainPage {
     return this.isManagementWideWorkspace() && this.globalInfoModel.role === '医师' && this.managementContentIndex === 2;
   }
 
-  private isDoctorCasesWorkspace(): boolean {
-    return this.isManagementWideWorkspace() && this.globalInfoModel.role === '医师' && this.managementContentIndex === 3;
-  }
-
   private showDoctorResidentBackButton(): boolean {
     return this.isDoctorResidentWorkspace() && this.useCompactDoctorWorkspace() &&
       this.doctorResidentDetailVisible && this.pathStack.size() === 0;
@@ -348,6 +345,8 @@ struct MainPage {
     // 选中态立即生效：标题栏胶囊（stackBuilder 内）可能随时被重建，重建后
     // aboutToAppear 读取的正是这个值，高亮因此永不回弹。
     this.managementNavIndex = index;
+    // 病例界面由工作台快捷功能打开，离开当前导航上下文时关闭。
+    this.doctorCasesVisible = false;
     // 内容延迟切换：保住"滑块动画播完再做大块内容重建"的原始体验。
     // 定时器挂在 MainPage 上（生命周期稳定），不再依赖胶囊组件自身存活。
     if (this.managementContentTimerId !== -1) {
@@ -746,6 +745,10 @@ struct MainPage {
   onBackPress(): boolean {
     if (this.isAiChatShow) {
       this.closeAiChat();
+      return true;
+    }
+    if (this.doctorCasesVisible) {
+      this.doctorCasesVisible = false;
       return true;
     }
     if (this.isResidentDetailShow) {
@@ -1312,7 +1315,16 @@ struct MainPage {
   @Builder
   private wideShell() {
     if (this.globalInfoModel.role === '管理' || this.globalInfoModel.role === '医师') {
-      if (this.isDoctorResidentWorkspace()) {
+      if (this.doctorCasesVisible) {
+        WideDoctorCasesPage({
+          compactWidth: this.useCompactDoctorWorkspace(),
+          topBarHeight: this.wideDoctorTopBarHeight(),
+          naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
+          onClose: () => {
+            this.doctorCasesVisible = false;
+          }
+        })
+      } else if (this.isDoctorResidentWorkspace()) {
         WideDoctorResidentPage({
           compactWidth: this.useCompactDoctorWorkspace(),
           topBarHeight: this.wideDoctorTopBarHeight(),
@@ -1333,12 +1345,6 @@ struct MainPage {
           onDetailScrollerActive: () => {
             this.doctorResidentScrollerOwner = 'residentDetail';
           }
-        })
-      } else if (this.isDoctorCasesWorkspace()) {
-        WideDoctorCasesPage({
-          compactWidth: this.useCompactDoctorWorkspace(),
-          topBarHeight: this.wideDoctorTopBarHeight(),
-          naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight
         })
       } else if (this.isDoctorAiWorkspace()) {
         WideDoctorAiPage({
@@ -1367,6 +1373,10 @@ struct MainPage {
             this.adminHasLocalNavLayer = hasLayer;
           },
           onOpenQuickFunction: (moduleId: string) => {
+            if (moduleId === 'cases') {
+              this.doctorCasesVisible = true;
+              return;
+            }
             const routeName: string = doctorQuickRouteName(moduleId);
             if (routeName.length > 0) {
               this.pathStack.pushPath({ name: routeName });
