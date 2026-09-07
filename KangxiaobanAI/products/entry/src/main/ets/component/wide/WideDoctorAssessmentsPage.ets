@@ -474,8 +474,8 @@ export struct WideDoctorAssessmentsPage {
     }
     .width('100%')
     .margin({
-      left: this.compactWidth ? 16 : 24,
-      right: this.compactWidth ? 16 : 24,
+      left: this.compactWidth ? 16 : 28,
+      right: this.compactWidth ? 16 : 28,
       bottom: 14
     })
     .padding(16)
@@ -582,9 +582,9 @@ export struct WideDoctorAssessmentsPage {
         }
         .width('100%')
         .padding({
-          left: this.compactWidth ? 16 : 24,
-          right: this.compactWidth ? 16 : 24,
-          top: this.statusBarHeight + 68
+          left: this.compactWidth ? 16 : 28,
+          right: this.compactWidth ? 16 : 28,
+          top: 88 + this.statusBarHeight
         })
 
         if (this.formVisible) {
@@ -633,8 +633,8 @@ export struct WideDoctorAssessmentsPage {
         .layoutWeight(1)
         .width('100%')
         .margin({
-          left: this.compactWidth ? 16 : 24,
-          right: this.compactWidth ? 16 : 24,
+          left: this.compactWidth ? 16 : 28,
+          right: this.compactWidth ? 16 : 28,
           bottom: 24 + this.naviIndicatorHeight
         })
         .backgroundColor($r('sys.color.comp_background_primary'))

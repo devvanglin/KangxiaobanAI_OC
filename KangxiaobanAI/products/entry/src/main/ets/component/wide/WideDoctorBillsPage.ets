@@ -396,7 +396,7 @@ export struct WideDoctorBillsPage {
           WideSlidingCapsule({
             items: this.statusItems(),
             selectedIndex: this.statusIndex(),
-            itemWidth: 80,
+            itemWidth: 88,
             onSelect: (index: number) => {
               if (index >= 0 && index < BILL_STATUSES.length) {
                 this.statusFilter = BILL_STATUSES[index].key;
@@ -447,9 +447,9 @@ export struct WideDoctorBillsPage {
         }
         .width('100%')
         .padding({
-          left: this.compactWidth ? 16 : 24,
-          right: this.compactWidth ? 16 : 24,
-          top: this.statusBarHeight + 68
+          left: this.compactWidth ? 16 : 28,
+          right: this.compactWidth ? 16 : 28,
+          top: 88 + this.statusBarHeight
         })
 
         Column() {
@@ -494,8 +494,8 @@ export struct WideDoctorBillsPage {
         .layoutWeight(1)
         .width('100%')
         .margin({
-          left: this.compactWidth ? 16 : 24,
-          right: this.compactWidth ? 16 : 24,
+          left: this.compactWidth ? 16 : 28,
+          right: this.compactWidth ? 16 : 28,
           bottom: 24 + this.naviIndicatorHeight
         })
         .backgroundColor($r('sys.color.comp_background_primary'))
