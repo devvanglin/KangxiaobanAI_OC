@@ -473,11 +473,7 @@ export struct WideDoctorAssessmentsPage {
       .width('100%')
     }
     .width('100%')
-    .margin({
-      left: this.compactWidth ? 16 : 80,
-      right: this.compactWidth ? 16 : 80,
-      bottom: 14
-    })
+    .margin({ bottom: 14 })
     .padding(16)
     .alignItems(HorizontalAlign.Start)
     .backgroundColor($r('sys.color.comp_background_primary'))
@@ -534,7 +530,8 @@ export struct WideDoctorAssessmentsPage {
 
   build() {
     HdsNavDestination() {
-      Column() {
+      Row() {
+        Column() {
         Row({ space: 12 }) {
           WideSlidingCapsule({
             items: this.typeItems(),
@@ -581,11 +578,7 @@ export struct WideDoctorAssessmentsPage {
             })
         }
         .width('100%')
-        .padding({
-          left: this.compactWidth ? 16 : 80,
-          right: this.compactWidth ? 16 : 80,
-          top: 88 + this.statusBarHeight
-        })
+        .padding({ top: 88 + this.statusBarHeight })
 
         if (this.formVisible) {
           this.createFormCard()
@@ -632,18 +625,21 @@ export struct WideDoctorAssessmentsPage {
         }
         .layoutWeight(1)
         .width('100%')
-        .margin({
-          left: this.compactWidth ? 16 : 80,
-          right: this.compactWidth ? 16 : 80,
-          bottom: 24 + this.naviIndicatorHeight
-        })
+        .margin({ bottom: 24 + this.naviIndicatorHeight })
         .backgroundColor($r('sys.color.comp_background_primary'))
         .borderRadius(16)
         .clip(true)
         .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+        }
+        .width('100%')
+        .height('100%')
+        .constraintSize({ maxWidth: 1280 })
+        .padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28 })
+        .alignItems(HorizontalAlign.Start)
       }
       .width('100%')
       .height('100%')
+      .justifyContent(FlexAlign.Center)
     }
     .onBackPressed((): boolean => {
       this.onClose();

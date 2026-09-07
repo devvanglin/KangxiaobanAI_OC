@@ -391,7 +391,8 @@ export struct WideDoctorBillsPage {
 
   build() {
     HdsNavDestination() {
-      Column() {
+      Row() {
+        Column() {
         Row({ space: 12 }) {
           WideSlidingCapsule({
             items: this.statusItems(),
@@ -446,11 +447,7 @@ export struct WideDoctorBillsPage {
             })
         }
         .width('100%')
-        .padding({
-          left: this.compactWidth ? 16 : 80,
-          right: this.compactWidth ? 16 : 80,
-          top: 88 + this.statusBarHeight
-        })
+        .padding({ top: 88 + this.statusBarHeight })
 
         Column() {
           this.tableHeader()
@@ -493,18 +490,21 @@ export struct WideDoctorBillsPage {
         }
         .layoutWeight(1)
         .width('100%')
-        .margin({
-          left: this.compactWidth ? 16 : 80,
-          right: this.compactWidth ? 16 : 80,
-          bottom: 24 + this.naviIndicatorHeight
-        })
+        .margin({ bottom: 24 + this.naviIndicatorHeight })
         .backgroundColor($r('sys.color.comp_background_primary'))
         .borderRadius(16)
         .clip(true)
         .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+        }
+        .width('100%')
+        .height('100%')
+        .constraintSize({ maxWidth: 1280 })
+        .padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28 })
+        .alignItems(HorizontalAlign.Start)
       }
       .width('100%')
       .height('100%')
+      .justifyContent(FlexAlign.Center)
     }
     .onBackPressed((): boolean => {
       this.onClose();
