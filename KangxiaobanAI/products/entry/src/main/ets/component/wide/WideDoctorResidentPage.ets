@@ -716,15 +716,9 @@ export struct WideDoctorResidentPage {
   private residentListRow(resident: ResidentData) {
     Button({ type: ButtonType.Normal, stateEffect: true }) {
       Row({ space: 12 }) {
-        Text(resident.avatarText ?? resident.name.slice(0, 1))
-          .fontSize($r('sys.float.Subtitle_M'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-          .width(40)
-          .height(40)
-          .textAlign(TextAlign.Center)
-          .backgroundColor($r('sys.color.comp_background_secondary'))
-          .borderRadius(20)
+        SymbolGlyph($r('sys.symbol.person_crop_circle_fill'))
+          .fontSize(40)
+          .fontColor([$r('sys.color.icon_secondary')])
 
         Column() {
           Row({ space: 8 }) {
@@ -737,7 +731,7 @@ export struct WideDoctorResidentPage {
               .layoutWeight(1)
 
             Text(this.statusText(resident.level))
-              .fontSize($r('sys.float.Caption_M'))
+              .fontSize($r('sys.float.Body_S'))
               .fontColor($r('sys.color.font_secondary'))
           }
           .width('100%')
