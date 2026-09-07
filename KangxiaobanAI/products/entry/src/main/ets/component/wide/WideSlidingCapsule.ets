@@ -39,7 +39,6 @@ export struct WideSlidingCapsule {
   @Local hoveredIndex: number = -1;
   @Local focusedIndex: number = -1;
   @Local measuredWidth: number = 0;
-  @Local animatedPosition: number = 0;
   @Local visualSelectedIndex: number = -1;
   @Local selectionRequestToken: number = 0;
 
@@ -47,14 +46,16 @@ export struct WideSlidingCapsule {
     return this.items.findIndex((item: WideSlidingCapsuleItem) => item.index === this.visualSelectedIndex);
   }
 
+  // 高亮位置直接由 visualSelectedIndex 派生，滑动效果交给声明式
+  // .animation() 驱动。不使用 animateTo：立即切换内容的端点（医师/管理端）
+  // 会在同一帧重建大块内容区，隐式动画容易被整帧重绘吞掉，表现为高亮瞬移。
   private selectionOffset(): number {
-    return this.animatedPosition * (this.effectiveItemWidth() + 4);
+    const position: number = this.selectedPosition();
+    return (position < 0 ? 0 : position) * (this.effectiveItemWidth() + 4);
   }
 
   aboutToAppear(): void {
     this.visualSelectedIndex = this.selectedIndex;
-    const position: number = this.selectedPosition();
-    this.animatedPosition = position < 0 ? 0 : position;
   }
 
   aboutToDisappear(): void {
@@ -63,21 +64,7 @@ export struct WideSlidingCapsule {
 
   @Monitor('selectedIndex')
   onSelectedIndexChange(): void {
-    if (this.selectedIndex === this.visualSelectedIndex) {
-      return;
-    }
-    this.selectionRequestToken += 1;
     this.visualSelectedIndex = this.selectedIndex;
-    const position: number = this.selectedPosition();
-    if (position < 0 || position === this.animatedPosition) {
-      return;
-    }
-    this.getUIContext().animateTo({
-      duration: 280,
-      curve: curves.interpolatingSpring(0, 1, 320, 34)
-    }, () => {
-      this.animatedPosition = position;
-    });
   }
 
   private slideTo(index: number): void {
@@ -96,12 +83,6 @@ export struct WideSlidingCapsule {
     this.selectionRequestToken += 1;
     const requestToken: number = this.selectionRequestToken;
     this.visualSelectedIndex = index;
-    this.getUIContext().animateTo({
-      duration: 280,
-      curve: curves.interpolatingSpring(0, 1, 320, 34)
-    }, () => {
-      this.animatedPosition = position;
-    });
     if (!this.deferSelectionUntilAnimation) {
       this.onSelect(index);
       return;
@@ -262,6 +243,12 @@ export struct WideSlidingCapsule {
         .shadow({ radius: 6, color: 'rgba(0,0,0,0.05)', offsetY: 1 })
         .translate({ x: this.selectionOffset() })
         .opacity(this.selectedPosition() >= 0 ? 1 : 0)
+        // 声明式动画：任何导致 translate/opacity 变化的状态更新都会平滑过渡，
+        // 不受同帧内容区重建影响。弹簧曲线带来轻微回弹的胶囊滑动手感。
+        .animation({
+          duration: 320,
+          curve: curves.interpolatingSpring(0, 1, 320, 34)
+        })
 
       Row({ space: 4 }) {
         ForEach(this.items, (item: WideSlidingCapsuleItem) => {

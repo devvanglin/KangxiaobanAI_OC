@@ -26,7 +26,7 @@ import { BusinessStore } from '../../network/BusinessStore';
 import { Alert, Bed, CareExecution, CareTask, Elder, HealthRecord, IotDevice, MedicationRecord, Room } from '../../network/Dto';
 
 type ResidentFilter = 'all' | 'warning' | 'danger';
-type ResidentDetailTab = 'overview' | 'vitals' | 'care' | 'devices' | 'behavior';
+type ResidentDetailTab = 'overview' | 'vitals' | 'care' | 'devices' | 'behavior' | 'medications';
 
 interface VitalTrendRow {
   time: string;
@@ -88,7 +88,8 @@ export struct WideDoctorResidentPage {
     { title: '体征趋势', index: 1 },
     { title: '护理记录', index: 2 },
     { title: '设备', index: 3 },
-    { title: '行为', index: 4 }
+    { title: '行为', index: 4 },
+    { title: '药物', index: 5 }
   ];
   @Local selectedResidentId: string = '';
   @Local selectedTab: ResidentDetailTab = 'overview';
@@ -416,6 +417,9 @@ export struct WideDoctorResidentPage {
     if (this.selectedTab === 'behavior') {
       return 4;
     }
+    if (this.selectedTab === 'medications') {
+      return 5;
+    }
     return 0;
   }
 
@@ -428,6 +432,8 @@ export struct WideDoctorResidentPage {
       this.selectedTab = 'devices';
     } else if (index === 4) {
       this.selectedTab = 'behavior';
+    } else if (index === 5) {
+      this.selectedTab = 'medications';
     } else {
       this.selectedTab = 'overview';
     }
@@ -821,6 +827,8 @@ export struct WideDoctorResidentPage {
             this.careRecordContent(resident)
           } else if (this.selectedTab === 'behavior') {
             this.behaviorContent(resident)
+          } else if (this.selectedTab === 'medications') {
+            this.medicationContent(resident)
           } else {
             this.deviceContent(resident)
           }
@@ -1534,6 +1542,139 @@ export struct WideDoctorResidentPage {
         Text('当前仅完成摄像头设备配置与在线状态展示，行为分析适配后将在这里显示事件。').fontSize(12).fontColor($r('sys.color.font_secondary')).textAlign(TextAlign.Center)
       }.width('100%').padding(28).backgroundColor($r('sys.color.comp_background_secondary')).borderRadius(10).alignItems(HorizontalAlign.Center)
     }.width('100%')
+  }
+
+  private medicationStateText(status: string): string {
+    if (status === 'taken') {
+      return '已完成';
+    }
+    if (status === 'missed') {
+      return '已错过';
+    }
+    return '待执行';
+  }
+
+  private medicationStateLevel(status: string): StatusLevel {
+    if (status === 'taken') {
+      return 'normal';
+    }
+    if (status === 'missed') {
+      return 'danger';
+    }
+    return 'warning';
+  }
+
+  @Builder
+  private medicationContent(resident: ResidentData) {
+    Column({ space: 12 }) {
+      Column({ space: 10 }) {
+        this.cardTitle('今日用药进度', '按医嘱执行')
+        Row() {
+          Column({ space: 4 }) {
+            Text(`${this.residentMedicationProgress(resident).done}/${this.residentMedicationProgress(resident).total}`)
+              .fontSize($r('sys.float.Title_L'))
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('app.color.brand_blue'))
+            Text('已完成次数')
+              .fontSize($r('sys.float.Caption_M'))
+              .fontColor($r('sys.color.font_tertiary'))
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1)
+
+          Text(this.nextMedicationText(resident))
+            .fontSize($r('sys.float.Body_M'))
+            .fontWeight(FontWeight.Medium)
+            .fontColor(this.residentMedicationProgress(resident).done ===
+              this.residentMedicationProgress(resident).total ?
+              $r('app.color.status_normal') : $r('app.color.status_warning'))
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+      }
+      .width('100%')
+      .padding({ left: 18, right: 18, top: 4, bottom: 14 })
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(12)
+      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+
+      Column({ space: 0 }) {
+        this.cardTitle('用药计划', `${this.residentMedications(resident).length} 条医嘱`)
+        if (this.residentMedications(resident).length === 0) {
+          Column({ space: 10 }) {
+            SymbolGlyph($r('sys.symbol.cross_case')).fontSize(30).fontColor([$r('app.color.brand_blue')])
+            Text('暂无用药计划').fontSize(15).fontWeight(FontWeight.Medium)
+            Text('服务器未下发该长者的用药医嘱，可在管理端「药物」模块维护目录。')
+              .fontSize(12)
+              .fontColor($r('sys.color.font_secondary'))
+              .textAlign(TextAlign.Center)
+          }
+          .width('100%')
+          .padding(24)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .borderRadius(10)
+          .alignItems(HorizontalAlign.Center)
+        } else {
+          Repeat(this.residentMedications(resident))
+            .each((repeatItem: RepeatItem<MedicationRecord>) => {
+              Row({ space: 14 }) {
+                Text(this.timeText(repeatItem.item.plan_time ?? ''))
+                  .width(54)
+                  .fontSize($r('sys.float.Body_S'))
+                  .fontColor($r('sys.color.font_tertiary'))
+
+                Row()
+                  .width(8)
+                  .height(8)
+                  .borderRadius(4)
+                  .backgroundColor(this.statusColor(this.medicationStateLevel(repeatItem.item.status)))
+
+                Column({ space: 4 }) {
+                  Row({ space: 8 }) {
+                    Text(repeatItem.item.medicine_name)
+                      .fontSize($r('sys.float.Body_M'))
+                      .fontWeight(FontWeight.Medium)
+                      .fontColor($r('sys.color.font_primary'))
+                      .maxLines(1)
+                      .textOverflow({ overflow: TextOverflow.Ellipsis })
+                    Text(repeatItem.item.dosage)
+                      .fontSize($r('sys.float.Caption_M'))
+                      .fontColor($r('sys.color.font_secondary'))
+                  }
+                  Text([repeatItem.item.frequency, repeatItem.item.route]
+                    .filter((value: string): boolean => value.length > 0).join(' · '))
+                    .fontSize($r('sys.float.Body_S'))
+                    .fontColor($r('sys.color.font_secondary'))
+                    .maxLines(1)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                }
+                .layoutWeight(1)
+                .alignItems(HorizontalAlign.Start)
+
+                Text(this.medicationStateText(repeatItem.item.status))
+                  .fontSize($r('sys.float.Caption_M'))
+                  .fontColor(this.statusColor(this.medicationStateLevel(repeatItem.item.status)))
+                  .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+                  .backgroundColor(this.statusBackground(this.medicationStateLevel(repeatItem.item.status)))
+                  .borderRadius(5)
+                  .maxLines(1)
+              }
+              .width('100%')
+              .constraintSize({ minHeight: 66 })
+              .padding({ top: 8, bottom: 8 })
+              .alignItems(VerticalAlign.Center)
+              .border({ width: { bottom: 0.5 }, color: $r('sys.color.comp_divider') })
+            })
+            .key((item: MedicationRecord) => `${item.id}_${item.status}`)
+        }
+      }
+      .width('100%')
+      .padding({ left: 18, right: 18, top: 4, bottom: 10 })
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(12)
+      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    }
+    .width('100%')
   }
 
   @Builder

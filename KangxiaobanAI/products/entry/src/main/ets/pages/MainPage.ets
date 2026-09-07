@@ -42,9 +42,13 @@ import { WideDoctorCasesPage } from '../component/wide/WideDoctorCasesPage';
 import { WideCaregiverTitleActions } from '../component/wide/WideCaregiverTitleActions';
 import { WideAdminWorkspace } from '../component/wide/WideAdminWorkspace';
 import { WideDoctorAdmissionForm } from '../component/wide/WideDoctorAdmissionForm';
+import { WideDoctorBedsPage } from '../component/wide/WideDoctorBedsPage';
+import { WideDoctorTasksPage } from '../component/wide/WideDoctorTasksPage';
+import { WideDoctorAlertsPage } from '../component/wide/WideDoctorAlertsPage';
+import { WideDoctorAssessmentsPage } from '../component/wide/WideDoctorAssessmentsPage';
+import { WideDoctorBillsPage } from '../component/wide/WideDoctorBillsPage';
 import { WideDoctorTitleActions } from '../component/wide/WideDoctorTitleActions';
 import { WideDoctorAiPage } from './WideDoctorAiPage';
-import { AI_BRAND_NAME } from '../component/AiTitleLabel';
 import { AiChatPage } from '../pages/AiChatPage';
 import { MineDetailPage } from '../pages/MineDetailPage';
 import { WideKnowledgeCreatePage, KBCreatePageParam } from '../component/wide/WideKnowledgeCreatePage';
@@ -71,6 +75,18 @@ const CAREGIVER_TEXT_NAVIGATION_MIN_WIDTH: number = 680;
 const WIDE_TITLE_BAR_HEIGHT: number = 56;
 const CAREGIVER_AI_HISTORY_COLLAPSED_KEY: string = 'caregiver_ai_history_collapsed';
 const DOCTOR_AI_HISTORY_COLLAPSED_KEY: string = 'doctor_ai_history_collapsed';
+
+// Doctor quick-function module ids map to dedicated immersive route pages.
+function doctorQuickRouteName(moduleId: string): string {
+  switch (moduleId) {
+    case 'beds': return 'DoctorBedsPage';
+    case 'tasks': return 'DoctorTasksPage';
+    case 'alerts': return 'DoctorAlertsPage';
+    case 'assessment': return 'DoctorAssessmentsPage';
+    case 'billing': return 'DoctorBillsPage';
+    default: return '';
+  }
+}
 
 interface WideNavItem {
   label: ResourceStr;
@@ -257,14 +273,6 @@ struct MainPage {
     return this.primaryTabIndex >= 0 && this.primaryTabIndex <= 1 ? this.primaryTabIndex : 0;
   }
 
-  private wideCaregiverPageTitle(): string {
-    if (this.isAiChatShow) {
-      return AI_BRAND_NAME;
-    }
-    const titles: string[] = ['首页', '长者', '消息'];
-    return titles[this.wideCaregiverActiveTabIndex()] ?? titles[0];
-  }
-
   private wideCaregiverBackLabel(): string {
     if (this.isAiChatShow) {
       return '返回首页';
@@ -364,7 +372,7 @@ struct MainPage {
       const horizontalPadding: number = this.wideCaregiverTitleBarPadding();
       const content: TitleBarContentOptions = {
         title: {
-          mainTitle: this.wideCaregiverPageTitle()
+          mainTitle: this.workspaceClockTime
         },
         menu: { value: [] },
         stackBuilder: (): void => this.wideCaregiverTitleActions()
@@ -424,7 +432,7 @@ struct MainPage {
       enableComponentSafeArea: false,
       content: {
         title: {
-          mainTitle: this.getCurrentPageTitle(),
+          mainTitle: this.workspaceClockTime,
         },
         menu: { value: [] },
       },
@@ -1334,6 +1342,12 @@ struct MainPage {
           onLocalNavLayerChange: (hasLayer: boolean) => {
             this.adminHasLocalNavLayer = hasLayer;
           },
+          onOpenQuickFunction: (moduleId: string) => {
+            const routeName: string = doctorQuickRouteName(moduleId);
+            if (routeName.length > 0) {
+              this.pathStack.pushPath({ name: routeName });
+            }
+          },
           onManagementNavSelect: (index: number) => {
             this.updateManagementNav(index);
           },
@@ -1422,6 +1436,51 @@ struct MainPage {
       MineDetailPage({ pageType: 'general' })
     } else if (name === 'AdmissionPage') {
       WideDoctorAdmissionForm({
+        compactWidth: this.useCompactDoctorWorkspace(),
+        statusBarHeight: this.globalInfoModel.statusBarHeight,
+        naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
+        onClose: () => {
+          this.pathStack.pop();
+        }
+      })
+    } else if (name === 'DoctorBedsPage') {
+      WideDoctorBedsPage({
+        compactWidth: this.useCompactDoctorWorkspace(),
+        statusBarHeight: this.globalInfoModel.statusBarHeight,
+        naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
+        onClose: () => {
+          this.pathStack.pop();
+        }
+      })
+    } else if (name === 'DoctorTasksPage') {
+      WideDoctorTasksPage({
+        compactWidth: this.useCompactDoctorWorkspace(),
+        statusBarHeight: this.globalInfoModel.statusBarHeight,
+        naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
+        onClose: () => {
+          this.pathStack.pop();
+        }
+      })
+    } else if (name === 'DoctorAlertsPage') {
+      WideDoctorAlertsPage({
+        compactWidth: this.useCompactDoctorWorkspace(),
+        statusBarHeight: this.globalInfoModel.statusBarHeight,
+        naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
+        onClose: () => {
+          this.pathStack.pop();
+        }
+      })
+    } else if (name === 'DoctorAssessmentsPage') {
+      WideDoctorAssessmentsPage({
+        compactWidth: this.useCompactDoctorWorkspace(),
+        statusBarHeight: this.globalInfoModel.statusBarHeight,
+        naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
+        onClose: () => {
+          this.pathStack.pop();
+        }
+      })
+    } else if (name === 'DoctorBillsPage') {
+      WideDoctorBillsPage({
         compactWidth: this.useCompactDoctorWorkspace(),
         statusBarHeight: this.globalInfoModel.statusBarHeight,
         naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,

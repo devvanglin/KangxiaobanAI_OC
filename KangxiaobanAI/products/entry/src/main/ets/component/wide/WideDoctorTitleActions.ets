@@ -13,13 +13,14 @@ export struct WideDoctorTitleActions {
   private navigationItems(): WideSlidingCapsuleItem[] {
     if (!this.isDoctor) {
       return [
-        { title: '总览', index: 0 },
-        { title: '角色', index: 1 },
-        { title: '用户', index: 2 },
-        { title: '区域', index: 3 },
-        { title: '订阅', index: 4 },
-        { title: '大模型', index: 5 },
-        { title: '设备', index: 6 }
+        { title: '总览', symbol: $r('sys.symbol.square_grid_2x2'), index: 0 },
+        { title: '角色', symbol: $r('sys.symbol.key_shield_badge_person_crop_circle_fill'), index: 1 },
+        { title: '用户', symbol: $r('sys.symbol.person_crop_circle_fill'), index: 2 },
+        { title: '区域', symbol: $r('sys.symbol.map'), index: 3 },
+        { title: '订阅', symbol: $r('sys.symbol.calendar_badge_clock'), index: 4 },
+        { title: '大模型', symbol: $r('sys.symbol.AI_model'), index: 5 },
+        { title: '设备', symbol: $r('sys.symbol.beacon_tower_fill'), index: 6 },
+        { title: '药物', symbol: $r('sys.symbol.cross_case'), index: 7 }
       ];
     }
     return [
@@ -74,7 +75,7 @@ export struct WideDoctorTitleActions {
       WideSlidingCapsule({
         items: this.navigationItems(),
         selectedIndex: this.selectedIndex,
-        itemWidth: this.compactWidth ? (this.isDoctor ? 46 : 64) : (this.isDoctor ? 104 : 88),
+        itemWidth: this.compactWidth ? (this.isDoctor ? 46 : 64) : (this.isDoctor ? 124 : 100),
         iconOnly: this.isDoctor && this.compactWidth,
         // 管理端/医师端点击立即切换内容：延迟选中会让首次点击感觉无效，
         // 高亮弹簧动画与内容切换并行播放即可。

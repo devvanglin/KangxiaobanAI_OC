@@ -9,9 +9,9 @@ import { WideAreaManagement } from './WideAreaManagement';
 import { WideCarePackageManagement } from './WideCarePackageManagement';
 import { WideModelManagement } from './WideModelManagement';
 import { WideDeviceManagement } from './WideDeviceManagement';
+import { WideMedicationManagement } from './WideMedicationManagement';
 import { WideDoctorCharts } from './WideDoctorCharts';
 import { WideDoctorSchedule } from './WideDoctorSchedule';
-import { WideDoctorQuickPanel } from './WideDoctorQuickPanel';
 
 interface AdminNavItem {
   id: string;
@@ -107,6 +107,7 @@ export struct WideAdminWorkspace {
   @Event onLogout: () => void = () => {};
   @Event onManagementNavSelect: (index: number) => void = (_index: number) => {};
   @Event onLocalNavLayerChange: (hasLayer: boolean) => void = (_hasLayer: boolean) => {};
+  @Event onOpenQuickFunction: (moduleId: string) => void = (_moduleId: string) => {};
   @Local selectedNavId: string = 'overview';
   @Local isSidebarCollapsed: boolean = false;
   @Local selectedPeriod: number = 0;
@@ -127,7 +128,6 @@ export struct WideAdminWorkspace {
   @Local chartHealthSnapshot: HealthRecord[] = [];
   @Local dashboardHeight: number = 0;
   @Local metricsHeight: number = 0;
-  @Local doctorQuickModule: string = '';
   private navItemsForRole(): AdminNavItem[] {
     if (this.isDoctor) {
       return [
@@ -143,7 +143,8 @@ export struct WideAdminWorkspace {
       { id: 'areas', label: '区域', symbol: $r('sys.symbol.square_grid_2x2') },
       { id: 'plans', label: '订阅', symbol: $r('sys.symbol.calendar_badge_clock') },
       { id: 'models', label: '大模型', symbol: $r('sys.symbol.AI_model') },
-      { id: 'assets', label: '设备', symbol: $r('sys.symbol.beacon_tower_fill') }
+      { id: 'assets', label: '设备', symbol: $r('sys.symbol.beacon_tower_fill') },
+      { id: 'medications', label: '药物', symbol: $r('sys.symbol.cross_case') }
     ];
   }
 
@@ -151,7 +152,7 @@ export struct WideAdminWorkspace {
   onManagementNavIndexChange(): void {
     const ids: string[] = this.isDoctor ?
       ['overview', 'residents', 'ai'] :
-      ['overview', 'roles', 'users', 'areas', 'plans', 'models', 'assets'];
+      ['overview', 'roles', 'users', 'areas', 'plans', 'models', 'assets', 'medications'];
     if (this.managementNavIndex >= 0 && this.managementNavIndex < ids.length) {
       this.selectedNavId = ids[this.managementNavIndex];
       setTimeout((): void => { this.managementScroller.scrollEdge(Edge.Top); }, 0);
@@ -469,8 +470,7 @@ export struct WideAdminWorkspace {
     const ids: string[] = ['overview', 'residents', 'ai'];
     const index: number = ids.indexOf(item.target);
     if (this.isDoctor) {
-      this.doctorQuickModule = item.id;
-      this.selectedNavId = 'overview';
+      this.onOpenQuickFunction(item.id);
       return;
     }
     this.selectedNavId = index >= 0 ? item.target : 'overview';
@@ -499,7 +499,6 @@ export struct WideAdminWorkspace {
   }
 
   private selectNavItem(item: AdminNavItem): void {
-    this.doctorQuickModule = '';
     this.selectedNavId = item.id;
     const index: number = this.navIndex(item.id);
     if (index >= 0) {
@@ -1033,11 +1032,7 @@ export struct WideAdminWorkspace {
     Column() {
       if (this.selectedNavId === 'overview') {
         if (this.isDoctor) {
-          if (this.doctorQuickModule.length > 0) {
-            WideDoctorQuickPanel({ kind: this.doctorQuickModule, compactWidth: this.compactWidth, onBack: () => this.doctorQuickModule = '' })
-          } else {
-            this.dashboard()
-          }
+          this.dashboard()
         } else {
           this.adminOverview()
         }
@@ -1078,6 +1073,13 @@ export struct WideAdminWorkspace {
         })
       } else if (!this.isDoctor && this.selectedNavId === 'assets') {
         WideDeviceManagement({
+          compactWidth: this.compactWidth,
+          statusBarHeight: this.statusBarHeight,
+          naviIndicatorHeight: this.naviIndicatorHeight,
+          managementScroller: this.managementScroller
+        })
+      } else if (!this.isDoctor && this.selectedNavId === 'medications') {
+        WideMedicationManagement({
           compactWidth: this.compactWidth,
           statusBarHeight: this.statusBarHeight,
           naviIndicatorHeight: this.naviIndicatorHeight,
