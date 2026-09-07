@@ -19,7 +19,7 @@ import {
   quickElderName
 } from './WideDoctorQuickPageKit';
 
-/** 医师端「告警处理」：沉浸式只读路由页，按复核状态筛选服务器告警记录。 */
+/** 医师端「告警通知」：沉浸式只读路由页，按复核状态筛选服务器告警记录。 */
 @ComponentV2
 export struct WideDoctorAlertsPage {
   @Param compactWidth: boolean = false;
@@ -195,7 +195,7 @@ export struct WideDoctorAlertsPage {
     .titleBar({
       avoidLayoutSafeArea: true,
       content: {
-        title: { mainTitle: '告警处理' }
+        title: { mainTitle: '告警通知' }
       },
       style: this.titleBarStyle()
     })
