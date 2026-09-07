@@ -668,7 +668,7 @@ export struct WideDoctorResidentPage {
             .textAlign(TextAlign.Center)
             .fontSize($r('sys.float.Caption_M'))
             .fontColor($r('sys.color.font_tertiary'))
-            .padding({ top: 20, bottom: 8 })
+            .padding({ top: 16, bottom: 8 })
         }
       }
       .width('100%')
@@ -753,7 +753,7 @@ export struct WideDoctorResidentPage {
     }
     .width('calc(100% - 8vp)')
     .height(64)
-    .margin({ left: 4, right: 4 })
+    .margin({ left: 4, right: 4, top: 4, bottom: 4 })
     .backgroundColor(this.residentRowBackground(resident.id))
     .borderRadius(10)
     .hoverEffect(HoverEffect.None)
