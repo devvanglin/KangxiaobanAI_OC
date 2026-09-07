@@ -908,39 +908,21 @@ export struct WideDoctorResidentPage {
 
   @Builder
   private residentIdentityBlock(resident: ResidentData) {
-    Row({ space: this.compactWidth ? 14 : 18 }) {
-      Text(resident.avatarText ?? resident.name.slice(0, 1))
-        .fontSize(this.compactWidth ? $r('sys.float.Title_M') : $r('sys.float.Title_L'))
+    Row({ space: 10 }) {
+      Text(resident.name)
+        .fontSize(this.compactWidth ? 20 : 22)
+        .fontWeight(FontWeight.Bold)
+        .fontColor($r('sys.color.font_primary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+      Text(this.statusText(resident.level))
+        .fontSize($r('sys.float.Caption_M'))
         .fontWeight(FontWeight.Medium)
-        .fontColor($r('app.color.brand_blue'))
-        .width(this.compactWidth ? 52 : 56)
-        .height(this.compactWidth ? 52 : 56)
-        .textAlign(TextAlign.Center)
-        .backgroundColor('rgba(29,99,237,0.10)')
-        .borderRadius(this.compactWidth ? 26 : 28)
-
-      Column({ space: 7 }) {
-        Row({ space: 10 }) {
-          Text(resident.name)
-            .fontSize(this.compactWidth ? 20 : 22)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-          Text(this.statusText(resident.level))
-            .fontSize($r('sys.float.Caption_M'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor(this.statusColor(resident.level))
-            .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-            .backgroundColor(this.statusBackground(resident.level))
-            .borderRadius(5)
-        }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
-      }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
+        .fontColor(this.statusColor(resident.level))
+        .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+        .backgroundColor(this.statusBackground(resident.level))
+        .borderRadius(5)
     }
     .width('100%')
     .alignItems(VerticalAlign.Center)
