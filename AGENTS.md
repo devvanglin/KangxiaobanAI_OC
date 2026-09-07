@@ -19,8 +19,11 @@ application and the top-level projects are not equal delivery targets.
 4. `account-kit-samplecode-clientdemo-for-atomicservice-arkts`, `map-kit_-sample-code_-demo-arkts`,
    `push-kit-sample-code-clientdemo-arkts`, and `visionkit-sample-code-arkts` are Kit capability samples.
 5. `sample_in_harmonyos`, `HarmonyOSComponentUXExamples-dev`, and `cases` are searchable knowledge bases.
-6. Unless the user names another project, product work belongs in `KangxiaobanAI` and sample projects remain read-only.
-7. Do not copy a sample wholesale. Select a matching API generation, extract the smallest verified pattern, and adapt
+6. `hermes-agent` is a **third-party Python AI-agent runtime** (Nous Research, v0.21.0) kept as an architecture
+   reference only. It has no code coupling with `KangxiaobanAI`; its contracts and flow designs inform the product's
+   AI gateway, MCP, and Skills modules. Its local analysis lives in `docs/hermes-agent-architecture.md`.
+7. Unless the user names another project, product work belongs in `KangxiaobanAI` and sample projects remain read-only.
+8. Do not copy a sample wholesale. Select a matching API generation, extract the smallest verified pattern, and adapt
    it to the active product's V2/HDS conventions.
 
 ### 1.1 Product definition
@@ -111,6 +114,11 @@ Known tracked edits at the baseline date:
 
 There are also many untracked `.hvigor`, `build`, `oh_modules`, IDE, lock, and generated files. Preserve them unless the
 user explicitly asks for cleanup. Never run destructive Git or recursive cleanup commands to make the tree look clean.
+
+`hermes-agent/` is a **nested Git repository** (own `.git`, origin `NousResearch/hermes-agent`) and is **not listed in
+`.gitignore`**. Git therefore shows it as a single untracked entry `?? hermes-agent/`. Never run a blanket `git add .`
+while it is present: Git records a gitlink rather than its contents. Either add it to `.gitignore` or convert it to a
+proper submodule before any bulk staging. It is also not installed locally (no `.venv`); treat it as read-only source.
 
 Security-sensitive build profiles currently exist in:
 
@@ -1324,6 +1332,45 @@ Correct use:
 Never add `cases` wholesale as a dependency, copy a permission without need, or infer production readiness from a case
 that only renders a concept.
 
+### 15.14 `hermes-agent`: AI-agent runtime architecture reference
+
+A third-party Python agent runtime (Nous Research, MIT, v0.21.0) kept for architecture reference only. It has **zero
+code coupling** with `KangxiaobanAI` and must never be imported, vendored, or added as a build dependency. The analyzed
+architecture is recorded in **`docs/hermes-agent-architecture.md`** — read that file first; the summary below is only a
+pointer.
+
+Shape:
+
+```text
+hermes-agent/
+  run_agent.py          AIAgent facade (mixin-assembled)
+  agent/                conversation_loop.py + turn_*.py phases, prompt_builder,
+                        context_compressor, memory_provider, auxiliary_client, curator
+  model_tools.py        tool discovery + handle_function_call() dispatch
+  toolsets.py           TOOLSETS dict, _HERMES_CORE_TOOLS (28 toolsets / 70+ tools)
+  tools/                tool implementations + registry.py + mcp_tool*.py (22 files)
+  gateway/              messaging-platform adapters
+  plugins/              memory/, context_engine/, model-providers/ (40), kanban/, observability/
+  skills/               built-in skills (60)   optional-skills/: shipped but inactive (137)
+  optional-mcps/        65 MCP server catalogs
+```
+
+Two invariants worth carrying into this product:
+
+1. **Per-conversation prompt caching is sacred.** The system prompt is byte-stable for the life of a conversation;
+   the ONLY sanctioned context mutation is compression. Mid-conversation injection rides a user message or tool result,
+   never the system prompt.
+2. **The core is a narrow waist.** New capability arrives as a CLI command + skill, a service-gated tool, a plugin, or
+   an MCP server — not as new core surface. Capability gating uses named toolsets, never a process env var.
+
+The four contracts worth re-implementing in Go for `KangxiaobanAI` are: the **SKILL.md frontmatter** contract
+(`name`, `description` <= 60 chars, `version`, `platforms`, `metadata.tags`, `prerequisites`), the **MCP lifecycle
+state machine** (discovery -> health -> OAuth -> lifecycle -> transport), the **prompt layering rule**
+(`stable` -> `context` -> `volatile`; skill index in `stable`, memory/user profile in `volatile`, both inside the
+cached prompt), and the **compression thresholds plus seven-section summary template** (gateway 85%, agent 50%;
+prune -> boundary -> structured summary -> reassemble). See `docs/hermes-agent-architecture.md` section 14 for the
+module-by-module mapping onto the product's `WideModelManagement` (模型管理 / 提示词库 / MCP 管理 / Skills 管理 / RAG 知识库).
+
 ## 16. Cross-project implementation index
 
 Use this lookup before starting a new implementation:
@@ -1347,6 +1394,11 @@ Use this lookup before starting a new implementation:
 | Camera/liveness | `visionkit-.../entry/src/main/ets/pages/Index.ets` | sensitive data and capability/denial handling |
 | Component/remote UX | `HarmonyOSComponentUXExamples-dev/products/*` | verify declared form factor and input model |
 | Performance diagnosis | `cases/docs/performance`, `cases/test/performance` | measure before and after |
+| Agent turn loop / phases | `docs/hermes-agent-architecture.md` sections 3-5 | contracts only; re-implement in Go, never vendor Python |
+| Prompt layering + cache safety | `docs/hermes-agent-architecture.md` sections 6-7 | stable/context/volatile; only compression may mutate context |
+| Context compression | `docs/hermes-agent-architecture.md` section 8 | 85% gateway / 50% agent; summary model window must be >= main model |
+| MCP lifecycle | `docs/hermes-agent-architecture.md` section 9 | discovery -> health -> OAuth -> lifecycle -> transport |
+| Skills metadata contract | `docs/hermes-agent-architecture.md` sections 11, 14 | SKILL.md frontmatter; description <= 60 chars; built-in vs optional tiers |
 
 ## 17. Planned production architecture for `KangxiaobanAI`
 
@@ -1504,7 +1556,9 @@ Update this file in the same change when any of these stable facts change:
 - startup page, navigation boundary, or external route strategy;
 - V1/V2 state architecture or global-state ownership;
 - real backend/auth/AI/Kit capability becoming implemented;
-- security or verification policy.
+- security or verification policy;
+- the `hermes-agent` reference version or any of its four adopted contracts — update
+  `docs/hermes-agent-architecture.md` in the same change.
 
 Do not turn this file into a generated inventory of every source line. Source code remains the final detail. Keep paths,
 symbols, architecture boundaries, implementation methods, and known caveats detailed enough that a future agent can
