@@ -9,13 +9,6 @@ interface AreaPage {
   list: OrgArea[];
 }
 
-interface BedTileData {
-  key: string;
-  bedNo: string;
-  status: string;
-  occupant: string;
-}
-
 interface BedDetailRow {
   key: string;
   bedNo: string;
@@ -32,7 +25,7 @@ interface StatCardData {
   note: string;
 }
 
-/** 医师端「床位管理」：区域/楼层筛选 + 统计卡 + 床位分布网格 + 床位详情表。 */
+/** 医师端「床位管理」：区域/楼层筛选 + 统计卡 + 床位详情表。 */
 @ComponentV2
 export struct WideDoctorBedsPage {
   @Param compactWidth: boolean = false;
@@ -80,11 +73,6 @@ export struct WideDoctorBedsPage {
     };
   }
 
-  @Monitor('compactWidth')
-  onCompactWidthChange(): void {
-    this.tileSideMeasured = false;
-  }
-
   private notify(message: string): void {
     if (this.snackBar === undefined) {
       this.snackBar = new HdsSnackBar(this.getUIContext());
@@ -105,11 +93,6 @@ export struct WideDoctorBedsPage {
     });
     const matched: OrgArea[] = this.areas.filter((area: OrgArea) => usedIds.has(area.id));
     return matched.length > 0 ? matched : this.areas;
-  }
-
-  private areaLabelOf(areaId: number): string {
-    const area: OrgArea | undefined = this.areas.find((item: OrgArea) => item.id === areaId);
-    return area !== undefined ? area.name : `区域 ${areaId}`;
   }
 
   private floorOptions(): number[] {
@@ -171,129 +154,6 @@ export struct WideDoctorBedsPage {
     ];
   }
 
-  // ---------- 床位分布 ----------
-
-  private areaGroups(): OrgArea[] {
-    const groups: OrgArea[] = this.areaOptions().filter((area: OrgArea) =>
-      this.filteredBeds().some((bed: Bed) => bed.area_id === area.id));
-    if (groups.length > 0) {
-      return groups;
-    }
-    // 无区域归属时按虚拟分组（key = -1）聚合全部床位。
-    const virtualArea: OrgArea = {
-      id: -1, parent_id: undefined, type: 'floor', code: 'all', name: this.selectedArea()?.name ?? '全部床位',
-      status: 'active'
-    };
-    return [virtualArea];
-  }
-
-  private bedsOfArea(area: OrgArea): Bed[] {
-    return this.filteredBeds().filter((bed: Bed) => bed.area_id === area.id);
-  }
-
-  private tileOf(bed: Bed): BedTileData {
-    const elder: Elder | undefined = this.elderOf(bed);
-    return {
-      key: `tile-${bed.id}`,
-      bedNo: bed.bed_no,
-      status: bed.status,
-      occupant: bed.status === 'occupied' ? (elder?.name ?? '已入住') :
-        bed.status === 'maintenance' ? '维护' : '空床'
-    };
-  }
-
-  private tileBackground(status: string): ResourceColor {
-    if (status === 'maintenance') {
-      return $r('app.color.status_warning_bg');
-    }
-    return status === 'occupied' ? $r('sys.color.comp_background_tertiary') :
-      $r('sys.color.comp_background_primary');
-  }
-
-  private tileBedNoColor(status: string): ResourceColor {
-    return status === 'maintenance' ? $r('app.color.doctor_workspace_warning') :
-      status === 'occupied' ? $r('sys.color.font_primary') : $r('sys.color.font_secondary');
-  }
-
-  private columnsTemplate(): string {
-    const columns: number = this.compactWidth ? 4 : 10;
-    const templates: string[] = [];
-    for (let index = 0; index < columns; index++) {
-      templates.push('1fr');
-    }
-    return templates.join(' ');
-  }
-
-  private gridColumnCount(): number {
-    return this.compactWidth ? 4 : 10;
-  }
-
-  private gridGap(): number {
-    return this.compactWidth ? 10 : 14;
-  }
-
-  // 瓦片边长按网格实测宽度均分，保证任意屏宽下都接近正方形。
-  @Local tileSide: number = 106;
-  private tileSideMeasured: boolean = false;
-
-  private updateTileSide(gridWidth: number): void {
-    if (this.tileSideMeasured) {
-      return;
-    }
-    this.tileSideMeasured = true;
-    const columns: number = this.gridColumnCount();
-    const side: number = (gridWidth - (columns - 1) * this.gridGap()) / columns;
-    const clamped: number = Math.min(160, Math.max(84, side));
-    if (Math.abs(clamped - this.tileSide) > 0.5) {
-      this.tileSide = clamped;
-    }
-  }
-
-  private gridRowsHeight(count: number): number {
-    const rows: number = Math.max(1, Math.ceil(count / this.gridColumnCount()));
-    return rows * this.tileSide + Math.max(0, rows - 1) * this.gridGap();
-  }
-
-  @Builder
-  private bedTiles(area: OrgArea) {
-    Grid() {
-      ForEach(this.bedsOfArea(area), (bed: Bed) => {
-        GridItem() {
-          Column({ space: 8 }) {
-            Text(this.tileOf(bed).bedNo)
-              .fontSize(this.compactWidth ? 15 : 17)
-              .fontWeight(FontWeight.Bold)
-              .fontColor(this.tileBedNoColor(bed.status))
-            Text(this.tileOf(bed).occupant)
-              .fontSize(this.compactWidth ? 12 : 14)
-              .fontColor(bed.status === 'maintenance' ? $r('app.color.doctor_workspace_warning') :
-                $r('sys.color.font_secondary'))
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-          }
-          .width('100%')
-          .height(this.tileSide)
-          .justifyContent(FlexAlign.Center)
-          .backgroundColor(this.tileBackground(bed.status))
-          .borderRadius(10)
-          .border({
-            width: bed.status === 'maintenance' ? 1 : 0.5,
-            color: bed.status === 'maintenance' ? $r('app.color.status_warning') : $r('sys.color.comp_divider')
-          })
-        }
-      }, (bed: Bed) => this.tileOf(bed).key)
-    }
-    .width('100%')
-    .height(this.gridRowsHeight(this.bedsOfArea(area).length))
-    .onAreaChange((_oldValue: Area, newValue: Area) => {
-      this.updateTileSide(Number(newValue.width));
-    })
-    .columnsTemplate(this.columnsTemplate())
-    .columnsGap(this.compactWidth ? 10 : 14)
-    .rowsGap(this.compactWidth ? 10 : 14)
-    .scrollBar(BarState.Off)
-  }
-
   // ---------- 床位详情 ----------
 
   private detailRows(beds: Bed[]): BedDetailRow[] {
@@ -333,7 +193,7 @@ export struct WideDoctorBedsPage {
   @Builder
   private tableCell(text: string, weight: number, fontColor: ResourceColor) {
     Text(text)
-      .fontSize(13)
+      .fontSize(15)
       .fontColor(fontColor)
       .maxLines(1)
       .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -345,14 +205,14 @@ export struct WideDoctorBedsPage {
     Row({ space: 12 }) {
       ForEach(this.tableColumns, (column: [string, number]) => {
         Text(column[0])
-          .fontSize(13)
+          .fontSize(14)
           .fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.font_secondary'))
           .layoutWeight(column[1])
       }, (column: [string, number]) => `head-${column[0]}`)
     }
     .width('100%')
-    .height(44)
+    .height(48)
     .padding({ left: 16, right: 16 })
     .backgroundColor($r('sys.color.comp_background_tertiary'))
     .alignItems(VerticalAlign.Center)
@@ -366,11 +226,11 @@ export struct WideDoctorBedsPage {
       // 护理等级：浅灰胶囊标签
       Row() {
         Text(row.careLevel)
-          .fontSize(12)
+          .fontSize(13)
           .fontColor($r('sys.color.font_secondary'))
-          .padding({ left: 10, right: 10, top: 4, bottom: 4 })
+          .padding({ left: 12, right: 12, top: 5, bottom: 5 })
           .backgroundColor($r('sys.color.comp_background_tertiary'))
-          .borderRadius(6)
+          .borderRadius(7)
           .maxLines(1)
       }
       .layoutWeight(1.3)
@@ -378,27 +238,36 @@ export struct WideDoctorBedsPage {
       this.tableCell(row.admittedAt, 1.3, $r('sys.color.font_secondary'))
       this.tableCell(row.caregiver, 1.0, $r('sys.color.font_secondary'))
       this.tableCell(this.statusText(row.status), 0.9, this.statusColor(row.status))
-      Row({ space: 14 }) {
-        Text('详情')
+      Row({ space: 8 }) {
+        Button('详情', { type: ButtonType.Capsule, stateEffect: true })
+          .height(32)
           .fontSize(13)
-          .fontColor($r('app.color.brand_blue'))
+          .fontColor(Color.White)
+          .backgroundColor($r('app.color.brand_blue'))
+          .padding({ left: 14, right: 14 })
           .onClick(() => this.openDetail(row.key))
         if (row.status === 'occupied') {
-          Text('调整')
+          Button('调整', { type: ButtonType.Capsule, stateEffect: true })
+            .height(32)
             .fontSize(13)
-            .fontColor($r('app.color.brand_blue'))
+            .fontColor($r('sys.color.font_primary'))
+            .backgroundColor($r('sys.color.comp_background_tertiary'))
+            .padding({ left: 14, right: 14 })
             .onClick(() => this.notify('医师端为只读预览，床位调整请联系管理员'))
         } else if (row.status !== 'maintenance') {
-          Text('分配')
+          Button('分配', { type: ButtonType.Capsule, stateEffect: true })
+            .height(32)
             .fontSize(13)
-            .fontColor($r('app.color.brand_blue'))
+            .fontColor($r('sys.color.font_primary'))
+            .backgroundColor($r('sys.color.comp_background_tertiary'))
+            .padding({ left: 14, right: 14 })
             .onClick(() => this.notify('医师端为只读预览，入住分配请联系管理员'))
         }
       }
-      .layoutWeight(1.1)
+      .layoutWeight(1.4)
     }
     .width('100%')
-    .height(52)
+    .height(60)
     .padding({ left: 16, right: 16 })
     .alignItems(VerticalAlign.Center)
     .border({ width: { bottom: 0.5 }, color: $r('sys.color.comp_divider') })
@@ -475,23 +344,23 @@ export struct WideDoctorBedsPage {
 
   @Builder
   private statCard(item: StatCardData) {
-    Column({ space: 6 }) {
+    Column({ space: 8 }) {
       Text(item.label)
-        .fontSize(this.compactWidth ? 13 : 14)
+        .fontSize(15)
         .fontColor($r('sys.color.font_secondary'))
       Text(item.value)
-        .fontSize(this.compactWidth ? 26 : 34)
+        .fontSize(40)
         .fontWeight(FontWeight.Bold)
         .fontColor($r('sys.color.font_primary'))
       Text(item.note)
-        .fontSize(this.compactWidth ? 11 : 12)
+        .fontSize(13)
         .fontColor($r('sys.color.font_tertiary'))
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
     }
     .layoutWeight(1)
     .alignItems(HorizontalAlign.Start)
-    .padding({ left: 18, right: 14, top: 16, bottom: 16 })
+    .padding({ left: 20, right: 16, top: 18, bottom: 18 })
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(14)
     .border({ width: 0.5, color: $r('sys.color.comp_divider') })
@@ -500,7 +369,7 @@ export struct WideDoctorBedsPage {
   @Builder
   private cardHeader(title: string) {
     Text(title)
-      .fontSize(16)
+      .fontSize(18)
       .fontWeight(FontWeight.Medium)
       .fontColor($r('sys.color.font_primary'))
       .width('100%')
@@ -511,32 +380,32 @@ export struct WideDoctorBedsPage {
   private filterBar() {
     Row({ space: 14 }) {
       Text('区域')
-        .fontSize(13)
+        .fontSize(15)
         .fontColor($r('sys.color.font_secondary'))
       Select(this.areaOptions().map((area: OrgArea): SelectOption => ({ value: area.name })))
         .selected(this.areaFilterKey === 'all' ? -1 :
           Math.max(0, this.areaOptions().findIndex((area: OrgArea) => area.id.toString() === this.areaFilterKey)))
         .value(this.selectedArea()?.name ?? '选择区域')
         .fontColor($r('sys.color.font_primary'))
-        .font({ size: 13 })
-        .width(this.compactWidth ? 132 : 150)
-        .height(36)
+        .font({ size: 14 })
+        .width(this.compactWidth ? 140 : 170)
+        .height(40)
         .onSelect((index: number) => {
           const areas: OrgArea[] = this.areaOptions();
           this.areaFilterKey = index >= 0 && index < areas.length ? areas[index].id.toString() : 'all';
         })
 
       Text('楼层')
-        .fontSize(13)
+        .fontSize(15)
         .fontColor($r('sys.color.font_secondary'))
       Select(this.floorOptions().map((floor: number): SelectOption => ({ value: `${floor}层` })))
         .selected(this.floorFilterKey === 'all' ? -1 :
           Math.max(0, this.floorOptions().findIndex((floor: number) => floor.toString() === this.floorFilterKey)))
         .value(this.floorFilterKey === 'all' ? '全部楼层' : `${this.floorFilterKey}层`)
         .fontColor($r('sys.color.font_primary'))
-        .font({ size: 13 })
-        .width(this.compactWidth ? 132 : 150)
-        .height(36)
+        .font({ size: 14 })
+        .width(this.compactWidth ? 140 : 170)
+        .height(40)
         .onSelect((index: number) => {
           const floors: number[] = this.floorOptions();
           this.floorFilterKey = index >= 0 && index < floors.length ? floors[index].toString() : 'all';
@@ -546,34 +415,6 @@ export struct WideDoctorBedsPage {
     }
     .width('100%')
     .alignItems(VerticalAlign.Center)
-  }
-
-  @Builder
-  private detailOverlayBuilder() {
-    if (this.detailVisible) {
-      Column() {
-        Column() {
-          this.detailSheetContent()
-        }
-        .width(this.compactWidth ? 460 : 560)
-        .constraintSize({ maxHeight: 620 })
-        .borderRadius(24)
-        .backgroundColor($r('sys.color.comp_background_primary'))
-        .shadow({ radius: 48, color: '#1A000000', offsetY: 12 })
-        .alignItems(HorizontalAlign.Start)
-        .onClick(() => {
-          // 拦截点击，避免点面板内容时冒泡到遮罩导致关闭。
-        })
-      }
-      .width('100%')
-      .height('100%')
-      .justifyContent(FlexAlign.Center)
-      .alignItems(HorizontalAlign.Center)
-      .backgroundColor('#33000000')
-      .onClick(() => {
-        this.detailVisible = false;
-      })
-    }
   }
 
   build() {
@@ -590,41 +431,7 @@ export struct WideDoctorBedsPage {
             }
             .width('100%')
 
-            if (this.filteredBeds().length === 0) {
-              Column({ space: 0 }) {
-                this.cardHeader('床位分布')
-                QuickEmptyHint({ text: '该筛选条件下暂无床位', loading: this.businessStore.loading })
-              }
-              .width('100%')
-              .backgroundColor($r('sys.color.comp_background_primary'))
-              .borderRadius(16)
-              .clip(true)
-              .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-            } else {
-              Column({ space: 0 }) {
-                this.cardHeader('床位分布')
-                Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
-                ForEach(this.areaGroups(), (area: OrgArea, index: number) => {
-                  Column({ space: 14 }) {
-                    Text(area.name)
-                      .fontSize(14)
-                      .fontWeight(FontWeight.Medium)
-                      .fontColor($r('sys.color.font_primary'))
-                    this.bedTiles(area)
-                  }
-                  .width('100%')
-                  .padding({ left: 20, right: 20, top: index === 0 ? 16 : 22, bottom: 4 })
-                  .alignItems(HorizontalAlign.Start)
-                }, (area: OrgArea) => `group-${area.id}`)
-                Blank().height(16)
-              }
-              .width('100%')
-              .backgroundColor($r('sys.color.comp_background_primary'))
-              .borderRadius(16)
-              .clip(true)
-              .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-
-              Column({ space: 0 }) {
+            Column({ space: 0 }) {
                 this.cardHeader('床位详情')
                 this.tableHeader()
                 ForEach(this.detailRows(this.filteredBeds()), (row: BedDetailRow) => {
@@ -639,7 +446,6 @@ export struct WideDoctorBedsPage {
               .borderRadius(16)
               .clip(true)
               .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-            }
           }
           .width('100%')
           .constraintSize({ maxWidth: 1280 })
