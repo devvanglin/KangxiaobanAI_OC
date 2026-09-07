@@ -353,24 +353,35 @@ export struct WideDoctorBillsPage {
   private totalRow() {
     Row({ space: 10 }) {
       Text(`合计（${this.filteredBills().length} 张）`)
-        .layoutWeight(5)
+        .layoutWeight(3)
         .fontSize(13)
         .fontWeight(FontWeight.Bold)
         .fontColor($r('sys.color.font_primary'))
-      this.headerCell('', 6, false)
+        .maxLines(1)
+      Text('')
+        .layoutWeight(2)
+      Text('')
+        .layoutWeight(2)
+      Text('')
+        .layoutWeight(2)
+      Text('')
+        .layoutWeight(2)
+      Text('')
+        .layoutWeight(2)
       this.moneyCell(this.formatMoney(this.totalOf((bill: Bill): number => bill.amount)), 3, true)
       this.moneyCell(this.formatMoney(this.totalOf((bill: Bill): number => bill.paid)), 3, true)
-      Column({ space: 2 }) {
-        this.headerCell('待收金额', 2, false)
-        Text(this.formatMoney(this.totalOf((bill: Bill): number => bill.amount - bill.paid)))
-          .layoutWeight(2)
-          .fontSize(13)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.doctor_workspace_danger'))
-          .textAlign(TextAlign.End)
-          .maxLines(1)
-      }
-      this.headerCell('', 2, false)
+      Text('待收金额')
+        .layoutWeight(2)
+        .fontSize(12)
+        .fontColor($r('sys.color.font_secondary'))
+        .maxLines(1)
+      Text(this.formatMoney(this.totalOf((bill: Bill): number => bill.amount - bill.paid)))
+        .layoutWeight(2)
+        .fontSize(13)
+        .fontWeight(FontWeight.Bold)
+        .fontColor($r('app.color.doctor_workspace_danger'))
+        .textAlign(TextAlign.End)
+        .maxLines(1)
     }
     .width('100%')
     .padding({ left: 16, right: 16, top: 14, bottom: 14 })
@@ -385,7 +396,7 @@ export struct WideDoctorBillsPage {
           WideSlidingCapsule({
             items: this.statusItems(),
             selectedIndex: this.statusIndex(),
-            itemWidth: 68,
+            itemWidth: 80,
             onSelect: (index: number) => {
               if (index >= 0 && index < BILL_STATUSES.length) {
                 this.statusFilter = BILL_STATUSES[index].key;
@@ -471,6 +482,7 @@ export struct WideDoctorBillsPage {
           }
           .layoutWeight(1)
           .width('100%')
+          .align(Alignment.Top)
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring)
 

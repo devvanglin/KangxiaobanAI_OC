@@ -539,7 +539,7 @@ export struct WideDoctorAssessmentsPage {
           WideSlidingCapsule({
             items: this.typeItems(),
             selectedIndex: this.typeIndex(),
-            itemWidth: 84,
+            itemWidth: 96,
             onSelect: (index: number) => {
               if (index >= 0 && index < TYPE_FILTERS.length) {
                 this.typeFilter = TYPE_FILTERS[index].key;
@@ -621,6 +621,7 @@ export struct WideDoctorAssessmentsPage {
           }
           .layoutWeight(1)
           .width('100%')
+          .align(Alignment.Top)
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring)
 
