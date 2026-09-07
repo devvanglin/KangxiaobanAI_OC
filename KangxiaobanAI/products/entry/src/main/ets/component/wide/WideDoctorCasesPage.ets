@@ -1,3 +1,10 @@
+import {
+  HdsNavDestination,
+  HdsNavDestinationTitleMode,
+  ScrollEffectType,
+  TitleBarStyleOptions,
+  hdsMaterial
+} from '@kit.UIDesignKit';
 import { AdmissionApi, AdmissionAssessmentRecord, AdmissionMedication } from '../../network/AdmissionApi';
 
 interface CaseLevelStyle {
@@ -7,13 +14,14 @@ interface CaseLevelStyle {
 }
 
 /**
- * 医师端「病例」页：机构已提交的入院评估病历目录与详情。
+ * 医师端「病例管理」页：机构已提交的入院评估病历目录与详情。
+ * 与账单/评估等医师快捷页共用同一整页骨架（MINI 标题栏 + 居中卡片），
  * 数据全部来自 /admission-assessments 只读接口，页面内不做任何本地编造。
  */
 @ComponentV2
 export struct WideDoctorCasesPage {
   @Param compactWidth: boolean = false;
-  @Param topBarHeight: number = 0;
+  @Param statusBarHeight: number = 0;
   @Param naviIndicatorHeight: number = 0;
   @Event onClose: () => void = () => {};
   @Local cases: AdmissionAssessmentRecord[] = [];
@@ -22,6 +30,7 @@ export struct WideDoctorCasesPage {
   @Local selectedCaseId: number = 0;
   @Local caseDetail: AdmissionAssessmentRecord | undefined = undefined;
   @Local detailLoading: boolean = false;
+  private scroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
     this.loadCases();
@@ -34,6 +43,19 @@ export struct WideDoctorCasesPage {
     } catch (_error) {
       // Toast 展示失败时静默，不打断页面。
     }
+  }
+
+  private titleBarStyle(): TitleBarStyleOptions {
+    return {
+      systemMaterialEffect: {
+        materialType: hdsMaterial.MaterialType.IMMERSIVE,
+        materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+      },
+      scrollEffectOpts: {
+        enableScrollEffect: true,
+        scrollEffectType: ScrollEffectType.GRADIENT_BLUR
+      }
+    };
   }
 
   private async loadCases(): Promise<void> {
@@ -135,10 +157,6 @@ export struct WideDoctorCasesPage {
       .backgroundColor(this.levelStyle(code).background)
   }
 
-  private compactBackVisible(): boolean {
-    return this.compactWidth && this.selectedCaseId !== 0;
-  }
-
   @Builder
   private sectionTitle(title: string) {
     Text(title)
@@ -184,65 +202,38 @@ export struct WideDoctorCasesPage {
   }
 
   @Builder
-  private masterPane() {
-    Column({ space: 12 }) {
-      Row({ space: 8 }) {
-        Button({ type: ButtonType.Circle, stateEffect: true }) {
-          SymbolGlyph($r('sys.symbol.chevron_left'))
-            .fontSize(18)
-            .fontColor([$r('sys.color.icon_primary')])
-        }
-        .width(30)
-        .height(30)
-        .backgroundColor($r('sys.color.comp_background_secondary'))
-        .accessibilityText('返回工作台')
-        .onClick(() => this.onClose())
-
-        Text('病例')
-          .fontSize(17)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
-        Text(`${this.cases.length} 份`)
-          .fontSize(12)
-          .fontColor($r('sys.color.font_tertiary'))
-        Blank()
-        Text('刷新')
-          .fontSize(13)
-          .fontColor($r('app.color.brand_blue'))
-          .onClick(() => this.loadCases())
-      }.width('100%').alignItems(VerticalAlign.Center)
-
-      Search({ value: this.caseSearch, placeholder: '搜索姓名或评估编号' })
-        .height(38)
-        .onChange((value: string) => this.caseSearch = value)
-
-      if (this.casesLoading) {
-        Text('正在获取病例…').fontSize(13).fontColor($r('sys.color.font_secondary'))
-          .width('100%').padding({ top: 32, bottom: 32 }).textAlign(TextAlign.Center)
-      } else if (this.visibleCases().length === 0) {
-        Text('暂无已提交的病例')
-          .fontSize(13).fontColor($r('sys.color.font_secondary'))
-          .width('100%').padding({ top: 32, bottom: 32 }).textAlign(TextAlign.Center)
-      } else {
-        Scroll() {
+  private listPane() {
+    Scroll(this.scroller) {
+      Column({ space: 8 }) {
+        if (this.casesLoading) {
+          Text('正在获取病例…').fontSize(13).fontColor($r('sys.color.font_secondary'))
+            .width('100%').padding({ top: 32, bottom: 32 }).textAlign(TextAlign.Center)
+        } else if (this.visibleCases().length === 0) {
           Column({ space: 8 }) {
-            ForEach(this.visibleCases(), (item: AdmissionAssessmentRecord) => {
-              this.caseRow(item)
-            }, (item: AdmissionAssessmentRecord) => `case-${item.id}`)
-          }.width('100%')
+            SymbolGlyph($r('sys.symbol.doc_text'))
+              .fontSize(36)
+              .fontColor([$r('sys.color.font_tertiary')])
+            Text('暂无已提交的病例')
+              .fontSize($r('sys.float.Body_M'))
+              .fontColor($r('sys.color.font_secondary'))
+          }
+          .width('100%')
+          .padding({ top: 48, bottom: 48 })
+          .alignItems(HorizontalAlign.Center)
+        } else {
+          ForEach(this.visibleCases(), (item: AdmissionAssessmentRecord) => {
+            this.caseRow(item)
+          }, (item: AdmissionAssessmentRecord) => `case-${item.id}`)
         }
-        .width('100%')
-        .layoutWeight(1)
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.Spring)
       }
+      .width('100%')
+      .padding(16)
     }
-    .width(this.compactWidth ? '100%' : 400)
+    .width('100%')
     .height('100%')
-    .padding(16)
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(14)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.Spring)
+    .align(Alignment.Top)
   }
 
   @Builder
@@ -282,7 +273,7 @@ export struct WideDoctorCasesPage {
   @Builder
   private detailPane() {
     Column({ space: 12 }) {
-      if (this.compactBackVisible()) {
+      if (this.compactWidth && this.selectedCaseId !== 0) {
         Row({ space: 6 }) {
           Text('‹ 返回病例列表')
             .fontSize(14)
@@ -314,6 +305,7 @@ export struct WideDoctorCasesPage {
     }
     .width('100%')
     .height('100%')
+    .padding(16)
   }
 
   @Builder
@@ -489,28 +481,110 @@ export struct WideDoctorCasesPage {
   }
 
   build() {
-    if (this.compactWidth) {
-      Column() {
-        if (this.compactBackVisible()) {
-          this.detailPane()
-        } else {
-          this.masterPane()
+    HdsNavDestination() {
+      Row() {
+        Column() {
+          Row({ space: 12 }) {
+            Row({ space: 6 }) {
+              SymbolGlyph($r('sys.symbol.magnifyingglass'))
+                .fontSize(14)
+                .fontColor([$r('sys.color.font_tertiary')])
+              TextInput({ placeholder: '搜索姓名或评估编号', text: this.caseSearch })
+                .layoutWeight(1)
+                .height(32)
+                .fontSize(13)
+                .backgroundColor(Color.Transparent)
+                .padding({ left: 0, right: 0 })
+                .onChange((value: string) => {
+                  this.caseSearch = value;
+                })
+            }
+            .width(260)
+            .height(38)
+            .padding({ left: 12, right: 12 })
+            .backgroundColor($r('sys.color.comp_background_primary'))
+            .borderRadius(19)
+            .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+
+            Text(`共 ${this.cases.length} 份`)
+              .fontSize(12)
+              .fontColor($r('sys.color.font_tertiary'))
+            Blank()
+            Button('刷新')
+              .fontSize(14)
+              .fontColor($r('sys.color.font_primary'))
+              .backgroundColor($r('sys.color.comp_background_secondary'))
+              .borderRadius(10)
+              .height(38)
+              .padding({ left: 18, right: 18 })
+              .onClick(() => {
+                this.loadCases();
+              })
+          }
+          .width('100%')
+          .padding({ top: 88 + this.statusBarHeight })
+          .margin({ bottom: 16 })
+
+          Column() {
+            if (this.compactWidth) {
+              if (this.selectedCaseId !== 0) {
+                this.detailPane()
+              } else {
+                this.listPane()
+              }
+            } else {
+              Row({ space: 16 }) {
+                Column() {
+                  this.listPane()
+                }
+                .width(400)
+                .height('100%')
+
+                Divider().vertical(true).strokeWidth(0.5).color($r('sys.color.comp_divider'))
+
+                Column() {
+                  this.detailPane()
+                }
+                .layoutWeight(1)
+                .height('100%')
+              }
+              .width('100%')
+              .height('100%')
+              .alignItems(VerticalAlign.Top)
+            }
+          }
+          .layoutWeight(1)
+          .width('100%')
+          .margin({ bottom: 24 + this.naviIndicatorHeight })
+          .backgroundColor($r('sys.color.comp_background_primary'))
+          .borderRadius(16)
+          .clip(true)
+          .border({ width: 0.5, color: $r('sys.color.comp_divider') })
         }
+        .width('100%')
+        .height('100%')
+        .constraintSize({ maxWidth: 1280 })
+        .padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28 })
+        .alignItems(HorizontalAlign.Start)
       }
       .width('100%')
       .height('100%')
-      .padding({ left: 16, right: 16, top: this.topBarHeight + 8, bottom: 16 + this.naviIndicatorHeight })
-      .backgroundColor($r('sys.color.background_secondary'))
-    } else {
-      Row({ space: 20 }) {
-        this.masterPane()
-        this.detailPane()
-      }
-      .width('100%')
-      .height('100%')
-      .padding({ left: 24, right: 24, top: this.topBarHeight + 12, bottom: 24 + this.naviIndicatorHeight })
-      .backgroundColor($r('sys.color.background_secondary'))
-      .alignItems(VerticalAlign.Top)
+      .justifyContent(FlexAlign.Center)
     }
+    .onBackPressed((): boolean => {
+      this.onClose();
+      return true;
+    })
+    .titleMode(HdsNavDestinationTitleMode.MINI)
+    .titleBar({
+      avoidLayoutSafeArea: true,
+      content: {
+        title: { mainTitle: '病例管理' }
+      },
+      style: this.titleBarStyle()
+    })
+    .bindToScrollable([this.scroller])
+    .backgroundColor($r('sys.color.background_secondary'))
+    .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
   }
 }
