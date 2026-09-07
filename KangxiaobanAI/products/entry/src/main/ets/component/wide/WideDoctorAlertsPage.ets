@@ -424,27 +424,6 @@ export struct WideDoctorAlertsPage {
   @Builder
   private masterPane() {
     Column() {
-      Row({ space: 8 }) {
-        SymbolGlyph($r('sys.symbol.magnifyingglass'))
-          .fontSize(15)
-          .fontColor([$r('sys.color.font_tertiary')])
-        TextInput({ placeholder: '搜索告警…', text: this.search })
-          .layoutWeight(1)
-          .height(36)
-          .fontSize(13)
-          .backgroundColor(Color.Transparent)
-          .padding({ left: 0, right: 0 })
-          .onChange((value: string) => {
-            this.search = value;
-          })
-      }
-      .width('100%')
-      .height(48)
-      .padding({ left: 14, right: 14 })
-      .alignItems(VerticalAlign.Center)
-
-      Divider().strokeWidth(0.5).color($r('sys.color.comp_divider')).margin({ left: 14, right: 14 })
-
       Scroll(this.scroller) {
         Column() {
           if (this.filteredAlerts().length === 0) {
@@ -767,6 +746,26 @@ export struct WideDoctorAlertsPage {
         Row({ space: 12 }) {
           this.categoryCapsule()
           Blank()
+          Row({ space: 6 }) {
+            SymbolGlyph($r('sys.symbol.magnifyingglass'))
+              .fontSize(14)
+              .fontColor([$r('sys.color.font_tertiary')])
+            TextInput({ placeholder: '搜索告警…', text: this.search })
+              .layoutWeight(1)
+              .height(32)
+              .fontSize(13)
+              .backgroundColor(Color.Transparent)
+              .padding({ left: 0, right: 0 })
+              .onChange((value: string) => {
+                this.search = value;
+              })
+          }
+          .width(260)
+          .height(38)
+          .padding({ left: 12, right: 12 })
+          .backgroundColor($r('sys.color.comp_background_primary'))
+          .borderRadius(19)
+          .border({ width: 0.5, color: $r('sys.color.comp_divider') })
         }
         .width('100%')
         .padding({
