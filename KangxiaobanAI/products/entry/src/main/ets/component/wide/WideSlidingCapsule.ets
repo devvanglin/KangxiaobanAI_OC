@@ -39,7 +39,6 @@ export struct WideSlidingCapsule {
   @Local measuredWidth: number = 0;
   @Local animatedPosition: number = 0;
   @Local visualSelectedIndex: number = -1;
-  @Local selectionRequestToken: number = 0;
   private slideTimerId: number = -1;
 
   private selectedPosition(): number {
@@ -61,7 +60,6 @@ export struct WideSlidingCapsule {
       clearInterval(this.slideTimerId);
       this.slideTimerId = -1;
     }
-    this.selectionRequestToken += 1;
   }
 
   @Monitor('selectedIndex')
@@ -69,7 +67,6 @@ export struct WideSlidingCapsule {
     if (this.selectedIndex === this.visualSelectedIndex) {
       return;
     }
-    this.selectionRequestToken += 1;
     this.visualSelectedIndex = this.selectedIndex;
     const position: number = this.selectedPosition();
     if (position < 0 || position === this.animatedPosition) {
@@ -101,11 +98,6 @@ export struct WideSlidingCapsule {
   }
 
   private slideTo(index: number): void {
-    // Only skip when the parent has actually confirmed this item. If the
-    // highlight already moved but a deferred onSelect was cancelled (token bump
-    // from a rebuild or an external selection change), re-running slideTo is
-    // the only way out of the "highlight here, content there" desync — the old
-    // early return stranded the capsule until the user clicked another item.
     if (index === this.visualSelectedIndex && index === this.selectedIndex) {
       return;
     }
@@ -113,17 +105,16 @@ export struct WideSlidingCapsule {
     if (position < 0) {
       return;
     }
-    this.selectionRequestToken += 1;
-    const requestToken: number = this.selectionRequestToken;
     this.visualSelectedIndex = index;
     this.animatePillTo(position);
-    // 所有端统一延迟切换内容：先让滑块滑动动画完整播放，再做页面级重建。
-    // 立即切换会让同一帧的大块内容重建挤掉动画帧，滑块表现为瞬移。
-    setTimeout(() => {
-      if (requestToken === this.selectionRequestToken) {
-        this.onSelect(index);
-      }
-    }, 280);
+    // 选择必须同步上抛，不允许延迟：本组件挂在 HdsNavigation 标题栏的
+    // stackBuilder 里，而标题栏 options（秒级时钟 mainTitle、返回键显隐等）
+    // 每次父组件重渲都是新对象，stackBuilder 内容会被周期性销毁重建。此前的
+    // "延迟 280ms + token 取消"机制在重建落在窗口内时会把 onSelect 整个吞掉，
+    // 表现为点击后高亮滑过去又弹回、内容不切换。现在点击立即上抛，选择事实
+    // 只存在于父级状态中；"先播动画再切内容"的体验由父级延迟挂载内容来保证
+    // （MainPage.updateManagementNav 延迟 280ms 更新内容索引）。
+    this.onSelect(index);
   }
 
   private containerWidth(): number {

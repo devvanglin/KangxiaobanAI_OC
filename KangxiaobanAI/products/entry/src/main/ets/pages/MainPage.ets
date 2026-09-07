@@ -159,6 +159,8 @@ struct MainPage {
   @Local caregiverUnreadMessageCount: number = 0;
   @Local caregiverMaterialScrollerOwner: CaregiverMaterialScrollerOwner = 'residentDetail';
   @Local managementNavIndex: number = 0;
+  /** 实际渲染内容用的管理端导航索引；延迟于 managementNavIndex，给胶囊滑块动画让出渲染帧。 */
+  @Local managementContentIndex: number = 0;
   @Local adminHasLocalNavLayer: boolean = false;
   @Local adminBackRequestToken: number = 0;
   @Local doctorResidentDetailVisible: boolean = false;
@@ -167,6 +169,7 @@ struct MainPage {
   @Local doctorAiHistoryCollapsed: boolean = false;
   @Local workspaceClockTime: string = '--:--';
   @Local businessStore: BusinessStore = BusinessStore.getShared();
+  private managementContentTimerId: number = -1;
   private wideHomeScroller: Scroller = new Scroller();
   private wideHomeTaskDetailScroller: Scroller = new Scroller();
   private wideResidentMasterScroller: Scroller = new Scroller();
@@ -210,6 +213,10 @@ struct MainPage {
   aboutToDisappear(): void {
     this.businessWsClient.close();
     this.stopDoctorClock();
+    if (this.managementContentTimerId !== -1) {
+      clearTimeout(this.managementContentTimerId);
+      this.managementContentTimerId = -1;
+    }
     this.caregiverHasLocalBackLayer = false;
     WindowUtil.setImmersiveMode(false);
   }
@@ -305,15 +312,15 @@ struct MainPage {
   }
 
   private isDoctorResidentWorkspace(): boolean {
-    return this.isManagementWideWorkspace() && this.globalInfoModel.role === '医师' && this.managementNavIndex === 1;
+    return this.isManagementWideWorkspace() && this.globalInfoModel.role === '医师' && this.managementContentIndex === 1;
   }
 
   private isDoctorAiWorkspace(): boolean {
-    return this.isManagementWideWorkspace() && this.globalInfoModel.role === '医师' && this.managementNavIndex === 2;
+    return this.isManagementWideWorkspace() && this.globalInfoModel.role === '医师' && this.managementContentIndex === 2;
   }
 
   private isDoctorCasesWorkspace(): boolean {
-    return this.isManagementWideWorkspace() && this.globalInfoModel.role === '医师' && this.managementNavIndex === 3;
+    return this.isManagementWideWorkspace() && this.globalInfoModel.role === '医师' && this.managementContentIndex === 3;
   }
 
   private showDoctorResidentBackButton(): boolean {
@@ -336,7 +343,18 @@ struct MainPage {
       this.doctorResidentDetailVisible = false;
       this.doctorResidentScrollerOwner = 'residentDetail';
     }
+    // 选中态立即生效：标题栏胶囊（stackBuilder 内）可能随时被重建，重建后
+    // aboutToAppear 读取的正是这个值，高亮因此永不回弹。
     this.managementNavIndex = index;
+    // 内容延迟切换：保住"滑块动画播完再做大块内容重建"的原始体验。
+    // 定时器挂在 MainPage 上（生命周期稳定），不再依赖胶囊组件自身存活。
+    if (this.managementContentTimerId !== -1) {
+      clearTimeout(this.managementContentTimerId);
+    }
+    this.managementContentTimerId = setTimeout((): void => {
+      this.managementContentTimerId = -1;
+      this.managementContentIndex = index;
+    }, 280);
   }
 
   @Builder
@@ -744,11 +762,11 @@ struct MainPage {
       this.pathStack.pop();
       return true;
     }
-    if (this.isManagementWideWorkspace() && this.managementNavIndex === 0 && this.adminHasLocalNavLayer) {
+    if (this.isManagementWideWorkspace() && this.managementContentIndex === 0 && this.adminHasLocalNavLayer) {
       this.adminBackRequestToken += 1;
       return true;
     }
-    if (this.isManagementWideWorkspace() && this.managementNavIndex !== 0) {
+    if (this.isManagementWideWorkspace() && this.managementContentIndex !== 0) {
       this.updateManagementNav(0);
       return true;
     }
@@ -1337,7 +1355,7 @@ struct MainPage {
           naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
           compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
           managementScroller: this.wideManagementScroller,
-          managementNavIndex: this.managementNavIndex,
+          managementNavIndex: this.managementContentIndex,
           adminBackRequestToken: this.adminBackRequestToken,
           onLocalNavLayerChange: (hasLayer: boolean) => {
             this.adminHasLocalNavLayer = hasLayer;
