@@ -831,7 +831,7 @@ export struct WideResidentPage {
           .fontColor($r('sys.color.font_secondary'))
       }
     }
-    .width('100%')
+    .layoutWeight(1)
     .height('100%')
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)

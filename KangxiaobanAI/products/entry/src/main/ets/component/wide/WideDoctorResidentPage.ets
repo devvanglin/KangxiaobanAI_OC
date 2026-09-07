@@ -804,7 +804,7 @@ export struct WideDoctorResidentPage {
         .fontSize($r('sys.float.Body_S'))
         .fontColor($r('sys.color.font_tertiary'))
     }
-    .width('100%')
+    .layoutWeight(1)
     .height('100%')
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
@@ -826,7 +826,7 @@ export struct WideDoctorResidentPage {
           .fontColor($r('sys.color.font_secondary'))
       }
     }
-    .width('100%')
+    .layoutWeight(1)
     .height('100%')
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
