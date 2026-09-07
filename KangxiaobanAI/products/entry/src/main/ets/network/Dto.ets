@@ -368,6 +368,16 @@ export interface Alert {
   close_time?: string;
 }
 
+/** 告警处置时间线（acknowledge/assign/note/escalate/resolve/close）。 */
+export interface AlertAction {
+  id: number;
+  alert_id: number;
+  user_id: number;
+  action: string;
+  note: string;
+  created_at: string;
+}
+
 export interface MedicationRecord {
   id: number;
   elder_id: number;
