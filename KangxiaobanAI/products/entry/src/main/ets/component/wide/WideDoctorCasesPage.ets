@@ -203,37 +203,53 @@ export struct WideDoctorCasesPage {
 
   @Builder
   private listPane() {
-    Scroll(this.scroller) {
-      Column({ space: 8 }) {
-        if (this.casesLoading) {
-          Text('正在获取病例…').fontSize(13).fontColor($r('sys.color.font_secondary'))
-            .width('100%').padding({ top: 32, bottom: 32 }).textAlign(TextAlign.Center)
-        } else if (this.visibleCases().length === 0) {
+    Column() {
+      if (this.casesLoading) {
+        Column({ space: 10 }) {
+          LoadingProgress()
+            .width(36)
+            .height(36)
+          Text('正在获取病例…')
+            .fontSize($r('sys.float.Body_M'))
+            .fontColor($r('sys.color.font_secondary'))
+        }
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+      } else if (this.visibleCases().length === 0) {
+        Column({ space: 8 }) {
+          SymbolGlyph($r('sys.symbol.doc_text'))
+            .fontSize(36)
+            .fontColor([$r('sys.color.font_tertiary')])
+          Text('暂无已提交的病例')
+            .fontSize($r('sys.float.Body_M'))
+            .fontColor($r('sys.color.font_secondary'))
+        }
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+      } else {
+        Scroll(this.scroller) {
           Column({ space: 8 }) {
-            SymbolGlyph($r('sys.symbol.doc_text'))
-              .fontSize(36)
-              .fontColor([$r('sys.color.font_tertiary')])
-            Text('暂无已提交的病例')
-              .fontSize($r('sys.float.Body_M'))
-              .fontColor($r('sys.color.font_secondary'))
+            ForEach(this.visibleCases(), (item: AdmissionAssessmentRecord) => {
+              this.caseRow(item)
+            }, (item: AdmissionAssessmentRecord) => `case-${item.id}`)
           }
           .width('100%')
-          .padding({ top: 48, bottom: 48 })
-          .alignItems(HorizontalAlign.Center)
-        } else {
-          ForEach(this.visibleCases(), (item: AdmissionAssessmentRecord) => {
-            this.caseRow(item)
-          }, (item: AdmissionAssessmentRecord) => `case-${item.id}`)
+          .padding(16)
         }
+        .width('100%')
+        .height('100%')
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
+        .align(Alignment.Top)
       }
-      .width('100%')
-      .padding(16)
     }
     .width('100%')
     .height('100%')
-    .scrollBar(BarState.Off)
-    .edgeEffect(EdgeEffect.Spring)
-    .align(Alignment.Top)
+    .padding(16)
   }
 
   @Builder
