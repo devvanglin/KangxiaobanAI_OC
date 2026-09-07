@@ -31,6 +31,7 @@ type ResidentDetailTab = 'overview' | 'vitals' | 'care' | 'devices' | 'behavior'
 interface VitalTrendRow {
   time: string;
   heartRate: number;
+  respiratory: number;
   systolic: number;
   diastolic: number;
   level: StatusLevel;
@@ -514,6 +515,7 @@ export struct WideResidentPage {
       .sort((left: HealthRecord, right: HealthRecord): number => left.record_time.localeCompare(right.record_time))
       .map((item: HealthRecord): VitalTrendRow => {
         return { time: this.timeText(item.record_time), heartRate: item.heart_rate ?? 0,
+          respiratory: item.respiratory_rate ?? 0,
           systolic: item.systolic ?? 0, diastolic: item.diastolic ?? 0,
           level: this.serverRiskLevel(item.risk_level) };
       });
@@ -1428,42 +1430,104 @@ export struct WideResidentPage {
   }
 
   @Builder
-  private vitalTrendContent(resident: ResidentData) {
-    Column({ space: 16 }) {
-      Column({ space: 12 }) {
-        this.cardTitle('今日心率趋势', '单位 bpm')
-        Row({ space: 12 }) {
-          Repeat(this.trendRows(resident))
-            .each((repeatItem: RepeatItem<VitalTrendRow>) => {
-              Column({ space: 7 }) {
-                Text(`${repeatItem.item.heartRate}`)
-                  .fontSize($r('sys.float.Caption_M'))
-                  .fontColor($r('sys.color.font_secondary'))
-                Column()
-                  .width(18)
-                  .height(42 + (repeatItem.item.heartRate - 60))
-                  .backgroundColor(repeatItem.item.time === '当前' ?
-                    $r('app.color.brand_blue') : 'rgba(29,99,237,0.28)')
-                  .borderRadius(4)
-                Text(repeatItem.item.time)
-                  .fontSize($r('sys.float.Caption_M'))
-                  .fontColor($r('sys.color.font_tertiary'))
-              }
-              .layoutWeight(1)
-              .height(130)
-              .justifyContent(FlexAlign.End)
-              .alignItems(HorizontalAlign.Center)
-            })
-            .key((item: VitalTrendRow) => item.time)
-        }
-        .width('100%')
-        .alignItems(VerticalAlign.Bottom)
+  private heartTrendCard(resident: ResidentData) {
+    Column({ space: 12 }) {
+      this.cardTitle('今日心率趋势', '单位 bpm')
+      Row({ space: 12 }) {
+        Repeat(this.trendRows(resident))
+          .each((repeatItem: RepeatItem<VitalTrendRow>) => {
+            Column({ space: 7 }) {
+              Text(`${repeatItem.item.heartRate}`)
+                .fontSize($r('sys.float.Caption_M'))
+                .fontColor($r('sys.color.font_secondary'))
+              Column()
+                .width(18)
+                .height(42 + (repeatItem.item.heartRate - 60))
+                .backgroundColor(repeatItem.item.time === '当前' ?
+                  $r('app.color.brand_blue') : 'rgba(29,99,237,0.28)')
+                .borderRadius(4)
+              Text(repeatItem.item.time)
+                .fontSize($r('sys.float.Caption_M'))
+                .fontColor($r('sys.color.font_tertiary'))
+            }
+            .layoutWeight(1)
+            .height(130)
+            .justifyContent(FlexAlign.End)
+            .alignItems(HorizontalAlign.Center)
+          })
+          .key((item: VitalTrendRow) => item.time)
       }
       .width('100%')
-      .padding({ left: 18, right: 18, top: 4, bottom: 18 })
-      .backgroundColor($r('sys.color.comp_background_primary'))
-      .borderRadius(12)
-      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+      .alignItems(VerticalAlign.Bottom)
+    }
+    .width('100%')
+    .padding({ left: 18, right: 18, top: 4, bottom: 18 })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(12)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+  }
+
+  @Builder
+  private respiratoryTrendCard(resident: ResidentData) {
+    Column({ space: 12 }) {
+      this.cardTitle('今日呼吸趋势', '单位 次/分')
+      Row({ space: 12 }) {
+        Repeat(this.trendRows(resident))
+          .each((repeatItem: RepeatItem<VitalTrendRow>) => {
+            Column({ space: 7 }) {
+              Text(repeatItem.item.respiratory > 0 ? `${repeatItem.item.respiratory}` : '--')
+                .fontSize($r('sys.float.Caption_M'))
+                .fontColor($r('sys.color.font_secondary'))
+              Column()
+                .width(18)
+                .height(repeatItem.item.respiratory > 0 ?
+                  Math.max(24, 42 + (repeatItem.item.respiratory - 12) * 3) : 24)
+                .backgroundColor(repeatItem.item.time === '当前' ?
+                  $r('app.color.brand_blue') : 'rgba(29,99,237,0.28)')
+                .borderRadius(4)
+              Text(repeatItem.item.time)
+                .fontSize($r('sys.float.Caption_M'))
+                .fontColor($r('sys.color.font_tertiary'))
+            }
+            .layoutWeight(1)
+            .height(130)
+            .justifyContent(FlexAlign.End)
+            .alignItems(HorizontalAlign.Center)
+          })
+          .key((item: VitalTrendRow) => item.time)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Bottom)
+    }
+    .width('100%')
+    .padding({ left: 18, right: 18, top: 4, bottom: 18 })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(12)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+  }
+
+  @Builder
+  private vitalTrendContent(resident: ResidentData) {
+    Column({ space: 16 }) {
+      if (this.compactWidth) {
+        this.heartTrendCard(resident)
+        this.respiratoryTrendCard(resident)
+      } else {
+        // 宽屏双列：心率/呼吸趋势并排，测量记录整宽在下。
+        Row({ space: 16 }) {
+          Column() {
+            this.heartTrendCard(resident)
+          }
+          .layoutWeight(1)
+
+          Column() {
+            this.respiratoryTrendCard(resident)
+          }
+          .layoutWeight(1)
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Top)
+      }
 
       Column({ space: 0 }) {
         this.cardTitle('测量记录', `${this.trendRows(resident).length} 次`)
@@ -1475,6 +1539,10 @@ export struct WideResidentPage {
                 .fontSize($r('sys.float.Body_S'))
                 .fontColor($r('sys.color.font_secondary'))
               Text(`心率 ${repeatItem.item.heartRate} bpm`)
+                .layoutWeight(1)
+                .fontSize($r('sys.float.Body_M'))
+                .fontColor($r('sys.color.font_primary'))
+              Text(repeatItem.item.respiratory > 0 ? `呼吸 ${repeatItem.item.respiratory} 次/分` : '呼吸 --')
                 .layoutWeight(1)
                 .fontSize($r('sys.float.Body_M'))
                 .fontColor($r('sys.color.font_primary'))
