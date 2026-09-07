@@ -307,8 +307,43 @@ export struct WideResidentPage {
     return this.residentVitalSign(resident).oxygen > 0;
   }
 
-  private hasMedicationPlan(resident: ResidentData): boolean {
-    return this.residentMedicationProgress(resident).total > 0;
+  private previousVitalValue(resident: ResidentData, pick: (item: HealthRecord) => number): number | undefined {
+    const records: HealthRecord[] = this.businessStore.healthRecords
+      .filter((item: HealthRecord) => item.elder_id === Number(resident.id))
+      .sort((left: HealthRecord, right: HealthRecord): number => right.record_time.localeCompare(left.record_time));
+    if (records.length < 2) {
+      return undefined;
+    }
+    const value: number = pick(records[1]);
+    return value > 0 ? value : undefined;
+  }
+
+  private metricTrendText(current: number, previous: number | undefined, digits: number,
+    lowerIsBetter: boolean): string {
+    if (current <= 0 || previous === undefined || previous <= 0) {
+      return '暂无对比';
+    }
+    const factor: number = Math.pow(10, digits);
+    const delta: number = Math.round((current - previous) * factor) / factor;
+    if (delta === 0) {
+      return '较昨日 持平';
+    }
+    return delta > 0 ? `较昨日 ↑ ${delta}` : `较昨日 ↓ ${Math.abs(delta)}`;
+  }
+
+  private metricTrendColor(current: number, previous: number | undefined, digits: number,
+    lowerIsBetter: boolean): ResourceColor {
+    if (current <= 0 || previous === undefined || previous <= 0) {
+      return $r('sys.color.font_tertiary');
+    }
+    const factor: number = Math.pow(10, digits);
+    const delta: number = Math.round((current - previous) * factor) / factor;
+    if (delta === 0) {
+      return $r('sys.color.font_tertiary');
+    }
+    const rising: boolean = delta > 0;
+    const worse: boolean = lowerIsBetter ? rising : !rising;
+    return worse ? $r('app.color.status_danger') : $r('app.color.status_normal');
   }
 
   private residentMedications(resident: ResidentData): MedicationRecord[] {
@@ -464,29 +499,6 @@ export struct WideResidentPage {
     return 'normal';
   }
 
-  private heartRateLevel(vital: VitalSign): StatusLevel {
-    return vital.riskLevel;
-  }
-
-  private bloodPressureLevel(vital: VitalSign): StatusLevel {
-    return vital.riskLevel;
-  }
-
-  private oxygenLevel(vital: VitalSign): StatusLevel {
-    return vital.riskLevel;
-  }
-
-  private medicationLevel(progress: MedicationProgress): StatusLevel {
-    return progress.total > 0 && progress.done >= progress.total ? 'normal' : 'warning';
-  }
-
-  private metricStateText(level: StatusLevel, riskSummary: string): string {
-    if (riskSummary.trim().length > 0) {
-      return riskSummary;
-    }
-    return level === 'normal' ? '服务器评估正常' : '服务器评估需关注';
-  }
-
   private residentRowBackground(residentId: string): ResourceColor {
     if (this.selectedResidentId === residentId) {
       return $r('sys.color.comp_background_secondary');
@@ -521,10 +533,6 @@ export struct WideResidentPage {
 
   private vitalText(value: number): string {
     return value > 0 ? value.toString() : '--';
-  }
-
-  private vitalUnit(value: number, unit: string): string {
-    return value > 0 ? unit : '';
   }
 
   private careRecords(resident: ResidentData): CareRecordRow[] {
@@ -1068,131 +1076,14 @@ export struct WideResidentPage {
         .alignItems(VerticalAlign.Center)
       }
 
-      Column({ space: 0 }) {
-        if (this.compactWidth) {
-          Row({ space: 0 }) {
-            this.bloodPressureMetric(resident)
-            Divider()
-              .vertical(true)
-              .height(54)
-              .strokeWidth(0.5)
-              .color($r('sys.color.comp_divider'))
-            this.heartRateMetric(resident)
-          }
-          .width('100%')
-          .height(84)
-          .alignItems(VerticalAlign.Center)
-
-          Divider()
-            .strokeWidth(0.5)
-            .color($r('sys.color.comp_divider'))
-
-          Row({ space: 0 }) {
-            this.oxygenMetric(resident)
-            Divider()
-              .vertical(true)
-              .height(54)
-              .strokeWidth(0.5)
-              .color($r('sys.color.comp_divider'))
-            this.medicationMetric(resident)
-          }
-          .width('100%')
-          .height(84)
-          .alignItems(VerticalAlign.Center)
-        } else {
-          Row({ space: 0 }) {
-            this.bloodPressureMetric(resident)
-            Divider()
-              .vertical(true)
-              .height(52)
-              .strokeWidth(0.5)
-              .color($r('sys.color.comp_divider'))
-            this.heartRateMetric(resident)
-            Divider()
-              .vertical(true)
-              .height(52)
-              .strokeWidth(0.5)
-              .color($r('sys.color.comp_divider'))
-            this.oxygenMetric(resident)
-            Divider()
-              .vertical(true)
-              .height(52)
-              .strokeWidth(0.5)
-              .color($r('sys.color.comp_divider'))
-            this.medicationMetric(resident)
-          }
-          .width('100%')
-          .height(82)
-          .alignItems(VerticalAlign.Center)
-        }
-
-        Divider()
-          .strokeWidth(0.5)
-          .color($r('sys.color.comp_divider'))
-
-        if (this.compactWidth) {
-          Row({ space: 0 }) {
-            this.secondaryVitalMetric('体温', this.vitalText(this.residentVitalSign(resident).temperature),
-              this.vitalUnit(this.residentVitalSign(resident).temperature, '℃'))
-            Divider()
-              .vertical(true)
-              .height(32)
-              .strokeWidth(0.5)
-              .color($r('sys.color.comp_divider'))
-            this.secondaryVitalMetric('呼吸', '--', '')
-          }
-          .width('100%')
-          .height(54)
-          .alignItems(VerticalAlign.Center)
-
-          Divider()
-            .strokeWidth(0.5)
-            .color($r('sys.color.comp_divider'))
-
-          Row({ space: 0 }) {
-            this.secondaryVitalMetric('今日步数', '--', '')
-            Divider()
-              .vertical(true)
-              .height(32)
-              .strokeWidth(0.5)
-              .color($r('sys.color.comp_divider'))
-            this.secondaryVitalMetric('昨夜睡眠', '--', '')
-          }
-          .width('100%')
-          .height(54)
-          .alignItems(VerticalAlign.Center)
-        } else {
-          Row({ space: 0 }) {
-            this.secondaryVitalMetric('体温', this.vitalText(this.residentVitalSign(resident).temperature),
-              this.vitalUnit(this.residentVitalSign(resident).temperature, '℃'))
-            Divider()
-              .vertical(true)
-              .height(32)
-              .strokeWidth(0.5)
-              .color($r('sys.color.comp_divider'))
-            this.secondaryVitalMetric('呼吸', '--', '')
-            Divider()
-              .vertical(true)
-              .height(32)
-              .strokeWidth(0.5)
-              .color($r('sys.color.comp_divider'))
-            this.secondaryVitalMetric('今日步数', '--', '')
-            Divider()
-              .vertical(true)
-              .height(32)
-              .strokeWidth(0.5)
-              .color($r('sys.color.comp_divider'))
-            this.secondaryVitalMetric('昨夜睡眠', '--', '')
-          }
-          .width('100%')
-          .height(56)
-          .alignItems(VerticalAlign.Center)
-        }
+      Row({ space: this.compactWidth ? 10 : 12 }) {
+        this.bloodPressureMetric(resident)
+        this.heartRateMetric(resident)
+        this.oxygenMetric(resident)
+        this.temperatureMetric(resident)
       }
       .width('100%')
-      .backgroundColor($r('sys.color.comp_background_secondary'))
-      .borderRadius(12)
-      .clip(true)
+      .alignItems(VerticalAlign.Center)
     }
     .width('100%')
     .padding(this.compactWidth ? 16 : 20)
@@ -1222,153 +1113,102 @@ export struct WideResidentPage {
   @Builder
   private bloodPressureMetric(resident: ResidentData) {
     if (this.hasBloodPressure(resident)) {
-      this.primaryVitalMetric(
-        '血压',
-        `${this.residentVitalSign(resident).systolic}/${this.residentVitalSign(resident).diastolic}`,
-        'mmHg',
-        this.metricStateText(this.bloodPressureLevel(this.residentVitalSign(resident)),
-          this.residentVitalSign(resident).riskSummary),
-        this.bloodPressureLevel(this.residentVitalSign(resident))
-      )
+      this.overviewVitalCard('血压',
+        `${this.residentVitalSign(resident).systolic}/${this.residentVitalSign(resident).diastolic}`, 'mmHg',
+        this.metricTrendText(this.residentVitalSign(resident).systolic,
+          this.previousVitalValue(resident, (item: HealthRecord): number => item.systolic ?? 0), 0, true),
+        this.metricTrendColor(this.residentVitalSign(resident).systolic,
+          this.previousVitalValue(resident, (item: HealthRecord): number => item.systolic ?? 0), 0, true))
     } else {
-      this.primaryVitalMetric('血压', '--', '', '未上报', 'normal')
+      this.overviewVitalCard('血压', '--', '', '暂无数据', $r('sys.color.font_tertiary'))
     }
   }
 
   @Builder
   private heartRateMetric(resident: ResidentData) {
     if (this.hasHeartRate(resident)) {
-      this.primaryVitalMetric(
-        '心率',
-        this.residentVitalSign(resident).heartRate.toString(),
-        'bpm',
-        this.metricStateText(this.heartRateLevel(this.residentVitalSign(resident)),
-          this.residentVitalSign(resident).riskSummary),
-        this.heartRateLevel(this.residentVitalSign(resident))
-      )
+      this.overviewVitalCard('心率', this.residentVitalSign(resident).heartRate.toString(), '次/分',
+        this.metricTrendText(this.residentVitalSign(resident).heartRate,
+          this.previousVitalValue(resident, (item: HealthRecord): number => item.heart_rate ?? 0), 0, true),
+        this.metricTrendColor(this.residentVitalSign(resident).heartRate,
+          this.previousVitalValue(resident, (item: HealthRecord): number => item.heart_rate ?? 0), 0, true))
     } else {
-      this.primaryVitalMetric('心率', '--', '', '未上报', 'normal')
+      this.overviewVitalCard('心率', '--', '', '暂无数据', $r('sys.color.font_tertiary'))
     }
   }
 
   @Builder
   private oxygenMetric(resident: ResidentData) {
     if (this.hasOxygen(resident)) {
-      this.primaryVitalMetric(
-        '血氧',
-        this.residentVitalSign(resident).oxygen.toString(),
-        '%',
-        this.metricStateText(this.oxygenLevel(this.residentVitalSign(resident)),
-          this.residentVitalSign(resident).riskSummary),
-        this.oxygenLevel(this.residentVitalSign(resident))
-      )
+      this.overviewVitalCard('血氧', this.residentVitalSign(resident).oxygen.toString(), '%',
+        this.metricTrendText(this.residentVitalSign(resident).oxygen,
+          this.previousVitalValue(resident, (item: HealthRecord): number => item.spo2 ?? 0), 0, false),
+        this.metricTrendColor(this.residentVitalSign(resident).oxygen,
+          this.previousVitalValue(resident, (item: HealthRecord): number => item.spo2 ?? 0), 0, false))
     } else {
-      this.primaryVitalMetric('血氧', '--', '', '未上报', 'normal')
+      this.overviewVitalCard('血氧', '--', '', '暂无数据', $r('sys.color.font_tertiary'))
     }
   }
 
   @Builder
-  private medicationMetric(resident: ResidentData) {
-    if (this.hasMedicationPlan(resident)) {
-      this.primaryVitalMetric(
-        '今日用药',
-        `${this.residentMedicationProgress(resident).done}/${this.residentMedicationProgress(resident).total}`,
-        '次',
-        this.residentMedicationProgress(resident).done >= this.residentMedicationProgress(resident).total ?
-          '已完成' :
-          `待完成 ${this.residentMedicationProgress(resident).total - this.residentMedicationProgress(resident).done} 次`,
-        this.medicationLevel(this.residentMedicationProgress(resident))
-      )
+  private temperatureMetric(resident: ResidentData) {
+    if (this.residentVitalSign(resident).temperature > 0) {
+      this.overviewVitalCard('体温', this.vitalText(this.residentVitalSign(resident).temperature), '℃',
+        this.metricTrendText(this.residentVitalSign(resident).temperature,
+          this.previousVitalValue(resident, (item: HealthRecord): number => item.temperature ?? 0), 1, true),
+        this.metricTrendColor(this.residentVitalSign(resident).temperature,
+          this.previousVitalValue(resident, (item: HealthRecord): number => item.temperature ?? 0), 1, true))
     } else {
-      this.primaryVitalMetric('今日用药', '--', '', '暂无计划', 'normal')
+      this.overviewVitalCard('体温', '--', '', '暂无数据', $r('sys.color.font_tertiary'))
     }
   }
 
   @Builder
-  private primaryVitalMetric(
-    label: string,
-    value: string,
-    unit: string,
-    state: string,
-    level: StatusLevel
-  ) {
-    Column({ space: 5 }) {
-      Text(label)
-        .width('100%')
-        .textAlign(TextAlign.Center)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_secondary'))
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-
+  private overviewVitalCard(label: string, value: string, unit: string, trend: string,
+    trendColor: ResourceColor) {
+    Column({ space: this.compactWidth ? 5 : 7 }) {
       Row({ space: 4 }) {
         Text(value)
-          .fontSize(this.compactWidth ? 20 : 22)
-          .fontWeight(FontWeight.Medium)
+          .fontSize(this.compactWidth ? 20 : 24)
+          .fontWeight(FontWeight.Bold)
           .fontColor($r('sys.color.font_primary'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(unit)
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor($r('sys.color.font_tertiary'))
+        if (unit.length > 0) {
+          Text(unit)
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('sys.color.font_tertiary'))
+            .margin({ bottom: 2 })
+        }
       }
-      .width('100%')
-      .justifyContent(FlexAlign.Center)
       .alignItems(VerticalAlign.Bottom)
 
-      Row({ space: 6 }) {
+      Text(label)
+        .fontSize($r('sys.float.Caption_M'))
+        .fontColor($r('sys.color.font_secondary'))
+
+      Row({ space: 5 }) {
         Row()
-          .width(6)
-          .height(6)
-          .borderRadius(3)
-          .backgroundColor(this.statusColor(level))
-        Text(state)
+          .width(5)
+          .height(5)
+          .borderRadius(2.5)
+          .backgroundColor(trendColor)
+        Text(trend)
           .fontSize($r('sys.float.Caption_M'))
-          .fontColor(this.statusColor(level))
+          .fontColor(trendColor)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
-      .width('100%')
-      .justifyContent(FlexAlign.Center)
       .alignItems(VerticalAlign.Center)
     }
     .layoutWeight(1)
-    .height('100%')
-    .padding({ left: this.compactWidth ? 8 : 14, right: this.compactWidth ? 8 : 14 })
-    .alignItems(HorizontalAlign.Center)
+    .height(this.compactWidth ? 88 : 104)
+    .padding({ left: this.compactWidth ? 12 : 16, right: this.compactWidth ? 8 : 12 })
+    .alignItems(HorizontalAlign.Start)
     .justifyContent(FlexAlign.Center)
-  }
-
-  @Builder
-  private secondaryVitalMetric(label: string, value: string, unit: string) {
-    Column({ space: 5 }) {
-      Text(label)
-        .width('100%')
-        .textAlign(TextAlign.Center)
-        .fontSize($r('sys.float.Caption_M'))
-        .fontColor($r('sys.color.font_secondary'))
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-      Row({ space: 4 }) {
-        Text(value)
-          .fontSize($r('sys.float.Title_S'))
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(unit)
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor($r('sys.color.font_tertiary'))
-      }
-      .width('100%')
-      .justifyContent(FlexAlign.Center)
-      .alignItems(VerticalAlign.Bottom)
-    }
-    .layoutWeight(1)
-    .height('100%')
-    .padding({ left: this.compactWidth ? 6 : 10, right: this.compactWidth ? 6 : 10 })
-    .alignItems(HorizontalAlign.Center)
-    .justifyContent(FlexAlign.Center)
+    .backgroundColor($r('sys.color.comp_background_secondary'))
+    .borderRadius(12)
+    .clip(true)
   }
 
   @Builder
