@@ -661,6 +661,15 @@ export struct WideDoctorResidentPage {
             })
             .key((item: ResidentData) => item.id)
         }
+
+        ListItem() {
+          Text(`共 ${this.filteredResidents().length} 位长者`)
+            .width('100%')
+            .textAlign(TextAlign.Center)
+            .fontSize($r('sys.float.Caption_M'))
+            .fontColor($r('sys.color.font_tertiary'))
+            .padding({ top: 20, bottom: 8 })
+        }
       }
       .width('100%')
       .height('100%')
@@ -717,7 +726,7 @@ export struct WideDoctorResidentPage {
           .backgroundColor($r('sys.color.comp_background_secondary'))
           .borderRadius(20)
 
-        Column({ space: 5 }) {
+        Column() {
           Row({ space: 8 }) {
             Text(resident.name)
               .fontSize($r('sys.float.Body_L'))
@@ -733,13 +742,6 @@ export struct WideDoctorResidentPage {
           }
           .width('100%')
           .alignItems(VerticalAlign.Center)
-
-          Text(`${resident.room} · ${resident.bed} · ${resident.status}`)
-            .width('100%')
-            .fontSize($r('sys.float.Body_S'))
-            .fontColor($r('sys.color.font_tertiary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
         }
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
@@ -750,7 +752,7 @@ export struct WideDoctorResidentPage {
       .alignItems(VerticalAlign.Center)
     }
     .width('calc(100% - 8vp)')
-    .height(72)
+    .height(64)
     .margin({ left: 4, right: 4 })
     .backgroundColor(this.residentRowBackground(resident.id))
     .borderRadius(10)
@@ -887,7 +889,7 @@ export struct WideDoctorResidentPage {
           .width('42%')
         }
         .width('100%')
-        .padding({ left: 20, right: 20, top: 18, bottom: 16 })
+        .padding({ left: 20, right: 20, top: 22, bottom: 20 })
         .alignItems(VerticalAlign.Center)
       }
 
@@ -936,13 +938,6 @@ export struct WideDoctorResidentPage {
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)
-
-        Text(`${this.ageText(resident)} · ${resident.gender === 'male' ? '男' : '女'} · ${resident.status}`)
-          .width('100%')
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_secondary'))
-          .maxLines(this.compactWidth ? 2 : 1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start)
@@ -1068,7 +1063,7 @@ export struct WideDoctorResidentPage {
       .alignItems(VerticalAlign.Center)
     }
     .width('100%')
-    .padding(this.compactWidth ? 16 : 20)
+    .padding(this.compactWidth ? 16 : 24)
     .backgroundColor($r('sys.color.comp_background_primary'))
     .borderRadius(16)
     .clip(true)
@@ -1263,7 +1258,7 @@ export struct WideDoctorResidentPage {
       if (this.residentCareTasks(resident).length === 0) {
         Text('服务器暂无护理任务')
           .width('100%')
-          .height(48)
+          .height(72)
           .fontSize($r('sys.float.Body_S'))
           .fontColor($r('sys.color.font_tertiary'))
           .textAlign(TextAlign.Center)
