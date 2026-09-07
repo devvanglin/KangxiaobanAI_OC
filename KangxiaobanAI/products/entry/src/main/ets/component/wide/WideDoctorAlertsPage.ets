@@ -39,6 +39,7 @@ export struct WideDoctorAlertsPage {
   @Local actionsLoading: boolean = false;
   @Local operating: boolean = false;
   @Local compactDetailVisible: boolean = false;
+  @Local hoveredAlertId: number = -1;
   private scroller: Scroller = new Scroller();
   private detailScroller: Scroller = new Scroller();
   private categoryTabs: CategoryTab[] = [
@@ -129,6 +130,16 @@ export struct WideDoctorAlertsPage {
       handled_by: '',
       create_time: ''
     };
+  }
+
+  private rowBackground(alertId: number): ResourceColor {
+    if (this.selectedAlertId === alertId) {
+      return $r('sys.color.comp_background_secondary');
+    }
+    if (this.hoveredAlertId === alertId) {
+      return $r('sys.color.interactive_hover');
+    }
+    return Color.Transparent;
   }
 
   private deviceFor(alert: Alert): IotDeviceRef | undefined {
@@ -372,8 +383,8 @@ export struct WideDoctorAlertsPage {
   }
 
   @Builder
-  private alertCard(alert: Alert) {
-    Column({ space: 7 }) {
+  private alertRow(alert: Alert) {
+    Column({ space: 6 }) {
       Row({ space: 8 }) {
         this.levelBadge(alert.level)
         Blank()
@@ -386,7 +397,7 @@ export struct WideDoctorAlertsPage {
 
       Text(this.alertTitle(alert))
         .width('100%')
-        .fontSize(15)
+        .fontSize(14)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('sys.color.font_primary'))
         .maxLines(1)
@@ -411,15 +422,15 @@ export struct WideDoctorAlertsPage {
       .width('100%')
       .alignItems(VerticalAlign.Center)
     }
-    .width('100%')
-    .padding(12)
+    .width('calc(100% - 8vp)')
+    .margin({ left: 4, right: 4, top: 4, bottom: 4 })
+    .padding(10)
     .borderRadius(10)
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .border({
-      width: 0.5,
-      color: this.selectedAlertId === alert.id ? $r('app.color.brand_blue') : $r('sys.color.comp_divider')
-    })
+    .backgroundColor(this.rowBackground(alert.id))
     .alignItems(HorizontalAlign.Start)
+    .onHover((isHover: boolean) => {
+      this.hoveredAlertId = isHover ? alert.id : -1;
+    })
     .onClick(() => {
       this.selectAlert(alert);
     })
@@ -427,23 +438,34 @@ export struct WideDoctorAlertsPage {
 
   @Builder
   private masterPane() {
-    Column({ space: 10 }) {
-      TextInput({ placeholder: '搜索告警…', text: this.search })
-        .width('100%')
-        .height(38)
-        .fontSize(13)
-        .backgroundColor($r('sys.color.comp_background_primary'))
-        .borderRadius(10)
-        .onChange((value: string) => {
-          this.search = value;
-        })
+    Column() {
+      Row({ space: 8 }) {
+        SymbolGlyph($r('sys.symbol.magnifyingglass'))
+          .fontSize(15)
+          .fontColor([$r('sys.color.font_tertiary')])
+        TextInput({ placeholder: '搜索告警…', text: this.search })
+          .layoutWeight(1)
+          .height(36)
+          .fontSize(13)
+          .backgroundColor(Color.Transparent)
+          .padding({ left: 0, right: 0 })
+          .onChange((value: string) => {
+            this.search = value;
+          })
+      }
+      .width('100%')
+      .height(48)
+      .padding({ left: 14, right: 14 })
+      .alignItems(VerticalAlign.Center)
+
+      Divider().strokeWidth(0.5).color($r('sys.color.comp_divider')).margin({ left: 14, right: 14 })
 
       Scroll(this.scroller) {
-        Column({ space: 8 }) {
+        Column() {
           if (this.filteredAlerts().length === 0) {
             Column({ space: 8 }) {
               SymbolGlyph($r('sys.symbol.bell_fill'))
-                .fontSize(36)
+                .fontSize(34)
                 .fontColor([$r('sys.color.font_tertiary')])
               Text(this.businessStore.loading && !this.businessStore.loaded ? '正在加载告警…' : '暂无告警记录')
                 .fontSize($r('sys.float.Body_M'))
@@ -453,16 +475,16 @@ export struct WideDoctorAlertsPage {
                 .fontColor($r('sys.color.font_tertiary'))
             }
             .width('100%')
-            .padding({ top: 48, bottom: 48 })
+            .padding({ top: 44, bottom: 44 })
             .alignItems(HorizontalAlign.Center)
           } else {
             ForEach(this.filteredAlerts(), (alert: Alert) => {
-              this.alertCard(alert)
+              this.alertRow(alert)
             }, (alert: Alert) => `alert-${alert.id}-${alert.status}`)
           }
         }
         .width('100%')
-        .padding({ bottom: 16 + this.naviIndicatorHeight })
+        .padding({ top: 4, bottom: 12 + this.naviIndicatorHeight })
       }
       .layoutWeight(1)
       .width('100%')
@@ -470,39 +492,12 @@ export struct WideDoctorAlertsPage {
       .edgeEffect(EdgeEffect.Spring)
     }
     .width(this.compactWidth ? '100%' : '37%')
-    .constraintSize({ minWidth: 320, maxWidth: 460 })
+    .constraintSize({ minWidth: 320, maxWidth: 420 })
     .height('100%')
-  }
-
-  @Builder
-  private detailHeader(alert: Alert) {
-    Column({ space: 8 }) {
-      Row({ space: 10 }) {
-        this.levelBadge(alert.level)
-        Text(this.alertTitle(alert))
-          .fontSize(17)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
-          .maxLines(2)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .layoutWeight(1)
-        Text(this.alertNo(alert))
-          .fontSize(11)
-          .fontColor($r('sys.color.font_tertiary'))
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-
-      Text(`告警时间：${this.fullTime(alert.create_time)}   来源：${this.deviceSourceText(alert)}` +
-        `   当前状态：${this.statusText(alert.status)}`)
-        .width('100%')
-        .fontSize(12)
-        .fontColor($r('sys.color.font_secondary'))
-        .maxLines(2)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-    }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(16)
+    .clip(true)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   @Builder
@@ -512,24 +507,6 @@ export struct WideDoctorAlertsPage {
       .fontSize(14)
       .fontWeight(FontWeight.Medium)
       .fontColor($r('sys.color.font_primary'))
-  }
-
-  @Builder
-  private detailContentCard(alert: Alert) {
-    Column({ space: 10 }) {
-      this.detailCardTitle('告警详情')
-      Text(alert.content)
-        .width('100%')
-        .fontSize(13)
-        .lineHeight(20)
-        .fontColor($r('sys.color.font_secondary'))
-    }
-    .width('100%')
-    .padding(16)
-    .alignItems(HorizontalAlign.Start)
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(12)
-    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   @Builder
@@ -573,7 +550,7 @@ export struct WideDoctorAlertsPage {
     .padding(16)
     .alignItems(HorizontalAlign.Start)
     .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(12)
+    .borderRadius(16)
     .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
@@ -614,28 +591,36 @@ export struct WideDoctorAlertsPage {
 
   @Builder
   private timelineCard(alert: Alert) {
-    Column({ space: 10 }) {
-      this.detailCardTitle('处理记录')
-      if (this.actionsLoading) {
-        Text('正在加载处理记录…')
-          .fontSize(12)
-          .fontColor($r('sys.color.font_tertiary'))
-          .padding({ top: 6 })
-      } else {
-        this.timelineRow(this.fullTime(alert.create_time), '系统触发告警，推送至护理工作台',
-          alert.content, true)
-        ForEach(this.actions, (item: AlertAction) => {
-          this.timelineRow(this.fullTime(item.created_at),
-            `${this.actionText(item.action)} · ${item.user_id > 0 ? '操作员' + item.user_id : '系统'}`,
-            item.note, false)
-        }, (item: AlertAction) => `action-${item.id}`)
+    Column({ space: 0 }) {
+      Column({ space: 10 }) {
+        this.detailCardTitle('处理记录')
+        if (this.actionsLoading) {
+          Text('正在加载处理记录…')
+            .fontSize(12)
+            .fontColor($r('sys.color.font_tertiary'))
+            .padding({ top: 6 })
+        } else {
+          this.timelineRow(this.fullTime(alert.create_time), '系统触发告警，推送至护理工作台',
+            alert.content, true)
+          ForEach(this.actions, (item: AlertAction) => {
+            this.timelineRow(this.fullTime(item.created_at),
+              `${this.actionText(item.action)} · ${item.user_id > 0 ? '操作员' + item.user_id : '系统'}`,
+              item.note, false)
+          }, (item: AlertAction) => `action-${item.id}`)
+        }
       }
+      .width('100%')
+      .padding(16)
+      .alignItems(HorizontalAlign.Start)
+
+      Divider().strokeWidth(0.5).color($r('sys.color.comp_divider')).margin({ left: 16, right: 16 })
+
+      this.actionButtons(alert)
     }
     .width('100%')
-    .padding(16)
-    .alignItems(HorizontalAlign.Start)
     .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(12)
+    .borderRadius(16)
+    .clip(true)
     .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
@@ -647,7 +632,7 @@ export struct WideDoctorAlertsPage {
         Button('标记已读')
           .fontSize(14)
           .fontColor($r('sys.color.font_primary'))
-          .backgroundColor($r('sys.color.comp_background_primary'))
+          .backgroundColor($r('sys.color.comp_background_secondary'))
           .borderRadius(10)
           .height(40)
           .padding({ left: 18, right: 18 })
@@ -658,7 +643,7 @@ export struct WideDoctorAlertsPage {
         Button('转派处理')
           .fontSize(14)
           .fontColor($r('sys.color.font_primary'))
-          .backgroundColor($r('sys.color.comp_background_primary'))
+          .backgroundColor($r('sys.color.comp_background_secondary'))
           .borderRadius(10)
           .height(40)
           .padding({ left: 18, right: 18 })
@@ -684,6 +669,7 @@ export struct WideDoctorAlertsPage {
       }
     }
     .width('100%')
+    .padding({ left: 16, right: 16, top: 12, bottom: 14 })
     .alignItems(VerticalAlign.Center)
   }
 
@@ -706,6 +692,9 @@ export struct WideDoctorAlertsPage {
       .height('100%')
       .justifyContent(FlexAlign.Center)
       .alignItems(HorizontalAlign.Center)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(16)
+      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
     } else {
       this.alertDetail(this.selectedAlertId)
     }
@@ -715,11 +704,9 @@ export struct WideDoctorAlertsPage {
   private alertDetail(alertId: number) {
     Scroll(this.detailScroller) {
       Column({ space: 14 }) {
-        this.detailHeader(this.alertById(alertId))
-        this.detailContentCard(this.alertById(alertId))
+        this.alertProfileCard(this.alertById(alertId))
         this.vitalCard(this.alertById(alertId))
         this.timelineCard(this.alertById(alertId))
-        this.actionButtons(this.alertById(alertId))
       }
       .width('100%')
       .constraintSize({ maxWidth: 980 })
@@ -734,6 +721,59 @@ export struct WideDoctorAlertsPage {
     .align(Alignment.Top)
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
+  }
+
+  @Builder
+  private alertProfileCard(alert: Alert) {
+    Column({ space: 0 }) {
+      Column({ space: 8 }) {
+        Row({ space: 10 }) {
+          this.levelBadge(alert.level)
+          Text(this.alertTitle(alert))
+            .fontSize(17)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .layoutWeight(1)
+          Text(this.alertNo(alert))
+            .fontSize(11)
+            .fontColor($r('sys.color.font_tertiary'))
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+
+        Text(`告警时间：${this.fullTime(alert.create_time)}   来源：${this.deviceSourceText(alert)}` +
+          `   当前状态：${this.statusText(alert.status)}`)
+          .width('100%')
+          .fontSize(12)
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .width('100%')
+      .padding(16)
+      .alignItems(HorizontalAlign.Start)
+
+      Divider().strokeWidth(0.5).color($r('sys.color.comp_divider')).margin({ left: 16, right: 16 })
+
+      Column({ space: 10 }) {
+        this.detailCardTitle('告警详情')
+        Text(alert.content)
+          .width('100%')
+          .fontSize(13)
+          .lineHeight(20)
+          .fontColor($r('sys.color.font_secondary'))
+      }
+      .width('100%')
+      .padding(16)
+      .alignItems(HorizontalAlign.Start)
+    }
+    .width('100%')
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(16)
+    .clip(true)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
   build() {
