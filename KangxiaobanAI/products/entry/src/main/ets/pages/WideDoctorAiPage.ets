@@ -1417,33 +1417,42 @@ export struct WideDoctorAiPage {
         })
 
       Row({ space: 12 }) {
-        Row({ space: 8 }) {
-          Text('康小伴·快速')
-            .fontSize($r('sys.float.Body_S'))
-            .fontColor($r('sys.color.font_primary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-          Button({ type: ButtonType.Circle, stateEffect: true }) {
-            SymbolGlyph($r('sys.symbol.arrow_up'))
-              .fontSize(19)
-              .fontColor([$r('app.color.text_on_brand')])
-          }
-          .buttonStyle(ButtonStyleMode.NORMAL)
-          .width(40)
-          .height(40)
-          .backgroundColor(this.inputText.trim().length > 0 && !this.isGenerating ?
-            $r('app.color.brand_blue') : 0xFFB7C8F8)
-          .enabled(this.inputText.trim().length > 0 && !this.isGenerating)
-          .accessibilityText('发送')
-          .onClick(() => {
-            this.sendMessage();
-          })
+        Button({ type: ButtonType.Circle, stateEffect: true }) {
+          SymbolGlyph($r('sys.symbol.plus'))
+            .fontSize(21)
+            .fontColor([$r('sys.color.icon_primary')])
         }
-        .constraintSize({ minWidth: 168 })
-        .height(42)
-        .justifyContent(FlexAlign.End)
-        .alignItems(VerticalAlign.Center)
+        .buttonStyle(ButtonStyleMode.TEXTUAL)
+        .width(36)
+        .height(36)
+        .accessibilityText('更多工具')
+        .onClick(() => {
+          this.showToast('更多工具接入中');
+        })
+
+        Text('康小伴·快速')
+          .fontSize($r('sys.float.Body_S'))
+          .fontColor($r('sys.color.font_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+        Blank()
+
+        Button({ type: ButtonType.Circle, stateEffect: true }) {
+          SymbolGlyph($r('sys.symbol.arrow_up'))
+            .fontSize(19)
+            .fontColor([$r('app.color.text_on_brand')])
+        }
+        .buttonStyle(ButtonStyleMode.NORMAL)
+        .width(40)
+        .height(40)
+        .backgroundColor(this.inputText.trim().length > 0 && !this.isGenerating ?
+          $r('app.color.brand_blue') : 0xFFB7C8F8)
+        .enabled(this.inputText.trim().length > 0 && !this.isGenerating)
+        .accessibilityText('发送')
+        .onClick(() => {
+          this.sendMessage();
+        })
       }
       .width('100%')
       .height(42)
