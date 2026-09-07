@@ -9,11 +9,7 @@ import { BusinessStore } from '../../network/BusinessStore';
 import { AlertApi } from '../../network/AlertApi';
 import { Alert, AlertAction, HealthRecord } from '../../network/Dto';
 import { quickElderName } from './WideDoctorQuickPageKit';
-
-interface CategoryTab {
-  key: string;
-  label: string;
-}
+import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule';
 
 interface VitalCell {
   label: string;
@@ -42,13 +38,21 @@ export struct WideDoctorAlertsPage {
   @Local hoveredAlertId: number = -1;
   private scroller: Scroller = new Scroller();
   private detailScroller: Scroller = new Scroller();
-  private categoryTabs: CategoryTab[] = [
-    { key: 'all', label: '全部' },
-    { key: 'device', label: '设备告警' },
-    { key: 'health', label: '健康告警' },
-    { key: 'emergency', label: '紧急告警' },
-    { key: 'system', label: '系统通知' }
-  ];
+  private categoryKeys: string[] = ['all', 'device', 'health', 'emergency', 'system'];
+
+  private categoryItems(): WideSlidingCapsuleItem[] {
+    return [
+      { title: '全部', index: 0 },
+      { title: '设备', index: 1 },
+      { title: '健康', index: 2 },
+      { title: '紧急', index: 3 },
+      { title: '系统', index: 4 }
+    ];
+  }
+
+  private categoryIndex(): number {
+    return this.categoryKeys.indexOf(this.category);
+  }
 
   aboutToAppear(): void {
     void this.businessStore.load().then((): void => {
@@ -350,36 +354,17 @@ export struct WideDoctorAlertsPage {
   }
 
   @Builder
-  private categoryTabBar() {
-    Column() {
-      Row({ space: 26 }) {
-        ForEach(this.categoryTabs, (tab: CategoryTab) => {
-          Column({ space: 6 }) {
-            Text(tab.label)
-              .fontSize(15)
-              .fontWeight(this.category === tab.key ? FontWeight.Medium : FontWeight.Regular)
-              .fontColor(this.category === tab.key ? $r('sys.color.font_primary') : $r('sys.color.font_secondary'))
-            Row()
-              .width(20)
-              .height(3)
-              .borderRadius(1.5)
-              .backgroundColor(this.category === tab.key ? $r('sys.color.font_primary') : Color.Transparent)
-          }
-          .onClick(() => {
-            this.category = tab.key;
-          })
-        }, (tab: CategoryTab) => tab.key)
+  private categoryCapsule() {
+    WideSlidingCapsule({
+      items: this.categoryItems(),
+      selectedIndex: this.categoryIndex(),
+      itemWidth: 68,
+      onSelect: (index: number) => {
+        if (index >= 0 && index < this.categoryKeys.length) {
+          this.category = this.categoryKeys[index];
+        }
       }
-      .width('100%')
-      .height(46)
-      .padding({ left: this.compactWidth ? 16 : 28, right: this.compactWidth ? 16 : 28 })
-      .alignItems(VerticalAlign.Center)
-
-      Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
-    }
-    .width('100%')
-    .padding({ top: this.statusBarHeight + 56 })
-    .backgroundColor($r('sys.color.comp_background_primary'))
+    })
   }
 
   @Builder
@@ -779,7 +764,17 @@ export struct WideDoctorAlertsPage {
   build() {
     HdsNavDestination() {
       Column() {
-        this.categoryTabBar()
+        Row({ space: 12 }) {
+          this.categoryCapsule()
+          Blank()
+        }
+        .width('100%')
+        .padding({
+          left: this.compactWidth ? 16 : 24,
+          right: this.compactWidth ? 16 : 24,
+          top: this.statusBarHeight + 68
+        })
+
         Row({ space: this.compactWidth ? 0 : 16 }) {
           if (this.compactWidth && this.compactDetailVisible) {
             this.compactDetail()
@@ -792,7 +787,12 @@ export struct WideDoctorAlertsPage {
         }
         .layoutWeight(1)
         .width('100%')
-        .padding({ top: 12 })
+        .padding({
+          left: this.compactWidth ? 16 : 24,
+          right: this.compactWidth ? 16 : 24,
+          top: 12,
+          bottom: 24 + this.naviIndicatorHeight
+        })
         .alignItems(VerticalAlign.Top)
       }
       .width('100%')
