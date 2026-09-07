@@ -453,7 +453,7 @@ export struct WideAdminWorkspace {
 
   private doctorQuickFunctions(): DoctorQuickFunction[] {
     return [
-      { id: 'admission', label: '办理入住', symbol: $r('sys.symbol.person_badge_plus'), tone: 'focus', target: 'overview' },
+      { id: 'admission', label: '建立档案', symbol: $r('sys.symbol.person_badge_plus'), tone: 'focus', target: 'overview' },
       { id: 'beds', label: '床位管理', symbol: $r('sys.symbol.bed_double_fill'), tone: 'success', target: 'residents' },
       { id: 'tasks', label: '护理任务', symbol: $r('sys.symbol.checkmark_circle_fill'), tone: 'warning', target: 'overview' },
       { id: 'alerts', label: '告警处理', symbol: $r('sys.symbol.exclamationmark_triangle_fill'), tone: 'danger', target: 'overview' },
