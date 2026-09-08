@@ -93,6 +93,30 @@ export struct WideMedicationManagement {
       item.name.toLowerCase().includes(query) || item.manufacturer.toLowerCase().includes(query));
   }
 
+  /** 一行三张卡片；紧凑宽度放不下三列，降为两列。 */
+  private medCardColumns(): number {
+    return this.compactWidth ? 2 : 3;
+  }
+
+  private medCardRows(): MedicationItem[][] {
+    const columns: number = this.medCardColumns();
+    const items: MedicationItem[] = this.visibleMeds();
+    const rows: MedicationItem[][] = [];
+    for (let i = 0; i < items.length; i += columns) {
+      rows.push(items.slice(i, i + columns));
+    }
+    return rows;
+  }
+
+  /** 末行补位，保证已放置的卡片仍占 1/N 宽度。 */
+  private medRowFillers(rowLength: number): number[] {
+    const fillers: number[] = [];
+    for (let i = rowLength; i < this.medCardColumns(); i++) {
+      fillers.push(i);
+    }
+    return fillers;
+  }
+
   private openMedEditor(item?: MedicationItem): void {
     this.medEditingId = item !== undefined ? item.id : 0;
     this.medName = item?.name ?? '';
@@ -176,8 +200,8 @@ export struct WideMedicationManagement {
   private statCell(label: string, value: string) {
     Column({ space: 2 }) {
       Text(label).fontSize(12).fontColor($r('sys.color.font_tertiary'))
-      Text(value).fontSize(14).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
-        .maxLines(1)
+      Text(value).fontSize(13.5).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+        .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
     }.layoutWeight(1).alignItems(HorizontalAlign.Start)
   }
 
@@ -200,12 +224,17 @@ export struct WideMedicationManagement {
       }.width('100%').alignItems(VerticalAlign.Center)
       if (item.note.trim().length > 0) {
         Text(item.note).fontSize(12.5).fontColor($r('sys.color.font_secondary'))
-          .maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
+          .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
+      } else {
+        // 占位保持所有卡片等高，网格行内不出现参差。
+        Text(' ').fontSize(12.5).width('100%')
       }
       Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
       Row({ space: 8 }) {
         this.statCell('规格', item.specification.length > 0 ? item.specification : '--')
         this.statCell('类别', item.category.length > 0 ? item.category : '--')
+      }.width('100%')
+      Row({ space: 8 }) {
         this.statCell('用法', item.usage_method.length > 0 ? item.usage_method : '--')
         this.statCell('库存', `${item.stock} ${item.unit}`)
       }.width('100%')
@@ -321,9 +350,21 @@ export struct WideMedicationManagement {
               .fontSize(14).fontColor($r('sys.color.font_secondary'))
               .width('100%').padding({ top: 24, bottom: 24 }).textAlign(TextAlign.Center)
           } else {
-            ForEach(this.visibleMeds(), (item: MedicationItem) => {
-              this.medicationCard(item)
-            }, (item: MedicationItem) => `med-${item.id}`)
+            ForEach(this.medCardRows(), (row: MedicationItem[], rowIndex: number) => {
+              Row({ space: 12 }) {
+                ForEach(row, (item: MedicationItem) => {
+                  Column() {
+                    this.medicationCard(item)
+                  }
+                  .layoutWeight(1)
+                }, (item: MedicationItem) => `med-${item.id}`)
+                ForEach(this.medRowFillers(row.length), (filler: number) => {
+                  Column().layoutWeight(1)
+                }, (filler: number) => `med-fill-${rowIndex}-${filler}`)
+              }
+              .width('100%')
+              .alignItems(VerticalAlign.Top)
+            }, (row: MedicationItem[], rowIndex: number) => `med-row-${rowIndex}-${row.length}`)
           }
         }
         .width('100%')
