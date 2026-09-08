@@ -111,6 +111,13 @@
    **所有请求都没带 system 提示/技能/工具 schema**,模型因此直接编造(llm_test.go 回归)
 2. get_today_tasks 的 LEFT JOIN 与租户回调的裸 tenant_id 条件冲突(歧义列),已去掉 join
 
+### 会话持久化 + 上下文完善(2026-09-09 追加, a5f6f86f/c227858e 之后)
+- 历史栏每次展开自动刷新(30s 节流),重启不再显示过期空列表
+- 按用户记住最近会话(PreferenceManager),重进应用自动恢复上次对话
+- 切换会话保留 reasoning/trace/model(此前 cloneMessage 会丢,思考过程切换后消失)
+- agent 历史回放窗口 24→40 条;线上实测跨轮记忆 OK(“最开始查到的长者总数”→ 正确答 4,无需重新调工具)
+- 前端“康小伴·快速”写死标签 → 显示服务端真实模型名;思考过程展开显示“真实模型:…(在线调用)”
+
 ### 已知边界/后续建议
 - 当前线上唯一对话模型 = Qwen3-VL-4B-Instruct(new-api → DGX-2:8000,max-model-len 4096,
   未开 --enable-auto-tool-choice → 走 hermes 文本协议;模型更换后无需改代码)
