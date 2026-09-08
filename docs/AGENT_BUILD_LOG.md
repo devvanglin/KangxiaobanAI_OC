@@ -91,17 +91,12 @@
 ## 5. 阶段清单(持续更新)
 
 - [x] P0 底线提交 + 记忆文件
-- [x] P1 现状探索(后端 ai_service / 前端 AI 页 / DGX 模型探测)
-- [x] P2 调研(vLLM+Qwen tool calling、MCP Go SDK)
-- [x] P3 Go agent 包(循环/trace/上下文管理/工具注册表)
-- [x] P4 原生数据工具(租户+权限)
-- [x] P5 模式(chat/work)+ /ai/chat 接线 + trace 存储
-- [x] P6 Skills(表/CRUD/注入/预置)
-- [x] P7 MCP(表/CRUD/客户端/桥接)
-- [x] P8 前端:模式切换 + 思考过程 UI(两个 AI 页)
-- [x] P9 管理端 MCP/Skills 模块
-- [x] P10 测试 + 构建 + 部署 + 线上验证
-- [x] P11 前端构建 + 设备安装
+- [x] P1 现状探索:当前对话链路是坏的(kxb-local 模型不存在);DGX 关机时上游全断
+- [x] P2 调研:vLLM 无 tool parser 时 400;Qwen3 hermes 文本协议实测可用
+- [x] P3 agent 包 68567ec1;P4-P5 网关接线 83a5187b;P6-P7 skills+MCP 61f676d0
+- [x] P8-P9 前端(模式/思考过程/管理端 CRUD)已构建成功
+- [ ] P10 部署后端 + 角色模型名改 Qwen3-VL-4B-Instruct + 上下文窗口改 4096 + 线上验证
+- [ ] P11 HAP 安装设备 + 记忆收尾
 
 ## 6. 提交记录(本次任务)
 
