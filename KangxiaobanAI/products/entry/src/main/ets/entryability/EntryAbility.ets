@@ -13,10 +13,12 @@
  * limitations under the License.
  */
 
-import { AbilityConstant, Configuration, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
+import { AbilityConstant, common, Configuration, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
 import Logger from '../util/Logger';
 import { WindowUtil } from '../util/WindowUtil';
+import { PreferenceManager } from '../util/PreferenceManager';
+import { StorageKey } from '../common/CommonConstants';
 
 const TAG: string = '[KanxiaobanAbility]';
 
@@ -49,8 +51,49 @@ export default class KanxiaobanAbility extends UIAbility {
         return;
       }
       WindowUtil.initialize(windowStage);
+      this.applyStartupSettings();
       Logger.info(TAG, 'Succeeded in loading the content.');
     });
+  }
+
+  private applyStartupSettings(): void {
+    const preferenceManager: PreferenceManager = PreferenceManager.getInstance();
+    const appearance: string = preferenceManager.getValue<string>(StorageKey.GENERAL_APPEARANCE,
+      JSON.stringify('system')) ?? 'system';
+    const fontSize: string = preferenceManager.getValue<string>(StorageKey.GENERAL_FONT_SIZE,
+      JSON.stringify('system')) ?? 'system';
+    const language: string = preferenceManager.getValue<string>(StorageKey.GENERAL_APP_LANGUAGE,
+      JSON.stringify('system')) ?? 'system';
+    try {
+      const appContext: common.ApplicationContext = this.context.getApplicationContext();
+      if (appearance === 'light') {
+        appContext.setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT);
+      } else if (appearance === 'dark') {
+        appContext.setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_DARK);
+      } else {
+        appContext.setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET);
+      }
+      if (fontSize !== 'system') {
+        let scale: number = 1.0;
+        if (fontSize === 'small') {
+          scale = 0.85;
+        } else if (fontSize === 'large') {
+          scale = 1.15;
+        } else if (fontSize === 'xlarge') {
+          scale = 1.3;
+        }
+        appContext.setFontSizeScale(scale);
+      }
+      let languageTag: string = '';
+      if (language === 'zh-CN') {
+        languageTag = 'zh-CN';
+      } else if (language === 'en-US') {
+        languageTag = 'en-US';
+      }
+      appContext.setLanguage(languageTag);
+    } catch (err) {
+      Logger.error(TAG, `applyStartupSettings failed: ${err.message}`);
+    }
   }
 
   onWindowStageDestroy(): void {

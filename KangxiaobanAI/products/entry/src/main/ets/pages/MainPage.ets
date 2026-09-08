@@ -172,6 +172,7 @@ struct MainPage {
   @Local workspaceClockTime: string = '--:--';
   /** 标题栏账户菜单显隐：头像与面板都挂在页面自身树上，不受 stackBuilder 重建影响。 */
   @Local titleAccountMenuVisible: boolean = false;
+  @Local titleAccountPressed: boolean = false;
   @Local businessStore: BusinessStore = BusinessStore.getShared();
   private managementContentTimerId: number = -1;
   private wideHomeScroller: Scroller = new Scroller();
@@ -418,6 +419,18 @@ struct MainPage {
         .backgroundColor($r('sys.color.comp_background_primary'))
         .accessibilityText(`${this.currentUserDisplayName()}，${this.currentUserRoleLabel()}，打开账户菜单`)
         .onClick(() => this.toggleTitleAccountMenu())
+        .scale({
+          x: this.titleAccountPressed ? 0.9 : 1,
+          y: this.titleAccountPressed ? 0.9 : 1
+        })
+        .animation({ duration: 160, curve: Curve.Friction })
+        .onTouch((event: TouchEvent) => {
+          if (event.type === TouchType.Down) {
+            this.titleAccountPressed = true;
+          } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+            this.titleAccountPressed = false;
+          }
+        })
         .position({
           x: this.titleAccountAnchorX(48),
           y: this.globalInfoModel.statusBarHeight + 4
@@ -434,6 +447,18 @@ struct MainPage {
         .backgroundColor($r('sys.color.comp_background_primary'))
         .accessibilityText(this.globalInfoModel.role === '医师' ? '医师账户' : '管理端账户')
         .onClick(() => this.toggleTitleAccountMenu())
+        .scale({
+          x: this.titleAccountPressed ? 0.9 : 1,
+          y: this.titleAccountPressed ? 0.9 : 1
+        })
+        .animation({ duration: 160, curve: Curve.Friction })
+        .onTouch((event: TouchEvent) => {
+          if (event.type === TouchType.Down) {
+            this.titleAccountPressed = true;
+          } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+            this.titleAccountPressed = false;
+          }
+        })
         .position({
           x: this.titleAccountAnchorX(42),
           y: this.globalInfoModel.statusBarHeight + 7
@@ -505,6 +530,14 @@ struct MainPage {
     .borderRadius(16)
     .border({ width: 0.5, color: $r('sys.color.comp_divider') })
     .shadow(ShadowStyle.OUTER_DEFAULT_MD)
+    .transition(TransitionEffect.asymmetric(
+      TransitionEffect.OPACITY
+        .animation({ duration: 180, curve: Curve.EaseOut })
+        .combine(TransitionEffect.scale({ x: 0.92, y: 0.92 }))
+        .combine(TransitionEffect.translate({ y: -6 })),
+      TransitionEffect.OPACITY
+        .animation({ duration: 140, curve: Curve.EaseIn })
+    ))
     .position({
       x: this.globalInfoModel.deviceWidth - this.titleAccountPanelWidth() - 12,
       y: this.globalInfoModel.statusBarHeight + 56 + 8
@@ -1601,7 +1634,20 @@ struct MainPage {
   @Builder
   private destinationBuilder(name: string, param?: ESObject) {
     if (name === 'AboutPage') {
-      MineDetailPage({ pageType: 'about' })
+      MineDetailPage({
+        pageType: 'about',
+        onOpenArticle: (id: string) => {
+          this.pathStack.pushPath({ name: 'AboutArticlePage', param: id });
+        }
+      })
+    } else if (name === 'AboutArticlePage') {
+      MineDetailPage({
+        pageType: 'article',
+        articleId: (param as string) ?? '',
+        onOpenArticle: (id: string) => {
+          this.pathStack.pushPath({ name: 'AboutArticlePage', param: id });
+        }
+      })
     } else if (name === 'GeneralSettingsPage') {
       MineDetailPage({ pageType: 'general' })
     } else if (name === 'AdmissionPage') {
