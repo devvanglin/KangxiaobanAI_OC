@@ -551,6 +551,8 @@ struct MainPage {
       .width('100%')
       .height(this.globalInfoModel.statusBarHeight + WIDE_TITLE_BAR_HEIGHT)
       .padding({ top: this.globalInfoModel.statusBarHeight })
+      // 根 Stack 默认居中对齐，必须显式钉在左上角，否则覆盖层会落在屏幕中央。
+      .position({ x: 0, y: 0 })
       .hitTestBehavior(HitTestMode.None)
     }
   }
