@@ -142,11 +142,33 @@ func (h *StorageAdminHandler) Buckets(c *gin.Context) {
 	OK(c, gin.H{"configured": true, "buckets": buckets})
 }
 
+// sanitizePrefix 校验目录前缀：去首尾空白与开头斜杠，拒绝路径穿越，保留结尾斜杠。
+func sanitizePrefix(raw string) string {
+	prefix := strings.TrimSpace(raw)
+	prefix = strings.Trim(prefix, "/")
+	if prefix == "" {
+		return ""
+	}
+	for _, segment := range strings.Split(prefix, "/") {
+		segment = strings.TrimSpace(segment)
+		if segment == "" || segment == "." || segment == ".." {
+			return ""
+		}
+	}
+	return prefix + "/"
+}
+
 // Objects GET /api/v1/admin/storage/buckets/:bucket/objects?prefix=&max_keys=
+// 按目录层级列出：prefix 为当前目录（空为桶根），返回该层的子文件夹与文件。
 func (h *StorageAdminHandler) Objects(c *gin.Context) {
 	bucket := c.Param("bucket")
 	if bucket == "" {
 		Fail(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	prefix := sanitizePrefix(c.Query("prefix"))
+	if c.Query("prefix") != "" && prefix == "" {
+		Fail(c, http.StatusBadRequest, 400, "参数错误：目录前缀不合法")
 		return
 	}
 	maxKeys := 200
@@ -158,12 +180,13 @@ func (h *StorageAdminHandler) Objects(c *gin.Context) {
 	if maxKeys > 1000 {
 		maxKeys = 1000
 	}
-	objects, err := h.svc.Objects(c.Request.Context(), bucket, c.Query("prefix"), maxKeys)
+	listing, err := h.svc.List(c.Request.Context(), bucket, prefix, maxKeys)
 	if err != nil {
 		h.failStorage(c, err, "对象列表获取失败")
 		return
 	}
-	OK(c, gin.H{"bucket": bucket, "objects": objects})
+	OK(c, gin.H{"bucket": bucket, "prefix": listing.Prefix,
+		"folders": listing.Folders, "objects": listing.Objects})
 }
 
 // rawPathPrefix 客户端拿到的是相对路径（不含 /api/v1 前缀），须自行拼上 API 基地址。

@@ -96,33 +96,62 @@ func (s *StorageService) Buckets(ctx context.Context) ([]StorageBucket, error) {
 	return buckets, nil
 }
 
-// Objects 列出桶内对象；prefix 供客户端按目录/文件名过滤，maxKeys 为返回上限。
-func (s *StorageService) Objects(ctx context.Context, bucket, prefix string, maxKeys int) ([]StorageObject, error) {
+// StorageListing 桶内某一层级的浏览结果：子文件夹与当前层级的文件。
+type StorageListing struct {
+	Prefix  string           `json:"prefix"`
+	Folders []StorageFolder  `json:"folders"`
+	Objects []StorageObject  `json:"objects"`
+}
+
+// StorageFolder 子文件夹项；Prefix 为含尾斜杠的完整前缀，进入时直接作为列表前缀。
+type StorageFolder struct {
+	Name   string `json:"name"`
+	Prefix string `json:"prefix"`
+}
+
+// List 按层级列出桶内容：prefix 为当前目录前缀（空为桶根），使用 '/' 分隔符，
+// 返回当前层级的子文件夹与文件，不递归展开。
+func (s *StorageService) List(ctx context.Context, bucket, prefix string, maxKeys int) (*StorageListing, error) {
 	if !s.Available() {
 		return nil, ErrStorageNotConfigured
 	}
-	// MaxKeys 只约束单次请求页大小；递归列出会继续翻页，这里在达到上限时取消遍历。
+	// MaxKeys 只约束单次请求页大小；非递归列出也会继续翻页，这里在达到上限时取消遍历。
 	listCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	options := minio.ListObjectsOptions{
 		Prefix:    prefix,
-		Recursive: true,
+		Recursive: false, // 使用 '/' 分隔符：子文件夹以「前缀/」形式出现在结果里。
 	}
-	objects := make([]StorageObject, 0, maxKeys)
+	listing := &StorageListing{Prefix: prefix, Folders: []StorageFolder{}, Objects: []StorageObject{}}
+	count := 0
 	for object := range s.client.ListObjects(listCtx, bucket, options) {
 		if object.Err != nil {
 			return nil, errors.Join(ErrStorageUnavailable, object.Err)
 		}
-		if strings.HasSuffix(object.Key, "/") {
-			continue // 目录占位对象不作为内容展示。
+		count++
+		if count > maxKeys*10 {
+			cancel()
+			break
 		}
-		objects = append(objects, StorageObject{Key: object.Key, Size: object.Size, LastModified: object.LastModified})
-		if len(objects) >= maxKeys {
+		if strings.HasSuffix(object.Key, "/") {
+			name := strings.TrimSuffix(object.Key, "/")
+			if strings.HasPrefix(name, prefix) {
+				name = strings.TrimPrefix(name, prefix)
+			}
+			if name == "" {
+				continue
+			}
+			listing.Folders = append(listing.Folders, StorageFolder{Name: name, Prefix: object.Key})
+			continue
+		}
+		listing.Objects = append(listing.Objects,
+			StorageObject{Key: object.Key, Size: object.Size, LastModified: object.LastModified})
+		if len(listing.Objects) >= maxKeys {
 			cancel()
 			break
 		}
 	}
-	return objects, nil
+	return listing, nil
 }
 
 // PreviewURL 为单个对象生成短期 GET 预签名链接，客户端用它在 Image/Video 组件直连 MinIO。

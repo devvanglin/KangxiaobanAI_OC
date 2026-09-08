@@ -18,8 +18,8 @@ func TestStorageServiceNotConfigured(t *testing.T) {
 	if _, err := svc.Buckets(context.Background()); !errors.Is(err, ErrStorageNotConfigured) {
 		t.Fatalf("Buckets 未配置时应返回 ErrStorageNotConfigured，得到 %v", err)
 	}
-	if _, err := svc.Objects(context.Background(), "bucket", "", 100); !errors.Is(err, ErrStorageNotConfigured) {
-		t.Fatalf("Objects 未配置时应返回 ErrStorageNotConfigured，得到 %v", err)
+	if _, err := svc.List(context.Background(), "bucket", "", 100); !errors.Is(err, ErrStorageNotConfigured) {
+		t.Fatalf("List 未配置时应返回 ErrStorageNotConfigured，得到 %v", err)
 	}
 	if _, _, err := svc.PreviewURL(context.Background(), "bucket", "key"); !errors.Is(err, ErrStorageNotConfigured) {
 		t.Fatalf("PreviewURL 未配置时应返回 ErrStorageNotConfigured，得到 %v", err)

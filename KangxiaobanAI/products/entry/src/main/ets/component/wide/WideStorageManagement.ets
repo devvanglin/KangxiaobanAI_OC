@@ -27,7 +27,14 @@ interface StorageObject {
 
 interface StorageObjectPage {
   bucket: string;
+  prefix: string;
+  folders: StorageFolderInfo[];
   objects: StorageObject[];
+}
+
+interface StorageFolderInfo {
+  name: string;
+  prefix: string;
 }
 
 interface StoragePreviewsReq {
@@ -72,6 +79,8 @@ export struct WideStorageManagement {
   @Local bucketsError: string = '';
   @Local buckets: StorageBucket[] = [];
   @Local selectedBucket: string = '';
+  @Local currentPrefix: string = '';
+  @Local folders: StorageFolderInfo[] = [];
   @Local objectsLoading: boolean = false;
   @Local objectsError: string = '';
   @Local objects: StorageObject[] = [];
@@ -169,21 +178,26 @@ export struct WideStorageManagement {
 
   private selectBucket(name: string): void {
     this.selectedBucket = name;
+    this.currentPrefix = '';
     this.objectFilter = '';
-    this.loadObjects(name);
+    this.loadObjects(name, '');
   }
 
-  private async loadObjects(bucket: string): Promise<void> {
+  private async loadObjects(bucket: string, prefix: string = ''): Promise<void> {
     this.objectsLoading = true;
     this.objectsError = '';
     this.objects = [];
+    this.folders = [];
     this.previewUrls = {};
     try {
+      const prefixParam: string = prefix.length > 0 ? `&prefix=${encodeURIComponent(prefix)}` : '';
       const response = await ApiClient.get<StorageObjectPage>(
-        `/admin/storage/buckets/${encodeURIComponent(bucket)}/objects?max_keys=300`);
+        `/admin/storage/buckets/${encodeURIComponent(bucket)}/objects?max_keys=300${prefixParam}`);
       if (response.code !== 0 || response.data === undefined || response.data === null) {
         this.objectsError = response.msg.length > 0 ? response.msg : '对象列表获取失败';
       } else {
+        this.currentPrefix = response.data.prefix ?? prefix;
+        this.folders = response.data.folders ?? [];
         const list: StorageObject[] = response.data.objects ?? [];
         // 最近修改的排前面，符合"先看新内容"的浏览习惯。
         this.objects = list.sort((a: StorageObject, b: StorageObject): number =>
@@ -194,6 +208,26 @@ export struct WideStorageManagement {
       this.objectsError = error instanceof Error && error.message.length > 0 ? error.message : '对象列表获取失败';
     }
     this.objectsLoading = false;
+  }
+
+  private enterFolder(folder: StorageFolderInfo): void {
+    this.selectBucketPrefix(folder.prefix);
+  }
+
+  private backToParentFolder(): void {
+    if (this.currentPrefix.length === 0) {
+      return;
+    }
+    const trimmed: string = this.currentPrefix.endsWith('/') ?
+      this.currentPrefix.substring(0, this.currentPrefix.length - 1) : this.currentPrefix;
+    const withoutSlash: string = trimmed;
+    const index: number = withoutSlash.lastIndexOf('/');
+    this.selectBucketPrefix(index >= 0 ? withoutSlash.substring(0, index + 1) : '');
+  }
+
+  private selectBucketPrefix(prefix: string): void {
+    this.objectFilter = '';
+    this.loadObjects(this.selectedBucket, prefix);
   }
 
   /** 批量换取图片/音频预签名链接，供缩略图与播放器直连 MinIO；单个失败不影响其余。 */
@@ -226,7 +260,8 @@ export struct WideStorageManagement {
     if (query.length === 0) {
       return this.objects;
     }
-    return this.objects.filter((item: StorageObject): boolean => item.key.toLowerCase().includes(query));
+    return this.objects.filter((item: StorageObject): boolean =>
+      this.displayName(item.key).toLowerCase().includes(query));
   }
 
   private objectKind(key: string): StorageObjectKind {
@@ -586,15 +621,16 @@ export struct WideStorageManagement {
       }
       const data: ArrayBuffer = new ArrayBuffer(size);
       fs.readSync(file.fd, data);
+      const targetKey: string = this.currentPrefix + name;
       const request = await ApiClient.uploadBinary<object>(
         `/admin/storage/buckets/${encodeURIComponent(this.selectedBucket)}/objects`,
-        data, this.contentTypeFor(name), { 'X-Object-Key': encodeURIComponent(name) }, name);
+        data, this.contentTypeFor(name), { 'X-Object-Key': encodeURIComponent(targetKey) }, name);
       if (request.code !== 0) {
         this.showToast(request.msg.length > 0 ? request.msg : '上传失败');
       } else {
         this.showToast(`已上传 ${name}`);
         await this.loadBuckets();
-        this.loadObjects(this.selectedBucket);
+        this.loadObjects(this.selectedBucket, this.currentPrefix);
       }
     } catch (error) {
       this.showToast('上传失败，请稍后重试');
@@ -642,7 +678,7 @@ export struct WideStorageManagement {
         this.showToast(response.msg.length > 0 ? response.msg : '重命名失败');
       } else {
         this.showToast('已重命名');
-        this.loadObjects(bucket);
+        this.loadObjects(bucket, this.currentPrefix);
       }
     } catch (_error) {
       this.showToast('重命名失败，请稍后重试');
@@ -685,7 +721,7 @@ export struct WideStorageManagement {
       } else {
         this.showToast('已删除');
         await this.loadBuckets();
-        this.loadObjects(bucket);
+        this.loadObjects(bucket, this.currentPrefix);
       }
     } catch (_error) {
       this.showToast('删除失败，请稍后重试');
@@ -787,6 +823,29 @@ export struct WideStorageManagement {
       $r('sys.color.comp_background_primary'))
     .border({ width: this.selectedBucket === bucket.name ? 0 : 0.5, color: $r('sys.color.comp_divider') })
     .onClick(() => this.selectBucket(bucket.name))
+  }
+
+  @Builder
+  private folderCard(folder: StorageFolderInfo) {
+    Column({ space: 8 }) {
+      Column() {
+        SymbolGlyph($r('sys.symbol.folder_fill')).fontSize(42).fontColor([$r('app.color.brand_blue')])
+      }
+      .width('100%').height(110)
+      .justifyContent(FlexAlign.Center)
+      .borderRadius(12)
+      .backgroundColor($r('sys.color.comp_background_secondary'))
+      Text(folder.name)
+        .fontSize(13).fontColor($r('sys.color.font_primary'))
+        .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
+      Text('文件夹').fontSize(11).fontColor($r('sys.color.font_tertiary')).width('100%')
+    }
+    .alignItems(HorizontalAlign.Start)
+    .padding(12)
+    .borderRadius(16)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .onClick(() => this.enterFolder(folder))
   }
 
   @Builder
@@ -943,6 +1002,31 @@ export struct WideStorageManagement {
           Text(`${this.visibleObjects().length} 个对象`).fontSize(12).fontColor($r('sys.color.font_tertiary'))
         }.width('100%').alignItems(VerticalAlign.Center)
 
+        if (this.currentPrefix.length > 0) {
+          Row({ space: 10 }) {
+            Button({ type: ButtonType.Capsule, stateEffect: true }) {
+              Text('返回上一级').fontSize(13)
+            }
+            .height(32)
+            .backgroundColor($r('sys.color.comp_background_secondary'))
+            .fontColor($r('sys.color.font_primary'))
+            .onClick(() => this.backToParentFolder())
+            Text(`当前目录：${this.currentPrefix}`)
+              .fontSize(12).fontColor($r('sys.color.font_tertiary'))
+              .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).layoutWeight(1)
+          }.width('100%').alignItems(VerticalAlign.Center)
+        }
+
+        if (this.folders.length > 0) {
+          Flex({ wrap: FlexWrap.Wrap }) {
+            ForEach(this.folders, (folder: StorageFolderInfo) => {
+              Column() {
+                this.folderCard(folder)
+              }.margin({ right: 12, bottom: 4 }).width(200)
+            }, (folder: StorageFolderInfo) => `folder-${folder.prefix}`)
+          }.width('100%')
+        }
+
         if (this.selectedBucket.length === 0) {
           Text('请选择一个桶查看内容').fontSize(14).fontColor($r('sys.color.font_secondary'))
             .width('100%').padding({ top: 32, bottom: 32 }).textAlign(TextAlign.Center)
@@ -957,9 +1041,11 @@ export struct WideStorageManagement {
               .onClick(() => this.loadObjects(this.selectedBucket))
           }.width('100%').padding({ top: 32, bottom: 32 }).alignItems(HorizontalAlign.Center)
         } else if (this.visibleObjects().length === 0) {
-          Text(this.objectFilter.length > 0 ? '没有匹配的文件' : '该桶暂无内容')
-            .fontSize(14).fontColor($r('sys.color.font_secondary'))
-            .width('100%').padding({ top: 32, bottom: 32 }).textAlign(TextAlign.Center)
+          if (this.folders.length === 0) {
+            Text(this.objectFilter.length > 0 ? '没有匹配的文件' : '该桶暂无内容')
+              .fontSize(14).fontColor($r('sys.color.font_secondary'))
+              .width('100%').padding({ top: 32, bottom: 32 }).textAlign(TextAlign.Center)
+          }
         } else {
           this.objectGrid()
         }
