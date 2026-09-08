@@ -29,7 +29,7 @@ var (
 	errAdmissionPhotoDeleteNoop = errors.New("admission photo delete no-op")
 )
 
-var admissionPhotoKinds = map[string]struct{}{"portrait": {}, "id_front": {}, "id_back": {}}
+var admissionPhotoKinds = map[string]struct{}{"portrait": {}, "id_front": {}, "id_back": {}, "case_file": {}}
 
 // AdmissionPhotoService stores private intake images outside the public static
 // directory. The generated key is tenant scoped and never derived from a
@@ -88,7 +88,7 @@ func (s *AdmissionPhotoService) Upload(ctx context.Context, actor AdmissionActor
 		return nil, ErrAdmissionForbidden
 	}
 	if _, ok := admissionPhotoKinds[kind]; !ok {
-		return nil, fmt.Errorf("%w: kind must be portrait, id_front or id_back", ErrAdmissionPhotoInvalid)
+		return nil, fmt.Errorf("%w: kind must be portrait, id_front, id_back or case_file", ErrAdmissionPhotoInvalid)
 	}
 	if uploadKey == "" || len(uploadKey) > 128 || !validUploadKey(uploadKey) {
 		return nil, fmt.Errorf("%w: upload key 无效", ErrAdmissionPhotoInvalid)
@@ -134,8 +134,13 @@ func (s *AdmissionPhotoService) Upload(ctx context.Context, actor AdmissionActor
 	buf := make([]byte, 512)
 	n, _ := tmp.Read(buf)
 	contentType := detectAdmissionPhotoContentType(buf[:n])
-	ext := map[string]string{"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}[contentType]
-	if ext == "" {
+	ext := map[string]string{"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "application/pdf": ".pdf"}[contentType]
+	// PDF bytes are only accepted for the case_file slot; identity photo
+	// slots stay image-only so a renamed document can never land there.
+	if ext == "" || (contentType == "application/pdf" && kind != "case_file") {
+		if kind == "case_file" {
+			return nil, fmt.Errorf("%w: 病例文件仅支持 JPG、PNG、WebP 或 PDF", ErrAdmissionPhotoInvalid)
+		}
 		return nil, fmt.Errorf("%w: 仅支持 JPG、PNG 或 WebP 图片", ErrAdmissionPhotoInvalid)
 	}
 	if err := tmp.Sync(); err != nil {
@@ -286,7 +291,7 @@ func (s *AdmissionPhotoService) DeletePending(ctx context.Context, actor Admissi
 		return false, fmt.Errorf("%w: upload key 无效", ErrAdmissionPhotoInvalid)
 	}
 	if _, ok := admissionPhotoKinds[kind]; !ok {
-		return false, fmt.Errorf("%w: kind must be portrait, id_front or id_back", ErrAdmissionPhotoInvalid)
+		return false, fmt.Errorf("%w: kind must be portrait, id_front, id_back or case_file", ErrAdmissionPhotoInvalid)
 	}
 
 	tenantID := tenantIDFromContext(ctx)

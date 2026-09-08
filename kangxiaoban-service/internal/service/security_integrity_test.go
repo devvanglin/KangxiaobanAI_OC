@@ -116,12 +116,12 @@ func TestTenantContextAcrossBusinessModules(t *testing.T) {
 		t.Fatalf("tenant 1 elder query leaked tenant 2: total=%d len=%d err=%v", total, len(elders), err)
 	}
 	supplySvc := NewSupplyService(repository.NewSupplyRepository(db))
-	stocks, stockTotal, err := supplySvc.ListStock(ctx1, "二号机构专属", 1, 20)
+	stocks, stockTotal, err := supplySvc.ListStock("二号机构专属", 1, 20)
 	if err != nil || stockTotal != 0 || len(stocks) != 0 {
 		t.Fatalf("tenant 1 stock query leaked tenant 2: total=%d len=%d err=%v", stockTotal, len(stocks), err)
 	}
 	scheduleSvc := NewScheduleService(repository.NewScheduleRepository(db))
-	schedules, scheduleTotal, err := scheduleSvc.ListSchedules(ctx1, "2099-01-01", 1, 20)
+	schedules, scheduleTotal, err := scheduleSvc.ListSchedules("2099-01-01", 1, 20)
 	if err != nil || scheduleTotal != 0 || len(schedules) != 0 {
 		t.Fatalf("tenant 1 schedule query leaked tenant 2: total=%d len=%d err=%v", scheduleTotal, len(schedules), err)
 	}

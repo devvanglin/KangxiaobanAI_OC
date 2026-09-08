@@ -343,11 +343,28 @@ export class ApiClient {
   }
 
   /**
+   * downloadBinary 的鉴权版本：下载需要登录的私有文件（如入住病例内容），
+   * 路径与 request() 一样基于 API_BASE 拼接并注入 Bearer 令牌。
+   */
+  public static downloadBinaryAuthorized(path: string): Promise<ArrayBuffer> {
+    const token: string = AuthStore.getToken();
+    const header: Record<string, string> = {};
+    if (token.length > 0) {
+      header['Authorization'] = 'Bearer ' + token;
+    }
+    return ApiClient.downloadStream(ApiConfig.API_BASE + path, header);
+  }
+
+  /**
    * 流式下载一个可直接访问的 URL（如知识库签名下载地址）的完整字节。
    * 走 requestInStream 以绕开 request 的响应体大小上限；URL 自带鉴权签名，
    * 不注入后端令牌。传输失败、非 2xx 或超时都以 Error 拒绝。
    */
   public static downloadBinary(url: string): Promise<ArrayBuffer> {
+    return ApiClient.downloadStream(url, {});
+  }
+
+  private static downloadStream(url: string, header: Record<string, string>): Promise<ArrayBuffer> {
     return new Promise<ArrayBuffer>((resolve: (value: ArrayBuffer) => void, reject: (reason: Error) => void) => {
       const httpRequest = http.createHttp();
       const chunks: ArrayBuffer[] = [];
@@ -402,6 +419,7 @@ export class ApiClient {
 
       const options: http.HttpRequestOptions = {
         method: http.RequestMethod.GET,
+        header: header,
         connectTimeout: ApiClient.DOWNLOAD_CONNECT_TIMEOUT_MS,
         readTimeout: ApiClient.DOWNLOAD_READ_TIMEOUT_MS
       };

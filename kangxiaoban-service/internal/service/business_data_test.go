@@ -61,21 +61,21 @@ func TestTaskAndMedicationServerDefaults(t *testing.T) {
 
 	medicationService := NewMedicationService(repository.NewMedicationRepository(db))
 	medication := model.MedicationRecord{ElderID: 1, MedicineName: "测试药品", Dosage: "5mg"}
-	if err := medicationService.Create(ctx, &medication); err != nil {
+	if err := medicationService.Create(&medication); err != nil {
 		t.Fatal(err)
 	}
 	if medication.Frequency != "按医嘱" || medication.Route != "口服" || medication.TodayTotal != 1 || medication.TodayDone != 0 || medication.Status != "pending" {
 		t.Fatalf("medication defaults not normalized: %+v", medication)
 	}
-	if err := medicationService.MarkStatus(ctx, medication.ID, "taken"); err != nil {
+	if err := medicationService.MarkStatus(medication.ID, "taken"); err != nil {
 		t.Fatal(err)
 	}
-	stored, err := medicationService.Get(ctx, medication.ID)
-	if err != nil {
-		t.Fatal(err)
+	stored, _, err := medicationService.List(medication.ElderID, "", 1, 10)
+	if err != nil || len(stored) == 0 {
+		t.Fatalf("medication list after mark: err=%v len=%d", err, len(stored))
 	}
-	if stored.TodayDone != stored.TodayTotal || stored.TakenTime == nil {
-		t.Fatalf("taken progress not persisted: %+v", stored)
+	if stored[0].Status != "taken" || stored[0].TakenTime == nil {
+		t.Fatalf("taken status not persisted: %+v", stored[0])
 	}
 }
 

@@ -806,8 +806,8 @@ func attachAdmissionPhotos(tx *gorm.DB, actor AdmissionActor, intakeID, elderID 
 	if len(keys) == 0 {
 		return nil
 	}
-	if len(keys) > 3 {
-		return fmt.Errorf("%w: 最多上传三张照片", ErrAdmissionPhotoInvalid)
+	if len(keys) > 4 {
+		return fmt.Errorf("%w: 最多上传三张照片和一份病例文件", ErrAdmissionPhotoInvalid)
 	}
 	seen := map[string]bool{}
 	for _, key := range keys {

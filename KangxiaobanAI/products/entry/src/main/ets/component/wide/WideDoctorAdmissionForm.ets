@@ -10,9 +10,12 @@ import {
 import { LengthMetrics } from '@kit.ArkUI';
 import { BusinessError } from '@ohos.base';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
-import { fileIo as fs, fileUri } from '@kit.CoreFileKit';
+import { common, Want } from '@kit.AbilityKit';
+import { util } from '@kit.ArkTS';
+import { fileIo as fs, fileUri, picker } from '@kit.CoreFileKit';
 import { Bed } from '../../network/Dto';
 import { BusinessStore } from '../../network/BusinessStore';
+import ApiClient from '../../network/ApiClient';
 import AdmissionRepository, { AdmissionFailureKind, AdmissionResult } from '../../network/AdmissionRepository';
 import { AdmissionIntakePayload, AdmissionIntakeResult, AdmissionPhoto } from '../../network/AdmissionApi';
 
@@ -24,6 +27,49 @@ interface AdmissionPhotoBinary {
 interface AdmissionCachedPhoto {
   uri: string;
   path: string;
+}
+
+interface AdmissionCaseFileType {
+  contentType: string;
+  extension: string;
+}
+
+interface AdmissionCaseFileBinary {
+  data: ArrayBuffer;
+  contentType: string;
+  extension: string;
+}
+
+/** 导出/导入的表单字段快照：只覆盖文本输入与选择项，不含床位与照片。 */
+interface AdmissionFormFields {
+  name?: string;
+  gender?: string;
+  idCard?: string;
+  birthDate?: string;
+  age?: string;
+  phone?: string;
+  familyAddress?: string;
+  familyName?: string;
+  familyPhone?: string;
+  familyRelation?: string;
+  admissionDate?: string;
+  admissionEndDate?: string;
+  feeStartDate?: string;
+  feeEndDate?: string;
+  careLevel?: string;
+  deposit?: string;
+  careFee?: string;
+  bedFee?: string;
+  otherFee?: string;
+  medicalInsurance?: string;
+  subsidy?: string;
+  note?: string;
+}
+
+interface AdmissionFormSnapshot {
+  kind?: string;
+  version?: number;
+  fields?: AdmissionFormFields;
 }
 
 interface AdmissionPendingPhotoCleanup {
@@ -64,18 +110,37 @@ interface AdmissionSubmissionPhotoContext {
 struct AdmissionGroupCard {
   @Param @Require title: string;
   @BuilderParam @Require content: () => void;
+  // 需要在卡片标题行右侧挂操作（如“上传病例/导出/导入”）时置 true，
+  // 此时 headerSuffix 为对应内容；否则 headerSuffix 传空箭头。
+  @Param withHeaderActions: boolean = false;
+  @BuilderParam @Require headerSuffix: () => void;
 
   build() {
     Column({ space: 0 }) {
-      HdsListItemCard({
-        textItem: {
-          primaryText: { text: this.title },
-        },
-        cardBorderRadius: 0,
-        cardBackgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
-        cardHeight: 58,
-        hoverBorderRadius: 0
-      })
+      if (this.withHeaderActions) {
+        Row() {
+          Text(this.title)
+            .fontSize(16)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+          Blank()
+          this.headerSuffix()
+        }
+        .width('100%')
+        .height(58)
+        .padding({ left: 20, right: 20 })
+        .alignItems(VerticalAlign.Center)
+      } else {
+        HdsListItemCard({
+          textItem: {
+            primaryText: { text: this.title },
+          },
+          cardBorderRadius: 0,
+          cardBackgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
+          cardHeight: 58,
+          hoverBorderRadius: 0
+        })
+      }
       Divider().strokeWidth(0.5).color($r('sys.color.comp_divider')).margin({ left: 16, right: 16 });
       Column({ space: 18 }) {
       this.content()
@@ -148,6 +213,11 @@ export struct WideDoctorAdmissionForm {
   @Local portraitUploadState: string = 'idle';
   @Local idCardFrontUploadState: string = 'idle';
   @Local idCardBackUploadState: string = 'idle';
+  // 病例文件：选择后立即上传（jpg/png/webp/pdf，5MB 以内）。上传成功后
+  // 头部入口切换为“查看病例”，提交入住时随 photo_upload_keys 一并绑定。
+  @Local caseFilePhotoId: number = 0;
+  @Local caseFileUploadState: string = 'idle'; // idle | picking | uploading | uploaded | failed
+  @Local caseFilePicking: boolean = false;
 
   private scroller: Scroller = new Scroller();
   // Keep the key that belongs to each selected slot instead of deriving it
@@ -165,6 +235,8 @@ export struct WideDoctorAdmissionForm {
   private portraitPhotoRevision: number = 0;
   private idCardFrontPhotoRevision: number = 0;
   private idCardBackPhotoRevision: number = 0;
+  // 病例文件的选择/上传令牌：丢弃迟到的选择器结果，防止覆盖新一次操作。
+  private caseFileToken: number = 0;
   private submissionSequence: number = 0;
   private activeSubmissionToken: number = 0;
   // Submission progress and view lifetime are separate concerns. A submit
@@ -704,6 +776,9 @@ export struct WideDoctorAdmissionForm {
     }
     if (this.idCardBackPhotoId > 0) {
       keys.push(this.photoUploadKey('身份证国徽面'));
+    }
+    if (this.caseFilePhotoId > 0) {
+      keys.push(this.caseFileUploadKeyForForm());
     }
     return keys;
   }
@@ -1781,6 +1856,356 @@ export struct WideDoctorAdmissionForm {
     return label === '一寸照片' ? '人像照' : label;
   }
 
+  private caseFileUploadKeyForForm(): string {
+    return this.idempotencyKey.length > 0 ? `${this.idempotencyKey}-case-file` : '';
+  }
+
+  private detectCaseFileType(bytes: Uint8Array): AdmissionCaseFileType | null {
+    if (bytes.length >= 3 && bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {
+      return { contentType: 'image/jpeg', extension: '.jpg' };
+    }
+    if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E &&
+      bytes[3] === 0x47 && bytes[4] === 0x0D && bytes[5] === 0x0A && bytes[6] === 0x1A && bytes[7] === 0x0A) {
+      return { contentType: 'image/png', extension: '.png' };
+    }
+    if (bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 &&
+      bytes[3] === 0x46 && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) {
+      return { contentType: 'image/webp', extension: '.webp' };
+    }
+    if (bytes.length >= 5 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 &&
+      bytes[3] === 0x46 && bytes[4] === 0x2D) {
+      return { contentType: 'application/pdf', extension: '.pdf' };
+    }
+    return null;
+  }
+
+  private readCaseFile(path: string): AdmissionCaseFileBinary | null {
+    let file: fs.File | undefined;
+    try {
+      file = fs.openSync(path, fs.OpenMode.READ_ONLY);
+      const size: number = Number(fs.statSync(file.fd).size);
+      if (!Number.isFinite(size) || size <= 0 || size > 5 * 1024 * 1024) {
+        this.showToast('病例文件大小须在 5MB 以内');
+        return null;
+      }
+      const data: ArrayBuffer = new ArrayBuffer(size);
+      const bytes: Uint8Array = new Uint8Array(data);
+      const chunkSize: number = Math.min(256 * 1024, size);
+      const chunk: ArrayBuffer = new ArrayBuffer(chunkSize);
+      let bytesRead: number = 0;
+      while (bytesRead < size) {
+        const requestLength: number = Math.min(chunkSize, size - bytesRead);
+        const readCount: number = fs.readSync(file.fd, chunk, { length: requestLength });
+        if (!Number.isFinite(readCount) || readCount <= 0 || readCount > requestLength) {
+          throw new Error('病例文件读取不完整');
+        }
+        bytes.set(new Uint8Array(chunk, 0, readCount), bytesRead);
+        bytesRead += readCount;
+      }
+      const type: AdmissionCaseFileType | null = this.detectCaseFileType(bytes);
+      if (type === null) {
+        this.showToast('病例仅支持 JPG、PNG、WebP 或 PDF 文件');
+        return null;
+      }
+      return { data: data, contentType: type.contentType, extension: type.extension };
+    } catch (_error) {
+      this.showToast('无法读取病例文件，请重新选择');
+      return null;
+    } finally {
+      if (file !== undefined) {
+        try {
+          fs.closeSync(file);
+        } catch (_error) {
+          // Ignore a close failure after the read has completed.
+        }
+      }
+    }
+  }
+
+  /** 文档选择器返回的是带临时读权限的 provider URI，先拷贝进应用缓存再校验。 */
+  private async copyCaseFileToCache(sourceUri: string, token: number): Promise<AdmissionCachedPhoto | null> {
+    let sourceFile: fs.File | undefined;
+    let destinationPath: string = '';
+    try {
+      const cacheDir: string = this.photoCacheDir();
+      if (cacheDir.length === 0 || sourceUri.length === 0) {
+        this.showToast('无法保存病例文件，请重新选择');
+        return null;
+      }
+      sourceFile = fs.openSync(sourceUri, fs.OpenMode.READ_ONLY);
+      const sourceSize: number = Number(fs.statSync(sourceFile.fd).size);
+      if (!Number.isFinite(sourceSize) || sourceSize <= 0 || sourceSize > 5 * 1024 * 1024) {
+        this.showToast('病例文件大小须在 5MB 以内');
+        return null;
+      }
+      destinationPath = `${cacheDir}/${this.photoCachePrefix}case-${Date.now()}-${token}-` +
+        `${Math.floor(Math.random() * 1000000)}`;
+      await fs.copyFile(sourceFile.fd, destinationPath);
+      const copiedSize: number = Number((await fs.stat(destinationPath)).size);
+      if (!Number.isFinite(copiedSize) || copiedSize !== sourceSize) {
+        throw new Error('病例文件复制不完整');
+      }
+      const binary: AdmissionCaseFileBinary | null = this.readCaseFile(destinationPath);
+      if (binary === null) {
+        fs.unlinkSync(destinationPath);
+        return null;
+      }
+      // 补回原始扩展名，系统预览器据此选择渲染器。
+      const withExtension: string = `${destinationPath}${binary.extension}`;
+      fs.renameSync(destinationPath, withExtension);
+      const cached: AdmissionCachedPhoto = { uri: fileUri.getUriFromPath(withExtension), path: withExtension };
+      this.rememberPhotoCacheFile(cached);
+      return cached;
+    } catch (_error) {
+      if (destinationPath.length > 0) {
+        try {
+          fs.unlinkSync(destinationPath);
+        } catch (_cleanupError) {
+          // Ignore cleanup failure after a rejected copy.
+        }
+      }
+      this.showToast('无法读取病例文件，请重新选择');
+      return null;
+    } finally {
+      if (sourceFile !== undefined) {
+        try {
+          fs.closeSync(sourceFile);
+        } catch (_error) {
+          // Ignore a close failure after the provider FD is no longer needed.
+        }
+      }
+    }
+  }
+
+  /** 选择并立即上传病例文件；成功后头部入口切换为“查看病例”。 */
+  private async uploadCaseFile(): Promise<void> {
+    if (this.submitting || this.caseFilePicking || this.caseFileUploadState === 'uploading') {
+      return;
+    }
+    const uploadKey: string = this.caseFileUploadKeyForForm();
+    if (uploadKey.length === 0) {
+      this.showToast('表单尚未初始化，请稍后重试');
+      return;
+    }
+    this.caseFilePicking = true;
+    this.caseFileUploadState = 'picking';
+    const token: number = this.caseFileToken + 1;
+    this.caseFileToken = token;
+    let cached: AdmissionCachedPhoto | null = null;
+    try {
+      const options = new picker.DocumentSelectOptions();
+      options.maxSelectNumber = 1;
+      const documentPicker = new picker.DocumentViewPicker();
+      const uris: string[] = await documentPicker.select(options);
+      const sourceUri: string = uris.length > 0 ? uris[0] : '';
+      if (sourceUri.length > 0 && this.caseFileToken === token && !this.submitting) {
+        cached = await this.copyCaseFileToCache(sourceUri, token);
+      }
+    } catch (error) {
+      const pickerError: BusinessError = error as BusinessError;
+      // 14000011 是用户取消选择，不打扰。
+      if (pickerError?.code !== 14000011) {
+        this.showToast('无法打开文件选择器，请稍后重试');
+      }
+    } finally {
+      if (this.caseFileToken === token) {
+        this.caseFilePicking = false;
+        if (this.caseFileUploadState === 'picking') {
+          this.caseFileUploadState = this.caseFilePhotoId > 0 ? 'uploaded' : 'idle';
+        }
+      }
+    }
+    if (cached === null || this.caseFileToken !== token || this.submitting) {
+      if (cached !== null) {
+        this.removePhotoCacheUri(cached.uri);
+      }
+      return;
+    }
+    const binary: AdmissionCaseFileBinary | null = this.readCaseFile(cached.path);
+    if (binary === null) {
+      this.caseFileUploadState = this.caseFilePhotoId > 0 ? 'uploaded' : 'idle';
+      return;
+    }
+    this.caseFileUploadState = 'uploading';
+    try {
+      const result: AdmissionResult<AdmissionPhoto> =
+        await AdmissionRepository.uploadPhoto('case_file', uploadKey, binary.contentType, binary.data);
+      if (result.ok && result.data !== undefined && result.data.id > 0) {
+        this.caseFilePhotoId = result.data.id;
+        this.caseFileUploadState = 'uploaded';
+        this.showToast('病例已上传');
+      } else {
+        this.caseFileUploadState = 'failed';
+        this.showToast(result.message.length > 0 ? result.message : '病例上传失败，请重试');
+      }
+    } catch (_error) {
+      this.caseFileUploadState = 'failed';
+      this.showToast('病例上传失败，请检查网络');
+    }
+  }
+
+  /** 下载已上传的病例内容并用系统预览器打开。 */
+  private async viewCaseFile(): Promise<void> {
+    if (this.caseFilePhotoId <= 0 || this.caseFileUploadState === 'uploading' || this.caseFilePicking) {
+      return;
+    }
+    try {
+      const binary: ArrayBuffer =
+        await ApiClient.downloadBinaryAuthorized(`/admission-intake-photos/${this.caseFilePhotoId}/content`);
+      const type: AdmissionCaseFileType | null = this.detectCaseFileType(new Uint8Array(binary));
+      if (type === null) {
+        this.showToast('病例内容不可读，请重新上传');
+        return;
+      }
+      const cacheDir: string = this.photoCacheDir();
+      if (cacheDir.length === 0) {
+        this.showToast('无法打开病例文件');
+        return;
+      }
+      const path: string = `${cacheDir}/${this.photoCachePrefix}case-view-${Date.now()}${type.extension}`;
+      const file: fs.File = fs.openSync(path, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
+      fs.writeSync(file.fd, binary);
+      fs.closeSync(file);
+      this.rememberPhotoCacheFile({ uri: fileUri.getUriFromPath(path), path: path });
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const want: Want = {
+        action: 'ohos.want.action.viewData',
+        uri: fileUri.getUriFromPath(path),
+        type: type.contentType
+      };
+      await context.startAbility(want);
+    } catch (_error) {
+      this.showToast('无法打开病例文件');
+    }
+  }
+
+  private formFieldSnapshot(): AdmissionFormFields {
+    return {
+      name: this.name,
+      gender: this.gender,
+      idCard: this.idCard,
+      birthDate: this.birthDate,
+      age: this.age,
+      phone: this.phone,
+      familyAddress: this.familyAddress,
+      familyName: this.familyName,
+      familyPhone: this.familyPhone,
+      familyRelation: this.familyRelation,
+      admissionDate: this.admissionDate,
+      admissionEndDate: this.admissionEndDate,
+      feeStartDate: this.feeStartDate,
+      feeEndDate: this.feeEndDate,
+      careLevel: this.careLevel,
+      deposit: this.deposit,
+      careFee: this.careFee,
+      bedFee: this.bedFee,
+      otherFee: this.otherFee,
+      medicalInsurance: this.medicalInsurance,
+      subsidy: this.subsidy,
+      note: this.note
+    };
+  }
+
+  /** 把当前表单输入导出为 JSON 文件（用户选择保存位置）。 */
+  private async exportFormContent(): Promise<void> {
+    try {
+      const snapshot: AdmissionFormSnapshot = {
+        kind: 'kangxiaoban-admission-form',
+        version: 1,
+        fields: this.formFieldSnapshot()
+      };
+      const json: string = JSON.stringify(snapshot);
+      const stamp: string = new Date().toISOString().slice(0, 10);
+      const saveOptions = new picker.DocumentSaveOptions();
+      saveOptions.newFileNames = [`admission-form-${stamp}.json`];
+      const documentPicker = new picker.DocumentViewPicker();
+      const uris: string[] = await documentPicker.save(saveOptions);
+      if (uris === undefined || uris.length === 0) {
+        return;
+      }
+      const file: fs.File = fs.openSync(uris[0], fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
+      fs.writeSync(file.fd, json);
+      fs.closeSync(file);
+      this.showToast('表单内容已导出');
+    } catch (error) {
+      const err: BusinessError = error as BusinessError;
+      if (err.code === 14000011) {
+        return;
+      }
+      this.showToast('导出失败，请稍后重试');
+    }
+  }
+
+  /** 从导出的 JSON 文件恢复表单输入。 */
+  private async importFormContent(): Promise<void> {
+    let file: fs.File | undefined;
+    try {
+      const options = new picker.DocumentSelectOptions();
+      options.maxSelectNumber = 1;
+      const documentPicker = new picker.DocumentViewPicker();
+      const uris: string[] = await documentPicker.select(options);
+      if (uris === undefined || uris.length === 0) {
+        return;
+      }
+      file = fs.openSync(uris[0], fs.OpenMode.READ_ONLY);
+      const size: number = Number(fs.statSync(file.fd).size);
+      if (!Number.isFinite(size) || size <= 0 || size > 1024 * 1024) {
+        this.showToast('文件不是有效的表单导出');
+        return;
+      }
+      const data: ArrayBuffer = new ArrayBuffer(size);
+      fs.readSync(file.fd, data);
+      fs.closeSync(file);
+      file = undefined;
+      const decoder: util.TextDecoder = util.TextDecoder.create('utf-8');
+      const text: string = decoder.decodeToString(new Uint8Array(data));
+      const parsed: AdmissionFormSnapshot = JSON.parse(text) as AdmissionFormSnapshot;
+      const fields: AdmissionFormFields | undefined = parsed?.fields;
+      if (fields === undefined) {
+        this.showToast('文件不是有效的表单导出');
+        return;
+      }
+      // 仅恢复字符串字段；床位属于服务端引用，必须从床位列表重新选择。
+      if (typeof fields.name === 'string') { this.name = fields.name; }
+      if (typeof fields.gender === 'string') { this.gender = fields.gender; }
+      if (typeof fields.idCard === 'string') { this.idCard = fields.idCard; }
+      if (typeof fields.birthDate === 'string') { this.birthDate = fields.birthDate; }
+      if (typeof fields.age === 'string') { this.age = fields.age; }
+      if (typeof fields.phone === 'string') { this.phone = fields.phone; }
+      if (typeof fields.familyAddress === 'string') { this.familyAddress = fields.familyAddress; }
+      if (typeof fields.familyName === 'string') { this.familyName = fields.familyName; }
+      if (typeof fields.familyPhone === 'string') { this.familyPhone = fields.familyPhone; }
+      if (typeof fields.familyRelation === 'string') { this.familyRelation = fields.familyRelation; }
+      if (typeof fields.admissionDate === 'string') { this.admissionDate = fields.admissionDate; }
+      if (typeof fields.admissionEndDate === 'string') { this.admissionEndDate = fields.admissionEndDate; }
+      if (typeof fields.feeStartDate === 'string') { this.feeStartDate = fields.feeStartDate; }
+      if (typeof fields.feeEndDate === 'string') { this.feeEndDate = fields.feeEndDate; }
+      if (typeof fields.careLevel === 'string') { this.careLevel = fields.careLevel; }
+      if (typeof fields.deposit === 'string') { this.deposit = fields.deposit; }
+      if (typeof fields.careFee === 'string') { this.careFee = fields.careFee; }
+      if (typeof fields.bedFee === 'string') { this.bedFee = fields.bedFee; }
+      if (typeof fields.otherFee === 'string') { this.otherFee = fields.otherFee; }
+      if (typeof fields.medicalInsurance === 'string') { this.medicalInsurance = fields.medicalInsurance; }
+      if (typeof fields.subsidy === 'string') { this.subsidy = fields.subsidy; }
+      if (typeof fields.note === 'string') { this.note = fields.note; }
+      this.showToast('表单内容已导入');
+    } catch (error) {
+      const err: BusinessError = error as BusinessError;
+      if (err.code === 14000011) {
+        return;
+      }
+      this.showToast('导入失败，请确认选择了有效的导出文件');
+    } finally {
+      if (file !== undefined) {
+        try {
+          fs.closeSync(file);
+        } catch (_error) {
+          // Ignore double close.
+        }
+      }
+    }
+  }
+
   @Builder
   private uploadField(label: string, description: string) {
     Column({ space: 8 }) {
@@ -2028,13 +2453,64 @@ export struct WideDoctorAdmissionForm {
     .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
 
+  /** 「基本信息」卡片标题行右侧的三项操作：上传病例（成功后变查看病例）、导出、导入。 */
+  @Builder
+  private basicInfoHeaderActions() {
+    Row({ space: 18 }) {
+      if (this.caseFileUploadState === 'uploading') {
+        Text('正在上传…')
+          .fontSize(14)
+          .fontColor($r('sys.color.font_tertiary'))
+          .padding({ top: 8, bottom: 8 })
+      } else if (this.caseFileUploadState === 'uploaded' && this.caseFilePhotoId > 0) {
+        Text('查看病例')
+          .fontSize(14)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.brand_blue'))
+          .padding({ top: 8, bottom: 8 })
+          .onClick(() => {
+            void this.viewCaseFile();
+          })
+      } else {
+        Text('上传病例')
+          .fontSize(14)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.brand_blue'))
+          .padding({ top: 8, bottom: 8 })
+          .onClick(() => {
+            void this.uploadCaseFile();
+          })
+      }
+      Text('导出')
+        .fontSize(14)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.brand_blue'))
+        .padding({ top: 8, bottom: 8 })
+        .onClick(() => {
+          void this.exportFormContent();
+        })
+      Text('导入')
+        .fontSize(14)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.brand_blue'))
+        .padding({ top: 8, bottom: 8 })
+        .onClick(() => {
+          void this.importFormContent();
+        })
+    }
+    .alignItems(VerticalAlign.Center)
+  }
+
   @Builder
   private formContent() {
     Column({ space: 20 }) {
       AdmissionGroupCard({ title: '基本信息',
+        withHeaderActions: !this.submitted,
+        headerSuffix: (): void => { this.basicInfoHeaderActions(); },
         content: (): void => { this.identityFields(); } });
       this.familyGroupCard();
       AdmissionGroupCard({ title: '入住配置',
+        headerSuffix: (): void => {},
         content: (): void => { this.arrangementFields(); } });
     }.width('100%')
   }
@@ -2167,7 +2643,7 @@ export struct WideDoctorAdmissionForm {
         .fontColor($r('sys.color.font_primary'))
       Text('服务端已完成老人档案、床位和护理计划同步。')
         .fontSize(13).fontColor($r('sys.color.font_secondary')).textAlign(TextAlign.Center)
-      AdmissionGroupCard({ title: '填写完成', content: () => {
+      AdmissionGroupCard({ title: '填写完成', headerSuffix: (): void => {}, content: () => {
         HdsListItemCard({
           textItem: {
             primaryText: { text: this.resultPrimaryText() },
