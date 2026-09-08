@@ -94,9 +94,29 @@
 - [x] P1 现状探索:当前对话链路是坏的(kxb-local 模型不存在);DGX 关机时上游全断
 - [x] P2 调研:vLLM 无 tool parser 时 400;Qwen3 hermes 文本协议实测可用
 - [x] P3 agent 包 68567ec1;P4-P5 网关接线 83a5187b;P6-P7 skills+MCP 61f676d0
-- [x] P8-P9 前端(模式/思考过程/管理端 CRUD)已构建成功
-- [ ] P10 部署后端 + 角色模型名改 Qwen3-VL-4B-Instruct + 上下文窗口改 4096 + 线上验证
-- [ ] P11 HAP 安装设备 + 记忆收尾
+- [x] P8-P9 前端(模式/思考过程/管理端 CRUD)已构建成功 46c927fd
+- [x] P10 部署完成;角色模型名已改 Qwen3-VL-4B-Instruct、context_window=4096(admin API)
+- [x] P11 HAP 安装设备并启动
+
+## 8. 最终状态(2026-09-09 凌晨完成)
+
+线上已验证的真实行为(admin 与 xiaoli 两个账号实测):
+- work 模式:模型真实调用 get_elders/get_today_tasks,回答为真实数据(4位长者名单、8条待办),trace 步骤持久化并随消息返回
+- chat 模式:正常聊天,无数据工具
+- 工具失败时模型如实告知(不编造);追问可基于上下文推理
+- 四个内置技能已种子化;管理端 /admin/ai/skills、/admin/ai/mcp/servers CRUD 可用
+
+### 途中修复的两个关键 bug(都有回归测试)
+1. llm.go:请求体先组装、后 prepend system 消息 —— append 重新切片导致 map 里留旧切片头,
+   **所有请求都没带 system 提示/技能/工具 schema**,模型因此直接编造(llm_test.go 回归)
+2. get_today_tasks 的 LEFT JOIN 与租户回调的裸 tenant_id 条件冲突(歧义列),已去掉 join
+
+### 已知边界/后续建议
+- 当前线上唯一对话模型 = Qwen3-VL-4B-Instruct(new-api → DGX-2:8000,max-model-len 4096,
+  未开 --enable-auto-tool-choice → 走 hermes 文本协议;模型更换后无需改代码)
+- 上下文预算按 4096 窗口裁剪 + 滚动摘要;大对话历史压缩阈值可再调
+- MCP 桥接已实现但线上还没有注册任何 MCP 服务(管理端探测按钮可用)
+- kxb-deploy-linux-amd64 曾被误提交,已在 303dba6e 移出跟踪(历史中仍在,无密钥风险)
 
 ## 6. 提交记录(本次任务)
 
