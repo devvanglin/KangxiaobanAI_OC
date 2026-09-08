@@ -40,42 +40,53 @@
 - AGENTS.md §9(AI 边界:advisory、usage 日志、租户隔离)、§15.14、§16。
 - Go MCP SDK:`github.com/modelcontextprotocol/go-sdk`(待调研确认)。
 
-## 3. 现状理解(探索后填写)
+## 3. 现状理解(P1 探索完成 2026-09-09 凌晨)
 
-### 后端(kangxiaoban-service)
-- `internal/service/ai_service.go`(约1358行):provider 分发(本地确定性回答 / OpenAI 兼容 chatHTTP),
-  会话/消息持久化,usage 记录,Dify RAG 注入(ragContextForChat),RAG 数据集管理+代理,
-  模型 list/probe/test,租户级 AIConnection(密钥 AES-GCM),角色级 AIModelConfig,提示词 CRUD。
-- 模型:`internal/model/ai.go`:AIPromptSuggestion, AIModelConfig(角色), AIConnection(统一端点+Dify),
-  AIConversation, AIMessage, AIUsageLog。
-- 路由:`/ai/*`(chat/models/suggestions/conversations),`/admin/ai/*`。
-- 现状:非流式、无工具调用、无 agent 循环、无上下文压缩。
+### 关键事实(已实测)
+- **当前 /ai/chat 是坏的(503)**:角色配置(caregiver+doctor)的 model=`kxb-local` 在网关上不存在。
+- LLM 端点 = `http://10.10.1.12:3030/` = **new-api 网关**(docker 容器 new-api, 3030→3000)。
+- new-api 模型清单仅 3 个:`Qwen3-VL-4B-Instruct`(对话)、`Qwen3-Reranker-0.6B`、`Qwen3-VL-Embedding-2B`。
+- **模型上游当前离线**:直接打 /v1/chat/completions 返回 `upstream error: do request failed`;
+  DGX(10.10.1.1/.2)从 .12 和本机都 ping 不通、22/8000/8080/3030/30000 全关 → **模型主机没开机/不可达**。
+  => agent 必须双协议(原生 tools + hermes 文本协议兜底),模型回来即用;本地 provider 继续可用。
+- RAG = Dify @ `http://10.10.1.12:8080/v1`,dataset `b4b65a72-...`,rag_enabled=true(在 ai_connections)。
+- 网关密钥:加密存 ai_connections(api_key_encrypted),KXB_AI_CONFIG_KEY 在服务器 .env,AES-GCM(sha256(key)) RawStd b64 nonce 前缀;已验证可解密(仅内存,未外泄)。
+- `chatHTTP` 是单轮裸调用(system+user,**无历史、无工具**);历史仅存储展示。上下文管理=没有。
+- RAG 现状:`ragContextForChat` 把 Dify 检索结果拼进 system prompt(http provider 才触发),rag_used=attempted。
+- 角色合并:connection 出 provider/baseURL/key;角色配置出 system_prompt+model;Temperature 固定 0.3。
+- handler:`ai_handler.go` L32 aiRoleScope(claims)(admin→? L184 映射);SendMessage L156(service.SendMessage)。
+- 模型:AIMessage 无 trace/thinking 字段(要加);AIModelConfig 有 context_window/temperature(未用于调用)。
 
-### 前端(KangxiaobanAI)
-- `pages/AiChatPage.ets`(护工,约2384行)、`pages/WideDoctorAiPage.ets`(医师,约2385行):会话列表/消息/反馈,
-  无模式切换、无思考过程展示。
-- 管理端 `component/wide/WideModelManagement.ets`(约1505行):模型管理/提示词库/MCP 管理(占位)/Skills 管理(占位)/RAG 知识库。
-
-### 模型侧(DGX)
-- 待探测:10.10.1.1/.2 上 vLLM/模型/端口/是否启用 tool parser。
-- 应用当前 ai_connections 指向待查(admin API /admin/ai/connection)。
+### 前端(P1 完成)
+- `AiChatPage.ets` 与 `WideDoctorAiPage.ets` 几乎逐行复制(行号+1)。改动必须双写。
+- **已有** `embeddedAssistantMode` 0/1 状态 + `embeddedModeSwitcher()`(L1328/1329)= 现成的模式切换,发送走
+  `POST /ai/conversations/{id}/messages` body `{content}`(L869/870),响应 `AiConversationExchangeResponse`。
+- 消息渲染:`messageList()` L2013/2014 → `aiMessageItem` L1148/1149;空态英雄区/启动词 rows。
+- 管理端 `WideModelManagement.ets`:MCP/Skills 占位 = `wipModule()` L1223-1231,build() L1439-1442 分发;
+  提示词库 CRUD(L1040-1146)是模仿范式;对话框模式 = build() 尾部 Stack overlay。
+- 可复用折叠模式:`WideRagDocumentsPage` expandedDocId(单开);`ResidentDetailPage` expandedMask。
+- Dto:`AiConversationMessage` 无 thinking/trace 字段,要扩展;`AiConversationSendRequest {content}` 要加 mode。
 
 ## 4. 设计(目标形态)
 
 - **Go agent 包** `internal/agent/`:
-  - `Agent.Run(req)`:循环 [构建消息 → 调 LLM(tools) → 若 tool_calls:执行→追加→继续;若纯文本:结束],上限 N 轮(如8)。
-  - `ToolRegistry`:原生工具(机构数据,租户+RBAC)+ MCP 工具桥接;OpenAI tools schema 导出。
-  - `ContextManager`:系统提示(stable)+ 技能片段 + 历史(预算内裁剪)+ 滚动摘要(超限触发 LLM 摘要,存会话)。
-  - `Trace`:每步 {类型: thought/tool/tool_result/answer, 内容摘要, 工具名, 参数摘要, 耗时} → 随消息返回/存储。
-  - reasoning_content 透传(vLLM+Qwen3 thinking 时可返回)。
-- **模式**:/ai/chat 增加 `mode`:chat(无工具纯对话,仍走 agent 循环)/work(挂数据工具)。默认 chat。
-- **原生工具(先只读)**:elders 列表/详情、健康记录、今日任务、告警、排班、消息未读——全部走 repository + 租户上下文 + 角色权限校验。
-- **Skills**:表 `ai_skills`(frontmatter 契约字段 + 启用/绑定角色/内容),管理端 CRUD,agent 注入为提示词片段;预置2-3个示例。
-- **MCP**:表 `ai_mcp_servers`(name/transport=streamable_http/endpoint/headers/enable),Go 客户端(list tools/call tool/health),
-  管理端 CRUD + 探测;工具桥接进注册表。
-- **RAG 适配**:保持 ragContextForChat,但改为 agent 循环前的显式步骤,并把检索结果作为 trace 步骤暴露;失败不阻塞。
-- **前端**:两个 AI 页加 对话/工作 模式切换 + "思考过程"折叠区(trace 步骤列表);管理端 MCP/Skills 模块真实 CRUD。
-- **使用日志**:usage_logs 继续记录(工具调用次数可并入)。
+  - `Agent.Run(req)`:循环 [构建消息 → 调 LLM(tools) → 若 tool_calls:执行→追加→继续;若纯文本:结束],上限 8 轮。
+  - **双协议工具调用**:优先原生 OpenAI `tools`;若模型把调用写进 content(hermes 风格 `<tool_call>{json}</tool_call>`),解析之。
+    原因:模型主机离线无法实测 vLLM parser 是否开启;Qwen3 系列原生支持 hermes 文本协议。
+  - `ToolRegistry`:原生工具(机构数据,租户+RBAC)+ MCP 工具桥接 + Dify 检索工具;OpenAI tools schema 导出。
+  - `ContextManager`:系统提示(stable)+技能片段+历史预算裁剪+滚动摘要(写入 AIConversation.Summary)。
+  - `Step` trace:thought/tool_call/tool_result/rag/reasoning/answer → 存 AIMessage.Trace(JSON)随消息返回;reasoning_content 透传。
+- **模式**:SendMessage 增加 `mode`:chat(仅知识库工具,正常聊天)/work(全套数据工具)。POST /ai/chat 旧契约默认 chat。
+- **原生工具(只读)**:get_elders / get_elder_detail / get_elder_health / get_today_tasks / get_alerts / get_today_schedule / search_knowledge_base;
+  每个工具声明所需权限(elder:read 等),registry 按登录者 permissions 过滤,全部走租户上下文。
+- **Skills**:表 `ai_skills`(code/name/description<=60/version/instructions/role_scope/enabled/sort_order/builtin),
+  管理端 CRUD;agent 把启用技能注入 system prompt 的 volatile 段(hermes SKILL.md 契约的 Go 版)。
+- **MCP**:表 `ai_mcp_servers`(name/transport=streamable_http|sse/endpoint/api_key_encrypted/enabled/status/last_probe_at),
+  Go 客户端 JSON-RPC(initialize/tools/list/tools/call),管理端 CRUD+探测;工具以 mcp_前缀桥接进注册表,失败降级为 trace 步骤。
+- **RAG 适配**:work 模式下检索成为 `search_knowledge_base` 工具(模型自主决定何时检索);chat 模式保留现有自动注入;失败不阻塞。
+- **前端**:两个 AI 页(双写):`embeddedAssistantMode` 0=对话/1=工作 → 发送带 mode;助手消息下加"思考过程"折叠区
+  (steps 列表,单开模式 expandedMsgId);管理端 MCP/Skills 模块真实 CRUD(模仿提示词库 master-detail)。
+- **usage 日志**:继续每次一条;加 tool_calls 字段可选。
 
 ## 5. 阶段清单(持续更新)
 
