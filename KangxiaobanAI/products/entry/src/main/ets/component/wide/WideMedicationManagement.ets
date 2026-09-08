@@ -1,7 +1,7 @@
 import { ApiClient } from '../../network/ApiClient';
 
 const DARK_BUTTON_BG: string = '#1D63ED';
-const MED_CATEGORIES: string[] = ['西药', '中药', '保健品'];
+const MED_CATEGORIES: string[] = ['西药', '中药', '中成药'];
 const MED_USAGES: string[] = ['口服', '注射', '外用', '雾化'];
 
 interface MedicationItem {
