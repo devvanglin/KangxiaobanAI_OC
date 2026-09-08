@@ -399,7 +399,10 @@ func seed(db *gorm.DB) error {
 	}
 	for _, r := range roles {
 		var role model.Role
-		if err := db.Where("code = ?", r.code).FirstOrCreate(&role, model.Role{Code: r.code, Name: r.name, Description: r.desc, WorkspaceCode: r.workspace, IsSystem: r.isSystem}).Error; err != nil {
+		// 查找条件只允许 code：结构体条件里的全部字段都会进入 WHERE，
+		// 老库已迁移行的 workspace 默认值会让查找落空并撞角色码唯一索引。
+		// 结构体条件同时携带 code 进入创建字段，其余字段经 Attrs 仅用于首次创建。
+		if err := db.Where(model.Role{Code: r.code}).Attrs(model.Role{Name: r.name, Description: r.desc, WorkspaceCode: r.workspace, IsSystem: r.isSystem}).FirstOrCreate(&role).Error; err != nil {
 			return err
 		}
 		if !role.IsSystem || r.code == "admin" || r.code == "doctor" || r.code == "caregiver" {

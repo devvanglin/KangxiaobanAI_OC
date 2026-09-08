@@ -127,11 +127,21 @@ export struct WideRoleManagement {
     return groups;
   }
 
-  /** 登录工作台的界面名称。 */
-  private workspaceLabel(workspace: string | undefined): string {
+  /** 登录工作台的界面名称；旧服务端缺 workspace_code 时按内置角色码回退。 */
+  private workspaceLabel(role: RoleRecord): string {
+    const workspace: string = role.workspace_code ?? '';
     if (workspace === 'doctor') { return '医师工作台'; }
     if (workspace === 'admin') { return '管理工作台'; }
-    return '护工工作台';
+    if (workspace === 'caregiver') { return '护工工作台'; }
+    if (role.code === 'doctor') { return '医师工作台'; }
+    if (role.code === 'admin') { return '管理工作台'; }
+    if (role.code === 'caregiver') { return '护工工作台'; }
+    return '--';
+  }
+
+  private selectedWorkspaceLabel(): string {
+    const role: RoleRecord | undefined = this.selectedRole();
+    return role === undefined ? '--' : this.workspaceLabel(role);
   }
 
   /** 工作台对应基准角色的权限，用作弹窗里的只读预览。 */
@@ -226,7 +236,7 @@ export struct WideRoleManagement {
   @Builder
   private roleRowSuffix(role: RoleRecord) {
     Row({ space: 16 }) {
-      Text(this.workspaceLabel(role.workspace_code)).fontSize(13).fontColor($r('sys.color.font_secondary'))
+      Text(this.workspaceLabel(role)).fontSize(13).fontColor($r('sys.color.font_secondary'))
       this.listStat(this.permissionCountOf(role), '权限数')
       this.listStat(this.userCount(role), '用户数')
       if (role.is_system) {
@@ -344,7 +354,7 @@ export struct WideRoleManagement {
         Text(this.selectedRole()?.name ?? '--').fontSize(20).fontWeight(FontWeight.Bold)
           .fontColor($r('sys.color.font_primary'))
         Text(this.selectedRole()?.description ?? '暂无描述').fontSize(14).fontColor($r('sys.color.font_secondary'))
-        Text(`登录工作台：${this.workspaceLabel(this.selectedRole()?.workspace_code)}`).fontSize(14)
+        Text(`登录工作台：${this.selectedWorkspaceLabel()}`).fontSize(14)
           .fontColor($r('sys.color.font_secondary'))
         Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
         Row() {
@@ -378,8 +388,16 @@ export struct WideRoleManagement {
       TextInput({ placeholder: '角色编码，例如 head_nurse', text: $$this.roleCode }).height(42)
       Text('登录工作台').fontSize(13).fontColor('#666666').margin({ top: 12 })
       Row({ space: 8 }) {
-        Button('护工工作台').enabled(this.roleWorkspace !== 'caregiver').onClick(() => { this.roleWorkspace = 'caregiver'; })
-        Button('医师工作台').enabled(this.roleWorkspace !== 'doctor').onClick(() => { this.roleWorkspace = 'doctor'; })
+        Button('护工工作台')
+          .fontSize(14)
+          .fontColor(this.roleWorkspace === 'caregiver' ? Color.White : $r('sys.color.font_primary'))
+          .backgroundColor(this.roleWorkspace === 'caregiver' ? ACTION_BUTTON_BG : $r('sys.color.comp_background_secondary'))
+          .onClick(() => { this.roleWorkspace = 'caregiver'; })
+        Button('医师工作台')
+          .fontSize(14)
+          .fontColor(this.roleWorkspace === 'doctor' ? Color.White : $r('sys.color.font_primary'))
+          .backgroundColor(this.roleWorkspace === 'doctor' ? ACTION_BUTTON_BG : $r('sys.color.comp_background_secondary'))
+          .onClick(() => { this.roleWorkspace = 'doctor'; })
       }
       Column({ space: 10 }) {
         Text('工作台权限（随工作台自动授予）').fontSize(15).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
@@ -403,7 +421,7 @@ export struct WideRoleManagement {
                   }.width('100%')
                 }.width('100%').alignItems(HorizontalAlign.Start)
               })
-              .key((group: PermissionGroup) => `preview-group-${group.title}`)
+              .key((group: PermissionGroup) => `preview-${group.title}-${group.items.map((item: RolePermission): string => item.code).join(',')}`)
             if (this.workspacePreviewGroups().length === 0) {
               Text('保存后由服务端按所选工作台授予全部权限').fontSize(13).fontColor($r('sys.color.font_tertiary'))
             }
