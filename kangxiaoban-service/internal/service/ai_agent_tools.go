@@ -319,8 +319,9 @@ func (s *AIService) toolGetTodayTasks() *agent.ToolDefinition {
 			today := time.Now().Format("2006-01-02")
 			start, _ := time.ParseInLocation("2006-01-02", today, time.Local)
 			end := start.AddDate(0, 0, 1)
+			// 不做 join：租户回调会附加裸的 tenant_id 条件，跨表会产生歧义列；
+			// 长者姓名通过 elderNamesFor 二次查询补齐。
 			query := s.db.WithContext(ctx).Model(&model.CareTask{}).
-				Joins("LEFT JOIN elders ON elders.id = care_tasks.elder_id").
 				Where("care_tasks.due_at >= ? AND care_tasks.due_at < ?", start, end)
 			switch strings.TrimSpace(input.Status) {
 			case "todo", "doing", "done":
