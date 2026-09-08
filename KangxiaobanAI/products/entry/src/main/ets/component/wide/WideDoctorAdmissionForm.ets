@@ -2863,6 +2863,24 @@ export struct WideDoctorAdmissionForm {
     }.width('100%')
   }
 
+  /** 组件只能在 @Builder 方法里实例化；内联箭头函数里直接 new 会运行时崩溃。 */
+  @Builder
+  private resultSummaryCard() {
+    HdsListItemCard({
+      textItem: {
+        primaryText: { text: this.resultPrimaryText() },
+        secondaryText: { text: this.resultSecondaryText() }
+      },
+      suffixItem: new SuffixText({ text: '已完成' }),
+      cardBorderRadius: 0,
+      cardBackgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
+      cardHeight: 68,
+      cardPrefixMargin: 16,
+      cardSuffixMargin: 16,
+      hoverBorderRadius: 0
+    })
+  }
+
   @Builder
   private resultView() {
     Column({ space: 14 }) {
@@ -2872,21 +2890,8 @@ export struct WideDoctorAdmissionForm {
         .fontColor($r('sys.color.font_primary'))
       Text('服务端已完成老人档案、床位和护理计划同步。')
         .fontSize(13).fontColor($r('sys.color.font_secondary')).textAlign(TextAlign.Center)
-      AdmissionGroupCard({ title: '填写完成', headerSuffix: (): void => {}, content: () => {
-        HdsListItemCard({
-          textItem: {
-            primaryText: { text: this.resultPrimaryText() },
-            secondaryText: { text: this.resultSecondaryText() }
-          },
-          suffixItem: new SuffixText({ text: '已完成' }),
-          cardBorderRadius: 0,
-          cardBackgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
-          cardHeight: 68,
-          cardPrefixMargin: 16,
-          cardSuffixMargin: 16,
-          hoverBorderRadius: 0
-        })
-      } }).width(this.compactWidth ? '100%' : 520)
+      AdmissionGroupCard({ title: '填写完成', headerSuffix: (): void => {},
+        content: (): void => { this.resultSummaryCard(); } }).width(this.compactWidth ? '100%' : 520)
       Row({ space: 10 }) {
         Button('重新填写').height(44).borderRadius(12).fontSize(14)
           .backgroundColor($r('sys.color.comp_background_secondary'))
