@@ -267,8 +267,6 @@ export struct WideMedicationManagement {
   @Builder
   private medEditorDialog() {
     Column({ space: 12 }) {
-      Text(this.medEditingId > 0 ? '编辑药物' : '新增药物').fontSize(16).fontWeight(FontWeight.Bold)
-        .fontColor($r('sys.color.font_primary')).width('100%')
       this.fieldLabel('药物名称')
       TextInput({ placeholder: '例如: 阿司匹林肠溶片', text: $$this.medName }).height(40).fontSize(13)
       Row({ space: 12 }) {
@@ -324,9 +322,8 @@ export struct WideMedicationManagement {
           .enabled(!this.medBusy)
           .onClick(() => this.saveMedication())
       }.width('100%')
-    }.width(this.compactWidth ? '92%' : 560).padding(24)
-      .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
-      .constraintSize({ maxHeight: '86%' })
+    }.width('100%').padding(24)
+      .backgroundColor($r('sys.color.comp_background_primary'))
   }
 
   build() {
@@ -382,11 +379,16 @@ export struct WideMedicationManagement {
       .align(Alignment.Top)
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
-
-      if (this.showMedEditor) {
-        Row() { this.medEditorDialog() }.width('100%').height('100%')
-          .backgroundColor('#66000000').justifyContent(FlexAlign.Center)
-      }
     }
+    // 半模态编辑窗：与床位管理页同款写法。宽窗口居中弹出（SheetType.CENTER），
+    // 窄窗口自动退化为底部半模态；高度贴合表单内容，关闭按钮由 sheet 提供。
+    .bindSheet(this.showMedEditor!!, this.medEditorDialog(), {
+      height: SheetSize.FIT_CONTENT,
+      showClose: true,
+      title: { title: this.medEditingId > 0 ? '编辑药物' : '新增药物' },
+      preferType: SheetType.CENTER,
+      enableOutsideInteractive: false,
+      backgroundColor: $r('sys.color.comp_background_primary')
+    })
   }
 }
