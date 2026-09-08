@@ -113,6 +113,9 @@ struct MainPage {
   private tabsBar: BottomTabBarStyle[] = TabsBarModel.getTabBarByPage(PageKeyEnum.ADAPTIVE_TAB) ?? [];
   private pageConfigs: TabPageConfig[] = TAB_PAGE_CONFIGS;
   @Local currentTabIndex: number = 0;
+  /** 护工端标题胶囊的立即选中索引：先于内容切换更新，让滑块动画先播。 */
+  @Local caregiverNavIndex: number = 0;
+  private caregiverContentTimerId: number = -1;
   @Local primaryTabIndex: number = 0;
   @Local isSidebarCollapsed: boolean = false;
   @Local isAiChatShow: boolean = false;
@@ -222,6 +225,10 @@ struct MainPage {
       clearTimeout(this.managementContentTimerId);
       this.managementContentTimerId = -1;
     }
+    if (this.caregiverContentTimerId !== -1) {
+      clearTimeout(this.caregiverContentTimerId);
+      this.caregiverContentTimerId = -1;
+    }
     this.caregiverHasLocalBackLayer = false;
     WindowUtil.setImmersiveMode(false);
   }
@@ -283,6 +290,14 @@ struct MainPage {
       return this.currentTabIndex;
     }
     return this.primaryTabIndex >= 0 && this.primaryTabIndex <= 1 ? this.primaryTabIndex : 0;
+  }
+
+  /** 标题栏胶囊专用：读取立即导航索引（先于内容切换），避免重建打断滑块动画。 */
+  private caregiverTitleNavIndex(): number {
+    if (this.isAiChatShow) {
+      return 3;
+    }
+    return this.caregiverNavIndex >= 0 && this.caregiverNavIndex <= 3 ? this.caregiverNavIndex : 0;
   }
 
   private wideCaregiverBackLabel(): string {
@@ -686,7 +701,16 @@ struct MainPage {
   private switchTab(index: number): void {
     if (this.isWideLayout()) {
       this.isAiChatShow = false;
-      this.updateTabSelection(index);
+      // 与管理端同款节奏：胶囊选中立即生效（滑块动画先播），
+      // 内容延迟 280ms 切换，避免大块重建打断动画。
+      this.caregiverNavIndex = index;
+      if (this.caregiverContentTimerId !== -1) {
+        clearTimeout(this.caregiverContentTimerId);
+      }
+      this.caregiverContentTimerId = setTimeout((): void => {
+        this.caregiverContentTimerId = -1;
+        this.updateTabSelection(index);
+      }, 280);
     } else {
       this.controller.changeIndex(index);
     }
@@ -853,11 +877,13 @@ struct MainPage {
   }
 
   private openAiChat(): void {
+    this.caregiverNavIndex = 3;
     this.isAiChatShow = true;
   }
 
   private closeAiChat(): void {
     this.isAiChatShow = false;
+    this.caregiverNavIndex = this.wideCaregiverActiveTabIndex();
   }
 
   private updateAiHistoryCollapsed(collapsed: boolean): void {
