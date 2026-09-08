@@ -42,6 +42,8 @@ import AuthStore from '../network/AuthStore';
 import {
   AiAgentStep,
   AiConversation,
+  AiModelInfo,
+  AiModelPage,
   AiConversationCreateRequest,
   AiConversationDeleteResponse,
   AiConversationExchangeResponse,
@@ -71,6 +73,7 @@ interface ChatMessage {
   feedback?: ChatFeedback;
   reasoning?: string;
   trace?: AiAgentStep[];
+  model?: string;
 }
 
 interface ChatSession {
@@ -111,6 +114,7 @@ export struct AiChatPage {
   @Local historySearchText: string = '';
   @Local embeddedAssistantMode: number = 0;
   @Local expandedTraceId: string = '';
+  @Local modelLabel: string = '在线模型';
   @Local isHistoryLoading: boolean = false;
   @Local promptSuggestionRows: AiInformationFeedItem[][] = [
     new Array<AiInformationFeedItem>(),
@@ -217,7 +221,25 @@ export struct AiChatPage {
         // Malformed traces are ignored; the answer itself still renders.
       }
     }
+    if (message.role === 'assistant' && message.model !== undefined && message.model.length > 0) {
+      result.model = message.model;
+    }
     return result;
+  }
+
+  /** 真实模型身份来自服务端角色配置，替代写死的“快速”标签。 */
+  private async loadModelLabel(): Promise<void> {
+    try {
+      const response = await ApiClient.get<AiModelPage>('/ai/models');
+      const list: AiModelInfo[] = response.data?.list ?? [];
+      if (list.length === 0) {
+        return;
+      }
+      const preferred: AiModelInfo = list.find((item: AiModelInfo): boolean => item.is_default === true) ?? list[0];
+      this.modelLabel = preferred.model.length > 0 ? preferred.model : preferred.name;
+    } catch (_error) {
+      // The composer keeps the generic label when the catalog is unavailable.
+    }
   }
 
   private messagesFromServer(messages: AiConversationMessage[]): ChatMessage[] {
@@ -627,6 +649,7 @@ export struct AiChatPage {
 
   aboutToAppear(): void {
     this.componentVisible = true;
+    this.loadModelLabel();
     this.embeddedHistoryCollapsed = this.isEmbeddedWideHistory() ? this.historyCollapsed : false;
     this.lastHistoryOpenRequestToken = this.historyOpenRequestToken;
     this.lastHistorySearchRequestToken = this.historySearchRequestToken;
@@ -1228,6 +1251,12 @@ export struct AiChatPage {
         this.toggleTrace(message);
       })
       if (this.expandedTraceId === message.id) {
+        if (message.model !== undefined && message.model.length > 0) {
+          Text(`真实模型：${message.model}（在线调用）`)
+            .fontSize(11)
+            .fontColor($r('sys.color.font_tertiary'))
+            .width('100%')
+        }
         ForEach(this.traceSteps(message), (step: AiAgentStep, index: number) => {
           Column({ space: 2 }) {
             Row({ space: 6 }) {
@@ -1552,9 +1581,9 @@ export struct AiChatPage {
 
         Blank()
 
-        Text('康小伴·快速')
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_primary'))
+        Text(this.modelLabel)
+          .fontSize(11)
+          .fontColor($r('sys.color.font_tertiary'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
 

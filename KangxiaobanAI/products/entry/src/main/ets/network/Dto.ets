@@ -54,6 +54,19 @@ export interface AiConversation {
   last_message_at?: string | null;
 }
 
+/** 角色可见的模型配置（/ai/models，仅非敏感字段）。 */
+export interface AiModelInfo {
+  id: number;
+  name: string;
+  model: string;
+  is_default?: boolean;
+  enabled?: boolean;
+}
+
+export interface AiModelPage {
+  list: AiModelInfo[];
+}
+
 /** agent 思考过程的一步（工具调用 / 推理 / 提示）。 */
 export interface AiAgentStep {
   type: string;
