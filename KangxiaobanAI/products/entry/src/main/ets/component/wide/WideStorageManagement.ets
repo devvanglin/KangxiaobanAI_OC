@@ -1008,6 +1008,7 @@ export struct WideStorageManagement {
               Text('返回上一级').fontSize(13)
             }
             .height(32)
+            .padding({ left: 16, right: 16 })
             .backgroundColor($r('sys.color.comp_background_secondary'))
             .fontColor($r('sys.color.font_primary'))
             .onClick(() => this.backToParentFolder())
