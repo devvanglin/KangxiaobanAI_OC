@@ -1,7 +1,11 @@
 import { media } from '@kit.MediaKit';
 import { fileIo as fs, picker } from '@kit.CoreFileKit';
 import { BusinessError } from '@ohos.base';
+import Logger from '../../util/Logger';
 import { ApiClient } from '../../network/ApiClient';
+import { ApiConfig } from '../../network/ApiConfig';
+
+const TAG: string = '[WideStorageManagement]';
 
 interface StorageBucket {
   name: string;
@@ -44,6 +48,11 @@ interface StoragePreviewPage {
   expires_in: number;
 }
 
+interface StoragePlaybackFd {
+  fd: number;
+  length: number;
+}
+
 type StorageObjectKind = 'image' | 'video' | 'audio' | 'file';
 
 const IMAGE_EXTENSIONS: string[] = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'heic'];
@@ -69,6 +78,7 @@ export struct WideStorageManagement {
   @Local objectFilter: string = '';
   @Local previewUrls: Record<string, string> = {};
   @Local previewObject: StorageObject | null = null;
+  @Local showPreview: boolean = false;
   @Local audioPlaying: boolean = false;
   @Local audioReady: boolean = false;
   @Local audioCurrentMs: number = 0;
@@ -80,6 +90,14 @@ export struct WideStorageManagement {
   @Local renameValue: string = '';
   private videoController: VideoController = new VideoController();
   private audioPlayer: media.AVPlayer | null = null;
+  private audioStateResolve: (() => void) | null = null;
+  private audioStateReject: ((e: Error) => void) | null = null;
+  // 播放走本地缓存文件：模拟器/部分设备的媒体服务进程拉网络流不可靠，
+  // 先用应用进程下载，再以 fdSrc 交给 AVPlayer 本地播放。
+  @Local playbackPreparing: boolean = false;
+  @Local videoPlaybackPath: string = '';
+  private playbackFd: number = -1;
+  private playbackFilePath: string = '';
 
   aboutToAppear(): void {
     this.loadBuckets();
@@ -91,6 +109,11 @@ export struct WideStorageManagement {
     } catch (_error) {
       // Toast 展示失败时静默，不打断页面。
     }
+  }
+
+  /** 代理流地址是相对路径，拼上 API 基地址供播放器/图片/下载直连后端。 */
+  private absoluteMediaUrl(path: string): string {
+    return ApiConfig.API_BASE + path;
   }
 
   private async loadBuckets(): Promise<void> {
@@ -161,7 +184,12 @@ export struct WideStorageManagement {
       const response = await ApiClient.send<StoragePreviewsPage>('POST',
         `/admin/storage/buckets/${encodeURIComponent(bucket)}/previews`, request);
       if (response.code === 0 && response.data !== undefined && response.data !== null) {
-        this.previewUrls = response.data.urls ?? {};
+        const relative: Record<string, string> = response.data.urls ?? {};
+        const absolute: Record<string, string> = {};
+        Object.keys(relative).forEach((key: string): void => {
+          absolute[key] = this.absoluteMediaUrl(relative[key]);
+        });
+        this.previewUrls = absolute;
       }
     } catch (_error) {
       // 预签名失败时缩略图回退为文件图标，不打断列表浏览。
@@ -215,24 +243,89 @@ export struct WideStorageManagement {
   }
 
   private openPreview(item: StorageObject): void {
+    Logger.info(TAG, `open preview: ${item.key}`);
     if (this.objectKind(item.key) !== 'file') {
       this.previewObject = item;
+      this.showPreview = true;
     } else {
       this.showToast('该类型暂不支持预览');
     }
   }
 
-  /** 音频预览的 AVPlayer 生命周期：进出预览、切换对象时统一在这里创建/释放。 */
+  /** 预览对象变化：音频/视频先下载到缓存再播放，其他类型释放播放器。 */
+  private closePreview(): void {
+    this.showPreview = false;
+    this.previewObject = null;
+  }
+
   @Monitor('previewObject')
   onPreviewObjectChange(): void {
     if (this.previewObject === null) {
+      this.videoPlaybackPath = '';
       void this.releaseAudio();
       return;
     }
-    if (this.objectKind(this.previewObject.key) === 'audio') {
+    const kind: StorageObjectKind = this.objectKind(this.previewObject.key);
+    if (kind === 'audio') {
+      this.videoPlaybackPath = '';
       void this.prepareAudio(this.previewUrls[this.previewObject.key] ?? '');
+    } else if (kind === 'video') {
+      void this.prepareVideo(this.previewUrls[this.previewObject.key] ?? '');
     } else {
+      this.videoPlaybackPath = '';
       void this.releaseAudio();
+    }
+  }
+
+  /** 视频同样走缓存文件：下载完成后以 file:// 交给 Video 组件播放。 */
+  private async prepareVideo(url: string): Promise<void> {
+    if (url.length === 0) {
+      this.showToast('视频预览链接不可用');
+      return;
+    }
+    await this.releaseAudio();
+    this.playbackPreparing = true;
+    this.videoPlaybackPath = '';
+    try {
+      const data: ArrayBuffer = await ApiClient.downloadBinary(url);
+      if (data.byteLength === 0) {
+        this.showToast('视频下载为空，请稍后重试');
+        return;
+      }
+      const cache = await this.writePlaybackCache(data, '.mp4');
+      this.videoPlaybackPath = `file://${this.playbackFilePath}?fd=${cache.fd}`;
+    } catch (error) {
+      const err: BusinessError = error as BusinessError;
+      Logger.error(TAG, `prepareVideo failed: ${err.code} ${err.message}`);
+      this.showToast(`视频加载失败(${err.code})`);
+    } finally {
+      this.playbackPreparing = false;
+    }
+  }
+
+  private async releaseAudio(): Promise<void> {
+    const player: media.AVPlayer | null = this.audioPlayer;
+    this.audioPlayer = null;
+    this.audioPlaying = false;
+    this.audioReady = false;
+    this.audioCurrentMs = 0;
+    this.audioDurationMs = 0;
+    this.audioStateResolve = null;
+    this.audioStateReject = null;
+    this.videoPlaybackPath = '';
+    this.closePlaybackFd();
+    if (player === null) {
+      return;
+    }
+    try {
+      await player.stop();
+    } catch (_error) {
+      // 可能尚未进入 prepared，直接释放。
+    }
+    try {
+      await player.release();
+    } catch (_error) {
+      // 已释放时忽略。
     }
   }
 
@@ -246,52 +339,96 @@ export struct WideStorageManagement {
       return;
     }
     await this.releaseAudio();
+    this.playbackPreparing = true;
     try {
+      const data: ArrayBuffer = await ApiClient.downloadBinary(url);
+      if (data.byteLength === 0) {
+        this.showToast('音频下载为空，请稍后重试');
+        return;
+      }
+      const fdResult = await this.writePlaybackCache(data, '.mp3');
       const player: media.AVPlayer = await media.createAVPlayer();
+      this.audioPlayer = player;
       player.on('stateChange', (state: media.AVPlayerState): void => {
-        if (state === 'prepared') {
+        if (this.audioPlayer !== player) {
+          return;
+        }
+        Logger.info(TAG, `audio state -> ${state}`);
+        if (state === 'initialized') {
+          // fdSrc 异步生效，进入 initialized 状态后才能 prepare。
+          player.prepare().catch((e: BusinessError): void => {
+            Logger.error(TAG, `audio prepare failed: ${e.code} ${e.message}`);
+            this.audioPlaying = false;
+          });
+        } else if (state === 'prepared') {
           this.audioDurationMs = player.duration;
           this.audioReady = true;
+          this.audioStateResolve?.();
         } else if (state === 'completed') {
           this.audioPlaying = false;
           this.audioCurrentMs = this.audioDurationMs;
         } else if (state === 'error') {
+          Logger.error(TAG, 'audio state -> error');
           this.audioPlaying = false;
         }
       });
       player.on('timeUpdate', (time: number): void => {
         this.audioCurrentMs = time;
       });
-      player.url = url;
-      await player.prepare();
-      this.audioPlayer = player;
+      player.on('error', (error: BusinessError): void => {
+        Logger.error(TAG, `audio player error event: ${error.code} ${error.message}`);
+        this.audioPlaying = false;
+      });
+      const ready: Promise<void> = new Promise<void>((resolve: () => void, reject: (e: Error) => void) => {
+        this.audioStateResolve = resolve;
+        this.audioStateReject = reject;
+        setTimeout((): void => reject(new Error('audio prepare timeout')), 10000);
+      });
+      player.fdSrc = { fd: fdResult.fd, offset: 0, length: fdResult.length };
+      await ready;
       await player.play();
       this.audioPlaying = true;
-    } catch (_error) {
-      this.audioPlaying = false;
-      this.showToast('音频加载失败，请稍后重试');
+    } catch (error) {
+      const err: BusinessError = error as BusinessError;
+      Logger.error(TAG, `prepareAudio failed: ${err.code} ${err.message}`);
+      this.showToast(`音频加载失败(${err.code})`);
+    } finally {
+      this.playbackPreparing = false;
     }
   }
 
-  private async releaseAudio(): Promise<void> {
-    const player: media.AVPlayer | null = this.audioPlayer;
-    this.audioPlayer = null;
-    this.audioPlaying = false;
-    this.audioReady = false;
-    this.audioCurrentMs = 0;
-    this.audioDurationMs = 0;
-    if (player === null) {
-      return;
+  /** 把媒体内容写入缓存文件并打开 fd；fd 由 releaseAudio 统一关闭。 */
+  private async writePlaybackCache(data: ArrayBuffer, extension: string): Promise<StoragePlaybackFd> {
+    this.closePlaybackFd();
+    const hostContext = this.getUIContext().getHostContext();
+    if (hostContext === undefined) {
+      throw new Error('no cache dir');
     }
-    try {
-      await player.stop();
-    } catch (_error) {
-      // 可能尚未进入 prepared，直接释放。
+    const path: string = `${hostContext.cacheDir}/storage-preview${extension}`;
+    const file: fs.File = fs.openSync(path, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
+    fs.writeSync(file.fd, data);
+    this.playbackFilePath = path;
+    this.playbackFd = file.fd;
+    const result: StoragePlaybackFd = { fd: file.fd, length: data.byteLength };
+    return result;
+  }
+
+  private closePlaybackFd(): void {
+    if (this.playbackFd >= 0) {
+      try {
+        fs.closeSync(this.playbackFd);
+      } catch (_error) {
+        // Ignore double close.
+      }
+      this.playbackFd = -1;
     }
-    try {
-      await player.release();
-    } catch (_error) {
-      // 已释放时忽略。
+    if (this.playbackFilePath.length > 0) {
+      try {
+        fs.unlinkSync(this.playbackFilePath);
+      } catch (_error) {
+        // 文件不存在时忽略。
+      }
+      this.playbackFilePath = '';
     }
   }
 
@@ -556,7 +693,7 @@ export struct WideStorageManagement {
         this.showToast(preview.msg.length > 0 ? preview.msg : '获取下载链接失败');
         return;
       }
-      const data: ArrayBuffer = await ApiClient.downloadBinary(preview.data.url);
+      const data: ArrayBuffer = await ApiClient.downloadBinary(this.absoluteMediaUrl(preview.data.url));
       if (data.byteLength === 0) {
         this.showToast('下载内容为空，请稍后重试');
         return;
@@ -807,13 +944,20 @@ export struct WideStorageManagement {
     Stack({ alignContent: Alignment.Top }) {
       Column() {
         if (this.previewObject !== null && this.objectKind(this.previewObject.key) === 'video') {
-          Video({
-            src: this.previewUrls[this.previewObject.key] ?? '',
-            controller: this.videoController
-          })
-            .width('100%').layoutWeight(1)
-            .autoPlay(true).controls(true).objectFit(ImageFit.Contain)
-            .backgroundColor(Color.Black)
+          if (this.videoPlaybackPath.length > 0) {
+            Video({
+              src: this.videoPlaybackPath,
+              controller: this.videoController
+            })
+              .width('100%').layoutWeight(1)
+              .autoPlay(true).controls(true).objectFit(ImageFit.Contain)
+              .backgroundColor(Color.Black)
+          } else {
+            Column({ space: 12 }) {
+              LoadingProgress().width(46).height(46).color(Color.White)
+              Text('正在加载视频…').fontSize(13).fontColor('rgba(255,255,255,0.75)')
+            }.width('100%').layoutWeight(1).justifyContent(FlexAlign.Center)
+          }
         } else if (this.previewObject !== null && this.objectKind(this.previewObject.key) === 'audio') {
           Column({ space: 22 }) {
             SymbolGlyph($r('sys.symbol.music_note_list')).fontSize(72).fontColor(['rgba(255,255,255,0.85)'])
@@ -821,8 +965,15 @@ export struct WideStorageManagement {
               .fontSize(15).fontColor(Color.White).textAlign(TextAlign.Center)
               .maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
               .constraintSize({ maxWidth: '72%' })
-            Text(`${this.formatMs(this.audioCurrentMs)} / ${this.formatMs(this.audioDurationMs)}`)
-              .fontSize(12).fontColor('rgba(255,255,255,0.6)')
+            if (this.playbackPreparing) {
+              Row({ space: 8 }) {
+                LoadingProgress().width(20).height(20).color(Color.White)
+                Text('正在加载音频…').fontSize(12).fontColor('rgba(255,255,255,0.75)')
+              }
+            } else {
+              Text(`${this.formatMs(this.audioCurrentMs)} / ${this.formatMs(this.audioDurationMs)}`)
+                .fontSize(12).fontColor('rgba(255,255,255,0.6)')
+            }
             Slider({
               value: Math.min(this.audioCurrentMs, this.audioDurationMs > 0 ? this.audioDurationMs : 1),
               min: 0,
@@ -840,6 +991,8 @@ export struct WideStorageManagement {
             }
             .width(64).height(64)
             .backgroundColor($r('app.color.brand_blue'))
+            .opacity(this.playbackPreparing ? 0.45 : 1)
+            .enabled(!this.playbackPreparing)
             .onClick(() => this.toggleAudio())
           }
           .width('100%').layoutWeight(1)
@@ -857,7 +1010,7 @@ export struct WideStorageManagement {
         }
         .width(38).height(38)
         .backgroundColor('rgba(0,0,0,0.45)')
-        .onClick(() => this.previewObject = null)
+        .onClick(() => this.closePreview())
         Text(this.previewObject === null ? '' : this.displayName(this.previewObject.key))
           .fontSize(14).fontColor(Color.White)
           .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).layoutWeight(1)
@@ -871,6 +1024,7 @@ export struct WideStorageManagement {
     }
     .width('100%').height('100%')
     .backgroundColor(Color.Black)
+    .hitTestBehavior(HitTestMode.Default)
   }
 
   @Builder
@@ -919,13 +1073,11 @@ export struct WideStorageManagement {
       .align(Alignment.Top)
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
+      // 图片/视频/音频全屏预览：页面内覆盖层（同 Stack 顶层），关闭按钮退出。
+      if (this.showPreview) {
+        this.mediaPreview()
+      }
     }
-    // 图片/视频全屏预览：黑底浮层，返回键与关闭按钮均可退出。
-    .bindContentCover(this.previewObject !== null, this.mediaPreview(), {
-      modalTransition: ModalTransition.DEFAULT,
-      backgroundColor: Color.Black,
-      onWillDisappear: () => this.previewObject = null
-    })
     // 重命名半模态：宽窗口居中弹出，窄窗口自动退化为底部半模态。
     .bindSheet(this.showRenameEditor!!, this.renameEditorDialog(), {
       height: SheetSize.FIT_CONTENT,

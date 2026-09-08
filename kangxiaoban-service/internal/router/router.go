@@ -110,6 +110,8 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	r.GET("/api/v1/ws", wsHandler.Serve)
 	// 摄像头 HLS 预览分片：播放器不带 Authorization 头，改用签名令牌（放在路径里，随相对分片请求自动携带）
 	r.GET("/api/v1/iot/preview/:id/:token/:file", iotHandler.ServeStream)
+	// 对象存储代理播放/下载：播放器不带 Authorization 头，用带过期的签名令牌鉴权。
+	r.GET("/api/v1/admin/storage/raw", storageHandler.RawObject)
 
 	// 需认证
 	authed := r.Group("/api/v1")

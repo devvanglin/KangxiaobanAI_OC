@@ -2,7 +2,11 @@ package service
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"net/url"
 	"strings"
@@ -30,11 +34,12 @@ const previewTTL = 30 * time.Minute
 // 只读接口，不做任何写操作；密钥留在服务端，客户端只拿到临时 URL。
 type StorageService struct {
 	client *minio.Client
+	secret string // 签名代理下载令牌的 HMAC 密钥，与 JWT 密钥同源
 }
 
-func NewStorageService(cfg config.StorageConfig) *StorageService {
+func NewStorageService(cfg config.StorageConfig, signSecret string) *StorageService {
 	if cfg.Endpoint == "" || cfg.AccessKey == "" || cfg.SecretKey == "" {
-		return &StorageService{}
+		return &StorageService{secret: signSecret}
 	}
 	client, err := minio.New(cfg.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
@@ -42,9 +47,9 @@ func NewStorageService(cfg config.StorageConfig) *StorageService {
 		Region: cfg.Region,
 	})
 	if err != nil {
-		return &StorageService{}
+		return &StorageService{secret: signSecret}
 	}
-	return &StorageService{client: client}
+	return &StorageService{client: client, secret: signSecret}
 }
 
 // Available 报告是否已配置可用的 MinIO 客户端。
@@ -211,4 +216,77 @@ func (s *StorageService) RenameObject(ctx context.Context, bucket, fromKey, toKe
 		return errors.Join(ErrStorageUnavailable, err)
 	}
 	return nil
+}
+
+// rawTokenTTL 代理播放/下载令牌有效期，与预签名链接保持一致。
+const rawTokenTTL = 30 * time.Minute
+
+// RawTokenTTL 供 handler 生成 expires_in 字段。
+var RawTokenTTL = rawTokenTTL
+
+// SignRawToken 生成后端代理流“桶/对象/过期时间”的 HMAC 令牌。
+// 播放器与下载器不带 Authorization 头，改用带过期时间的路径令牌
+// （与摄像头 HLS 预览的签名思路一致）。
+func (s *StorageService) SignRawToken(bucket, key string, ttl time.Duration) (token string, expiresAt int64) {
+	expiresAt = time.Now().Add(ttl).Unix()
+	mac := hmac.New(sha256.New, []byte(s.secret))
+	fmt.Fprintf(mac, "%s\n%s\n%d", bucket, key, expiresAt)
+	return hex.EncodeToString(mac.Sum(nil)), expiresAt
+}
+
+// VerifyRawToken 校验代理令牌：重算 HMAC 并检查过期时间。
+func (s *StorageService) VerifyRawToken(token, bucket, key string, expiresAt int64) bool {
+	if s.secret == "" || expiresAt <= 0 || time.Now().Unix() > expiresAt {
+		return false
+	}
+	mac := hmac.New(sha256.New, []byte(s.secret))
+	fmt.Fprintf(mac, "%s\n%s\n%d", bucket, key, expiresAt)
+	expected := mac.Sum(nil)
+	got, err := hex.DecodeString(token)
+	if err != nil || len(got) != len(expected) {
+		return false
+	}
+	return hmac.Equal(got, expected)
+}
+
+// OpenObject 打开对象只读流，由 handler 代理转发给播放器/下载器。
+func (s *StorageService) OpenObject(ctx context.Context, bucket, key string) (*minio.Object, error) {
+	if !s.Available() {
+		return nil, ErrStorageNotConfigured
+	}
+	obj, err := s.client.GetObject(ctx, bucket, key, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, errors.Join(ErrStorageUnavailable, err)
+	}
+	return obj, nil
+}
+
+// OpenObjectRange 打开对象字节区间 [start, end]（end<0 表示读到末尾）。
+// AVPlayer 等播放器要求服务端支持 Range 分片请求。
+func (s *StorageService) OpenObjectRange(ctx context.Context, bucket, key string,
+	start, end int64) (*minio.Object, error) {
+	if !s.Available() {
+		return nil, ErrStorageNotConfigured
+	}
+	opts := minio.GetObjectOptions{}
+	if err := opts.SetRange(start, end); err != nil {
+		return nil, errors.Join(ErrStorageUnavailable, err)
+	}
+	obj, err := s.client.GetObject(ctx, bucket, key, opts)
+	if err != nil {
+		return nil, errors.Join(ErrStorageUnavailable, err)
+	}
+	return obj, nil
+}
+
+// StatObject 读取对象元信息（大小与类型）。
+func (s *StorageService) StatObject(ctx context.Context, bucket, key string) (minio.ObjectInfo, error) {
+	if !s.Available() {
+		return minio.ObjectInfo{}, ErrStorageNotConfigured
+	}
+	info, err := s.client.StatObject(ctx, bucket, key, minio.StatObjectOptions{})
+	if err != nil {
+		return minio.ObjectInfo{}, errors.Join(ErrStorageUnavailable, err)
+	}
+	return info, nil
 }
