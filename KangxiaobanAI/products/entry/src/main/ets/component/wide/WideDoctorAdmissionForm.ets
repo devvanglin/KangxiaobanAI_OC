@@ -169,6 +169,229 @@ struct AdmissionGroupCard {
   }
 }
 
+/** 入住表单文本输入。用 @Param 而不是 @Builder 按值参数，导入/草稿恢复才能刷新显示。 */
+@ComponentV2
+struct AdmissionStackedTextField {
+  @Param label: string = '';
+  @Param required: boolean = false;
+  @Param placeholder: string = '';
+  @Param value: string = '';
+  @Param numeric: boolean = false;
+  @Param controlHeight: number = 48;
+  @Param highlightActive: boolean = true;
+  @Param activeField: string = '';
+  @Event onChange: (value: string) => void = (value: string) => {};
+  @Event onFocusChange: (label: string) => void = (label: string) => {};
+
+  build() {
+    Column({ space: 8 }) {
+      Text(this.required ? `${this.label} *` : this.label)
+        .width('100%')
+        .fontSize(15)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .textAlign(TextAlign.Start)
+      TextInput({ text: this.value, placeholder: this.placeholder })
+        .width('100%')
+        .height(this.controlHeight)
+        .fontSize(16)
+        .fontColor($r('sys.color.font_primary'))
+        .backgroundColor($r('sys.color.comp_background_secondary'))
+        .borderRadius(10)
+        .border({ width: this.highlightActive && this.activeField === this.label ? 1.5 : 0.5,
+          color: this.highlightActive && this.activeField === this.label ? $r('app.color.brand_blue') :
+            $r('sys.color.comp_divider') })
+        .type(this.numeric ? InputType.Number : InputType.Normal)
+        .onFocus(() => this.onFocusChange(this.label))
+        .onChange((next: string) => {
+          this.onChange(next);
+          this.onFocusChange(this.label);
+        })
+    }.width('100%').alignItems(HorizontalAlign.Start)
+  }
+}
+
+/** 入住表单多行文本输入。 */
+@ComponentV2
+struct AdmissionStackedTextAreaField {
+  @Param label: string = '';
+  @Param placeholder: string = '';
+  @Param value: string = '';
+  @Param compactWidth: boolean = false;
+  @Event onChange: (value: string) => void = (value: string) => {};
+
+  build() {
+    Column({ space: 8 }) {
+      Text(this.label)
+        .width('100%')
+        .fontSize(15)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .textAlign(TextAlign.Start)
+      TextArea({ text: this.value, placeholder: this.placeholder })
+        .width('100%')
+        .height(this.compactWidth ? 112 : 104)
+        .fontSize(16)
+        .fontColor($r('sys.color.font_primary'))
+        .backgroundColor($r('sys.color.comp_background_secondary'))
+        .borderRadius(10)
+        .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+        .onChange((next: string) => this.onChange(next))
+    }.width('100%').alignItems(HorizontalAlign.Start)
+  }
+}
+
+/** 入住表单胶囊选项组。 */
+@ComponentV2
+struct AdmissionStackedChoiceField {
+  @Param label: string = '';
+  @Param required: boolean = false;
+  @Param options: string[] = [];
+  @Param selected: string = '';
+  @Param optionWidth: number = 88;
+  @Event onSelect: (value: string) => void = (value: string) => {};
+
+  build() {
+    Column({ space: 8 }) {
+      Text(this.required ? `${this.label} *` : this.label)
+        .width('100%')
+        .fontSize(15)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .textAlign(TextAlign.Start)
+      Flex({ wrap: FlexWrap.Wrap }) {
+        ForEach(this.options, (option: string) => {
+          Button({ type: ButtonType.Capsule, stateEffect: true }) {
+            Text(option).fontSize(15)
+              .textAlign(TextAlign.Center)
+              .fontColor(this.selected === option ? Color.White : $r('sys.color.font_secondary'))
+          }
+          .width(this.optionWidth)
+          .padding(0)
+          .height(40)
+          .margin({ right: this.optionWidth <= 72 ? 6 : 8, bottom: 8 })
+          .backgroundColor(this.selected === option ? $r('app.color.brand_blue') :
+            $r('sys.color.comp_background_secondary'))
+          .border({ width: this.selected === option ? 0 : 0.5, color: $r('sys.color.comp_divider') })
+          .accessibilityText(`${this.label}${option}`)
+          .accessibilitySelected(this.selected === option)
+          .onClick(() => this.onSelect(option))
+        }, (option: string) => `${this.label}-${option}`)
+      }.width('100%')
+    }.width('100%').alignItems(HorizontalAlign.Start)
+  }
+}
+
+/** 入住表单起止日期区间输入。 */
+@ComponentV2
+struct AdmissionStackedDateRangeField {
+  @Param label: string = '';
+  @Param required: boolean = false;
+  @Param startPlaceholder: string = '';
+  @Param endPlaceholder: string = '';
+  @Param startValue: string = '';
+  @Param endValue: string = '';
+  @Param controlHeight: number = 48;
+  @Event onStartChange: (value: string) => void = (value: string) => {};
+  @Event onEndChange: (value: string) => void = (value: string) => {};
+
+  build() {
+    Column({ space: 8 }) {
+      Text(this.required ? `${this.label} *` : this.label)
+        .width('100%')
+        .fontSize(15)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .textAlign(TextAlign.Start)
+      Row({ space: 8 }) {
+        TextInput({ text: this.startValue, placeholder: this.startPlaceholder })
+          .layoutWeight(1)
+          .height(this.controlHeight)
+          .fontSize(15)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .borderRadius(10)
+          .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+          .onChange((next: string) => this.onStartChange(next))
+        Text('至').fontSize(14).fontColor($r('sys.color.font_secondary'))
+        TextInput({ text: this.endValue, placeholder: this.endPlaceholder })
+          .layoutWeight(1)
+          .height(this.controlHeight)
+          .fontSize(15)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .borderRadius(10)
+          .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+          .onChange((next: string) => this.onEndChange(next))
+      }.width('100%').alignItems(VerticalAlign.Center)
+    }.width('100%').alignItems(HorizontalAlign.Start)
+  }
+}
+
+/** 入住表单金额输入（减/输入/加）。 */
+@ComponentV2
+struct AdmissionAmountField {
+  @Param label: string = '';
+  @Param placeholder: string = '';
+  @Param value: string = '';
+  @Param controlHeight: number = 48;
+  @Event onChange: (value: string) => void = (value: string) => {};
+
+  private adjustAmount(delta: number): void {
+    let amount: number = Number(this.value);
+    if (isNaN(amount)) {
+      amount = 0;
+    }
+    this.onChange(`${Math.max(0, amount + delta)}`);
+  }
+
+  build() {
+    Column({ space: 8 }) {
+      Text(this.label)
+        .width('100%')
+        .fontSize(15)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .textAlign(TextAlign.Start)
+      Row({ space: 0 }) {
+        Button({ type: ButtonType.Normal, stateEffect: true }) {
+          SymbolGlyph($r('sys.symbol.minus')).fontSize(18)
+            .fontColor([$r('sys.color.font_secondary')])
+        }
+          .width(44)
+          .height(this.controlHeight)
+          .padding(0)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .borderRadius({ topLeft: 10, bottomLeft: 10 })
+          .accessibilityText(`减少${this.label}`)
+          .onClick(() => this.adjustAmount(-100))
+        TextInput({ text: this.value, placeholder: this.placeholder })
+          .layoutWeight(1)
+          .height(this.controlHeight)
+          .fontSize(16)
+          .type(InputType.Number)
+          .textAlign(TextAlign.Center)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .borderRadius(0)
+          .border({ width: { top: 0.5, bottom: 0.5 }, color: $r('sys.color.comp_divider') })
+          .onChange((next: string) => this.onChange(next))
+        Button({ type: ButtonType.Normal, stateEffect: true }) {
+          SymbolGlyph($r('sys.symbol.plus')).fontSize(18)
+            .fontColor([$r('sys.color.font_secondary')])
+        }
+          .width(44)
+          .height(this.controlHeight)
+          .padding(0)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .borderRadius({ topRight: 10, bottomRight: 10 })
+          .accessibilityText(`增加${this.label}`)
+          .onClick(() => this.adjustAmount(100))
+      }
+      .width('100%')
+      .borderRadius(10)
+      .clip(true)
+    }.width('100%').alignItems(HorizontalAlign.Start)
+  }
+}
+
 /** 医师端办理入住页面：沉浸式详情页表单，提交到服务端完成入住办理。 */
 @ComponentV2
 export struct WideDoctorAdmissionForm {
@@ -1684,185 +1907,6 @@ export struct WideDoctorAdmissionForm {
     }
   }
 
-  /**
-   * All admission fields use the same label-above-control rhythm.  This is
-   * deliberately a local form pattern instead of a second navigation shell:
-   * it keeps long labels and large-font settings from stealing width from the
-   * actual input control.
-   */
-  @Builder
-  private stackedTextField(label: string, placeholder: string, value: string,
-    onChange: (value: string) => void, required: boolean = false, numeric: boolean = false) {
-    Column({ space: 8 }) {
-      Text(required ? `${label} *` : label)
-        .width('100%')
-        .fontSize(15)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .textAlign(TextAlign.Start)
-      TextInput({ text: value, placeholder: placeholder })
-        .width('100%')
-        .height(this.controlHeight())
-        .fontSize(16)
-        .fontColor($r('sys.color.font_primary'))
-        .backgroundColor($r('sys.color.comp_background_secondary'))
-        .borderRadius(10)
-        .border({ width: this.activeField === label ? 1.5 : 0.5,
-          color: this.activeField === label ? $r('app.color.brand_blue') : $r('sys.color.comp_divider') })
-        .type(numeric ? InputType.Number : InputType.Normal)
-        .onFocus(() => this.activeField = label)
-        .onChange((next: string) => {
-          onChange(next);
-          this.activeField = label;
-        })
-    }.width('100%').alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  private stackedTextAreaField(label: string, placeholder: string, value: string,
-    onChange: (value: string) => void) {
-    Column({ space: 8 }) {
-      Text(label)
-        .width('100%')
-        .fontSize(15)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .textAlign(TextAlign.Start)
-      TextArea({ text: value, placeholder: placeholder })
-        .width('100%')
-        .height(this.compactWidth ? 112 : 104)
-        .fontSize(16)
-        .fontColor($r('sys.color.font_primary'))
-        .backgroundColor($r('sys.color.comp_background_secondary'))
-        .borderRadius(10)
-        .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-        .onChange((next: string) => onChange(next))
-    }.width('100%').alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  private stackedChoiceField(label: string, options: string[], selected: string,
-    onSelect: (value: string) => void, required: boolean = false, optionWidth: number = 88) {
-    Column({ space: 8 }) {
-      Text(required ? `${label} *` : label)
-        .width('100%')
-        .fontSize(15)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .textAlign(TextAlign.Start)
-      Flex({ wrap: FlexWrap.Wrap }) {
-        ForEach(options, (option: string) => {
-          Button({ type: ButtonType.Capsule, stateEffect: true }) {
-            Text(option).fontSize(15)
-              .textAlign(TextAlign.Center)
-              .fontColor(selected === option ? Color.White : $r('sys.color.font_secondary'))
-          }
-          .width(optionWidth)
-          .padding(0)
-          .height(40)
-          .margin({ right: optionWidth <= 72 ? 6 : 8, bottom: 8 })
-          .backgroundColor(selected === option ? $r('app.color.brand_blue') :
-            $r('sys.color.comp_background_secondary'))
-          .border({ width: selected === option ? 0 : 0.5, color: $r('sys.color.comp_divider') })
-          .accessibilityText(`${label}${option}`)
-          .accessibilitySelected(selected === option)
-          .onClick(() => onSelect(option))
-        }, (option: string) => `${label}-${option}`)
-      }.width('100%')
-    }.width('100%').alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  private stackedDateRangeField(label: string, startPlaceholder: string, endPlaceholder: string,
-    startValue: string, endValue: string, onStartChange: (value: string) => void,
-    onEndChange: (value: string) => void, required: boolean = false) {
-    Column({ space: 8 }) {
-      Text(required ? `${label} *` : label)
-        .width('100%')
-        .fontSize(15)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .textAlign(TextAlign.Start)
-      Row({ space: 8 }) {
-        TextInput({ text: startValue, placeholder: startPlaceholder })
-          .layoutWeight(1)
-          .height(this.controlHeight())
-          .fontSize(15)
-          .backgroundColor($r('sys.color.comp_background_secondary'))
-          .borderRadius(10)
-          .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-          .onChange((next: string) => onStartChange(next))
-        Text('至').fontSize(14).fontColor($r('sys.color.font_secondary'))
-        TextInput({ text: endValue, placeholder: endPlaceholder })
-          .layoutWeight(1)
-          .height(this.controlHeight())
-          .fontSize(15)
-          .backgroundColor($r('sys.color.comp_background_secondary'))
-          .borderRadius(10)
-          .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-          .onChange((next: string) => onEndChange(next))
-      }.width('100%').alignItems(VerticalAlign.Center)
-    }.width('100%').alignItems(HorizontalAlign.Start)
-  }
-
-  private adjustAmount(current: string, delta: number, onChange: (value: string) => void): void {
-    let amount: number = Number(current);
-    if (isNaN(amount)) {
-      amount = 0;
-    }
-    onChange(`${Math.max(0, amount + delta)}`);
-  }
-
-  @Builder
-  private amountField(label: string, placeholder: string, value: string,
-    onChange: (value: string) => void) {
-    Column({ space: 8 }) {
-      Text(label)
-        .width('100%')
-        .fontSize(15)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .textAlign(TextAlign.Start)
-      Row({ space: 0 }) {
-        Button({ type: ButtonType.Normal, stateEffect: true }) {
-          SymbolGlyph($r('sys.symbol.minus')).fontSize(18)
-            .fontColor([$r('sys.color.font_secondary')])
-        }
-          .width(44)
-          .height(this.controlHeight())
-          .padding(0)
-          .backgroundColor($r('sys.color.comp_background_secondary'))
-          .borderRadius({ topLeft: 10, bottomLeft: 10 })
-          .accessibilityText(`减少${label}`)
-          .onClick(() => this.adjustAmount(value, -100, onChange))
-        TextInput({ text: value, placeholder: placeholder })
-          .layoutWeight(1)
-          .height(this.controlHeight())
-          .fontSize(16)
-          .type(InputType.Number)
-          .textAlign(TextAlign.Center)
-          .backgroundColor($r('sys.color.comp_background_secondary'))
-          .borderRadius(0)
-          .border({ width: { top: 0.5, bottom: 0.5 }, color: $r('sys.color.comp_divider') })
-          .onChange((next: string) => onChange(next))
-        Button({ type: ButtonType.Normal, stateEffect: true }) {
-          SymbolGlyph($r('sys.symbol.plus')).fontSize(18)
-            .fontColor([$r('sys.color.font_secondary')])
-        }
-          .width(44)
-          .height(this.controlHeight())
-          .padding(0)
-          .backgroundColor($r('sys.color.comp_background_secondary'))
-          .borderRadius({ topRight: 10, bottomRight: 10 })
-          .accessibilityText(`增加${label}`)
-          .onClick(() => this.adjustAmount(value, 100, onChange))
-      }
-      .width('100%')
-      .borderRadius(10)
-      .clip(true)
-    }.width('100%').alignItems(HorizontalAlign.Start)
-  }
-
   /** 只允许选择服务端返回的空床位，避免提交无法占用的自由文本。 */
   @Builder
   private bedField() {
@@ -2501,36 +2545,6 @@ export struct WideDoctorAdmissionForm {
     }.width('100%').alignItems(HorizontalAlign.Start)
   }
 
-  /** A wide field with the label above the control, avoiding compressed labels. */
-  @Builder
-  private familyStackedTextField(label: string, placeholder: string, value: string,
-    onChange: (value: string) => void, numeric: boolean = false) {
-    Column({ space: 8 }) {
-      Text(label)
-        .width('100%')
-        .fontSize(15)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .textAlign(TextAlign.Start)
-      TextInput({ text: value, placeholder: placeholder })
-        .width('100%')
-        .height(this.controlHeight())
-        .fontSize(16)
-        .fontColor($r('sys.color.font_primary'))
-        .backgroundColor($r('sys.color.comp_background_secondary'))
-        .borderRadius(10)
-        .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-        .type(numeric ? InputType.Number : InputType.Normal)
-        .onFocus(() => this.activeField = label)
-        .onChange((next: string) => {
-          onChange(next);
-          this.activeField = label;
-        })
-    }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
-  }
-
   /** Relationship choices share the same grid cell and remain one line wide. */
   @Builder
   private familyStackedRelationField() {
@@ -2704,30 +2718,43 @@ export struct WideDoctorAdmissionForm {
   private identityFields() {
     GridRow({ columns: 12, gutter: { x: 14, y: 14 } }) {
       GridCol({ span: this.compactWidth ? 12 : 6 }) {
-        this.stackedTextField('姓名', '请输入长者姓名', this.name, (value: string) => this.name = value, true)
+        AdmissionStackedTextField({ label: '姓名', required: true, placeholder: '请输入长者姓名',
+          value: this.name, activeField: this.activeField, controlHeight: this.controlHeight(),
+          onChange: (value: string) => this.name = value,
+          onFocusChange: (label: string) => this.activeField = label })
       }
       GridCol({ span: this.compactWidth ? 12 : 6 }) {
-        this.stackedTextField('身份证号', '请输入身份证号', this.idCard,
-          (value: string) => this.idCard = value, true)
+        AdmissionStackedTextField({ label: '身份证号', required: true, placeholder: '请输入身份证号',
+          value: this.idCard, activeField: this.activeField, controlHeight: this.controlHeight(),
+          onChange: (value: string) => this.idCard = value,
+          onFocusChange: (label: string) => this.activeField = label })
       }
       GridCol({ span: this.compactWidth ? 12 : 6 }) {
-        this.stackedTextField('出生日期', '请选择出生日期', this.birthDate,
-          (value: string) => this.birthDate = value, true)
+        AdmissionStackedTextField({ label: '出生日期', required: true, placeholder: '请选择出生日期',
+          value: this.birthDate, activeField: this.activeField, controlHeight: this.controlHeight(),
+          onChange: (value: string) => this.birthDate = value,
+          onFocusChange: (label: string) => this.activeField = label })
       }
       GridCol({ span: this.compactWidth ? 12 : 6 }) {
-        this.stackedTextField('年龄', '请输入年龄', this.age,
-          (value: string) => this.age = value, true, true)
+        AdmissionStackedTextField({ label: '年龄', required: true, placeholder: '请输入年龄',
+          value: this.age, numeric: true, activeField: this.activeField,
+          controlHeight: this.controlHeight(), onChange: (value: string) => this.age = value,
+          onFocusChange: (label: string) => this.activeField = label })
       }
       GridCol({ span: this.compactWidth ? 12 : 6 }) {
-        this.stackedChoiceField('性别', ['男', '女'], this.gender, (value: string) => this.gender = value, true)
+        AdmissionStackedChoiceField({ label: '性别', required: true, options: ['男', '女'],
+          selected: this.gender, onSelect: (value: string) => this.gender = value })
       }
       GridCol({ span: this.compactWidth ? 12 : 6 }) {
-        this.stackedTextField('联系方式', '请输入手机号或其他联系方式', this.phone,
-          (value: string) => this.phone = value, false, true)
+        AdmissionStackedTextField({ label: '联系方式', placeholder: '请输入手机号或其他联系方式',
+          value: this.phone, numeric: true, activeField: this.activeField,
+          controlHeight: this.controlHeight(), onChange: (value: string) => this.phone = value,
+          onFocusChange: (label: string) => this.activeField = label })
       }
       GridCol({ span: 12 }) {
-        this.stackedTextAreaField('家庭住址', '请输入家庭住址', this.familyAddress,
-          (value: string) => this.familyAddress = value)
+        AdmissionStackedTextAreaField({ label: '家庭住址', placeholder: '请输入家庭住址',
+          value: this.familyAddress, compactWidth: this.compactWidth,
+          onChange: (value: string) => this.familyAddress = value })
       }
       GridCol({ span: this.compactWidth ? 12 : 4 }) {
         this.uploadField('一寸照片', '支持 JPG、PNG、WebP，5MB以内')
@@ -2745,22 +2772,32 @@ export struct WideDoctorAdmissionForm {
   private familyFields() {
     if (this.compactWidth) {
       Column({ space: 12 }) {
-        this.stackedTextField('联系人姓名', '请输入主要联系人姓名', this.familyName,
-          (value: string) => this.familyName = value)
-        this.stackedTextField('联系人联系方式', '请输入手机号或其他联系方式', this.familyPhone,
-          (value: string) => this.familyPhone = value, false, true)
-        this.stackedChoiceField('与长者关系', ['子女', '配偶', '亲属', '其他'], this.familyRelation,
-          (value: string) => this.familyRelation = value, false, 72)
+        AdmissionStackedTextField({ label: '联系人姓名', placeholder: '请输入主要联系人姓名',
+          value: this.familyName, activeField: this.activeField, controlHeight: this.controlHeight(),
+          onChange: (value: string) => this.familyName = value,
+          onFocusChange: (label: string) => this.activeField = label })
+        AdmissionStackedTextField({ label: '联系人联系方式', placeholder: '请输入手机号或其他联系方式',
+          value: this.familyPhone, numeric: true, activeField: this.activeField,
+          controlHeight: this.controlHeight(), onChange: (value: string) => this.familyPhone = value,
+          onFocusChange: (label: string) => this.activeField = label })
+        AdmissionStackedChoiceField({ label: '与长者关系', options: ['子女', '配偶', '亲属', '其他'],
+          selected: this.familyRelation, optionWidth: 72,
+          onSelect: (value: string) => this.familyRelation = value })
       }.width('100%')
     } else {
       GridRow({ columns: 12, gutter: { x: 18, y: 14 } }) {
         GridCol({ span: 4 }) {
-          this.familyStackedTextField('联系人姓名', '请输入主要联系人姓名', this.familyName,
-            (value: string) => this.familyName = value)
+          // 宽屏联系人字段不带聚焦高亮，保持与原 family 变体一致的静态边框。
+          AdmissionStackedTextField({ label: '联系人姓名', placeholder: '请输入主要联系人姓名',
+            value: this.familyName, highlightActive: false, controlHeight: this.controlHeight(),
+            onChange: (value: string) => this.familyName = value,
+            onFocusChange: (label: string) => this.activeField = label })
         }
         GridCol({ span: 4 }) {
-          this.familyStackedTextField('联系人联系方式', '请输入手机号或其他联系方式', this.familyPhone,
-            (value: string) => this.familyPhone = value, true)
+          AdmissionStackedTextField({ label: '联系人联系方式', placeholder: '请输入手机号或其他联系方式',
+            value: this.familyPhone, numeric: true, highlightActive: false,
+            controlHeight: this.controlHeight(), onChange: (value: string) => this.familyPhone = value,
+            onFocusChange: (label: string) => this.activeField = label })
         }
         GridCol({ span: 4 }) {
           this.familyStackedRelationField()
@@ -2773,14 +2810,20 @@ export struct WideDoctorAdmissionForm {
   private arrangementFields() {
     GridRow({ columns: 12, gutter: { x: 14, y: 14 } }) {
       GridCol({ span: this.compactWidth ? 12 : 6 }) {
-        this.stackedDateRangeField('入住期限', '开始日期', '结束日期', this.admissionDate, this.admissionEndDate,
-          (value: string) => this.admissionDate = value,
-          (value: string) => this.admissionEndDate = value, true)
+        AdmissionStackedDateRangeField({ label: '入住期限', required: true,
+          startPlaceholder: '开始日期', endPlaceholder: '结束日期',
+          startValue: this.admissionDate, endValue: this.admissionEndDate,
+          controlHeight: this.controlHeight(),
+          onStartChange: (value: string) => this.admissionDate = value,
+          onEndChange: (value: string) => this.admissionEndDate = value })
       }
       GridCol({ span: this.compactWidth ? 12 : 6 }) {
-        this.stackedDateRangeField('费用期限', '开始日期', '结束日期', this.feeStartDate, this.feeEndDate,
-          (value: string) => this.feeStartDate = value,
-          (value: string) => this.feeEndDate = value)
+        AdmissionStackedDateRangeField({ label: '费用期限',
+          startPlaceholder: '开始日期', endPlaceholder: '结束日期',
+          startValue: this.feeStartDate, endValue: this.feeEndDate,
+          controlHeight: this.controlHeight(),
+          onStartChange: (value: string) => this.feeStartDate = value,
+          onEndChange: (value: string) => this.feeEndDate = value })
       }
       // Care level is intentionally not asked here: the authoritative grade
       // comes from the later assessment workflow, so intake only assigns the
@@ -2789,27 +2832,33 @@ export struct WideDoctorAdmissionForm {
         this.bedField()
       }
       GridCol({ span: this.compactWidth ? 6 : 4 }) {
-        this.amountField('押金', '请输入金额', this.deposit, (value: string) => this.deposit = value)
+        AdmissionAmountField({ label: '押金', placeholder: '请输入金额', value: this.deposit,
+          controlHeight: this.controlHeight(), onChange: (value: string) => this.deposit = value })
       }
       GridCol({ span: this.compactWidth ? 6 : 4 }) {
-        this.amountField('护理费用', '请输入金额', this.careFee, (value: string) => this.careFee = value)
+        AdmissionAmountField({ label: '护理费用', placeholder: '请输入金额', value: this.careFee,
+          controlHeight: this.controlHeight(), onChange: (value: string) => this.careFee = value })
       }
       GridCol({ span: this.compactWidth ? 6 : 4 }) {
-        this.amountField('床位费用', '请输入金额', this.bedFee, (value: string) => this.bedFee = value)
+        AdmissionAmountField({ label: '床位费用', placeholder: '请输入金额', value: this.bedFee,
+          controlHeight: this.controlHeight(), onChange: (value: string) => this.bedFee = value })
       }
       GridCol({ span: this.compactWidth ? 6 : 4 }) {
-        this.amountField('其他费用', '请输入金额', this.otherFee, (value: string) => this.otherFee = value)
+        AdmissionAmountField({ label: '其他费用', placeholder: '请输入金额', value: this.otherFee,
+          controlHeight: this.controlHeight(), onChange: (value: string) => this.otherFee = value })
       }
       GridCol({ span: this.compactWidth ? 6 : 4 }) {
-        this.amountField('医保支付', '请输入金额', this.medicalInsurance,
-          (value: string) => this.medicalInsurance = value)
+        AdmissionAmountField({ label: '医保支付', placeholder: '请输入金额', value: this.medicalInsurance,
+          controlHeight: this.controlHeight(), onChange: (value: string) => this.medicalInsurance = value })
       }
       GridCol({ span: this.compactWidth ? 6 : 4 }) {
-        this.amountField('政府补贴', '请输入金额', this.subsidy, (value: string) => this.subsidy = value)
+        AdmissionAmountField({ label: '政府补贴', placeholder: '请输入金额', value: this.subsidy,
+          controlHeight: this.controlHeight(), onChange: (value: string) => this.subsidy = value })
       }
       GridCol({ span: 12 }) {
-        this.stackedTextAreaField('入住备注', '记录接待安排、饮食偏好或其他需要关注的事项', this.note,
-          (value: string) => this.note = value)
+        AdmissionStackedTextAreaField({ label: '入住备注',
+          placeholder: '记录接待安排、饮食偏好或其他需要关注的事项', value: this.note,
+          compactWidth: this.compactWidth, onChange: (value: string) => this.note = value })
       }
     }.width('100%')
   }
