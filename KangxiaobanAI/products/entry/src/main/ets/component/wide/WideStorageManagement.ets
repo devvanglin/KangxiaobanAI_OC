@@ -78,7 +78,6 @@ export struct WideStorageManagement {
   @Local objectFilter: string = '';
   @Local previewUrls: Record<string, string> = {};
   @Local previewObject: StorageObject | null = null;
-  @Local showPreview: boolean = false;
   @Local audioPlaying: boolean = false;
   @Local audioReady: boolean = false;
   @Local audioCurrentMs: number = 0;
@@ -246,18 +245,12 @@ export struct WideStorageManagement {
     Logger.info(TAG, `open preview: ${item.key}`);
     if (this.objectKind(item.key) !== 'file') {
       this.previewObject = item;
-      this.showPreview = true;
     } else {
       this.showToast('该类型暂不支持预览');
     }
   }
 
   /** 预览对象变化：音频/视频先下载到缓存再播放，其他类型释放播放器。 */
-  private closePreview(): void {
-    this.showPreview = false;
-    this.previewObject = null;
-  }
-
   @Monitor('previewObject')
   onPreviewObjectChange(): void {
     if (this.previewObject === null) {
@@ -939,93 +932,99 @@ export struct WideStorageManagement {
     .alignItems(HorizontalAlign.Start)
   }
 
+  /** 二级页：白底媒体详情页（图片查看 / 音视频播放），返回键回到桶列表。 */
   @Builder
-  private mediaPreview() {
-    Stack({ alignContent: Alignment.Top }) {
-      Column() {
-        if (this.previewObject !== null && this.objectKind(this.previewObject.key) === 'video') {
-          if (this.videoPlaybackPath.length > 0) {
-            Video({
-              src: this.videoPlaybackPath,
-              controller: this.videoController
-            })
-              .width('100%').layoutWeight(1)
-              .autoPlay(true).controls(true).objectFit(ImageFit.Contain)
-              .backgroundColor(Color.Black)
-          } else {
-            Column({ space: 12 }) {
-              LoadingProgress().width(46).height(46).color(Color.White)
-              Text('正在加载视频…').fontSize(13).fontColor('rgba(255,255,255,0.75)')
-            }.width('100%').layoutWeight(1).justifyContent(FlexAlign.Center)
-          }
-        } else if (this.previewObject !== null && this.objectKind(this.previewObject.key) === 'audio') {
-          Column({ space: 22 }) {
-            SymbolGlyph($r('sys.symbol.music_note_list')).fontSize(72).fontColor(['rgba(255,255,255,0.85)'])
-            Text(this.displayName(this.previewObject.key))
-              .fontSize(15).fontColor(Color.White).textAlign(TextAlign.Center)
-              .maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
-              .constraintSize({ maxWidth: '72%' })
-            if (this.playbackPreparing) {
-              Row({ space: 8 }) {
-                LoadingProgress().width(20).height(20).color(Color.White)
-                Text('正在加载音频…').fontSize(12).fontColor('rgba(255,255,255,0.75)')
-              }
-            } else {
-              Text(`${this.formatMs(this.audioCurrentMs)} / ${this.formatMs(this.audioDurationMs)}`)
-                .fontSize(12).fontColor('rgba(255,255,255,0.6)')
-            }
-            Slider({
-              value: Math.min(this.audioCurrentMs, this.audioDurationMs > 0 ? this.audioDurationMs : 1),
-              min: 0,
-              max: this.audioDurationMs > 0 ? this.audioDurationMs : 1
-            })
-              .width('72%')
-              .onChange((value: number, mode: SliderChangeMode) => {
-                if (mode === SliderChangeMode.End || mode === SliderChangeMode.Click) {
-                  this.seekAudio(value);
-                }
-              })
-            Button({ type: ButtonType.Circle, stateEffect: true }) {
-              SymbolGlyph(this.audioPlaying ? $r('sys.symbol.pause_fill') : $r('sys.symbol.play_fill'))
-                .fontSize(28).fontColor([Color.White])
-            }
-            .width(64).height(64)
-            .backgroundColor($r('app.color.brand_blue'))
-            .opacity(this.playbackPreparing ? 0.45 : 1)
-            .enabled(!this.playbackPreparing)
-            .onClick(() => this.toggleAudio())
-          }
-          .width('100%').layoutWeight(1)
-          .justifyContent(FlexAlign.Center).alignItems(HorizontalAlign.Center)
-        } else if (this.previewObject !== null) {
-          Image(this.previewUrls[this.previewObject.key] ?? '')
-            .width('100%').layoutWeight(1)
-            .objectFit(ImageFit.Contain)
-            .autoResize(true)
-        }
-      }.width('100%').height('100%')
-      Row({ space: 12 }) {
+  private mediaDetailPage() {
+    Column({ space: 16 }) {
+      Row({ space: 10 }) {
         Button({ type: ButtonType.Circle, stateEffect: true }) {
-          SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(22).fontColor([Color.White])
+          SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(22).fontColor([$r('sys.color.font_primary')])
         }
         .width(38).height(38)
-        .backgroundColor('rgba(0,0,0,0.45)')
-        .onClick(() => this.closePreview())
+        .backgroundColor($r('sys.color.comp_background_secondary'))
+        .accessibilityText('返回列表')
+        .onClick(() => this.previewObject = null)
         Text(this.previewObject === null ? '' : this.displayName(this.previewObject.key))
-          .fontSize(14).fontColor(Color.White)
+          .fontSize(16).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
           .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).layoutWeight(1)
         if (this.previewObject !== null) {
-          Text(this.formatSize(this.previewObject.size)).fontSize(12).fontColor('rgba(255,255,255,0.7)')
+          Text(this.formatSize(this.previewObject.size)).fontSize(12).fontColor($r('sys.color.font_tertiary'))
         }
       }
       .width('100%')
-      // 预览层在页面内容区内，顶部要避开 HdsNavigation 标题栏的命中区域。
-      .padding({ left: 16, right: 16, top: this.statusBarHeight + 64, bottom: 10 })
       .alignItems(VerticalAlign.Center)
+
+      if (this.previewObject !== null && this.objectKind(this.previewObject.key) === 'video') {
+        if (this.videoPlaybackPath.length > 0) {
+          Video({
+            src: this.videoPlaybackPath,
+            controller: this.videoController
+          })
+            .width('100%').layoutWeight(1)
+            .autoPlay(true).controls(true).objectFit(ImageFit.Contain)
+            .borderRadius(16).backgroundColor(Color.Black)
+        } else {
+          Column({ space: 12 }) {
+            LoadingProgress().width(46).height(46).color($r('app.color.brand_blue'))
+            Text('正在加载视频…').fontSize(13).fontColor($r('sys.color.font_secondary'))
+          }.width('100%').layoutWeight(1).justifyContent(FlexAlign.Center)
+        }
+      } else if (this.previewObject !== null && this.objectKind(this.previewObject.key) === 'audio') {
+        Column({ space: 22 }) {
+          SymbolGlyph($r('sys.symbol.music_note_list')).fontSize(72).fontColor([$r('app.color.brand_blue')])
+          Text(this.displayName(this.previewObject.key))
+            .fontSize(15).fontColor($r('sys.color.font_primary')).textAlign(TextAlign.Center)
+            .maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
+            .constraintSize({ maxWidth: '72%' })
+          if (this.playbackPreparing) {
+            Row({ space: 8 }) {
+              LoadingProgress().width(20).height(20).color($r('app.color.brand_blue'))
+              Text('正在加载音频…').fontSize(12).fontColor($r('sys.color.font_secondary'))
+            }
+          } else {
+            Text(`${this.formatMs(this.audioCurrentMs)} / ${this.formatMs(this.audioDurationMs)}`)
+              .fontSize(12).fontColor($r('sys.color.font_secondary'))
+          }
+          Slider({
+            value: Math.min(this.audioCurrentMs, this.audioDurationMs > 0 ? this.audioDurationMs : 1),
+            min: 0,
+            max: this.audioDurationMs > 0 ? this.audioDurationMs : 1
+          })
+            .width('72%')
+            .onChange((value: number, mode: SliderChangeMode) => {
+              if (mode === SliderChangeMode.End || mode === SliderChangeMode.Click) {
+                this.seekAudio(value);
+              }
+            })
+          Button({ type: ButtonType.Circle, stateEffect: true }) {
+            SymbolGlyph(this.audioPlaying ? $r('sys.symbol.pause_fill') : $r('sys.symbol.play_fill'))
+              .fontSize(28).fontColor([Color.White])
+          }
+          .width(64).height(64)
+          .backgroundColor($r('app.color.brand_blue'))
+          .opacity(this.playbackPreparing ? 0.45 : 1)
+          .enabled(!this.playbackPreparing)
+          .onClick(() => this.toggleAudio())
+        }
+        .width('100%').layoutWeight(1)
+        .justifyContent(FlexAlign.Center).alignItems(HorizontalAlign.Center)
+      } else if (this.previewObject !== null) {
+        Image(this.previewUrls[this.previewObject.key] ?? '')
+          .width('100%').layoutWeight(1)
+          .objectFit(ImageFit.Contain)
+          .autoResize(true)
+          .borderRadius(16)
+      }
     }
     .width('100%').height('100%')
-    .backgroundColor(Color.Black)
-    .hitTestBehavior(HitTestMode.Default)
+    .backgroundColor($r('app.color.doctor_workspace_background'))
+    .padding({
+      left: this.compactWidth ? 16 : 28,
+      right: this.compactWidth ? 16 : 28,
+      top: 88 + this.statusBarHeight,
+      bottom: 24 + this.naviIndicatorHeight
+    })
+    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
@@ -1055,28 +1054,29 @@ export struct WideStorageManagement {
 
   build() {
     Stack() {
-      Scroll(this.managementScroller) {
-        Column() {
-          this.storageContent()
+      if (this.previewObject !== null) {
+        // 二级页：白底媒体详情（图片/音频/视频）。
+        this.mediaDetailPage()
+      } else {
+        Scroll(this.managementScroller) {
+          Column() {
+            this.storageContent()
+          }
+          .width('100%')
+          .constraintSize({ minHeight: '100%', maxWidth: 1280 })
+          .padding({
+            left: this.compactWidth ? 16 : 28,
+            right: this.compactWidth ? 16 : 28,
+            top: 88 + this.statusBarHeight,
+            bottom: 24 + this.naviIndicatorHeight
+          })
+          .alignItems(HorizontalAlign.Start)
         }
         .width('100%')
-        .constraintSize({ minHeight: '100%', maxWidth: 1280 })
-        .padding({
-          left: this.compactWidth ? 16 : 28,
-          right: this.compactWidth ? 16 : 28,
-          top: 88 + this.statusBarHeight,
-          bottom: 24 + this.naviIndicatorHeight
-        })
-        .alignItems(HorizontalAlign.Start)
-      }
-      .width('100%')
-      .height('100%')
-      .align(Alignment.Top)
-      .scrollBar(BarState.Off)
-      .edgeEffect(EdgeEffect.Spring)
-      // 图片/视频/音频全屏预览：页面内覆盖层（同 Stack 顶层），关闭按钮退出。
-      if (this.showPreview) {
-        this.mediaPreview()
+        .height('100%')
+        .align(Alignment.Top)
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
       }
     }
     // 重命名半模态：宽窗口居中弹出，窄窗口自动退化为底部半模态。
