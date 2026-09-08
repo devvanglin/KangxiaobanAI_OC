@@ -128,7 +128,6 @@ export struct WideCaregiverTitleActions {
         selectedIndex: this.activeTabIndex(),
         itemWidth: this.iconOnlyNavigation ? 48 : 124,
         iconOnly: this.iconOnlyNavigation,
-        slideMemoryKey: 'caregiver-title-nav',
         onSelect: (index: number) => {
           if (index === 3) {
             this.onOpenAiChat();

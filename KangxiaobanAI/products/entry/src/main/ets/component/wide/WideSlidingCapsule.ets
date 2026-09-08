@@ -25,9 +25,12 @@ export interface WideSlidingCapsuleItem {
   badgeAtCorner?: boolean;
 }
 
-// 滑块位移由显式 animateTo 补间（见 applySelection），滑动动画
-// 不依赖组件存续状态，标题栏 stackBuilder 重建也不影响。
-const capsuleLastPosition: Map<string, number> = new Map<string, number>();
+// 滑块位移由显式 animateTo 补间（见 applySelection）。本组件挂在 HdsNavigation
+// 标题栏的 stackBuilder 里，实例可能在任意帧边界被销毁重建，可靠性不依赖自身
+// 存活，而是两条父级约定：点击同步上抛；父级把"立即选中索引"回传给
+// selectedIndex，重建出的新实例在 aboutToAppear 直接落在最新选中位，不回弹。
+// 早期"跨实例位置记忆"实验（frame-timer / position-map）已被证实无法在重建下
+// 存活，相关代码已移除；重建频率本身由父级控制（标题栏 options 保持稳定）。
 
 @ComponentV2
 export struct WideSlidingCapsule {
@@ -37,8 +40,6 @@ export struct WideSlidingCapsule {
   @Param itemFontSize: number = 16;
   @Param fillWidth: boolean = false;
   @Param iconOnly: boolean = false;
-  /** 跨实例滑动记忆键：同一胶囊在重建前后保持一致即可续播滑动。 */
-  @Param slideMemoryKey: string = '';
   @Event onSelect: (index: number) => void = (_index: number) => {};
   @Local hoveredIndex: number = -1;
   @Local focusedIndex: number = -1;
@@ -54,17 +55,10 @@ export struct WideSlidingCapsule {
     return this.animatedPosition * (this.effectiveItemWidth() + 4);
   }
 
-  private slideMemoryId(): string {
-    return `${this.slideMemoryKey}#${this.items.length}`;
-  }
-
   aboutToAppear(): void {
     this.visualSelectedIndex = this.selectedIndex;
     const position: number = this.selectedPosition();
     this.animatedPosition = position < 0 ? 0 : position;
-    if (this.slideMemoryKey.length > 0) {
-      capsuleLastPosition.set(this.slideMemoryId(), this.animatedPosition);
-    }
   }
 
   @Monitor('selectedIndex')
@@ -84,9 +78,6 @@ export struct WideSlidingCapsule {
     this.getUIContext().animateTo({ duration: 280, curve: Curve.Friction }, (): void => {
       this.animatedPosition = position;
     });
-    if (this.slideMemoryKey.length > 0) {
-      capsuleLastPosition.set(this.slideMemoryId(), position);
-    }
   }
 
   private slideTo(index: number): void {
@@ -97,12 +88,11 @@ export struct WideSlidingCapsule {
       return;
     }
     // 选择必须同步上抛，不允许延迟：本组件挂在 HdsNavigation 标题栏的
-    // stackBuilder 里，而标题栏 options（秒级时钟 mainTitle、返回键显隐等）
-    // 每次父组件重渲都是新对象，stackBuilder 内容会被周期性销毁重建。此前的
-    // "延迟 280ms + token 取消"机制在重建落在窗口内时会把 onSelect 整个吞掉，
-    // 表现为点击后高亮滑过去又弹回、内容不切换。现在点击立即上抛，选择事实
-    // 只存在于父级状态中；"先播动画再切内容"的体验由父级延迟挂载内容来保证
-    // （MainPage.updateManagementNav 延迟 280ms 更新内容索引）。
+    // stackBuilder 里，而标题栏 options 变化（时钟、返回键显隐等）会让
+    // stackBuilder 内容被销毁重建。此前的"延迟 280ms + token 取消"机制在重建
+    // 落在窗口内时会把 onSelect 整个吞掉，表现为点击后高亮滑过去又弹回、内容
+    // 不切换。现在点击立即上抛，选择事实只存在于父级状态中；"先播动画再切内容"
+    // 的体验由父级延迟挂载内容来保证（MainPage 两端内容均延迟 80ms 切换）。
     this.applySelection(index);
     this.onSelect(index);
   }

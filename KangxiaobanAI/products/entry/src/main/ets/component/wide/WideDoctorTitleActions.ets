@@ -39,7 +39,6 @@ export struct WideDoctorTitleActions {
         selectedIndex: this.selectedIndex,
         itemWidth: this.compactWidth ? (this.isDoctor ? 46 : 64) : (this.isDoctor ? 124 : 100),
         iconOnly: this.isDoctor && this.compactWidth,
-        slideMemoryKey: this.isDoctor ? 'doctor-title-nav' : 'admin-title-nav',
         onSelect: (index: number) => this.onSelect(index)
       })
     }

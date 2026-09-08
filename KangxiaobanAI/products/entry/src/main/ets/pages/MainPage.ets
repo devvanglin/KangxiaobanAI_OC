@@ -73,6 +73,9 @@ const CAREGIVER_FULL_WORKSPACE_MIN_WIDTH: number = 1180;
 const DOCTOR_FULL_WORKSPACE_MIN_WIDTH: number = 1180;
 const CAREGIVER_TEXT_NAVIGATION_MIN_WIDTH: number = 680;
 const WIDE_TITLE_BAR_HEIGHT: number = 56;
+/** 两端共用的"先播滑块、后切内容"让帧间隔：内容切换和标题栏滚动绑定若与
+ * 补间同帧发生，会把滑块动画吞掉；让补间先出前几帧，再做内容侧的工作。 */
+const CONTENT_SWITCH_DELAY_MS: number = 80;
 const CAREGIVER_AI_HISTORY_COLLAPSED_KEY: string = 'caregiver_ai_history_collapsed';
 const DOCTOR_AI_HISTORY_COLLAPSED_KEY: string = 'doctor_ai_history_collapsed';
 
@@ -113,7 +116,7 @@ struct MainPage {
   private tabsBar: BottomTabBarStyle[] = TabsBarModel.getTabBarByPage(PageKeyEnum.ADAPTIVE_TAB) ?? [];
   private pageConfigs: TabPageConfig[] = TAB_PAGE_CONFIGS;
   @Local currentTabIndex: number = 0;
-  /** 护工端标题胶囊的立即选中索引：先于内容切换更新，让滑块动画先播。 */
+  /** 护工端标题胶囊的立即选中索引：选中事实只存这里，重建出的胶囊读到它就不会回弹。 */
   @Local caregiverNavIndex: number = 0;
   private caregiverContentTimerId: number = -1;
   @Local primaryTabIndex: number = 0;
@@ -187,7 +190,7 @@ struct MainPage {
   private wideMessageListScroller: Scroller = new Scroller();
   private wideMessageChatScroller: Scroller = new Scroller();
   private wideManagementScroller: Scroller = new Scroller();
-  private doctorClockTimerId: number = -1;
+  private workspaceClockTimerId: number = -1;
   private wideAiChatScroller: ListScroller = new ListScroller();
   private wideDoctorAiChatScroller: ListScroller = new ListScroller();
   private businessWsClient: WsClient = new WsClient();
@@ -211,7 +214,7 @@ struct MainPage {
       JSON.stringify(false)
     ) ?? false;
     BusinessStore.getShared().load();
-    this.refreshDoctorClock();
+    this.refreshWorkspaceClock();
     this.businessWsClient.connect((payload: string): void => {
       this.handleBusinessEvent(payload);
     });
@@ -220,7 +223,7 @@ struct MainPage {
 
   aboutToDisappear(): void {
     this.businessWsClient.close();
-    this.stopDoctorClock();
+    this.stopWorkspaceClock();
     if (this.managementContentTimerId !== -1) {
       clearTimeout(this.managementContentTimerId);
       this.managementContentTimerId = -1;
@@ -235,24 +238,31 @@ struct MainPage {
 
   private formatCurrentTime(): string {
     const now: Date = new Date();
-    return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+    return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
   }
 
-  private refreshDoctorClock(): void {
-    this.workspaceClockTime = this.formatCurrentTime();
-    if (this.doctorClockTimerId !== -1) {
-      clearTimeout(this.doctorClockTimerId);
+  private refreshWorkspaceClock(): void {
+    // 标题栏 options 每变化一次，HdsNavigation 就会销毁重建 stackBuilder 里的
+    // 导航胶囊（滑块动画被打断、点击被吞的根源）。秒级时钟曾让这件事每秒发生：
+    // 280ms 的滑块补间约有 28% 概率被时钟触发的重建拦腰打断。标题只保留到分钟，
+    // 且文本真正变化时才赋值，把重建频率从 1 次/秒降到 1 次/分钟。
+    const next: string = this.formatCurrentTime();
+    if (next !== this.workspaceClockTime) {
+      this.workspaceClockTime = next;
     }
-    this.doctorClockTimerId = setTimeout(() => {
-      this.doctorClockTimerId = -1;
-      this.refreshDoctorClock();
-    }, 1000);
+    this.stopWorkspaceClock();
+    const now: Date = new Date();
+    const msToNextMinute: number = 60000 - now.getSeconds() * 1000 - now.getMilliseconds() + 50;
+    this.workspaceClockTimerId = setTimeout((): void => {
+      this.workspaceClockTimerId = -1;
+      this.refreshWorkspaceClock();
+    }, msToNextMinute);
   }
 
-  private stopDoctorClock(): void {
-    if (this.doctorClockTimerId !== -1) {
-      clearTimeout(this.doctorClockTimerId);
-      this.doctorClockTimerId = -1;
+  private stopWorkspaceClock(): void {
+    if (this.workspaceClockTimerId !== -1) {
+      clearTimeout(this.workspaceClockTimerId);
+      this.workspaceClockTimerId = -1;
     }
   }
 
@@ -292,11 +302,10 @@ struct MainPage {
     return this.primaryTabIndex >= 0 && this.primaryTabIndex <= 1 ? this.primaryTabIndex : 0;
   }
 
-  /** 标题栏胶囊专用：读取立即导航索引（先于内容切换），避免重建打断滑块动画。 */
+  /** 标题栏胶囊专用：唯一事实来源是 caregiverNavIndex（switchTab/openAiChat/
+   * closeAiChat 都同步维护它）。胶囊挂在 stackBuilder 里可能随时被重建，
+   * 重建后的新实例必须直接读到最新选中位，否则会先弹回旧位置再二次补间。 */
   private caregiverTitleNavIndex(): number {
-    if (this.isAiChatShow) {
-      return 3;
-    }
     return this.caregiverNavIndex >= 0 && this.caregiverNavIndex <= 3 ? this.caregiverNavIndex : 0;
   }
 
@@ -362,15 +371,16 @@ struct MainPage {
     // 选中态立即生效：标题栏胶囊（stackBuilder 内）可能随时被重建，重建后
     // aboutToAppear 读取的正是这个值，高亮因此永不回弹。
     this.managementNavIndex = index;
-    // 内容延迟切换：保住"滑块动画播完再做大块内容重建"的原始体验。
-    // 定时器挂在 MainPage 上（生命周期稳定），不再依赖胶囊组件自身存活。
+    // 内容延迟挂载：管理端模块是整块服务端界面，挂载开销大。让滑块补间先出
+    // 前几帧再挂载（定时器挂在生命周期稳定的 MainPage 上）；标题栏 options 已
+    // 不随导航切换变化（分钟时钟 + 立即索引），补间本身不会被这次挂载打断。
     if (this.managementContentTimerId !== -1) {
       clearTimeout(this.managementContentTimerId);
     }
     this.managementContentTimerId = setTimeout((): void => {
       this.managementContentTimerId = -1;
       this.managementContentIndex = index;
-    }, 280);
+    }, CONTENT_SWITCH_DELAY_MS);
   }
 
   /**
@@ -698,19 +708,28 @@ struct MainPage {
     this.currentTabIndex = index;
   }
 
+  /** 护工端内容侧延迟开关：与"滑块补间"同帧发生的内容切换、根节点 visibility
+   * 翻转和 bindToScrollable 滚动绑定变化都会让补间失真（护工端此前"点了没动画"
+   * 的原因）。选中态经 caregiverNavIndex 立即生效，内容统一推迟到下一拍。
+   * 定时器挂在生命周期稳定的 MainPage 上，不依赖胶囊组件存活。 */
+  private deferCaregiverContent(action: () => void): void {
+    if (this.caregiverContentTimerId !== -1) {
+      clearTimeout(this.caregiverContentTimerId);
+    }
+    this.caregiverContentTimerId = setTimeout((): void => {
+      this.caregiverContentTimerId = -1;
+      action();
+    }, CONTENT_SWITCH_DELAY_MS);
+  }
+
   private switchTab(index: number): void {
     if (this.isWideLayout()) {
-      this.isAiChatShow = false;
-      // 与管理端同款节奏：胶囊选中立即生效（滑块动画先播），
-      // 内容延迟 280ms 切换，避免大块重建打断动画。
+      // 与管理端同款节奏：胶囊选中立即生效（滑块动画先播），内容延迟切换。
       this.caregiverNavIndex = index;
-      if (this.caregiverContentTimerId !== -1) {
-        clearTimeout(this.caregiverContentTimerId);
-      }
-      this.caregiverContentTimerId = setTimeout((): void => {
-        this.caregiverContentTimerId = -1;
+      this.deferCaregiverContent((): void => {
+        this.isAiChatShow = false;
         this.updateTabSelection(index);
-      }, 280);
+      });
     } else {
       this.controller.changeIndex(index);
     }
@@ -877,13 +896,20 @@ struct MainPage {
   }
 
   private openAiChat(): void {
+    // 胶囊先滑向 AI（caregiverNavIndex 立即生效），AI 覆盖层与滚动绑定
+    // 随内容节奏延迟出现，避免同帧切换吞掉滑块动画。
     this.caregiverNavIndex = 3;
-    this.isAiChatShow = true;
+    this.deferCaregiverContent((): void => {
+      this.isAiChatShow = true;
+    });
   }
 
   private closeAiChat(): void {
-    this.isAiChatShow = false;
+    // 先恢复胶囊到当前内容页，再延迟收起 AI 覆盖层（节奏同 openAiChat）。
     this.caregiverNavIndex = this.wideCaregiverActiveTabIndex();
+    this.deferCaregiverContent((): void => {
+      this.isAiChatShow = false;
+    });
   }
 
   private updateAiHistoryCollapsed(collapsed: boolean): void {
@@ -1471,7 +1497,10 @@ struct MainPage {
   @Builder
   private wideCaregiverTitleActions() {
     WideCaregiverTitleActions({
-      currentTabIndex: this.currentTabIndex,
+      // 必须传立即索引而不是 currentTabIndex：胶囊挂在 stackBuilder 里可能随时
+      // 被销毁重建，重建出的新实例读到的选中位必须已是最新值，否则滑块会先
+      // 弹回旧位置、等内容追上后再二次补间（点击后"滑过去又弹回来"的根因）。
+      currentTabIndex: this.caregiverTitleNavIndex(),
       primaryTabIndex: this.primaryTabIndex,
       unreadMessageCount: this.caregiverUnreadMessageCount,
       aiChatVisible: this.isAiChatShow,
