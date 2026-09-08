@@ -1014,7 +1014,11 @@ export struct WideStorageManagement {
             Text(`当前目录：${this.currentPrefix}`)
               .fontSize(12).fontColor($r('sys.color.font_tertiary'))
               .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).layoutWeight(1)
-          }.width('100%').alignItems(VerticalAlign.Center)
+          }
+          .width('100%')
+          .padding({ left: 16 })
+          .margin({ bottom: 4 })
+          .alignItems(VerticalAlign.Center)
         }
 
         if (this.folders.length > 0) {
