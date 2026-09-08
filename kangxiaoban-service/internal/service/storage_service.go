@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"io"
 	"net/url"
 	"strings"
 	"time"
@@ -18,6 +19,9 @@ var ErrStorageNotConfigured = errors.New("对象存储未配置")
 
 // ErrStorageUnavailable 连接 MinIO 失败（地址/密钥错误或网络不可达）。
 var ErrStorageUnavailable = errors.New("对象存储不可用")
+
+// ErrObjectTooLarge 上传内容超过管理端单文件上限。
+var ErrObjectTooLarge = errors.New("对象大小超出上限")
 
 // previewTTL 预签名链接有效期：管理端预览用途，30 分钟足够且不长期暴露。
 const previewTTL = 30 * time.Minute
@@ -142,4 +146,69 @@ func (s *StorageService) PreviewURLs(ctx context.Context, bucket string, keys []
 		urls[key] = presigned.String()
 	}
 	return urls, nil
+}
+
+// maxUploadBytes 管理端单次上传上限（200MB），防止误传超大文件拖垮容器。
+const maxUploadBytes int64 = 200 << 20
+
+// SanitizeObjectKey 校验并规范化对象键：去首尾斜杠、拒绝空键与路径穿越。
+// 返回空字符串表示键不合法。
+func SanitizeObjectKey(raw string) string {
+	key := strings.TrimSpace(raw)
+	key = strings.Trim(key, "/")
+	if key == "" {
+		return ""
+	}
+	for _, segment := range strings.Split(key, "/") {
+		segment = strings.TrimSpace(segment)
+		if segment == "" || segment == "." || segment == ".." {
+			return ""
+		}
+	}
+	return key
+}
+
+// UploadObject 上传/覆盖对象；size<0 表示未知长度，由 SDK 走分片上传。
+func (s *StorageService) UploadObject(ctx context.Context, bucket, key string,
+	reader io.Reader, size int64, contentType string) error {
+	if !s.Available() {
+		return ErrStorageNotConfigured
+	}
+	if size > maxUploadBytes {
+		return ErrObjectTooLarge
+	}
+	_, err := s.client.PutObject(ctx, bucket, key, reader, size,
+		minio.PutObjectOptions{ContentType: contentType})
+	if err != nil {
+		return errors.Join(ErrStorageUnavailable, err)
+	}
+	return nil
+}
+
+// DeleteObject 删除单个对象；对象不存在时 S3 幂等成功。
+func (s *StorageService) DeleteObject(ctx context.Context, bucket, key string) error {
+	if !s.Available() {
+		return ErrStorageNotConfigured
+	}
+	if err := s.client.RemoveObject(ctx, bucket, key, minio.RemoveObjectOptions{}); err != nil {
+		return errors.Join(ErrStorageUnavailable, err)
+	}
+	return nil
+}
+
+// RenameObject 重命名对象：S3 无原生改名，用 复制+删除 原子性较弱地等价实现。
+// 复制成功后才删除旧对象，失败时保留旧数据。
+func (s *StorageService) RenameObject(ctx context.Context, bucket, fromKey, toKey string) error {
+	if !s.Available() {
+		return ErrStorageNotConfigured
+	}
+	src := minio.CopySrcOptions{Bucket: bucket, Object: fromKey}
+	dst := minio.CopyDestOptions{Bucket: bucket, Object: toKey}
+	if _, err := s.client.CopyObject(ctx, dst, src); err != nil {
+		return errors.Join(ErrStorageUnavailable, err)
+	}
+	if err := s.client.RemoveObject(ctx, bucket, fromKey, minio.RemoveObjectOptions{}); err != nil {
+		return errors.Join(ErrStorageUnavailable, err)
+	}
+	return nil
 }

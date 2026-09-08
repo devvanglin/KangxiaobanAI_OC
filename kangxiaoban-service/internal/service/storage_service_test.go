@@ -32,3 +32,26 @@ func TestStorageServiceBadEndpointStaysUnavailable(t *testing.T) {
 		t.Fatalf("非法 Endpoint 不应构造出可用客户端")
 	}
 }
+
+// 对象键规范化：拒绝路径穿越/空键，容忍多余斜杠与空白。
+func TestSanitizeObjectKey(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"a.jpg", "a.jpg"},
+		{"  a.jpg  ", "a.jpg"},
+		{"/music/a b.mp3", "music/a b.mp3"},
+		{"music//a.mp3", ""},
+		{"../secret", ""},
+		{"a/../b", ""},
+		{"", ""},
+		{"/", ""},
+		{"./a", ""},
+	}
+	for _, tc := range cases {
+		if got := SanitizeObjectKey(tc.in); got != tc.want {
+			t.Fatalf("SanitizeObjectKey(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}

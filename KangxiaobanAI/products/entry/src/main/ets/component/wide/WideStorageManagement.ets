@@ -1,4 +1,6 @@
 import { media } from '@kit.MediaKit';
+import { fileIo as fs, picker } from '@kit.CoreFileKit';
+import { BusinessError } from '@ohos.base';
 import { ApiClient } from '../../network/ApiClient';
 
 interface StorageBucket {
@@ -32,6 +34,16 @@ interface StoragePreviewsPage {
   urls: Record<string, string>;
 }
 
+interface StorageRenameReq {
+  from_key: string;
+  to_key: string;
+}
+
+interface StoragePreviewPage {
+  url: string;
+  expires_in: number;
+}
+
 type StorageObjectKind = 'image' | 'video' | 'audio' | 'file';
 
 const IMAGE_EXTENSIONS: string[] = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'heic'];
@@ -61,6 +73,11 @@ export struct WideStorageManagement {
   @Local audioReady: boolean = false;
   @Local audioCurrentMs: number = 0;
   @Local audioDurationMs: number = 0;
+  @Local uploading: boolean = false;
+  @Local downloading: string = '';
+  @Local showRenameEditor: boolean = false;
+  @Local renameFromKey: string = '';
+  @Local renameValue: string = '';
   private videoController: VideoController = new VideoController();
   private audioPlayer: media.AVPlayer | null = null;
 
@@ -309,6 +326,258 @@ export struct WideStorageManagement {
     return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
   }
 
+  private maxUploadBytes(): number {
+    return 200 * 1024 * 1024;
+  }
+
+  private contentTypeFor(name: string): string {
+    const lower: string = name.toLowerCase();
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+      return 'image/jpeg';
+    }
+    if (lower.endsWith('.png')) {
+      return 'image/png';
+    }
+    if (lower.endsWith('.gif')) {
+      return 'image/gif';
+    }
+    if (lower.endsWith('.webp')) {
+      return 'image/webp';
+    }
+    if (lower.endsWith('.mp3')) {
+      return 'audio/mpeg';
+    }
+    if (lower.endsWith('.wav')) {
+      return 'audio/wav';
+    }
+    if (lower.endsWith('.m4a')) {
+      return 'audio/mp4';
+    }
+    if (lower.endsWith('.mp4')) {
+      return 'video/mp4';
+    }
+    if (lower.endsWith('.mov')) {
+      return 'video/quicktime';
+    }
+    if (lower.endsWith('.pdf')) {
+      return 'application/pdf';
+    }
+    if (lower.endsWith('.txt')) {
+      return 'text/plain';
+    }
+    return 'application/octet-stream';
+  }
+
+  /** 上传：文件选择器选一个文件，以原文件名上传到当前桶根目录。 */
+  private async pickAndUpload(): Promise<void> {
+    if (this.selectedBucket.length === 0) {
+      this.showToast('请先选择一个桶');
+      return;
+    }
+    if (this.uploading || this.objectsLoading) {
+      return;
+    }
+    let uris: string[] = [];
+    try {
+      const options = new picker.DocumentSelectOptions();
+      options.maxSelectNumber = 1;
+      const documentPicker = new picker.DocumentViewPicker();
+      uris = await documentPicker.select(options);
+    } catch (error) {
+      const err: BusinessError = error as BusinessError;
+      if (err.code !== 14000011) {
+        this.showToast('无法打开文件选择器');
+      }
+      return;
+    }
+    if (uris === undefined || uris.length === 0) {
+      return;
+    }
+    const uri: string = uris[0];
+    let name: string = this.displayName(uri);
+    try {
+      name = decodeURIComponent(name);
+    } catch (_error) {
+      // 未编码的 URI 直接使用原始段。
+    }
+    if (name.length === 0 || name.includes('/')) {
+      this.showToast('文件名不能为空或包含 /');
+      return;
+    }
+    this.uploading = true;
+    let file: fs.File | undefined;
+    try {
+      file = fs.openSync(uri, fs.OpenMode.READ_ONLY);
+      const size: number = Number(fs.statSync(file.fd).size);
+      if (!Number.isFinite(size) || size <= 0) {
+        this.showToast('无法读取文件内容');
+        return;
+      }
+      if (size > this.maxUploadBytes()) {
+        this.showToast('文件超出 200MB 上传上限');
+        return;
+      }
+      const data: ArrayBuffer = new ArrayBuffer(size);
+      fs.readSync(file.fd, data);
+      const request = await ApiClient.uploadBinary<object>(
+        `/admin/storage/buckets/${encodeURIComponent(this.selectedBucket)}/objects`,
+        data, this.contentTypeFor(name), { 'X-Object-Key': encodeURIComponent(name) }, name);
+      if (request.code !== 0) {
+        this.showToast(request.msg.length > 0 ? request.msg : '上传失败');
+      } else {
+        this.showToast(`已上传 ${name}`);
+        await this.loadBuckets();
+        this.loadObjects(this.selectedBucket);
+      }
+    } catch (error) {
+      this.showToast('上传失败，请稍后重试');
+    } finally {
+      if (file !== undefined) {
+        try {
+          fs.closeSync(file);
+        } catch (_error) {
+          // Ignore double close.
+        }
+      }
+      this.uploading = false;
+    }
+  }
+
+  private openRenameEditor(item: StorageObject): void {
+    this.renameFromKey = item.key;
+    this.renameValue = this.displayName(item.key);
+    this.showRenameEditor = true;
+  }
+
+  private async confirmRename(): Promise<void> {
+    const newName: string = this.renameValue.trim();
+    if (newName.length === 0) {
+      this.showToast('请输入新的文件名');
+      return;
+    }
+    if (newName.includes('/')) {
+      this.showToast('文件名不能包含 /');
+      return;
+    }
+    if (newName === this.displayName(this.renameFromKey)) {
+      this.showToast('新名称与原名相同');
+      return;
+    }
+    const index: number = this.renameFromKey.lastIndexOf('/');
+    const toKey: string = index >= 0 ? `${this.renameFromKey.substring(0, index + 1)}${newName}` : newName;
+    const bucket: string = this.selectedBucket;
+    this.showRenameEditor = false;
+    try {
+      const request: StorageRenameReq = { from_key: this.renameFromKey, to_key: toKey };
+      const response = await ApiClient.send<object>('POST',
+        `/admin/storage/buckets/${encodeURIComponent(bucket)}/objects/rename`, request);
+      if (response.code !== 0) {
+        this.showToast(response.msg.length > 0 ? response.msg : '重命名失败');
+      } else {
+        this.showToast('已重命名');
+        this.loadObjects(bucket);
+      }
+    } catch (_error) {
+      this.showToast('重命名失败，请稍后重试');
+    }
+  }
+
+  private confirmDeleteObject(item: StorageObject): void {
+    try {
+      this.getUIContext().showAlertDialog({
+        title: '删除对象',
+        message: `将永久删除 ${item.key}，该操作不可恢复。确定删除吗？`,
+        autoCancel: true,
+        alignment: DialogAlignment.Center,
+        buttonDirection: DialogButtonDirection.HORIZONTAL,
+        buttons: [
+          {
+            value: '取消',
+            action: () => {
+            }
+          },
+          {
+            value: '删除',
+            fontColor: $r('app.color.status_danger'),
+            action: () => this.deleteObject(item.key)
+          }
+        ]
+      });
+    } catch (_error) {
+      this.showToast('无法打开确认弹窗');
+    }
+  }
+
+  private async deleteObject(key: string): Promise<void> {
+    const bucket: string = this.selectedBucket;
+    try {
+      const response = await ApiClient.send<object>('DELETE',
+        `/admin/storage/buckets/${encodeURIComponent(bucket)}/objects?key=${encodeURIComponent(key)}`);
+      if (response.code !== 0) {
+        this.showToast(response.msg.length > 0 ? response.msg : '删除失败');
+      } else {
+        this.showToast('已删除');
+        await this.loadBuckets();
+        this.loadObjects(bucket);
+      }
+    } catch (_error) {
+      this.showToast('删除失败，请稍后重试');
+    }
+  }
+
+  /** 下载：先选保存位置，再经短期预签名链接取回内容写入用户选择的文件。 */
+  private async downloadObject(item: StorageObject): Promise<void> {
+    if (this.downloading.length > 0 || this.uploading) {
+      return;
+    }
+    let uris: string[] = [];
+    try {
+      const saveOptions = new picker.DocumentSaveOptions();
+      saveOptions.newFileNames = [this.displayName(item.key)];
+      const documentPicker = new picker.DocumentViewPicker();
+      uris = await documentPicker.save(saveOptions);
+    } catch (error) {
+      const err: BusinessError = error as BusinessError;
+      if (err.code !== 14000011) {
+        this.showToast('无法打开保存窗口');
+      }
+      return;
+    }
+    if (uris === undefined || uris.length === 0) {
+      return;
+    }
+    const targetUri: string = uris[0];
+    this.downloading = item.key;
+    let file: fs.File | undefined;
+    try {
+      const preview = await ApiClient.get<StoragePreviewPage>(
+        `/admin/storage/buckets/${encodeURIComponent(this.selectedBucket)}/preview?key=${encodeURIComponent(item.key)}`);
+      if (preview.code !== 0 || preview.data === undefined || preview.data.url.length === 0) {
+        this.showToast(preview.msg.length > 0 ? preview.msg : '获取下载链接失败');
+        return;
+      }
+      const data: ArrayBuffer = await ApiClient.downloadBinary(preview.data.url);
+      if (data.byteLength === 0) {
+        this.showToast('下载内容为空，请稍后重试');
+        return;
+      }
+      file = fs.openSync(targetUri, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
+      fs.writeSync(file.fd, data);
+      this.showToast(`已下载 ${this.displayName(item.key)}`);
+    } catch (_error) {
+      this.showToast('下载失败，请稍后重试');
+    } finally {
+      if (file !== undefined) {
+        try {
+          fs.closeSync(file);
+        } catch (_error) {
+          // Ignore double close.
+        }
+      }
+      this.downloading = '';
+    }
+  }
+
   private cardColumns(): number {
     return this.compactWidth ? 2 : 3;
   }
@@ -399,7 +668,32 @@ export struct WideStorageManagement {
       Row({ space: 6 }) {
         Text(this.formatSize(item.size)).fontSize(11).fontColor($r('sys.color.font_tertiary'))
         Text(this.formatDate(item.last_modified)).fontSize(11).fontColor($r('sys.color.font_tertiary'))
+        Blank()
+        Button({ type: ButtonType.Circle, stateEffect: true }) {
+          SymbolGlyph($r('sys.symbol.square_and_arrow_down')).fontSize(15).fontColor([$r('sys.color.font_secondary')])
+        }
+        .width(28).height(28)
+        .backgroundColor($r('sys.color.comp_background_secondary'))
+        .opacity(this.downloading === item.key ? 0.45 : 1)
+        .enabled(this.downloading !== item.key)
+        .accessibilityText(`下载${this.displayName(item.key)}`)
+        .onClick(() => this.downloadObject(item))
+        Button({ type: ButtonType.Circle, stateEffect: true }) {
+          SymbolGlyph($r('sys.symbol.square_and_pencil')).fontSize(15).fontColor([$r('sys.color.font_secondary')])
+        }
+        .width(28).height(28)
+        .backgroundColor($r('sys.color.comp_background_secondary'))
+        .accessibilityText(`重命名${this.displayName(item.key)}`)
+        .onClick(() => this.openRenameEditor(item))
+        Button({ type: ButtonType.Circle, stateEffect: true }) {
+          SymbolGlyph($r('sys.symbol.trash')).fontSize(15).fontColor([$r('app.color.status_danger')])
+        }
+        .width(28).height(28)
+        .backgroundColor($r('sys.color.comp_background_secondary'))
+        .accessibilityText(`删除${this.displayName(item.key)}`)
+        .onClick(() => this.confirmDeleteObject(item))
       }
+      .width('100%')
     }
     .alignItems(HorizontalAlign.Start)
     .padding(12)
@@ -432,6 +726,11 @@ export struct WideStorageManagement {
       Row({ space: 10 }) {
         Text('存储').fontSize(20).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
         Blank()
+        Button(this.uploading ? '上传中…' : '上传文件').height(36).fontSize(13).borderRadius(12)
+          .fontColor(Color.White).backgroundColor($r('app.color.brand_blue'))
+          .opacity(this.uploading || this.selectedBucket.length === 0 ? 0.45 : 1)
+          .enabled(!this.uploading && this.selectedBucket.length > 0)
+          .onClick(() => this.pickAndUpload())
         Button('刷新').height(36).fontSize(13).borderRadius(12)
           .backgroundColor($r('sys.color.comp_background_secondary'))
           .fontColor($r('sys.color.font_primary'))
@@ -574,6 +873,31 @@ export struct WideStorageManagement {
     .backgroundColor(Color.Black)
   }
 
+  @Builder
+  private renameEditorDialog() {
+    Column({ space: 16 }) {
+      Text('重命名').fontSize(16).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+        .width('100%')
+      Text(this.renameFromKey)
+        .fontSize(11).fontColor($r('sys.color.font_tertiary'))
+        .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
+      TextInput({ text: this.renameValue, placeholder: '输入新的文件名' })
+        .width('100%').height(42)
+        .onChange((value: string) => this.renameValue = value)
+      Row({ space: 10 }) {
+        Button('取消').height(40).borderRadius(12).fontSize(14).layoutWeight(1)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .fontColor($r('sys.color.font_primary'))
+          .onClick(() => this.showRenameEditor = false)
+        Button('确定').height(40).borderRadius(12).fontSize(14).layoutWeight(1)
+          .fontColor(Color.White).backgroundColor($r('app.color.brand_blue'))
+          .onClick(() => this.confirmRename())
+      }.width('100%')
+    }
+    .width('100%')
+    .padding({ left: 24, right: 24, top: 20, bottom: 24 })
+  }
+
   build() {
     Stack() {
       Scroll(this.managementScroller) {
@@ -601,6 +925,15 @@ export struct WideStorageManagement {
       modalTransition: ModalTransition.DEFAULT,
       backgroundColor: Color.Black,
       onWillDisappear: () => this.previewObject = null
+    })
+    // 重命名半模态：宽窗口居中弹出，窄窗口自动退化为底部半模态。
+    .bindSheet(this.showRenameEditor!!, this.renameEditorDialog(), {
+      height: SheetSize.FIT_CONTENT,
+      showClose: true,
+      title: { title: '重命名文件' },
+      preferType: SheetType.CENTER,
+      enableOutsideInteractive: false,
+      backgroundColor: $r('sys.color.comp_background_primary')
     })
   }
 }
