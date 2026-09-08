@@ -1825,12 +1825,11 @@ export struct WideDoctorAdmissionForm {
           Scroll() {
             Flex({ wrap: FlexWrap.Wrap }) {
               ForEach(this.freeBeds, (bed: Bed) => {
-                Button({ type: ButtonType.Normal, stateEffect: true }) {
+                Button({ type: ButtonType.Capsule, stateEffect: true }) {
                   Text(this.bedLabel(bed)).fontSize(14)
                     .fontColor(this.bedId === bed.id ? Color.White : $r('sys.color.font_secondary'))
                 }
                 .height(42).padding({ left: 14, right: 14 }).margin({ right: 8, bottom: 8 })
-                .borderRadius(10)
                 .backgroundColor(this.bedId === bed.id ? $r('app.color.brand_blue') :
                   $r('sys.color.comp_background_secondary'))
                 .border({ width: this.bedId === bed.id ? 0 : 0.5, color: $r('sys.color.comp_divider') })
