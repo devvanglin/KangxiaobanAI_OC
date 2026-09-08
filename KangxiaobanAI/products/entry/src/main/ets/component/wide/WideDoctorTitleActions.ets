@@ -20,7 +20,8 @@ export struct WideDoctorTitleActions {
         { title: '订阅', symbol: $r('sys.symbol.calendar_badge_clock'), index: 4 },
         { title: '大模型', symbol: $r('sys.symbol.AI_model'), index: 5 },
         { title: '设备', symbol: $r('sys.symbol.beacon_tower_fill'), index: 6 },
-        { title: '药物', symbol: $r('sys.symbol.cross_case'), index: 7 }
+        { title: '药物', symbol: $r('sys.symbol.cross_case'), index: 7 },
+        { title: '存储', symbol: $r('sys.symbol.archivebox_fill'), index: 8 }
       ];
     }
     return [

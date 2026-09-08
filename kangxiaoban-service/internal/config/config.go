@@ -15,6 +15,17 @@ type Config struct {
 	MQTT     MQTTConfig
 	AI       AIConfig
 	Stream   StreamConfig
+	Storage  StorageConfig
+}
+
+// StorageConfig MinIO/S3 对象存储（管理端「存储」预览）。
+// 密钥只保存在服务端环境变量，客户端通过 admin 接口间接访问。
+type StorageConfig struct {
+	Endpoint  string // 例如 10.10.1.13:9000
+	AccessKey string
+	SecretKey string
+	Secure    bool   // true 走 https
+	Region    string // 留空使用客户端默认
 }
 
 type ServerConfig struct {
@@ -113,6 +124,13 @@ func Load() *Config {
 			Dir:        env("KXB_STREAM_DIR", "streams"),
 			TokenTTL:   time.Duration(envInt("KXB_STREAM_TOKEN_TTL_SECONDS", 7200)) * time.Second,
 			IdleTTL:    time.Duration(envInt("KXB_STREAM_IDLE_TTL_SECONDS", 120)) * time.Second,
+		},
+		Storage: StorageConfig{
+			Endpoint:  env("KXB_MINIO_ENDPOINT", ""),
+			AccessKey: env("KXB_MINIO_ACCESS_KEY", ""),
+			SecretKey: os.Getenv("KXB_MINIO_SECRET_KEY"),
+			Secure:    env("KXB_MINIO_SECURE", "false") == "true",
+			Region:    env("KXB_MINIO_REGION", ""),
 		},
 	}
 }

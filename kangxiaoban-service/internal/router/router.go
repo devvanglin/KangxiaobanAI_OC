@@ -34,6 +34,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	notificationSvc *service.NotificationService,
 	messageSvc *service.MessageService,
 	aiSvc *service.AIService,
+	storageSvc *service.StorageService,
 ) *gin.Engine {
 	// WebSocket authentication currently supports a query token for native clients. Skip access logging
 	// for that path so reverse-proxy or application logs never persist the JWT-bearing query string.
@@ -96,6 +97,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	areaHandler := handler.NewAreaHandler(db)
 	carePackageHandler := handler.NewCarePackageHandler(db)
 	medicationHandler := handler.NewMedicationHandler(db)
+	storageHandler := handler.NewStorageAdminHandler(storageSvc)
 
 	// 访问校验封装
 	perm := func(code string) gin.HandlerFunc { return middleware.RequirePermission(userRepo, code) }
@@ -138,6 +140,11 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		authed.DELETE("/admin/ai/configs/:id", perm("admin:all"), aiConfigHandler.Delete)
 		authed.GET("/admin/ai/usage/summary", perm("admin:all"), aiUsageHandler.Summary)
 		authed.GET("/admin/ai/usage/models", perm("admin:all"), aiUsageHandler.Models)
+		// 对象存储（MinIO/S3）只读预览：桶、桶内对象与短期预签名链接。
+		authed.GET("/admin/storage/buckets", perm("admin:all"), storageHandler.Buckets)
+		authed.GET("/admin/storage/buckets/:bucket/objects", perm("admin:all"), storageHandler.Objects)
+		authed.GET("/admin/storage/buckets/:bucket/preview", perm("admin:all"), storageHandler.Preview)
+		authed.POST("/admin/storage/buckets/:bucket/previews", perm("admin:all"), storageHandler.Previews)
 		authed.GET("/admin/ai/connection", perm("admin:all"), aiAdminHandler.Connection)
 		authed.PUT("/admin/ai/connection", perm("admin:all"), aiAdminHandler.UpdateConnection)
 		authed.GET("/admin/ai/rag/datasets", perm("admin:all"), aiAdminHandler.ListRAGDatasets)

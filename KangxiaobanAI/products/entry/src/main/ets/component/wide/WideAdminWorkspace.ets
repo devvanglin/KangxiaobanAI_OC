@@ -10,6 +10,7 @@ import { WideCarePackageManagement } from './WideCarePackageManagement';
 import { WideModelManagement } from './WideModelManagement';
 import { WideDeviceManagement } from './WideDeviceManagement';
 import { WideMedicationManagement } from './WideMedicationManagement';
+import { WideStorageManagement } from './WideStorageManagement';
 import { WideDoctorCharts } from './WideDoctorCharts';
 import { WideDoctorSchedule } from './WideDoctorSchedule';
 
@@ -144,7 +145,8 @@ export struct WideAdminWorkspace {
       { id: 'plans', label: '订阅', symbol: $r('sys.symbol.calendar_badge_clock') },
       { id: 'models', label: '大模型', symbol: $r('sys.symbol.AI_model') },
       { id: 'assets', label: '设备', symbol: $r('sys.symbol.beacon_tower_fill') },
-      { id: 'medications', label: '药物', symbol: $r('sys.symbol.cross_case') }
+      { id: 'medications', label: '药物', symbol: $r('sys.symbol.cross_case') },
+      { id: 'storage', label: '存储', symbol: $r('sys.symbol.archivebox_fill') }
     ];
   }
 
@@ -152,7 +154,7 @@ export struct WideAdminWorkspace {
   onManagementNavIndexChange(): void {
     const ids: string[] = this.isDoctor ?
       ['overview', 'residents', 'ai'] :
-      ['overview', 'roles', 'users', 'areas', 'plans', 'models', 'assets', 'medications'];
+      ['overview', 'roles', 'users', 'areas', 'plans', 'models', 'assets', 'medications', 'storage'];
     if (this.managementNavIndex >= 0 && this.managementNavIndex < ids.length) {
       this.selectedNavId = ids[this.managementNavIndex];
       setTimeout((): void => { this.managementScroller.scrollEdge(Edge.Top); }, 0);
@@ -1080,6 +1082,13 @@ export struct WideAdminWorkspace {
         })
       } else if (!this.isDoctor && this.selectedNavId === 'medications') {
         WideMedicationManagement({
+          compactWidth: this.compactWidth,
+          statusBarHeight: this.statusBarHeight,
+          naviIndicatorHeight: this.naviIndicatorHeight,
+          managementScroller: this.managementScroller
+        })
+      } else if (!this.isDoctor && this.selectedNavId === 'storage') {
+        WideStorageManagement({
           compactWidth: this.compactWidth,
           statusBarHeight: this.statusBarHeight,
           naviIndicatorHeight: this.naviIndicatorHeight,

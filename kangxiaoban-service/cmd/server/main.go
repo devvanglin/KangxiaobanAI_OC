@@ -73,6 +73,7 @@ func main() {
 	notificationSvc := service.NewNotificationService(notificationRepo)
 	messageSvc := service.NewMessageService(messageRepo)
 	aiSvc := service.NewAIService(&cfg.AI, db)
+	storageSvc := service.NewStorageService(cfg.Storage)
 
 	iotSvc := iot.NewIotService(db, hub)
 	iotSvc.SetTenantNotifier(notificationSvc.CreateRoleNotificationContext)
@@ -83,7 +84,7 @@ func main() {
 	go iotSvc.StartEscalationScanner()
 
 	r := router.New(db, cfg, hub, iotSvc, userRepo, authSvc, elderSvc, resourceSvc, taskSvc, healthSvc,
-		scheduleSvc, financeSvc, medicationSvc, auditSvc, auditRepo, supplySvc, careSvc, admissionSvc, notificationSvc, messageSvc, aiSvc)
+		scheduleSvc, financeSvc, medicationSvc, auditSvc, auditRepo, supplySvc, careSvc, admissionSvc, notificationSvc, messageSvc, aiSvc, storageSvc)
 
 	log.Printf("Kangxiaoban 后端服务启动: http://0.0.0.0:%s (db=%s)", cfg.Server.Port, cfg.Database.Driver)
 	server := &http.Server{

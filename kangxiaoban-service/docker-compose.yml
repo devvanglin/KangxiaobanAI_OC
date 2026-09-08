@@ -33,5 +33,11 @@ services:
       # 空库首启写入一套互相关联的业务初始数据；已有正式数据时可设为 false。
       # 真实部署不写入演示设备、告警和健康数据；开发演示环境可在 .env 中显式改为 true。
       KXB_SEED_BUSINESS: "${KXB_SEED_BUSINESS:-false}"
+      # MinIO/S3 对象存储（管理端「存储」预览）。密钥只放服务器 .env，不进镜像不进代码。
+      KXB_MINIO_ENDPOINT: "${KXB_MINIO_ENDPOINT:-}"
+      KXB_MINIO_ACCESS_KEY: "${KXB_MINIO_ACCESS_KEY:-}"
+      KXB_MINIO_SECRET_KEY: "${KXB_MINIO_SECRET_KEY:-}"
+      KXB_MINIO_SECURE: "${KXB_MINIO_SECURE:-false}"
+      KXB_MINIO_REGION: "${KXB_MINIO_REGION:-}"
     volumes:
       - ./data:/data
