@@ -1016,7 +1016,7 @@ export struct WideStorageManagement {
               .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).layoutWeight(1)
           }
           .width('100%')
-          .padding({ left: 16 })
+          .padding({ left: 24 })
           .margin({ bottom: 4 })
           .alignItems(VerticalAlign.Center)
         }
