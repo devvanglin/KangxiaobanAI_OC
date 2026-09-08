@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+import { curves } from '@kit.ArkUI';
 import { KeyCode } from '@kit.InputKit';
 
 export interface WideSlidingCapsuleItem {
@@ -75,7 +76,10 @@ export struct WideSlidingCapsule {
       return;
     }
     this.visualSelectedIndex = index;
-    this.getUIContext().animateTo({ duration: 280, curve: Curve.Friction }, (): void => {
+    // 临界阻尼弹簧（阻尼系数 1）：到位即停，不会滑过目标再弹回；
+    // 快速连点时按 springMotion 语义继承当前值与速度，反向衔接平滑。
+    // 时长由弹簧参数与属性变化量自动决定，不手动指定 duration。
+    this.getUIContext().animateTo({ curve: curves.springMotion(0.3, 1.0) }, (): void => {
       this.animatedPosition = position;
     });
   }
