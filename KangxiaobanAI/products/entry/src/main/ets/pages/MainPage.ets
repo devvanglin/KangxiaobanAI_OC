@@ -371,11 +371,6 @@ struct MainPage {
     this.titleAccountMenuVisible = false;
   }
 
-  private accountAvatarInitials(): string {
-    const name: string = this.currentUserDisplayName();
-    return name === '当前用户' ? '--' : name.slice(Math.max(0, name.length - 2));
-  }
-
   private titleAccountAnchorX(buttonWidth: number): number {
     const edgePadding: number = this.isCaregiverWideWorkspace() && this.useCompactCaregiverWorkspace() ? 18 : 28;
     return this.globalInfoModel.deviceWidth - edgePadding - buttonWidth;
@@ -387,7 +382,7 @@ struct MainPage {
 
   @Builder
   private titleAccountMenuAnchor() {
-    if (this.isRoleAdapted() && this.isWideLayout() && !this.isAiChatShow && !this.isResidentDetailShow) {
+    if (this.isRoleAdapted() && this.isWideLayout() && !this.isResidentDetailShow) {
       if (this.titleAccountMenuVisible) {
         // 点外关闭层：盖住整窗，点击任意处收起菜单。
         Column()
@@ -397,25 +392,15 @@ struct MainPage {
           .onClick(() => this.closeTitleAccountMenu())
       }
       if (this.isCaregiverWideWorkspace()) {
-        Button({ type: ButtonType.Normal, stateEffect: true }) {
-          Stack({ alignContent: Alignment.Center }) {
-            Row()
-              .width(34)
-              .height(34)
-              .borderRadius(17)
-              .backgroundColor($r('app.color.brand_blue'))
-            Text(this.accountAvatarInitials())
-              .fontSize(11)
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('app.color.text_on_brand'))
-          }
-          .width(34)
-          .height(34)
+        Button({ type: ButtonType.Circle, stateEffect: true }) {
+          SymbolGlyph($r('sys.symbol.person_crop_circle_fill'))
+            .fontSize(22)
+            .fontColor([$r('sys.color.icon_primary')])
         }
-        .width(48)
-        .height(48)
+        .width(42)
+        .height(42)
         .padding(0)
-        .borderRadius(24)
+        .borderRadius(21)
         .backgroundColor($r('sys.color.comp_background_primary'))
         .accessibilityText(`${this.currentUserDisplayName()}，${this.currentUserRoleLabel()}，打开账户菜单`)
         .onClick(() => this.toggleTitleAccountMenu())
@@ -432,8 +417,8 @@ struct MainPage {
           }
         })
         .position({
-          x: this.titleAccountAnchorX(48),
-          y: this.globalInfoModel.statusBarHeight + 4
+          x: this.titleAccountAnchorX(42),
+          y: this.globalInfoModel.statusBarHeight + 7
         })
       } else {
         Button({ type: ButtonType.Circle, stateEffect: true }) {

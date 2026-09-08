@@ -26,5 +26,4 @@ export enum StorageKey {
   GENERAL_APPEARANCE = 'kanxiaoban_general_appearance',
   GENERAL_FONT_SIZE = 'kanxiaoban_general_font_size',
   GENERAL_APP_LANGUAGE = 'kanxiaoban_general_app_language',
-  GENERAL_TIME_FORMAT = 'kanxiaoban_general_time_format',
 }

@@ -17,6 +17,9 @@ import (
 	"kangxiaoban-service/internal/ws"
 )
 
+// ServerVersion 服务端版本号，可通过 -ldflags "-X kangxiaoban-service/internal/router.ServerVersion=x.y.z" 覆盖。
+var ServerVersion = "1.0.0"
+
 // New 组装路由。
 func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	userRepo *repository.UserRepository,
@@ -45,6 +48,10 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 
 	r.GET("/api/v1/healthz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+	// 应用信息（版本号）供原生客户端"关于我们"展示，未鉴权只读。
+	r.GET("/api/v1/app-info", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"code": 0, "msg": "", "data": gin.H{"version": ServerVersion}})
 	})
 	// Readiness is intentionally unauthenticated so deployment probes and the
 	// native client can distinguish a live process from a usable database.

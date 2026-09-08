@@ -69,7 +69,7 @@ export struct WideDoctorResidentPage {
   @Event onDetailScrollerActive: () => void = () => {};
 
   private pageTopInset(): number {
-    return this.topBarHeight + (this.compactWidth ? 16 : 20);
+    return this.topBarHeight + (this.compactWidth ? 16 : 32);
   }
 
   private masterFilterHeight(): number {
@@ -824,7 +824,7 @@ export struct WideDoctorResidentPage {
         .constraintSize({ maxWidth: this.detailContentMaxWidth() })
         .padding({
           top: this.pageTopInset(),
-          bottom: 8 + this.naviIndicatorHeight
+          bottom: 24 + this.naviIndicatorHeight
         })
       }
       .width('100%')

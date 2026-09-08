@@ -68,7 +68,7 @@ export struct WideResidentPage {
   @Event onDetailScrollerActive: () => void = () => {};
 
   private pageTopInset(): number {
-    return this.topBarHeight + (this.compactWidth ? 16 : 20);
+    return this.topBarHeight + (this.compactWidth ? 16 : 32);
   }
 
   private masterFilterHeight(): number {
@@ -854,7 +854,7 @@ export struct WideResidentPage {
         .constraintSize({ maxWidth: this.detailContentMaxWidth() })
         .padding({
           top: this.pageTopInset(),
-          bottom: 8 + this.naviIndicatorHeight
+          bottom: 24 + this.naviIndicatorHeight
         })
       }
       .width('100%')
@@ -1246,28 +1246,7 @@ export struct WideResidentPage {
   @Builder
   private primaryOverviewGroup(resident: ResidentData) {
     Column({ space: 0 }) {
-      this.carePlanCard(resident)
-      Divider()
-        .strokeWidth(0.5)
-        .color($r('sys.color.comp_divider'))
-        .margin({ left: 16, right: 16 })
       this.basicInfoCard(resident)
-    }
-    .width('100%')
-    .backgroundColor($r('sys.color.comp_background_primary'))
-    .borderRadius(16)
-    .clip(true)
-  }
-
-  @Builder
-  private secondaryOverviewGroup(resident: ResidentData) {
-    Column({ space: 0 }) {
-      this.riskCard(resident)
-      Divider()
-        .strokeWidth(0.5)
-        .color($r('sys.color.comp_divider'))
-        .margin({ left: 16, right: 16 })
-      this.medicationCard(resident)
       Divider()
         .strokeWidth(0.5)
         .color($r('sys.color.comp_divider'))
@@ -1281,60 +1260,14 @@ export struct WideResidentPage {
   }
 
   @Builder
-  private carePlanCard(resident: ResidentData) {
+  private secondaryOverviewGroup(resident: ResidentData) {
     Column({ space: 0 }) {
-      this.cardTitle('今日护理', `${this.residentCareTasks(resident).length} 项 · 已完成 ${
-        this.residentCareTasks(resident).filter((item: CareTask): boolean => item.status === 'done').length} 项`)
-      if (this.residentCareTasks(resident).length === 0) {
-        Text('服务器暂无护理任务')
-          .width('100%')
-          .height(48)
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_tertiary'))
-          .textAlign(TextAlign.Center)
-      } else {
-        Repeat(this.residentCareTasks(resident))
-          .each((repeatItem: RepeatItem<CareTask>) => {
-            this.carePlanRow(repeatItem.item,
-              repeatItem.index === this.residentCareTasks(resident).length - 1)
-          })
-          .key((item: CareTask) => item.id.toString())
-      }
+      this.riskCard(resident)
     }
     .width('100%')
-    .padding({ left: 16, right: 16, top: 4, bottom: 10 })
-  }
-
-  @Builder
-  private carePlanRow(task: CareTask, isLast: boolean) {
-    Column({ space: 0 }) {
-      Row({ space: 12 }) {
-        Text(task.due_at ? this.timeText(task.due_at) : '--')
-          .width(48)
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_tertiary'))
-        Text(task.title)
-          .layoutWeight(1)
-          .fontSize($r('sys.float.Body_M'))
-          .fontColor($r('sys.color.font_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(this.taskStateText(task.status))
-          .fontSize($r('sys.float.Caption_M'))
-          .fontColor(this.statusColor(this.taskStateLevel(task.status)))
-          .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-          .backgroundColor(this.statusBackground(this.taskStateLevel(task.status)))
-          .borderRadius(5)
-      }
-      .width('100%')
-      .height(48)
-      .alignItems(VerticalAlign.Center)
-
-      if (!isLast) {
-        Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
-      }
-    }
-    .width('100%')
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(16)
+    .clip(true)
   }
 
   @Builder
@@ -1408,42 +1341,6 @@ export struct WideResidentPage {
       return '警告';
     }
     return '正常';
-  }
-
-  @Builder
-  private medicationCard(resident: ResidentData) {
-    Column({ space: 10 }) {
-      this.cardTitle('今日用药', '按医嘱执行')
-      Row() {
-        Column({ space: 4 }) {
-          Text(`${this.residentMedicationProgress(resident).done}/${this.residentMedicationProgress(resident).total}`)
-            .fontSize($r('sys.float.Title_L'))
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.brand_blue'))
-          Text('已完成次数')
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_tertiary'))
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-
-        Column({ space: 4 }) {
-          Text(this.nextMedicationText(resident))
-            .fontSize($r('sys.float.Body_M'))
-            .fontWeight(FontWeight.Medium)
-            .fontColor(this.residentMedicationProgress(resident).done ===
-              this.residentMedicationProgress(resident).total ?
-              $r('app.color.status_normal') : $r('app.color.status_warning'))
-          Text(this.medicationSummary(resident))
-            .fontSize($r('sys.float.Caption_M'))
-            .fontColor($r('sys.color.font_tertiary'))
-        }
-        .alignItems(HorizontalAlign.End)
-      }
-      .width('100%')
-    }
-    .width('100%')
-    .padding({ left: 16, right: 16, top: 4, bottom: 16 })
   }
 
   @Builder

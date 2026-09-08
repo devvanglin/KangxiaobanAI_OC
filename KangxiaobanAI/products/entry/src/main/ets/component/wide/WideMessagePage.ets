@@ -234,7 +234,7 @@ export struct WideMessagePage {
   }
 
   private paneTopOffset(): number {
-    return this.topBarHeight + (this.compactWidth ? 16 : 20);
+    return this.topBarHeight + (this.compactWidth ? 16 : 32);
   }
 
   private paneRadius(): number {

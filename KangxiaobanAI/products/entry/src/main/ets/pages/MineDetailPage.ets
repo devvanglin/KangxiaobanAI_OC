@@ -32,6 +32,8 @@ import Logger from '../util/Logger';
 import { PreferenceManager } from '../util/PreferenceManager';
 import { GlobalInfoModel } from '../model/GlobalInfoModel';
 import { StorageKey } from '../common/CommonConstants';
+import ApiClient from '../network/ApiClient';
+import { ApiResp } from '../network/Dto';
 
 export type MineDetailType = 'about' | 'general' | 'article';
 
@@ -214,12 +216,15 @@ const TAG: string = '[MineDetailPage]';
 export type AppearanceMode = 'system' | 'light' | 'dark';
 export type FontSizeMode = 'system' | 'small' | 'standard' | 'large' | 'xlarge';
 export type AppLanguageMode = 'system' | 'zh-CN' | 'en-US';
-export type TimeFormatMode = 'system' | '24h' | '12h';
 
 const FONT_SCALE_SMALL: number = 0.85;
 const FONT_SCALE_STANDARD: number = 1.0;
 const FONT_SCALE_LARGE: number = 1.15;
 const FONT_SCALE_XLARGE: number = 1.3;
+
+interface ServerVersionData {
+  version: string;
+}
 
 @ComponentV2
 struct SettingsGroupCard {
@@ -247,10 +252,10 @@ export struct MineDetailPage {
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO, () => new GlobalInfoModel()) ?? new GlobalInfoModel();
   @Local versionName: string = '1.0.0';
   @Local versionCode: number = 1000000;
+  @Local serverVersion: string = '';
   @Local appearanceMode: AppearanceMode = 'system';
   @Local fontSizeMode: FontSizeMode = 'system';
   @Local appLanguageMode: AppLanguageMode = 'system';
-  @Local timeFormatMode: TimeFormatMode = 'system';
   @Local isSelectionSheetOpen: boolean = false;
   @Local selectionSheetTitle: string = '';
   @Local selectionOptions: string[] = [];
@@ -263,13 +268,13 @@ export struct MineDetailPage {
 
   aboutToAppear(): void {
     this.loadBundleInfo();
+    this.loadServerVersion();
     if (this.pageType === 'article') {
       this.currentArticle = buildAboutArticle(this.articleId);
     }
     this.appearanceMode = this.readString(StorageKey.GENERAL_APPEARANCE, 'system') as AppearanceMode;
     this.fontSizeMode = this.readString(StorageKey.GENERAL_FONT_SIZE, 'system') as FontSizeMode;
     this.appLanguageMode = this.readString(StorageKey.GENERAL_APP_LANGUAGE, 'system') as AppLanguageMode;
-    this.timeFormatMode = this.readString(StorageKey.GENERAL_TIME_FORMAT, 'system') as TimeFormatMode;
   }
 
   private async loadBundleInfo(): Promise<void> {
@@ -283,6 +288,23 @@ export struct MineDetailPage {
       const error: BusinessError = err as BusinessError;
       Logger.error(TAG, `load bundle info failed: ${error.code}, ${error.message}`);
     }
+  }
+
+  /** 服务端版本号：来自 /api/v1/app-info，加载失败时回退到本地包版本。 */
+  private async loadServerVersion(): Promise<void> {
+    try {
+      const response: ApiResp<ServerVersionData> = await ApiClient.get<ServerVersionData>('/app-info');
+      const version: string = response.data?.version ?? '';
+      if (response.code === 0 && version.length > 0) {
+        this.serverVersion = version;
+      }
+    } catch (err) {
+      Logger.warn(TAG, `load server version failed: ${err instanceof Error ? err.message : JSON.stringify(err)}`);
+    }
+  }
+
+  private displayVersion(): string {
+    return this.serverVersion.length > 0 ? this.serverVersion : this.versionName;
   }
 
   private showToast(message: string): void {
@@ -408,16 +430,6 @@ export struct MineDetailPage {
     return '跟随系统';
   }
 
-  private timeFormatLabel(): string {
-    if (this.timeFormatMode === '24h') {
-      return '24 小时制';
-    }
-    if (this.timeFormatMode === '12h') {
-      return '12 小时制';
-    }
-    return '跟随系统';
-  }
-
   private openSelectionSheet(title: string, values: string[], labels: string[], selectedValue: string,
     onPick: (value: string) => void): void {
     this.selectionSheetTitle = title;
@@ -456,16 +468,10 @@ export struct MineDetailPage {
     this.applyAppLanguage(this.appLanguageMode);
   }
 
-  private chooseTimeFormat(value: string): void {
-    this.timeFormatMode = value as TimeFormatMode;
-    this.saveString(StorageKey.GENERAL_TIME_FORMAT, value);
-  }
-
   private resetGeneralSettings(): void {
     this.chooseAppearance('system');
     this.chooseFontSize('system');
     this.chooseAppLanguage('system');
-    this.chooseTimeFormat('system');
     this.showToast('已恢复默认设置');
   }
 
@@ -473,7 +479,7 @@ export struct MineDetailPage {
     try {
       this.getUIContext().showAlertDialog({
         title: '恢复默认设置',
-        message: '将把外观模式、字体大小、应用语言和时间格式恢复为跟随系统，不会删除账号、消息、护理记录或长者数据。',
+        message: '将把外观模式、字体大小和应用语言恢复为跟随系统，不会删除账号、消息、护理记录或长者数据。',
         autoCancel: true,
         alignment: DialogAlignment.Center,
         buttonDirection: DialogButtonDirection.HORIZONTAL,
@@ -602,7 +608,7 @@ export struct MineDetailPage {
       Text('养老护理工作助手')
         .fontSize($r('sys.float.Body_M'))
         .fontColor($r('sys.color.font_secondary'))
-      Text(`版本 ${this.versionName}`)
+      Text(`版本 ${this.displayVersion()}`)
         .fontSize($r('sys.float.Caption_M'))
         .fontColor($r('sys.color.font_tertiary'))
     }
@@ -618,7 +624,7 @@ export struct MineDetailPage {
     Column({ space: 0 }) {
       this.sectionTitle('版本与产品')
       SettingsGroupCard({ content: () => {
-        this.infoRow($r('sys.symbol.info_circle'), '版本信息', `${this.versionName}（构建 ${this.versionCode}）`, false)
+        this.infoRow($r('sys.symbol.info_circle'), '版本信息', `${this.displayVersion()}（构建 ${this.versionCode}）`, false)
         this.linkRow($r('sys.symbol.AI_message'), '产品介绍', true, () => {
           this.openInfoSheet('产品介绍', 'product_intro');
         })
@@ -779,15 +785,11 @@ export struct MineDetailPage {
     .width('100%')
 
     Column({ space: 0 }) {
-      this.sectionTitle('语言与时间')
+      this.sectionTitle('语言')
       SettingsGroupCard({ content: () => {
-        this.selectionRow($r('sys.symbol.doc_text'), '应用语言', this.appLanguageLabel(), false, () => {
+        this.selectionRow($r('sys.symbol.doc_text'), '应用语言', this.appLanguageLabel(), true, () => {
           this.openSelectionSheet('应用语言', ['system', 'zh-CN', 'en-US'], ['跟随系统', '简体中文', 'English'],
             this.appLanguageMode, (value: string) => this.chooseAppLanguage(value));
-        })
-        this.selectionRow($r('sys.symbol.calendar_badge_clock'), '时间格式', this.timeFormatLabel(), true, () => {
-          this.openSelectionSheet('时间格式', ['system', '24h', '12h'], ['跟随系统', '24 小时制', '12 小时制'],
-            this.timeFormatMode, (value: string) => this.chooseTimeFormat(value));
         })
       } })
     }
@@ -816,7 +818,7 @@ export struct MineDetailPage {
       this.confirmResetGeneralSettings();
     })
 
-    Text('设置保存在当前设备。外观模式、字体大小与应用语言立即生效；时间格式将应用于后续版本的时间显示。')
+    Text('设置保存在当前设备。外观模式、字体大小与应用语言设置立即生效。')
       .fontSize($r('sys.float.Caption_M'))
       .fontColor($r('sys.color.font_tertiary'))
       .width('100%')

@@ -1108,7 +1108,6 @@ export struct WideHomePage {
   @Builder
   private wideDashboard() {
     Column({ space: this.sectionGap() }) {
-      this.homeHeader()
       this.homeStatCards()
       if (this.useWorkSplitLayout()) {
         Row({ space: this.sectionGap() }) {
@@ -1346,33 +1345,6 @@ export struct WideHomePage {
       this.reportError = '异常上报失败，请检查网络';
     }
     this.reportSending = false;
-  }
-
-  @Builder
-  private homeHeader() {
-    Row({ space: 16 }) {
-      Column({ space: 6 }) {
-        Text(this.greetingText())
-          .fontSize(this.useXlLayout() ? 26 : 24)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
-        Text(this.headerSubtitle())
-          .fontSize($r('sys.float.Body_M'))
-          .fontColor($r('sys.color.font_secondary'))
-      }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
-
-      Text(this.myScheduleToday() ? this.shiftLabel(this.myScheduleToday()!.shift) : '未排班')
-        .fontSize($r('sys.float.Body_M'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor(Color.White)
-        .padding({ left: 14, right: 14, top: 8, bottom: 8 })
-        .borderRadius(8)
-        .backgroundColor(this.myScheduleToday() ? '#111111' : $r('sys.color.comp_background_secondary'))
-    }
-    .width('100%')
-    .alignItems(VerticalAlign.Center)
   }
 
   @Builder
@@ -2298,7 +2270,7 @@ export struct WideHomePage {
       .height('100%')
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
-      .align(Alignment.TopStart)
+      .align(Alignment.Top)
       .backgroundColor($r('sys.color.background_secondary'))
 
       if (this.quickActionDialog.length > 0) {

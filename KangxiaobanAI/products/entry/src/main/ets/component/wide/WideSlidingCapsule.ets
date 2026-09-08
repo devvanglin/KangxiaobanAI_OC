@@ -25,6 +25,11 @@ export interface WideSlidingCapsuleItem {
   badgeAtCorner?: boolean;
 }
 
+// 标题栏 stackBuilder 会周期性销毁重建本组件，逐帧滑动状态随之丢失，
+// 表现为点击后滑块瞬移。这里按实例键记住上一实例的滑块位置，
+// 新实例挂载时从旧位置继续播放滑动动画。
+const capsulePositionMemory: Map<string, number> = new Map<string, number>();
+
 @ComponentV2
 export struct WideSlidingCapsule {
   @Param @Require items: WideSlidingCapsuleItem[];
@@ -33,6 +38,8 @@ export struct WideSlidingCapsule {
   @Param itemFontSize: number = 16;
   @Param fillWidth: boolean = false;
   @Param iconOnly: boolean = false;
+  /** 跨实例滑动记忆键：同一胶囊在重建前后保持一致即可续播动画。 */
+  @Param slideMemoryKey: string = '';
   @Event onSelect: (index: number) => void = (_index: number) => {};
   @Local hoveredIndex: number = -1;
   @Local focusedIndex: number = -1;
@@ -49,10 +56,22 @@ export struct WideSlidingCapsule {
     return this.animatedPosition * (this.effectiveItemWidth() + 4);
   }
 
+  private slideMemoryId(): string {
+    return `${this.slideMemoryKey}#${this.items.length}`;
+  }
+
   aboutToAppear(): void {
     this.visualSelectedIndex = this.selectedIndex;
     const position: number = this.selectedPosition();
-    this.animatedPosition = position < 0 ? 0 : position;
+    const target: number = position < 0 ? 0 : position;
+    const remembered: number | undefined = capsulePositionMemory.get(this.slideMemoryId());
+    if (this.slideMemoryKey.length > 0 && remembered !== undefined &&
+      Math.abs(remembered - target) > 0.001) {
+      this.animatedPosition = remembered;
+      this.animatePillTo(target);
+    } else {
+      this.animatedPosition = target;
+    }
   }
 
   aboutToDisappear(): void {
@@ -89,6 +108,9 @@ export struct WideSlidingCapsule {
       const progress: number = Math.min(1, (Date.now() - startedAt) / duration);
       const eased: number = 1 - Math.pow(1 - progress, 3);
       this.animatedPosition = start + (target - start) * eased;
+      if (this.slideMemoryKey.length > 0) {
+        capsulePositionMemory.set(this.slideMemoryId(), this.animatedPosition);
+      }
       if (progress >= 1) {
         clearInterval(this.slideTimerId);
         this.slideTimerId = -1;
