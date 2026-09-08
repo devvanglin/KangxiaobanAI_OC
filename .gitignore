@@ -43,3 +43,6 @@ elderly-care-repos/ssh_check_*.py
 elderly-care-repos/deploy_all.py
 elderly-care-repos/setup_infra.py
 elderly-care-repos/probe_server.py
+
+# Local fleet credentials (never commit).
+.codex/private/*.json
