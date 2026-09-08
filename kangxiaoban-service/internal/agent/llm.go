@@ -94,16 +94,18 @@ func (c *OpenAIClient) do(ctx context.Context, req ChatRequest, allowNative bool
 		}
 		wireMessages = append(wireMessages, entry)
 	}
+	// The augmented system prompt must be prepended before body assembly:
+	// append() re-slices, so assigning body["messages"] first would keep the
+	// old slice header and silently drop the system message.
+	if systemPrompt != "" {
+		wireMessages = append([]map[string]interface{}{{"role": "system", "content": systemPrompt}}, wireMessages...)
+	}
 	body := map[string]interface{}{
 		"model":       req.Model,
 		"messages":    wireMessages,
 		"temperature": req.Temperature,
 		"max_tokens":  defaultMaxCompletionTokens,
 		"stream":      false,
-	}
-	if systemPrompt != "" {
-		// ensure the augmented system prompt lands first
-		wireMessages = append([]map[string]interface{}{{"role": "system", "content": systemPrompt}}, wireMessages...)
 	}
 	if useNative {
 		tools := make([]map[string]interface{}, 0, len(req.Tools))
