@@ -16,8 +16,10 @@ import { fileIo as fs, fileUri, picker } from '@kit.CoreFileKit';
 import { Bed } from '../../network/Dto';
 import { BusinessStore } from '../../network/BusinessStore';
 import ApiClient from '../../network/ApiClient';
+import AuthStore from '../../network/AuthStore';
 import AdmissionRepository, { AdmissionFailureKind, AdmissionResult } from '../../network/AdmissionRepository';
 import { AdmissionIntakePayload, AdmissionIntakeResult, AdmissionPhoto } from '../../network/AdmissionApi';
+import { PreferenceManager } from '../../util/PreferenceManager';
 
 interface AdmissionPhotoBinary {
   data: ArrayBuffer;
@@ -70,6 +72,16 @@ interface AdmissionFormSnapshot {
   kind?: string;
   version?: number;
   fields?: AdmissionFormFields;
+}
+
+/** 「保存」按钮写入的本地入住草稿：表单字段快照 + 床位引用，按登录用户隔离。 */
+interface AdmissionFormDraft {
+  kind?: string;
+  version?: number;
+  savedAt?: string;
+  fields?: AdmissionFormFields;
+  bedId?: number;
+  bedName?: string;
 }
 
 interface AdmissionPendingPhotoCleanup {
@@ -273,6 +285,10 @@ export struct WideDoctorAdmissionForm {
   private submissionPhotoContexts: AdmissionSubmissionPhotoContext[] = [];
   private readonly photoCachePrefix: string = 'admission-photo-';
   private readonly careLevelOptions: string[] = ['自理', '半护理', '全护理', '重度护理', '特级护理'];
+  // 入住草稿：打开时先暂存待询问，用户选择「继续/重新填写」后再应用或清空。
+  private pendingDraft: AdmissionFormDraft | null = null;
+  private draftResumeOffered: boolean = false;
+  private draftSavedInSession: boolean = false;
 
   private titleBarStyle(): TitleBarStyleOptions {
     return {
@@ -373,6 +389,7 @@ export struct WideDoctorAdmissionForm {
       return;
     }
     this.bedsLoading = false;
+    this.maybeOfferDraftResume();
     if (!result.ok || result.data === undefined) {
       this.bedsError = result.message.length > 0 ? result.message : '空床位加载失败';
       return;
@@ -1321,6 +1338,9 @@ export struct WideDoctorAdmissionForm {
       // in finally after the submission context is retired, so its own
       // reservation cannot prevent the targeted unlink.
       submissionSucceeded = true;
+      // The intake is committed; the locally saved draft for this user is no
+      // longer meaningful and must not resurrect an already-admitted elder.
+      PreferenceManager.getInstance().deleteValue(this.draftStorageKey());
       // Refresh the shared operational snapshot after the server transaction
       // commits so resident, bed, task, and billing surfaces see the new record.
       void BusinessStore.getShared().load(true);
@@ -1396,6 +1416,9 @@ export struct WideDoctorAdmissionForm {
     this.note = '';
     this.submitted = false;
     this.submitting = false;
+    this.draftSavedInSession = false;
+    this.pendingDraft = null;
+    this.draftResumeOffered = false;
     this.submitError = '';
     this.submitErrorKind = 'none';
     this.intakeResult = null;
@@ -1570,6 +1593,50 @@ export struct WideDoctorAdmissionForm {
       this.showToast('正在选择照片，请先完成选择');
       return;
     }
+    if (this.shouldPromptSaveOnExit()) {
+      this.showExitSaveDialog();
+      return;
+    }
+    this.finishCloseForm();
+  }
+
+  /** 本次没有手动保存且表单有内容时，退出前先询问是否保存。 */
+  private shouldPromptSaveOnExit(): boolean {
+    return !this.submitted && !this.draftSavedInSession &&
+      this.draftContentExists(this.formFieldSnapshot(), this.bedId);
+  }
+
+  private showExitSaveDialog(): void {
+    try {
+      this.getUIContext().showAlertDialog({
+        title: '保存入住草稿？',
+        message: '已填写的内容尚未保存，不保存的修改会丢失，上次保存的草稿仍会保留。',
+        autoCancel: true,
+        alignment: DialogAlignment.Center,
+        buttonDirection: DialogButtonDirection.HORIZONTAL,
+        buttons: [
+          {
+            value: '不保存',
+            action: () => {
+              this.finishCloseForm();
+            }
+          },
+          {
+            value: '保存并退出',
+            fontColor: $r('app.color.brand_blue'),
+            action: () => {
+              this.saveDraft();
+            }
+          }
+        ]
+      });
+    } catch (_error) {
+      // 对话框不可用时保持原有取消行为，直接退出。
+      this.finishCloseForm();
+    }
+  }
+
+  private finishCloseForm(): void {
     this.cleanupCurrentPendingPhotos();
     this.invalidateAsyncOperations();
     this.clearPhotoCache();
@@ -1589,6 +1656,7 @@ export struct WideDoctorAdmissionForm {
     this.idCardFrontPhotoCleanupPromise = Promise.resolve();
     this.idCardBackPhotoCleanupPromise = Promise.resolve();
     this.idempotencyKey = this.newIdempotencyKey();
+    this.pendingDraft = this.readStoredDraft();
     void this.loadFreeBeds();
   }
 
@@ -2105,6 +2173,144 @@ export struct WideDoctorAdmissionForm {
     };
   }
 
+  /** 只恢复字符串字段；是否恢复床位引用由调用方决定（导入不恢复，草稿校验后恢复）。 */
+  private applyFormFields(fields: AdmissionFormFields): void {
+    if (typeof fields.name === 'string') { this.name = fields.name; }
+    if (typeof fields.gender === 'string') { this.gender = fields.gender; }
+    if (typeof fields.idCard === 'string') { this.idCard = fields.idCard; }
+    if (typeof fields.birthDate === 'string') { this.birthDate = fields.birthDate; }
+    if (typeof fields.age === 'string') { this.age = fields.age; }
+    if (typeof fields.phone === 'string') { this.phone = fields.phone; }
+    if (typeof fields.familyAddress === 'string') { this.familyAddress = fields.familyAddress; }
+    if (typeof fields.familyName === 'string') { this.familyName = fields.familyName; }
+    if (typeof fields.familyPhone === 'string') { this.familyPhone = fields.familyPhone; }
+    if (typeof fields.familyRelation === 'string') { this.familyRelation = fields.familyRelation; }
+    if (typeof fields.admissionDate === 'string') { this.admissionDate = fields.admissionDate; }
+    if (typeof fields.admissionEndDate === 'string') { this.admissionEndDate = fields.admissionEndDate; }
+    if (typeof fields.feeStartDate === 'string') { this.feeStartDate = fields.feeStartDate; }
+    if (typeof fields.feeEndDate === 'string') { this.feeEndDate = fields.feeEndDate; }
+    if (typeof fields.careLevel === 'string') { this.careLevel = fields.careLevel; }
+    if (typeof fields.deposit === 'string') { this.deposit = fields.deposit; }
+    if (typeof fields.careFee === 'string') { this.careFee = fields.careFee; }
+    if (typeof fields.bedFee === 'string') { this.bedFee = fields.bedFee; }
+    if (typeof fields.otherFee === 'string') { this.otherFee = fields.otherFee; }
+    if (typeof fields.medicalInsurance === 'string') { this.medicalInsurance = fields.medicalInsurance; }
+    if (typeof fields.subsidy === 'string') { this.subsidy = fields.subsidy; }
+    if (typeof fields.note === 'string') { this.note = fields.note; }
+  }
+
+  private draftStorageKey(): string {
+    const user = AuthStore.getUser();
+    return user !== null ? `doctor_admission_draft_${user.id}` : 'doctor_admission_draft';
+  }
+
+  private draftContentExists(fields: AdmissionFormFields | undefined, bedId: number): boolean {
+    if (bedId > 0) {
+      return true;
+    }
+    if (fields === undefined) {
+      return false;
+    }
+    const values: string[] = [fields.name ?? '', fields.gender ?? '', fields.idCard ?? '', fields.birthDate ?? '',
+      fields.age ?? '', fields.phone ?? '', fields.familyAddress ?? '', fields.familyName ?? '',
+      fields.familyPhone ?? '', fields.familyRelation ?? '', fields.admissionDate ?? '',
+      fields.admissionEndDate ?? '', fields.feeStartDate ?? '', fields.feeEndDate ?? '', fields.careLevel ?? '',
+      fields.deposit ?? '', fields.careFee ?? '', fields.bedFee ?? '', fields.otherFee ?? '',
+      fields.medicalInsurance ?? '', fields.subsidy ?? '', fields.note ?? ''];
+    return values.some((value: string): boolean => value.length > 0);
+  }
+
+  private readStoredDraft(): AdmissionFormDraft | null {
+    const draft: AdmissionFormDraft | null =
+      PreferenceManager.getInstance().getValue<AdmissionFormDraft>(this.draftStorageKey(), '');
+    if (draft === null ||
+      !this.draftContentExists(draft.fields, typeof draft.bedId === 'number' ? draft.bedId : 0)) {
+      return null;
+    }
+    return draft;
+  }
+
+  /** 保存按钮：把当前输入存为本地草稿并直接退出；空表单只清理旧草稿，不退出。 */
+  private saveDraft(): void {
+    if (this.submitting || this.photoPicking.length > 0) {
+      return;
+    }
+    const key: string = this.draftStorageKey();
+    if (!this.draftContentExists(this.formFieldSnapshot(), this.bedId)) {
+      PreferenceManager.getInstance().deleteValue(key);
+      this.showToast('表单为空，暂无可保存的内容');
+      return;
+    }
+    const draft: AdmissionFormDraft = {
+      kind: 'kangxiaoban-admission-draft',
+      version: 1,
+      savedAt: new Date().toISOString(),
+      fields: this.formFieldSnapshot(),
+      bedId: this.bedId,
+      bedName: this.bedName
+    };
+    PreferenceManager.getInstance().setValue<AdmissionFormDraft>(key, draft);
+    this.draftSavedInSession = true;
+    this.showToast('已保存，下次打开自动恢复');
+    this.finishCloseForm();
+  }
+
+  /** 把已保存的草稿应用回表单；床位必须仍在当前空闲列表里才能恢复。 */
+  private applyStoredDraft(draft: AdmissionFormDraft): void {
+    if (draft.fields !== undefined) {
+      this.applyFormFields(draft.fields);
+    }
+    const bedId: number = typeof draft.bedId === 'number' ? draft.bedId : 0;
+    if (bedId > 0 && typeof draft.bedName === 'string' &&
+      this.freeBeds.some((item: Bed): boolean => item.id === bedId)) {
+      this.bedId = bedId;
+      this.bedName = draft.bedName;
+    }
+  }
+
+  /** 空闲床位加载结束后询问一次：继续上次草稿，或清空重新开始。 */
+  private maybeOfferDraftResume(): void {
+    if (!this.componentAttached || this.draftResumeOffered || this.pendingDraft === null) {
+      return;
+    }
+    this.draftResumeOffered = true;
+    const draft: AdmissionFormDraft = this.pendingDraft;
+    const savedAt: string = typeof draft.savedAt === 'string' && draft.savedAt.length >= 10 ?
+      draft.savedAt.slice(0, 10) : '';
+    try {
+      this.getUIContext().showAlertDialog({
+        title: '继续上次填写？',
+        message: savedAt.length > 0 ?
+          `检测到 ${savedAt} 保存的入住草稿，可继续填写或清空后重新开始。` :
+          '检测到上次保存的入住草稿，可继续填写或清空后重新开始。',
+        autoCancel: false,
+        alignment: DialogAlignment.Center,
+        buttonDirection: DialogButtonDirection.HORIZONTAL,
+        buttons: [
+          {
+            value: '重新填写',
+            action: () => {
+              this.pendingDraft = null;
+              PreferenceManager.getInstance().deleteValue(this.draftStorageKey());
+            }
+          },
+          {
+            value: '继续填写',
+            fontColor: $r('app.color.brand_blue'),
+            action: () => {
+              this.pendingDraft = null;
+              this.applyStoredDraft(draft);
+            }
+          }
+        ]
+      });
+    } catch (_error) {
+      // 对话框不可用时保底恢复草稿，避免已保存内容丢失。
+      this.applyStoredDraft(draft);
+      this.pendingDraft = null;
+    }
+  }
+
   /** 把当前表单输入导出为 JSON 文件（用户选择保存位置）。 */
   private async exportFormContent(): Promise<void> {
     try {
@@ -2165,28 +2371,7 @@ export struct WideDoctorAdmissionForm {
         return;
       }
       // 仅恢复字符串字段；床位属于服务端引用，必须从床位列表重新选择。
-      if (typeof fields.name === 'string') { this.name = fields.name; }
-      if (typeof fields.gender === 'string') { this.gender = fields.gender; }
-      if (typeof fields.idCard === 'string') { this.idCard = fields.idCard; }
-      if (typeof fields.birthDate === 'string') { this.birthDate = fields.birthDate; }
-      if (typeof fields.age === 'string') { this.age = fields.age; }
-      if (typeof fields.phone === 'string') { this.phone = fields.phone; }
-      if (typeof fields.familyAddress === 'string') { this.familyAddress = fields.familyAddress; }
-      if (typeof fields.familyName === 'string') { this.familyName = fields.familyName; }
-      if (typeof fields.familyPhone === 'string') { this.familyPhone = fields.familyPhone; }
-      if (typeof fields.familyRelation === 'string') { this.familyRelation = fields.familyRelation; }
-      if (typeof fields.admissionDate === 'string') { this.admissionDate = fields.admissionDate; }
-      if (typeof fields.admissionEndDate === 'string') { this.admissionEndDate = fields.admissionEndDate; }
-      if (typeof fields.feeStartDate === 'string') { this.feeStartDate = fields.feeStartDate; }
-      if (typeof fields.feeEndDate === 'string') { this.feeEndDate = fields.feeEndDate; }
-      if (typeof fields.careLevel === 'string') { this.careLevel = fields.careLevel; }
-      if (typeof fields.deposit === 'string') { this.deposit = fields.deposit; }
-      if (typeof fields.careFee === 'string') { this.careFee = fields.careFee; }
-      if (typeof fields.bedFee === 'string') { this.bedFee = fields.bedFee; }
-      if (typeof fields.otherFee === 'string') { this.otherFee = fields.otherFee; }
-      if (typeof fields.medicalInsurance === 'string') { this.medicalInsurance = fields.medicalInsurance; }
-      if (typeof fields.subsidy === 'string') { this.subsidy = fields.subsidy; }
-      if (typeof fields.note === 'string') { this.note = fields.note; }
+      this.applyFormFields(fields);
       this.showToast('表单内容已导入');
     } catch (error) {
       const err: BusinessError = error as BusinessError;
@@ -2677,6 +2862,11 @@ export struct WideDoctorAdmissionForm {
           .opacity(this.submitting || this.photoPicking.length > 0 ? 0.45 : 1)
           .enabled(!this.submitting && this.photoPicking.length === 0)
           .onClick(() => this.closeForm())
+        Button('保存').height(44).borderRadius(12).fontSize(14)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .opacity(this.submitting || this.photoPicking.length > 0 ? 0.45 : 1)
+          .enabled(!this.submitting && this.photoPicking.length === 0)
+          .onClick(() => this.saveDraft())
         Button(this.submitting ? '提交中…' : '确认办理入住').height(44).borderRadius(12).fontSize(14)
           .fontColor(Color.White).backgroundColor($r('app.color.brand_blue'))
           .opacity(this.requiredReady() && !this.submitting ? 1 : 0.45)
