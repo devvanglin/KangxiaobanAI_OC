@@ -116,6 +116,32 @@ export struct WideStorageManagement {
     return ApiConfig.API_BASE + path;
   }
 
+  /** 单个媒体链接兜底：批量列表未覆盖时（如对象较多被截断）现取现存。 */
+  private async resolveMediaUrl(bucket: string, key: string): Promise<string> {
+    const cached: string | undefined = this.previewUrls[key];
+    if (cached !== undefined && cached.length > 0) {
+      return cached;
+    }
+    try {
+      const response = await ApiClient.get<StoragePreviewPage>(
+        `/admin/storage/buckets/${encodeURIComponent(bucket)}/preview?key=${encodeURIComponent(key)}`);
+      if (response.code === 0 && response.data !== undefined && response.data.url.length > 0) {
+        const url: string = this.absoluteMediaUrl(response.data.url);
+        const merged: Record<string, string> = {};
+        const oldUrls = this.previewUrls;
+        Object.keys(oldUrls).forEach((k: string): void => {
+          merged[k] = oldUrls[k];
+        });
+        merged[key] = url;
+        this.previewUrls = merged;
+        return url;
+      }
+    } catch (_error) {
+      // 网络失败时返回空串，由调用方提示。
+    }
+    return '';
+  }
+
   private async loadBuckets(): Promise<void> {
     this.bucketsLoading = true;
     this.bucketsError = '';
@@ -173,8 +199,7 @@ export struct WideStorageManagement {
   /** 批量换取图片/音频预签名链接，供缩略图与播放器直连 MinIO；单个失败不影响其余。 */
   private async fetchPreviewUrls(bucket: string, objects: StorageObject[]): Promise<void> {
     const keys: string[] = objects.filter((item: StorageObject): boolean => {
-      const kind: StorageObjectKind = this.objectKind(item.key);
-      return kind === 'image' || kind === 'audio';
+      return this.objectKind(item.key) !== 'file';
     }).slice(0, 100).map((item: StorageObject): string => item.key);
     if (keys.length === 0) {
       return;
@@ -261,14 +286,24 @@ export struct WideStorageManagement {
       return;
     }
     const kind: StorageObjectKind = this.objectKind(this.previewObject.key);
-    if (kind === 'audio') {
-      this.videoPlaybackPath = '';
-      void this.prepareAudio(this.previewUrls[this.previewObject.key] ?? '');
-    } else if (kind === 'video') {
-      void this.prepareVideo(this.previewUrls[this.previewObject.key] ?? '');
+    if (kind === 'audio' || kind === 'video') {
+      void this.startPlayback(kind, this.previewObject.key);
     } else {
       this.videoPlaybackPath = '';
       void this.releaseAudio();
+    }
+  }
+
+  private async startPlayback(kind: StorageObjectKind, key: string): Promise<void> {
+    const url: string = await this.resolveMediaUrl(this.selectedBucket, key);
+    if (url.length === 0) {
+      this.showToast('媒体预览链接不可用');
+      return;
+    }
+    if (kind === 'audio') {
+      await this.prepareAudio(url);
+    } else {
+      await this.prepareVideo(url);
     }
   }
 
