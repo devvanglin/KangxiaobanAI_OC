@@ -236,8 +236,17 @@ Traditional router is currently allowed only at the authentication shell boundar
 
 The backend validates credentials and tenant, issues JWTs, and enforces permissions and tenant scopes. Logout clears
 the client session and shared business store. Refresh-token rotation, device trust, account lockout, and a complete
-forgot-password/contact-admin workflow remain unimplemented. UI role selection is presentation only; authorization
-must continue to be enforced by the backend token and permission middleware.
+forgot-password/contact-admin workflow remain unimplemented.
+
+Roles are workspace-bound (Go: `internal/model/workspace.go`, `internal/handler/role_handler.go`). The three seeded
+roles are the workspace namesakes: `admin` is a system role (`is_system=true`, immutable via the role API) and the only
+tenant of the admin workspace; `doctor`/`caregiver` are editable built-ins. Custom roles choose 护工/医师 workspace at
+creation; the admin workspace and `admin:all` are rejected for them. A role's permissions are owned by the server, not
+the client: create, update, and every startup re-sync role permissions to `model.WorkspacePermissionCodes(workspace)`,
+and role deletion is refused while users are still assigned. Login returns `workspace_code` plus the effective
+permission codes; the client derives the visible shell and phone tabs from `AuthStore.getWorkspaceCode()` while
+profile surfaces keep showing the actual role names. Legacy display-role strings (`护工`/`医师`/`管理`) remain the
+presentation category only.
 
 ### 5.4 Main navigation shell
 

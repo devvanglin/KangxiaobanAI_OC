@@ -48,13 +48,12 @@ func (h *RoleHandler) List(c *gin.Context) {
 }
 
 type roleInput struct {
-	Name            string   `json:"name" binding:"required"`
-	Code            string   `json:"code" binding:"required"`
-	DisplayOrder    int8     `json:"display_order"`
-	Status          int8     `json:"status"`
-	Remark          string   `json:"remark"`
-	PermissionIDs   []uint   `json:"permission_ids"`
-	PermissionCodes []string `json:"permission_codes"`
+	Name          string `json:"name" binding:"required"`
+	Code          string `json:"code" binding:"required"`
+	DisplayOrder  int8   `json:"display_order"`
+	Status        int8   `json:"status"`
+	Remark        string `json:"remark"`
+	WorkspaceCode string `json:"workspace_code"`
 }
 
 func (h *RoleHandler) Create(c *gin.Context) {
@@ -68,13 +67,23 @@ func (h *RoleHandler) Create(c *gin.Context) {
 		Fail(c, http.StatusBadRequest, 400, "权限字符需以小写字母开头，长度 2-32，仅可包含字母、数字、下划线和短横线")
 		return
 	}
-	role := model.Role{Name: input.Name, Code: input.Code, DisplayOrder: input.DisplayOrder, Status: normalizedRoleStatus(input.Status), Remark: input.Remark}
+	if input.Code == "admin" || strings.TrimSpace(input.WorkspaceCode) == "admin" {
+		Fail(c, http.StatusForbidden, 403, "管理工作台仅供系统管理员角色使用")
+		return
+	}
+	workspace := model.NormalizeWorkspace(input.WorkspaceCode)
+	role := model.Role{Name: input.Name, Code: input.Code, DisplayOrder: input.DisplayOrder, Status: normalizedRoleStatus(input.Status), Remark: input.Remark, WorkspaceCode: workspace}
 	if err := h.db.WithContext(c.Request.Context()).Create(&role).Error; err != nil {
 		Fail(c, http.StatusConflict, 409, "角色字符已存在或创建失败")
 		return
 	}
-	if err := h.replacePermissions(c, &role, input.PermissionIDs, input.PermissionCodes); err != nil {
+	if err := h.applyWorkspacePermissions(c, &role); err != nil {
+		_ = h.db.WithContext(c.Request.Context()).Delete(&model.Role{}, role.ID)
 		Fail(c, 500, 500, "角色权限保存失败")
+		return
+	}
+	if err := h.db.WithContext(c.Request.Context()).Preload("Permissions").First(&role, role.ID).Error; err != nil {
+		Fail(c, 500, 500, "角色创建失败")
 		return
 	}
 	OK(c, role)
@@ -93,18 +102,31 @@ func (h *RoleHandler) Update(c *gin.Context) {
 		Fail(c, 404, 404, "角色不存在")
 		return
 	}
+	if role.IsSystem {
+		Fail(c, http.StatusForbidden, 403, "系统角色不可修改")
+		return
+	}
 	input.Code = strings.TrimSpace(input.Code)
 	if !isValidRoleCode(input.Code) {
 		Fail(c, http.StatusBadRequest, 400, "权限字符需以小写字母开头，长度 2-32，仅可包含字母、数字、下划线和短横线")
 		return
 	}
-	if err := db.Model(&role).Updates(map[string]interface{}{"name": input.Name, "code": input.Code, "display_order": input.DisplayOrder, "status": normalizedRoleStatus(input.Status), "remark": input.Remark}).Error; err != nil {
+	if input.Code == "admin" || strings.TrimSpace(input.WorkspaceCode) == "admin" {
+		Fail(c, http.StatusForbidden, 403, "管理工作台仅供系统管理员角色使用")
+		return
+	}
+	workspace := model.NormalizeWorkspace(input.WorkspaceCode)
+	if err := db.Model(&role).Updates(map[string]interface{}{"name": input.Name, "code": input.Code, "display_order": input.DisplayOrder, "status": normalizedRoleStatus(input.Status), "remark": input.Remark, "workspace_code": workspace}).Error; err != nil {
 		Fail(c, 409, 409, "角色更新失败")
 		return
 	}
-	role.Name, role.Code, role.DisplayOrder, role.Status, role.Remark = input.Name, input.Code, input.DisplayOrder, normalizedRoleStatus(input.Status), input.Remark
-	if err := h.replacePermissions(c, &role, input.PermissionIDs, input.PermissionCodes); err != nil {
+	role.Name, role.Code, role.DisplayOrder, role.Status, role.Remark, role.WorkspaceCode = input.Name, input.Code, input.DisplayOrder, normalizedRoleStatus(input.Status), input.Remark, workspace
+	if err := h.applyWorkspacePermissions(c, &role); err != nil {
 		Fail(c, 500, 500, "角色权限保存失败")
+		return
+	}
+	if err := db.Preload("Permissions").First(&role, role.ID).Error; err != nil {
+		Fail(c, 500, 500, "角色更新失败")
 		return
 	}
 	OK(c, role)
@@ -112,6 +134,24 @@ func (h *RoleHandler) Update(c *gin.Context) {
 
 func (h *RoleHandler) Delete(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	var role model.Role
+	if err := h.db.WithContext(c.Request.Context()).First(&role, uint(id)).Error; err != nil {
+		Fail(c, 404, 404, "角色不存在")
+		return
+	}
+	if role.IsSystem {
+		Fail(c, http.StatusForbidden, 403, "系统角色不可删除")
+		return
+	}
+	var assigned int64
+	if err := h.db.WithContext(c.Request.Context()).Table("sys_user_role").Where("role_id = ?", role.ID).Count(&assigned).Error; err != nil {
+		Fail(c, 500, 500, "角色使用情况检查失败")
+		return
+	}
+	if assigned > 0 {
+		Fail(c, http.StatusConflict, 409, "该角色仍分配给用户，请先在用户管理中移除分配")
+		return
+	}
 	if err := h.db.WithContext(c.Request.Context()).Delete(&model.Role{}, uint(id)).Error; err != nil {
 		Fail(c, 500, 500, "删除角色失败")
 		return
@@ -128,6 +168,15 @@ func (h *RoleHandler) SetStatus(c *gin.Context) {
 		Fail(c, 400, 400, "状态参数错误")
 		return
 	}
+	var role model.Role
+	if err := h.db.WithContext(c.Request.Context()).First(&role, uint(id)).Error; err != nil {
+		Fail(c, 404, 404, "角色不存在")
+		return
+	}
+	if role.IsSystem {
+		Fail(c, http.StatusForbidden, 403, "系统角色不可停用")
+		return
+	}
 	status := normalizedRoleStatus(input.Status)
 	if err := h.db.WithContext(c.Request.Context()).Model(&model.Role{}).Where("id = ?", uint(id)).Update("status", status).Error; err != nil {
 		Fail(c, 500, 500, "状态更新失败")
@@ -136,21 +185,12 @@ func (h *RoleHandler) SetStatus(c *gin.Context) {
 	OK(c, gin.H{"status": status})
 }
 
-func (h *RoleHandler) replacePermissions(c *gin.Context, role *model.Role, ids []uint, codes []string) error {
+// applyWorkspacePermissions 用登录工作台的基准权限集替换角色权限。
+// 角色的能力由工作台唯一决定，客户端提交的权限清单不参与授权。
+func (h *RoleHandler) applyWorkspacePermissions(c *gin.Context, role *model.Role) error {
 	var permissions []model.Permission
-	if len(codes) > 0 {
-		var byCode []model.Permission
-		if err := h.db.WithContext(c.Request.Context()).Where("code IN ?", codes).Find(&byCode).Error; err != nil {
-			return err
-		}
-		permissions = append(permissions, byCode...)
-	}
-	if len(ids) > 0 {
-		var byID []model.Permission
-		if err := h.db.WithContext(c.Request.Context()).Where("id IN ?", ids).Find(&byID).Error; err != nil {
-			return err
-		}
-		permissions = append(permissions, byID...)
+	if err := h.db.WithContext(c.Request.Context()).Where("code IN ?", model.WorkspacePermissionCodes(role.WorkspaceCode)).Find(&permissions).Error; err != nil {
+		return err
 	}
 	return h.db.WithContext(c.Request.Context()).Model(role).Association("Permissions").Replace(permissions)
 }

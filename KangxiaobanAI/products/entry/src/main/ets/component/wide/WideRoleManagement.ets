@@ -7,15 +7,14 @@ import { StorageKey } from '../../common/CommonConstants';
 interface RolePermission { code: string; name: string; }
 interface RoleRecord {
   id: number; code: string; name: string; description: string; created_at?: string;
-  display_order?: number; status?: number; remark?: string; permissions?: RolePermission[];
+  display_order?: number; status?: number; remark?: string; permissions?: RolePermission[]; workspace_code?: string; is_system?: boolean;
 }
 interface RolePage { list: RoleRecord[]; total: number; }
 interface UserRoleRef { code: string; name: string; }
 interface CountableUser { roles?: UserRoleRef[]; }
 interface UserPage { list: CountableUser[]; total: number; }
-interface RoleSaveRequest { name: string; code: string; remark: string; permission_codes: string[]; status: number; }
+interface RoleSaveRequest { name: string; code: string; remark: string; status: number; workspace_code: string; }
 interface PermissionGroup { title: string; items: RolePermission[]; }
-interface PermissionPage { list: RolePermission[]; }
 
 const ACTION_BUTTON_BG: string = '#1D63ED';
 const GROUP_TITLES: string[] = ['长者与健康', '照护任务', '告警处置', '系统管理', '其他权限'];
@@ -36,8 +35,6 @@ export struct WideRoleManagement {
   @Param managementScroller: Scroller = new Scroller();
   @Local roles: RoleRecord[] = [];
   @Local userCounts: Record<string, number> = {};
-  @Local allPermissions: RolePermission[] = [];
-  @Local selectedPermissionCodes: string[] = [];
   @Local selectedRoleId: number = 0;
   @Local loading: boolean = false;
   @Local error: string = '';
@@ -47,10 +44,11 @@ export struct WideRoleManagement {
   @Local roleCode: string = '';
   @Local roleRemark: string = '';
   @Local editStatusOn: boolean = true;
+  @Local roleWorkspace: string = 'caregiver';
   @Local globalInfo: GlobalInfoModel =
     AppStorageV2.connect(GlobalInfoModel, StorageKey.GLOBAL_INFO, () => new GlobalInfoModel()) ?? new GlobalInfoModel();
 
-  aboutToAppear(): void { this.loadRoles(); this.loadUserCounts(); this.loadPermissions(); }
+  aboutToAppear(): void { this.loadRoles(); this.loadUserCounts(); }
 
   private selectedRole(): RoleRecord | undefined {
     return this.roles.find((role: RoleRecord) => role.id === this.selectedRoleId);
@@ -113,10 +111,6 @@ export struct WideRoleManagement {
     return this.buildGroups(role.permissions ?? []);
   }
 
-  private allPermissionGroups(): PermissionGroup[] {
-    return this.buildGroups(this.allPermissions);
-  }
-
   private buildGroups(permissions: RolePermission[]): PermissionGroup[] {
     const grouped: Record<string, RolePermission[]> = {};
     permissions.forEach((permission: RolePermission) => {
@@ -133,24 +127,23 @@ export struct WideRoleManagement {
     return groups;
   }
 
-  private isPermissionSelected(code: string): boolean {
-    return this.selectedPermissionCodes.indexOf(code) >= 0;
+  /** 登录工作台的界面名称。 */
+  private workspaceLabel(workspace: string | undefined): string {
+    if (workspace === 'doctor') { return '医师工作台'; }
+    if (workspace === 'admin') { return '管理工作台'; }
+    return '护工工作台';
   }
 
-  private togglePermission(code: string): void {
-    if (this.isPermissionSelected(code)) {
-      this.selectedPermissionCodes = this.selectedPermissionCodes.filter((item: string) => item !== code);
-    } else {
-      this.selectedPermissionCodes = this.selectedPermissionCodes.concat([code]);
+  /** 工作台对应基准角色的权限，用作弹窗里的只读预览。 */
+  private workspacePreviewGroups(): PermissionGroup[] {
+    const baseRole: RoleRecord | undefined = this.roles.find((role: RoleRecord) => role.code === (this.roleWorkspace));
+    if (baseRole !== undefined && (baseRole.permissions ?? []).length > 0) {
+      return this.buildGroups(baseRole.permissions ?? []);
     }
-  }
-
-  private async loadPermissions(): Promise<void> {
-    try {
-      const response = await ApiClient.get<PermissionPage>('/permissions');
-      if (response.code !== 0 || response.data === undefined) { return; }
-      this.allPermissions = response.data.list ?? [];
-    } catch (_error) { /* the dialog stays usable; permissions simply cannot be changed without the catalog */ }
+    if (this.editingRoleId > 0 && this.selectedRole()?.workspace_code === this.roleWorkspace) {
+      return this.buildGroups(this.selectedRole()?.permissions ?? []);
+    }
+    return [];
   }
 
   private openCreate(): void {
@@ -158,7 +151,7 @@ export struct WideRoleManagement {
     this.roleName = '';
     this.roleCode = '';
     this.roleRemark = '';
-    this.selectedPermissionCodes = [];
+    this.roleWorkspace = 'caregiver';
     this.editStatusOn = true;
     this.showDialog = true;
   }
@@ -168,7 +161,7 @@ export struct WideRoleManagement {
     this.roleName = role.name;
     this.roleCode = role.code;
     this.roleRemark = role.remark ?? '';
-    this.selectedPermissionCodes = (role.permissions ?? []).map((item: RolePermission) => item.code);
+    this.roleWorkspace = role.workspace_code ?? 'caregiver';
     this.editStatusOn = role.status !== 0;
     this.showDialog = true;
   }
@@ -177,7 +170,7 @@ export struct WideRoleManagement {
     if (this.roleName.trim() === '' || this.roleCode.trim() === '') { this.error = '角色名称和角色编码不能为空'; return; }
     const request: RoleSaveRequest = {
       name: this.roleName.trim(), code: this.roleCode.trim(), remark: this.roleRemark.trim(),
-      permission_codes: this.selectedPermissionCodes.slice(), status: this.editStatusOn ? 1 : 0
+      status: this.editStatusOn ? 1 : 0, workspace_code: this.roleWorkspace
     };
     try {
       const response = this.editingRoleId > 0
@@ -233,11 +226,16 @@ export struct WideRoleManagement {
   @Builder
   private roleRowSuffix(role: RoleRecord) {
     Row({ space: 16 }) {
+      Text(this.workspaceLabel(role.workspace_code)).fontSize(13).fontColor($r('sys.color.font_secondary'))
       this.listStat(this.permissionCountOf(role), '权限数')
       this.listStat(this.userCount(role), '用户数')
-      Text('编辑').fontSize(15).fontColor($r('sys.color.font_primary'))
-        .padding({ left: 8, right: 8, top: 8, bottom: 8 })
-        .onClick(() => { this.selectedRoleId = role.id; this.openEdit(role); })
+      if (role.is_system) {
+        Text('系统内置').fontSize(13).fontColor($r('sys.color.font_secondary'))
+      } else {
+        Text('编辑').fontSize(15).fontColor($r('sys.color.font_primary'))
+          .padding({ left: 8, right: 8, top: 8, bottom: 8 })
+          .onClick(() => { this.selectedRoleId = role.id; this.openEdit(role); })
+      }
     }
   }
 
@@ -346,6 +344,8 @@ export struct WideRoleManagement {
         Text(this.selectedRole()?.name ?? '--').fontSize(20).fontWeight(FontWeight.Bold)
           .fontColor($r('sys.color.font_primary'))
         Text(this.selectedRole()?.description ?? '暂无描述').fontSize(14).fontColor($r('sys.color.font_secondary'))
+        Text(`登录工作台：${this.workspaceLabel(this.selectedRole()?.workspace_code)}`).fontSize(14)
+          .fontColor($r('sys.color.font_secondary'))
         Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
         Row() {
           this.detailStat(this.selectedPermissionCount(), '权限数量')
@@ -376,11 +376,16 @@ export struct WideRoleManagement {
         .fontColor($r('sys.color.font_primary'))
       TextInput({ placeholder: '角色名称，例如护理组长', text: $$this.roleName }).height(42)
       TextInput({ placeholder: '角色编码，例如 head_nurse', text: $$this.roleCode }).height(42)
+      Text('登录工作台').fontSize(13).fontColor('#666666').margin({ top: 12 })
+      Row({ space: 8 }) {
+        Button('护工工作台').enabled(this.roleWorkspace !== 'caregiver').onClick(() => { this.roleWorkspace = 'caregiver'; })
+        Button('医师工作台').enabled(this.roleWorkspace !== 'doctor').onClick(() => { this.roleWorkspace = 'doctor'; })
+      }
       Column({ space: 10 }) {
-        Text('权限选择').fontSize(15).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+        Text('工作台权限（随工作台自动授予）').fontSize(15).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
         Scroll() {
           Column({ space: 12 }) {
-            Repeat(this.allPermissionGroups())
+            Repeat(this.workspacePreviewGroups())
               .each((ri: RepeatItem<PermissionGroup>) => {
                 Column({ space: 8 }) {
                   Text(ri.item.title).fontSize(13).fontColor($r('sys.color.font_secondary'))
@@ -389,20 +394,21 @@ export struct WideRoleManagement {
                       .each((chip: RepeatItem<RolePermission>) => {
                         Text(chip.item.name || chip.item.code)
                           .fontSize(14)
-                          .fontColor(this.isPermissionSelected(chip.item.code) ? Color.White : $r('sys.color.font_primary'))
+                          .fontColor($r('sys.color.font_primary'))
                           .padding({ left: 12, right: 12, top: 7, bottom: 7 })
                           .borderRadius(6)
-                          .backgroundColor(this.isPermissionSelected(chip.item.code) ?
-                            $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
-                          .onClick(() => this.togglePermission(chip.item.code))
+                          .backgroundColor($r('sys.color.comp_background_secondary'))
                       })
-                      .key((item: RolePermission) => `pick-${item.code}`)
+                      .key((item: RolePermission) => `preview-${item.code}`)
                   }.width('100%')
                 }.width('100%').alignItems(HorizontalAlign.Start)
               })
-              .key((group: PermissionGroup) => `pick-group-${group.title}`)
+              .key((group: PermissionGroup) => `preview-group-${group.title}`)
+            if (this.workspacePreviewGroups().length === 0) {
+              Text('保存后由服务端按所选工作台授予全部权限').fontSize(13).fontColor($r('sys.color.font_tertiary'))
+            }
           }.width('100%').alignItems(HorizontalAlign.Start)
-        }.width('100%').constraintSize({ maxHeight: 300 })
+        }.width('100%').constraintSize({ maxHeight: 220 })
           .scrollBar(BarState.Off).align(Alignment.TopStart)
       }.width('100%').alignItems(HorizontalAlign.Start)
       TextArea({ placeholder: '备注，可选', text: $$this.roleRemark }).height(76)

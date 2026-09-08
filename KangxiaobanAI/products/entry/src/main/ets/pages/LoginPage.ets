@@ -115,6 +115,11 @@ struct LoginPage {
           this.isLoading = false;
           return;
         }
+        // Workspace is server-controlled from the selected role; keep the
+        // legacy display role only for compatibility with existing pages.
+        const workspace: string = resp.data.user.workspace_code ?? resp.data.user.roles.find((item: RoleInfo) =>
+          item.code === 'admin' || item.code === 'doctor' || item.code === 'caregiver')?.workspace_code ?? '';
+        resp.data.user.workspace_code = workspace.length > 0 ? workspace : (role === '管理' ? 'admin' : role === '医师' ? 'doctor' : 'caregiver');
         AuthStore.setSession(resp.data.token, resp.data.user);
         this.persistRememberedAccount();
         this.globalInfoModel.role = role;
@@ -148,6 +153,15 @@ struct LoginPage {
         }
         return '护工';
       }
+    }
+    // Custom roles inherit their workspace; use the workspace presentation
+    // category for the existing shell while retaining the full role name in
+    // the session and profile.
+    for (let roleIndex: number = 0; roleIndex < roles.length; roleIndex++) {
+      const workspace: string = roles[roleIndex].workspace_code ?? '';
+      if (workspace === 'doctor') { return '医师'; }
+      if (workspace === 'caregiver') { return '护工'; }
+      if (workspace === 'admin') { return '管理'; }
     }
     return '';
   }

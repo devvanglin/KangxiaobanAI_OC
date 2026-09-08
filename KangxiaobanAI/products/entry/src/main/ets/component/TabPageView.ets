@@ -2707,7 +2707,7 @@ export struct TabPageView {
       {
         title: '',
         items: [
-          { icon: $r('sys.symbol.lock'), label: '账号安全', value: this.currentRoleNames(), showArrow: true },
+          { icon: $r('sys.symbol.lock'), label: '账号安全', showArrow: true },
           { icon: $r('sys.symbol.bell'), label: '通知提醒', value: '关键提醒', showArrow: true },
           { icon: $r('sys.symbol.share'), label: '登录设备', value: '服务器未提供', showArrow: true },
           {
@@ -2776,6 +2776,14 @@ export struct TabPageView {
       return '未分配角色';
     }
     return user.roles.map((role) => role.name || role.code).join('、');
+  }
+
+  private currentWorkspaceName(): string {
+    const workspace: string = AuthStore.getWorkspaceCode();
+    if (workspace === 'admin') { return '管理工作台'; }
+    if (workspace === 'doctor') { return '医师工作台'; }
+    if (workspace === 'caregiver') { return '护工工作台'; }
+    return '未分配工作台';
   }
 
   private currentUserAvatarText(): string {
@@ -2873,7 +2881,8 @@ export struct TabPageView {
       this.profileSheetGroup([
         { label: '姓名', value: this.currentUserName() },
         { label: '账号', value: this.currentUsername() },
-        { label: '角色', value: this.currentRoleNames() }
+        { label: '角色', value: this.currentRoleNames() },
+        { label: '工作台', value: this.currentWorkspaceName() }
       ])
 
       this.profileSheetGroup([

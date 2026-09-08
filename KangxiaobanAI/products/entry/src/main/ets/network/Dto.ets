@@ -13,6 +13,8 @@ export interface ApiResp<T> {
 export interface RoleInfo {
   code: string;
   name: string;
+  workspace_code?: string;
+  is_system?: boolean;
 }
 
 export interface LoginUser {
@@ -22,6 +24,8 @@ export interface LoginUser {
   phone: string;
   status: number;
   roles: RoleInfo[];
+  permissions?: string[];
+  workspace_code?: string;
 }
 
 export interface LoginResp {

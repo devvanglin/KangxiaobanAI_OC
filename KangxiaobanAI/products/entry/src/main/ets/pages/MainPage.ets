@@ -326,15 +326,15 @@ struct MainPage {
   }
 
   private isManagementWideWorkspace(): boolean {
-    return this.isWideLayout() && (this.globalInfoModel.role === '医师' || this.globalInfoModel.role === '管理');
+    return this.isWideLayout() && (this.workspaceCode() === 'doctor' || this.workspaceCode() === 'admin');
   }
 
   private isDoctorResidentWorkspace(): boolean {
-    return this.isManagementWideWorkspace() && this.globalInfoModel.role === '医师' && this.managementNavIndex === 1;
+    return this.isManagementWideWorkspace() && this.workspaceCode() === 'doctor' && this.managementNavIndex === 1;
   }
 
   private isDoctorAiWorkspace(): boolean {
-    return this.isManagementWideWorkspace() && this.globalInfoModel.role === '医师' && this.managementNavIndex === 2;
+    return this.isManagementWideWorkspace() && this.workspaceCode() === 'doctor' && this.managementNavIndex === 2;
   }
 
   private showDoctorResidentBackButton(): boolean {
@@ -434,7 +434,7 @@ struct MainPage {
         .height(42)
         .padding(0)
         .backgroundColor($r('sys.color.comp_background_primary'))
-        .accessibilityText(this.globalInfoModel.role === '医师' ? '医师账户' : '管理端账户')
+        .accessibilityText(this.workspaceCode() === 'doctor' ? '医师账户' : '管理端账户')
         .onClick(() => this.toggleTitleAccountMenu())
         .scale({
           x: this.titleAccountPressed ? 0.9 : 1,
@@ -565,7 +565,7 @@ struct MainPage {
   private wideDoctorTitleActions() {
     WideDoctorTitleActions({
       selectedIndex: this.managementNavIndex,
-      isDoctor: this.globalInfoModel.role === '医师',
+      isDoctor: this.workspaceCode() === 'doctor',
       compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
       onSelect: (index: number) => {
         this.updateManagementNav(index);
@@ -729,19 +729,19 @@ struct MainPage {
     // while the wide workspace supplies role-specific labels and data views.
     // Doctors also get a compact read-only summary on phones; administrators
     // remain wide-only until their mobile operations workflow is implemented.
-    return this.globalInfoModel.role === '护工' || this.globalInfoModel.role === '医师' ||
-      (this.globalInfoModel.role === '管理' && this.isWideLayout());
+    return this.workspaceCode() === 'caregiver' || this.workspaceCode() === 'doctor' ||
+      (this.workspaceCode() === 'admin' && this.isWideLayout());
   }
 
   private roleWipTitle(): string {
-    if (this.globalInfoModel.role === '医师') {
+    if (this.workspaceCode() === 'doctor') {
       return '医师工作台';
     }
-    return this.globalInfoModel.role === '管理' ? '管理端' : `${this.globalInfoModel.role}端`;
+    return this.workspaceCode() === 'admin' ? '管理端' : `${this.globalInfoModel.role}端`;
   }
 
   private roleWipMessage(): string {
-    return this.globalInfoModel.role === '医师' ? '医师端移动工作区正在适配中' : '该角色页面正在开发中，敬请期待';
+    return this.workspaceCode() === 'doctor' ? '医师端移动工作区正在适配中' : '该角色页面正在开发中，敬请期待';
   }
 
   private doctorElderName(elderId: number): string {
@@ -842,6 +842,12 @@ struct MainPage {
     .backgroundColor($r('sys.color.background_secondary'))
   }
 
+  private workspaceCode(): string {
+    const code: string = AuthStore.getWorkspaceCode();
+    if (code === 'admin' || code === 'doctor' || code === 'caregiver') { return code; }
+    return this.globalInfoModel.role === '医师' ? 'doctor' : this.globalInfoModel.role === '管理' ? 'admin' : 'caregiver';
+  }
+
   private isWideLayout(): boolean {
     return BreakpointUtil.usesWideWorkspace(
       this.globalInfoModel.deviceWidth,
@@ -938,7 +944,7 @@ struct MainPage {
   }
 
   private isCaregiverWideWorkspace(): boolean {
-    return this.isWideLayout() && this.globalInfoModel.role === '护工';
+    return this.isWideLayout() && this.workspaceCode() === 'caregiver';
   }
 
   private useCompactCaregiverWorkspace(): boolean {
@@ -1517,7 +1523,7 @@ struct MainPage {
 
   @Builder
   private wideShell() {
-    if (this.globalInfoModel.role === '管理' || this.globalInfoModel.role === '医师') {
+    if (this.workspaceCode() === 'admin' || this.workspaceCode() === 'doctor') {
       if (this.isDoctorResidentWorkspace()) {
         WideDoctorResidentPage({
           compactWidth: this.useCompactDoctorWorkspace(),
@@ -1575,8 +1581,8 @@ struct MainPage {
           onManagementNavSelect: (index: number) => {
             this.updateManagementNav(index);
           },
-          canHandleAlerts: this.globalInfoModel.role === '管理' || this.globalInfoModel.role === '医师',
-          isDoctor: this.globalInfoModel.role === '医师',
+          canHandleAlerts: AuthStore.hasPermission('alert:handle'),
+          isDoctor: this.workspaceCode() === 'doctor',
           onOpenAbout: () => {
             this.pathStack.pushPath({ name: 'AboutPage' });
           },
@@ -1780,7 +1786,7 @@ struct MainPage {
         HdsNavigation(this.pathStack) {
           if (this.isWideLayout()) {
             this.wideShell()
-          } else if (this.globalInfoModel.role === '医师') {
+          } else if (this.workspaceCode() === 'doctor') {
             this.doctorPhonePanel()
           } else {
             this.phoneTabs()
@@ -1820,3 +1826,4 @@ struct MainPage {
     .backgroundColor($r('sys.color.background_secondary'))
   }
 }
+

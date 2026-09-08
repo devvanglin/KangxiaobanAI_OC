@@ -387,25 +387,44 @@ func seed(db *gorm.DB) error {
 	}
 
 	// 角色：管理员拥有全部权限；医师/护工按业务范围授权。
+	// 权限清单统一取自工作台基准集，避免与角色接口各写一份。
 	roles := []struct {
-		code, name, desc string
-		permCodes        []string
+		code, name, desc, workspace string
+		isSystem                    bool
+		permCodes                   []string
 	}{
-		{"admin", "管理员", "系统管理与全部业务", []string{
-			"dash:read", "elder:read", "elder:write", "task:read", "task:write",
-			"care:review", "health:read", "health:write", "alert:read", "alert:handle", "admission:read", "admission:write", "plan:manage", "admin:all"}},
-		{"doctor", "医师", "看护与评估", []string{
-			"dash:read", "elder:read", "health:read", "task:read", "care:review", "alert:read", "alert:handle", "admission:read", "admission:write", "plan:manage"}},
-		{"caregiver", "护工", "现场护理", []string{
-			"dash:read", "elder:read", "health:read", "health:write",
-			"task:read", "task:write", "alert:read"}},
+		{"admin", "管理员", "系统管理与全部业务", "admin", true, model.WorkspacePermissionCodes("admin")},
+		{"doctor", "医师", "看护与评估", "doctor", false, model.WorkspacePermissionCodes("doctor")},
+		{"caregiver", "护工", "现场护理", "caregiver", false, model.WorkspacePermissionCodes("caregiver")},
 	}
 	for _, r := range roles {
 		var role model.Role
-		if err := db.Where("code = ?", r.code).FirstOrCreate(&role, model.Role{Code: r.code, Name: r.name, Description: r.desc}).Error; err != nil {
+		if err := db.Where("code = ?", r.code).FirstOrCreate(&role, model.Role{Code: r.code, Name: r.name, Description: r.desc, WorkspaceCode: r.workspace, IsSystem: r.isSystem}).Error; err != nil {
 			return err
 		}
+		if !role.IsSystem || r.code == "admin" || r.code == "doctor" || r.code == "caregiver" {
+			if err := db.Model(&role).Updates(map[string]interface{}{"workspace_code": r.workspace, "is_system": r.isSystem}).Error; err != nil {
+				return err
+			}
+		}
 		if err := db.Model(&role).Association("Permissions").Replace(permRefs(permByCode, r.permCodes)); err != nil {
+			return err
+		}
+	}
+	// Repair legacy rows that were allowed to point a custom role at the
+	// administrator workspace before workspace isolation was introduced.
+	if err := db.Model(&model.Role{}).Where("is_system = ? AND workspace_code = ?", false, "admin").Update("workspace_code", "caregiver").Error; err != nil {
+		return err
+	}
+	// 自定义角色的权限完全由登录工作台决定；启动时与基准集对齐，
+	// 顺带修正工作台隔离之前遗留的部分授权。
+	var customRoles []model.Role
+	if err := db.Where("is_system = ?", false).Find(&customRoles).Error; err != nil {
+		return err
+	}
+	for _, customRole := range customRoles {
+		codes := model.WorkspacePermissionCodes(customRole.WorkspaceCode)
+		if err := db.Model(&customRole).Association("Permissions").Replace(permRefs(permByCode, codes)); err != nil {
 			return err
 		}
 	}
@@ -434,6 +453,19 @@ func seed(db *gorm.DB) error {
 		if err := db.Model(&admin).Association("Roles").Replace([]model.Role{adminRole}); err != nil {
 			return err
 		}
+	}
+	// The bootstrap administrator is an immutable system account. Repair its
+	// status and role binding on every startup in case an older deployment was
+	// modified through a legacy endpoint.
+	var adminRole model.Role
+	if err := db.Where("code = ?", "admin").First(&adminRole).Error; err != nil {
+		return err
+	}
+	if err := db.Model(&admin).Updates(map[string]interface{}{"status": 1}).Error; err != nil {
+		return err
+	}
+	if err := db.Model(&admin).Association("Roles").Replace([]model.Role{adminRole}); err != nil {
+		return err
 	}
 	_ = admin
 

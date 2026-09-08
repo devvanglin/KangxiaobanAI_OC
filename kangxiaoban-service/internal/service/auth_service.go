@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 
 	"golang.org/x/crypto/bcrypt"
@@ -40,9 +41,29 @@ func (s *AuthService) Login(username, password string) (string, *model.User, err
 	if !auth.CheckPassword(user.PasswordHash, password) {
 		return "", nil, ErrInvalidCredentials
 	}
+	if len(user.Roles) == 0 {
+		return "", nil, ErrInvalidCredentials
+	}
 	roles := make([]string, 0, len(user.Roles))
+	workspace := ""
+	workspaceRank := 99
 	for _, r := range user.Roles {
 		roles = append(roles, r.Code)
+		rank := 2
+		if r.WorkspaceCode == "admin" {
+			rank = 0
+		} else if r.WorkspaceCode == "doctor" {
+			rank = 1
+		}
+		if rank < workspaceRank {
+			workspace = r.WorkspaceCode
+			workspaceRank = rank
+		}
+	}
+	permissionContext := context.WithValue(context.Background(), model.TenantContextKey, user.TenantID)
+	permissions, err := s.repo.PermissionsByRoleCodesContext(permissionContext, roles)
+	if err != nil {
+		return "", nil, err
 	}
 	token, err := auth.GenerateToken(s.cfg.Secret, s.cfg.Expire, user.ID, user.Username, roles)
 	if err != nil {
@@ -50,6 +71,9 @@ func (s *AuthService) Login(username, password string) (string, *model.User, err
 	}
 	// 不返回哈希
 	user.PasswordHash = ""
+	// Expose effective capabilities and the default workspace for the client shell.
+	user.WorkspaceCode = workspace
+	user.Permissions = permissions
 	return token, user, nil
 }
 

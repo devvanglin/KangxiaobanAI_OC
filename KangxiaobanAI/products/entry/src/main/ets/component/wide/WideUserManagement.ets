@@ -1,14 +1,21 @@
 import { LengthMetrics } from '@kit.ArkUI';
 import ApiClient from '../../network/ApiClient';
 
-interface UserRole { code: string; name: string; }
+interface UserRole { code: string; name: string; workspace_code?: string; status?: number; is_system?: boolean; }
 interface UserRecord { id: number; username: string; real_name: string; phone: string; status: number; created_at?: string; roles?: UserRole[]; }
 interface UserPage { list: UserRecord[]; total: number; }
 interface CreateUserRequest { username: string; password: string; real_name: string; phone: string; role_code: string; role_codes?: string[]; }
 interface RolePage { list: UserRole[]; }
 interface UserStatusRequest { status: number; }
+interface UserRolesRequest { role_codes: string[]; }
 
 const ACTION_BUTTON_BG: string = '#1D63ED';
+
+function workspaceLabel(code?: string): string {
+  if (code === 'doctor') { return '医师工作台'; }
+  if (code === 'admin') { return '管理工作台'; }
+  return '护工工作台';
+}
 
 @ComponentV2
 export struct WideUserManagement {
@@ -30,13 +37,16 @@ export struct WideUserManagement {
   @Local roleCode: string = 'caregiver';
   @Local selectedRoleCodes: string[] = ['caregiver'];
   @Local availableRoles: UserRole[] = [];
+  @Local showAssign: boolean = false;
+  @Local assignUserId: number = 0;
+  @Local assignRoleCodes: string[] = [];
 
   aboutToAppear(): void { this.loadUsers(); this.loadRoles(); }
 
   private async loadRoles(): Promise<void> {
     try {
       const response = await ApiClient.get<RolePage>('/roles?page=1&size=100');
-      if (response.code === 0 && response.data !== undefined) { this.availableRoles = response.data.list ?? []; }
+      if (response.code === 0 && response.data !== undefined) { this.availableRoles = (response.data.list ?? []).filter((role: UserRole) => role.status !== 0 && !role.is_system); }
     } catch (_error) { /* the user list remains usable even if role metadata is unavailable */ }
   }
 
@@ -83,6 +93,23 @@ export struct WideUserManagement {
       const response = await ApiClient.patch<Object>(`/users/${user.id}/status`, request);
       if (response.code === 0) await this.loadUsers();
     } catch (_error) { this.error = '用户状态更新失败'; }
+  }
+
+  private openAssign(user: UserRecord): void {
+    this.assignUserId = user.id;
+    this.assignRoleCodes = (user.roles ?? []).map((role: UserRole) => role.code);
+    this.showAssign = true;
+  }
+
+  private async saveAssign(): Promise<void> {
+    if (this.assignRoleCodes.length === 0) { this.error = '至少绑定一个角色'; return; }
+    try {
+      const request: UserRolesRequest = { role_codes: this.assignRoleCodes };
+      const response = await ApiClient.put<Object>(`/users/${this.assignUserId}/roles`, request);
+      if (response.code !== 0) { throw new Error(response.msg); }
+      this.showAssign = false;
+      await this.loadUsers();
+    } catch (_error) { this.error = '角色分配失败'; }
   }
 
   private formatTime(value?: string): string { return value === undefined || value.length < 16 ? '--' : value.slice(0, 19).replace('T', ' '); }
@@ -155,7 +182,7 @@ export struct WideUserManagement {
           Text(user.username).fontSize(12).fontColor($r('sys.color.font_tertiary'))
             .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
         }.layoutWeight(1.4).alignItems(HorizontalAlign.Start)
-        Text(user.roles?.map((role: UserRole) => role.name).join('、') || '--')
+        Text(user.roles?.map((role: UserRole) => `${role.name}（${workspaceLabel(role.workspace_code)}）`).join('、') || '--')
           .fontSize(14).fontColor($r('sys.color.font_primary'))
           .layoutWeight(1)
           .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -170,8 +197,9 @@ export struct WideUserManagement {
           .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
         Row({ space: 12 }) {
           Text('修改').fontSize(14).fontColor($r('sys.color.font_tertiary'))
-          Text('角色分配').fontSize(14).fontColor($r('app.color.brand_blue'))
-            .onClick(() => this.error = '角色分配入口已准备，使用后端多角色接口')
+          Text(user.username === 'admin' ? '系统账号' : '角色分配').fontSize(14)
+            .fontColor(user.username === 'admin' ? $r('sys.color.font_tertiary') : $r('app.color.brand_blue'))
+            .onClick(() => { if (user.username !== 'admin') { this.openAssign(user); } })
         }.width(this.compactWidth ? 110 : 130).justifyContent(FlexAlign.End)
       }.width('100%').height(64).padding({ left: 18, right: 18 })
         .alignItems(VerticalAlign.Center)
@@ -242,6 +270,27 @@ export struct WideUserManagement {
     }
   }
 
+  @Builder
+  private assignDialog() {
+    if (this.showAssign) {
+      Column({ space: 12 }) {
+        Text('分配角色').fontSize(20).fontWeight(FontWeight.Medium)
+        Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.vp(8), cross: LengthMetrics.vp(8) } }) {
+          ForEach(this.availableRoles.filter((role: UserRole) => role.code !== 'admin'), (role: UserRole) => {
+            Button(role.name).height(34).fontSize(12).borderRadius(17)
+              .backgroundColor(this.assignRoleCodes.indexOf(role.code) >= 0 ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
+              .fontColor(this.assignRoleCodes.indexOf(role.code) >= 0 ? Color.White : $r('sys.color.font_secondary'))
+              .onClick(() => { this.assignRoleCodes = this.assignRoleCodes.indexOf(role.code) >= 0 ? this.assignRoleCodes.filter((code: string) => code !== role.code) : this.assignRoleCodes.concat([role.code]); })
+          }, (role: UserRole) => `assign-${role.code}`)
+        }
+        Row({ space: 10 }) {
+          Button('取消').layoutWeight(1).onClick(() => this.showAssign = false)
+          Button('保存').layoutWeight(1).fontColor(Color.White).backgroundColor(ACTION_BUTTON_BG).onClick(() => this.saveAssign())
+        }.width('100%')
+      }.width(this.compactWidth ? '90%' : 460).padding(24).backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
+    }
+  }
+
   build() {
     Stack() {
       Scroll(this.managementScroller) {
@@ -259,6 +308,9 @@ export struct WideUserManagement {
       .align(Alignment.Top)
       if (this.showCreate) {
         Row() { this.createDialog() }.width('100%').height('100%').backgroundColor('#66000000').justifyContent(FlexAlign.Center)
+      }
+      if (this.showAssign) {
+        Row() { this.assignDialog() }.width('100%').height('100%').backgroundColor('#66000000').justifyContent(FlexAlign.Center)
       }
     }.width('100%').height('100%')
   }

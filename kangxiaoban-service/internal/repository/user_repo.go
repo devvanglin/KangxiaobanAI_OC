@@ -27,7 +27,7 @@ func (r *UserRepository) FindByUsernameInTenant(ctx context.Context, username st
 	var u model.User
 	err := r.db.WithContext(ctx).
 		Preload("Roles", func(db *gorm.DB) *gorm.DB {
-			return db.Preload("Permissions")
+			return db.Where("roles.status = 1").Preload("Permissions")
 		}).
 		Where("username = ? AND tenant_id = ?", username, tenantID).
 		First(&u).Error
@@ -81,11 +81,32 @@ func (r *UserRepository) PermissionsByRoleCodesContext(ctx context.Context, code
 	if len(codes) == 0 {
 		return nil, nil
 	}
+	// A custom role inherits the complete permission set of its assigned
+	// workspace. Keep any explicitly assigned permissions as an additive set.
+	var roles []model.Role
+	roleQuery := r.db.WithContext(ctx).Where("code IN ? AND status = 1 AND deleted_at IS NULL", codes)
+	if tenantID, ok := contextTenantID(ctx); ok {
+		roleQuery = roleQuery.Where("tenant_id = ?", tenantID)
+	}
+	if err := roleQuery.Find(&roles).Error; err != nil {
+		return nil, err
+	}
+	allCodes := append([]string(nil), codes...)
+	seenCode := map[string]bool{}
+	for _, code := range allCodes {
+		seenCode[code] = true
+	}
+	for _, role := range roles {
+		if role.WorkspaceCode != "" && !seenCode[role.WorkspaceCode] {
+			allCodes = append(allCodes, role.WorkspaceCode)
+			seenCode[role.WorkspaceCode] = true
+		}
+	}
 	var perms []model.Permission
 	query := r.db.
 		Joins("JOIN sys_role_permission srp ON srp.permission_id = permissions.id").
 		Joins("JOIN roles r ON r.id = srp.role_id").
-		Where("r.code IN ?", codes)
+		Where("r.code IN ? AND r.status = 1 AND r.deleted_at IS NULL", allCodes)
 	if tenantID, ok := contextTenantID(ctx); ok {
 		query = query.Where("r.tenant_id = ?", tenantID)
 	}

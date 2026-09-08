@@ -26,6 +26,14 @@ class AuthStore {
     AuthStore.user = user;
   }
 
+  public static hasPermission(permission: string): boolean {
+    return AuthStore.user?.permissions?.includes(permission) ?? false;
+  }
+
+  public static getWorkspaceCode(): string {
+    return AuthStore.user?.workspace_code ?? AuthStore.user?.roles?.[0]?.workspace_code ?? '';
+  }
+
   public static clear(): void {
     AuthStore.token = '';
     AuthStore.user = null;

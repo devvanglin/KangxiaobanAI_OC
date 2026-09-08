@@ -60,6 +60,12 @@ func (h *UserHandler) Create(c *gin.Context) {
 		Fail(c, 400, 400, "至少绑定一个角色")
 		return
 	}
+	for _, code := range roleCodes {
+		if code == "admin" {
+			Fail(c, 403, 403, "系统管理员账号不可复制")
+			return
+		}
+	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 	if err != nil {
 		Fail(c, 500, 500, "密码处理失败")
@@ -108,6 +114,16 @@ func (h *UserHandler) UpdateRoles(c *gin.Context) {
 		Fail(c, 404, 404, "用户不存在")
 		return
 	}
+	if user.Username == "admin" {
+		Fail(c, 403, 403, "系统管理员账号不可修改角色")
+		return
+	}
+	for _, role := range roles {
+		if role.IsSystem {
+			Fail(c, 403, 403, "系统角色不可分配给普通账号")
+			return
+		}
+	}
 	if err := db.Model(&user).Association("Roles").Replace(roles); err != nil {
 		Fail(c, 500, 500, "角色绑定失败")
 		return
@@ -124,6 +140,15 @@ func (h *UserHandler) SetStatus(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&input); err != nil || (input.Status != 0 && input.Status != 1) {
 		Fail(c, 400, 400, "状态参数错误")
+		return
+	}
+	var user model.User
+	if err := h.db.WithContext(c.Request.Context()).First(&user, uint(id)).Error; err != nil {
+		Fail(c, 404, 404, "用户不存在")
+		return
+	}
+	if user.Username == "admin" {
+		Fail(c, 403, 403, "系统管理员账号不可停用")
 		return
 	}
 	if err := h.db.WithContext(c.Request.Context()).Model(&model.User{}).Where("id = ?", uint(id)).Update("status", input.Status).Error; err != nil {
