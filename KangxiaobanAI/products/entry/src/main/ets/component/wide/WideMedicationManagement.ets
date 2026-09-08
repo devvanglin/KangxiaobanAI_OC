@@ -215,12 +215,12 @@ export struct WideMedicationManagement {
   private medicationCard(item: MedicationItem) {
     Column({ space: 8 }) {
       Row({ space: 8 }) {
-        Text(item.name).fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
-          .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
         Text(item.status === 'in_use' ? '在用' : '停用')
           .fontSize(11).fontColor(item.status === 'in_use' ? $r('app.color.doctor_workspace_success') : $r('sys.color.font_tertiary'))
           .padding({ left: 8, right: 8, top: 2, bottom: 2 }).borderRadius(10)
           .backgroundColor(item.status === 'in_use' ? '#F0FDF4' : $r('sys.color.comp_background_secondary'))
+        Text(item.name).fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+          .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
       }.width('100%').alignItems(VerticalAlign.Center)
       if (item.note.trim().length > 0) {
         Text(item.note).fontSize(12.5).fontColor($r('sys.color.font_secondary'))
