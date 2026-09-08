@@ -977,6 +977,7 @@ export struct WideStorageManagement {
             max: this.audioDurationMs > 0 ? this.audioDurationMs : 1
           })
             .width('100%')
+            .padding({ left: 8, right: 8 })
             .onChange((value: number, mode: SliderChangeMode) => {
               if (mode === SliderChangeMode.End || mode === SliderChangeMode.Click) {
                 this.seekAudio(value);
@@ -996,8 +997,10 @@ export struct WideStorageManagement {
         .padding({ top: 6, bottom: 6 })
       }
     }
-    .width(this.compactWidth ? 320 : 560)
+    .width('100%').height('100%')
+    .padding({ left: 24, right: 24, top: 8, bottom: 16 })
     .alignItems(HorizontalAlign.Center)
+    .justifyContent(FlexAlign.Center)
   }
 
   /** 重命名半模态内容：文件名输入。 */
@@ -1058,7 +1061,8 @@ export struct WideStorageManagement {
       })
       // 媒体预览半模态：白底居中弹窗，关闭时释放播放器。
       .bindSheet(this.showMediaSheet!!, this.mediaSheetDialog(), {
-        height: SheetSize.FIT_CONTENT,
+        width: this.compactWidth ? '90%' : '60%',
+        height: 520,
         showClose: true,
         title: { title: this.previewObject === null ? '预览' : this.displayName(this.previewObject.key) },
         preferType: SheetType.CENTER,
