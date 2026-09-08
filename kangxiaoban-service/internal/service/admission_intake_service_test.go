@@ -324,6 +324,18 @@ func TestNormalizeAdmissionIntakeRejectsInvalidValues(t *testing.T) {
 	}
 }
 
+func TestNormalizeAdmissionIntakeDefaultsEmptyCareLevel(t *testing.T) {
+	base := AdmissionIntakeInput{IdempotencyKey: "normalize-test", ResidentName: "测试", Gender: "男", BirthDate: "1940-01-01", Age: 86, IDCard: "INTAKE-VALID", AdmissionStartDate: "2026-09-01", CareLevel: "全护理", BedID: 1}
+	base.CareLevel = ""
+	normalized, err := normalizeAdmissionIntake(base)
+	if err != nil {
+		t.Fatalf("empty care level should default, got %v", err)
+	}
+	if normalized.CareLevelNum != 1 || normalized.CareLevelCode != "intact" {
+		t.Fatalf("default care level = %d/%s, want 1/intact", normalized.CareLevelNum, normalized.CareLevelCode)
+	}
+}
+
 func freeIntakeBed(t *testing.T, db *gorm.DB, ctx context.Context) model.Bed {
 	t.Helper()
 	var bed model.Bed

@@ -191,6 +191,8 @@ export struct WideDoctorAdmissionForm {
   @Local admissionEndDate: string = '';
   @Local feeStartDate: string = '';
   @Local feeEndDate: string = '';
+  // 不再让用户在入住时选护理等级（定级来自后续评估）。保留该字段仅为兼容
+  // 旧草稿与服务端载荷：新表单恒为空，由服务端默认为自理。
   @Local careLevel: string = '';
   @Local bedName: string = '';
   @Local deposit: string = '';
@@ -284,7 +286,6 @@ export struct WideDoctorAdmissionForm {
   // when the component is no longer allowed to mutate visual state.
   private submissionPhotoContexts: AdmissionSubmissionPhotoContext[] = [];
   private readonly photoCachePrefix: string = 'admission-photo-';
-  private readonly careLevelOptions: string[] = ['自理', '半护理', '全护理', '重度护理', '特级护理'];
   // 入住草稿：打开时先暂存待询问，用户选择「继续/重新填写」后再应用或清空。
   private pendingDraft: AdmissionFormDraft | null = null;
   private draftResumeOffered: boolean = false;
@@ -335,7 +336,7 @@ export struct WideDoctorAdmissionForm {
   private requiredReady(): boolean {
     return this.name.trim().length > 0 && this.gender.length > 0 &&
       this.idCard.trim().length > 0 && this.birthDate.trim().length > 0 && this.age.trim().length > 0 &&
-      this.admissionDate.trim().length > 0 && this.careLevel.length > 0 && this.bedId > 0;
+      this.admissionDate.trim().length > 0 && this.bedId > 0;
   }
 
   private newIdempotencyKey(): string {
@@ -1379,7 +1380,7 @@ export struct WideDoctorAdmissionForm {
   }
 
   private resultSecondaryText(): string {
-    return `${this.careLevel} · ${this.bedName} · ${this.admissionDate}`;
+    return `${this.bedName} · ${this.admissionDate}`;
   }
 
   private resetForm(): void {
@@ -2781,15 +2782,10 @@ export struct WideDoctorAdmissionForm {
           (value: string) => this.feeStartDate = value,
           (value: string) => this.feeEndDate = value)
       }
-      GridCol({ span: this.compactWidth ? 12 : 6 }) {
-        this.stackedChoiceField('护理等级', this.careLevelOptions, this.careLevel,
-          (value: string) => this.careLevel = value, true)
-      }
-      // On wide windows the level and bed selectors form one balanced row;
-      // keeping the bed selector full-width here left an avoidable empty band
-      // beside the care-level choices. Narrow windows retain the stacked flow
-      // so the controls stay touchable and readable.
-      GridCol({ span: this.compactWidth ? 12 : 6 }) {
+      // Care level is intentionally not asked here: the authoritative grade
+      // comes from the later assessment workflow, so intake only assigns the
+      // bed. It keeps the full row on wide windows.
+      GridCol({ span: 12 }) {
         this.bedField()
       }
       GridCol({ span: this.compactWidth ? 6 : 4 }) {

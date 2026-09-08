@@ -656,6 +656,11 @@ func normalizeIntakeGender(value string) (string, error) {
 }
 
 func normalizeIntakeCareLevel(value string) (int8, string, error) {
+	// Care level is provisional at intake and the authoritative grade is set
+	// by the later assessment workflow, so an omitted level defaults to 自理.
+	if strings.TrimSpace(value) == "" {
+		return 1, "intact", nil
+	}
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "1", "一级", "自理", "intact":
 		return 1, "intact", nil
