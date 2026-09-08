@@ -57,7 +57,7 @@ func (s *AIService) chatWithAgent(ctx context.Context, userID uint, conversation
 
 	// Context management: keep the newest turns inside the model window and
 	// roll anything older into a persisted conversation summary.
-	history := s.recentTurns(ctx, userID, conversation.ID, 24)
+	history := s.recentTurns(ctx, userID, conversation.ID, 40)
 	systemPrompt := cfg.SystemPrompt
 	budgetPrompt := systemPrompt + strings.Join(skills, "")
 	kept, _, droppedText := agent.BudgetContext(history, budgetPrompt, content, contextWindow)

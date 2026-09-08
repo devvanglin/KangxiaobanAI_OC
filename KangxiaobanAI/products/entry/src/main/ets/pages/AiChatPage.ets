@@ -39,6 +39,7 @@ import { AI_BRAND_NAME, AiTitleLabel } from '../component/AiTitleLabel';
 import { WideSlidingCapsule, WideSlidingCapsuleItem } from '../component/wide/WideSlidingCapsule';
 import ApiClient from '../network/ApiClient';
 import AuthStore from '../network/AuthStore';
+import { PreferenceManager } from '../util/PreferenceManager';
 import {
   AiAgentStep,
   AiConversation,
@@ -115,6 +116,8 @@ export struct AiChatPage {
   @Local embeddedAssistantMode: number = 0;
   @Local expandedTraceId: string = '';
   @Local modelLabel: string = '在线模型';
+  private lastConversationRefreshAt: number = 0;
+  private preferenceManager: PreferenceManager = PreferenceManager.getInstance();
   @Local isHistoryLoading: boolean = false;
   @Local promptSuggestionRows: AiInformationFeedItem[][] = [
     new Array<AiInformationFeedItem>(),
@@ -155,7 +158,10 @@ export struct AiChatPage {
       id: message.id,
       role: message.role,
       content: message.content,
-      feedback: message.feedback
+      feedback: message.feedback,
+      reasoning: message.reasoning,
+      trace: message.trace,
+      model: message.model
     };
   }
 
@@ -287,6 +293,7 @@ export struct AiChatPage {
     }
     const loadVersion: number = ++this.sessionLoadVersion;
     this.activeSessionId = sessionId;
+    this.saveLastConversation(sessionId);
     this.messages = [];
     this.inputText = '';
     this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
@@ -315,6 +322,26 @@ export struct AiChatPage {
     }
   }
 
+  private lastConversationKey(): string {
+    const user: LoginUser | null = AuthStore.getUser();
+    return `ai_last_conversation_${user?.username ?? 'anonymous'}`;
+  }
+
+  private saveLastConversation(sessionId: string): void {
+    try {
+      this.preferenceManager.setValue<string>(this.lastConversationKey(), sessionId);
+    } catch (_error) {
+      // Last-session memory is a convenience; ignore persistence failures.
+    }
+  }
+
+  /** 会话栏每次展开都确保列表新鲜（30 秒节流），避免重启后停留在过期空列表。 */
+  private maybeRefreshConversations(): void {
+    if (Date.now() - this.lastConversationRefreshAt > 30000) {
+      this.loadConversations();
+    }
+  }
+
   private async loadConversations(): Promise<void> {
     const loadVersion: number = ++this.conversationLoadVersion;
     this.isHistoryLoading = true;
@@ -333,7 +360,10 @@ export struct AiChatPage {
         next.push(this.sessionFromServer(serverSessions[index]));
       }
       this.sessions = next;
-      const active: ChatSession | undefined = this.findSession(this.activeSessionId);
+      this.lastConversationRefreshAt = Date.now();
+      const wanted: string = this.activeSessionId.length > 0 ? this.activeSessionId :
+        (this.preferenceManager.getValue<string>(this.lastConversationKey(), '') ?? '');
+      const active: ChatSession | undefined = this.findSession(wanted);
       if (active) {
         await this.loadSessionMessages(active.id);
       } else if (next.length > 0) {
@@ -377,6 +407,7 @@ export struct AiChatPage {
   }
 
   private openHistoryDrawer(): void {
+    this.maybeRefreshConversations();
     this.focusController.clearFocus();
     this.getUIContext().animateTo({ duration: 260, curve: Curve.Friction }, () => {
       this.historyDrawerOpen = true;
@@ -521,10 +552,14 @@ export struct AiChatPage {
 
   private toggleEmbeddedHistory(): void {
     this.setEmbeddedHistoryCollapsed(!this.embeddedHistoryCollapsed);
+    if (!this.embeddedHistoryCollapsed) {
+      this.maybeRefreshConversations();
+    }
   }
 
   private expandEmbeddedHistory(): void {
     this.setEmbeddedHistoryCollapsed(false);
+    this.maybeRefreshConversations();
   }
 
   private focusHistorySearch(): void {
@@ -562,6 +597,7 @@ export struct AiChatPage {
     this.lastHistoryOpenRequestToken = this.historyOpenRequestToken;
     this.historySearchVisible = false;
     this.historySearchText = '';
+    this.maybeRefreshConversations();
     this.expandEmbeddedHistory();
   }
 
