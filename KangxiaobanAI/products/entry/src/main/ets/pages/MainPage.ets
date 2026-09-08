@@ -162,6 +162,10 @@ struct MainPage {
   @Local caregiverUnreadMessageCount: number = 0;
   @Local caregiverMaterialScrollerOwner: CaregiverMaterialScrollerOwner = 'residentDetail';
   @Local managementNavIndex: number = 0;
+  /** 主导航栏是否可见：推入任意 NavDestination 二级页时为 false。
+   * pathStack.size() 不是响应式状态，push/pop 不会触发重渲染，
+   * 标题动作覆盖层/头像的显隐必须靠这个回调驱动。 */
+  @Local navBarVisible: boolean = true;
   @Local adminHasLocalNavLayer: boolean = false;
   @Local adminBackRequestToken: number = 0;
   @Local doctorResidentDetailVisible: boolean = false;
@@ -382,7 +386,7 @@ struct MainPage {
 
   @Builder
   private titleAccountMenuAnchor() {
-    if (this.isRoleAdapted() && this.isWideLayout() && !this.isResidentDetailShow) {
+    if (this.isRoleAdapted() && this.isWideLayout() && this.navBarVisible && !this.isResidentDetailShow) {
       if (this.titleAccountMenuVisible) {
         // 点外关闭层：盖住整窗，点击任意处收起菜单。
         Column()
@@ -540,7 +544,7 @@ struct MainPage {
   @Builder
   private wideTitleActionsOverlay() {
     if ((this.isCaregiverWideWorkspace() || this.isManagementWideWorkspace()) &&
-      this.pathStack.size() === 0 && !this.isResidentDetailShow) {
+      this.navBarVisible && !this.isResidentDetailShow) {
       Column() {
         if (this.isCaregiverWideWorkspace()) {
           this.wideCaregiverTitleActions()
@@ -1789,6 +1793,9 @@ struct MainPage {
         .hideBackButton(!this.showCaregiverLocalBackButton())
         .hideTitleBar(this.isWideLayout() && !this.isCaregiverWideWorkspace() && !this.isManagementWideWorkspace(), true)
         .titleMode(HdsNavigationTitleMode.MINI)
+        .onNavBarStateChange((visible: boolean) => {
+          this.navBarVisible = visible;
+        })
         .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.BOTTOM])
         .width('100%')
         .height('100%')
