@@ -1019,7 +1019,8 @@ export struct WideStorageManagement {
         }
       }
       .width('100%')
-      .padding({ left: 16, right: 16, top: this.statusBarHeight + 8, bottom: 10 })
+      // 预览层在页面内容区内，顶部要避开 HdsNavigation 标题栏的命中区域。
+      .padding({ left: 16, right: 16, top: this.statusBarHeight + 64, bottom: 10 })
       .alignItems(VerticalAlign.Center)
     }
     .width('100%').height('100%')
