@@ -78,6 +78,7 @@ export struct WideStorageManagement {
   @Local objectFilter: string = '';
   @Local previewUrls: Record<string, string> = {};
   @Local previewObject: StorageObject | null = null;
+  @Local showMediaSheet: boolean = false;
   @Local audioPlaying: boolean = false;
   @Local audioReady: boolean = false;
   @Local audioCurrentMs: number = 0;
@@ -245,6 +246,7 @@ export struct WideStorageManagement {
     Logger.info(TAG, `open preview: ${item.key}`);
     if (this.objectKind(item.key) !== 'file') {
       this.previewObject = item;
+      this.showMediaSheet = true;
     } else {
       this.showToast('该类型暂不支持预览');
     }
@@ -932,53 +934,37 @@ export struct WideStorageManagement {
     .alignItems(HorizontalAlign.Start)
   }
 
-  /** 二级页：白底媒体详情页（图片查看 / 音视频播放），返回键回到桶列表。 */
+  /** 半模态预览窗：白底居中弹窗，展示图片/音频/视频。 */
   @Builder
-  private mediaDetailPage() {
+  private mediaSheetDialog() {
     Column({ space: 16 }) {
-      Row({ space: 10 }) {
-        Button({ type: ButtonType.Circle, stateEffect: true }) {
-          SymbolGlyph($r('sys.symbol.chevron_left')).fontSize(22).fontColor([$r('sys.color.font_primary')])
-        }
-        .width(38).height(38)
-        .backgroundColor($r('sys.color.comp_background_secondary'))
-        .accessibilityText('返回列表')
-        .onClick(() => this.previewObject = null)
-        Text(this.previewObject === null ? '' : this.displayName(this.previewObject.key))
-          .fontSize(16).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
-          .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).layoutWeight(1)
-        if (this.previewObject !== null) {
-          Text(this.formatSize(this.previewObject.size)).fontSize(12).fontColor($r('sys.color.font_tertiary'))
-        }
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-
-      if (this.previewObject !== null && this.objectKind(this.previewObject.key) === 'video') {
+      if (this.previewObject === null) {
+        Text('').fontSize(1)
+      } else if (this.objectKind(this.previewObject.key) === 'image') {
+        Image(this.previewUrls[this.previewObject.key] ?? '')
+          .width('100%').height(this.compactWidth ? 280 : 400)
+          .objectFit(ImageFit.Contain).borderRadius(12)
+      } else if (this.objectKind(this.previewObject.key) === 'video') {
         if (this.videoPlaybackPath.length > 0) {
           Video({
             src: this.videoPlaybackPath,
             controller: this.videoController
           })
-            .width('100%').layoutWeight(1)
+            .width('100%').height(this.compactWidth ? 220 : 320)
             .autoPlay(true).controls(true).objectFit(ImageFit.Contain)
-            .borderRadius(16).backgroundColor(Color.Black)
+            .borderRadius(12).backgroundColor(Color.Black)
         } else {
-          Column({ space: 12 }) {
-            LoadingProgress().width(46).height(46).color($r('app.color.brand_blue'))
+          Column({ space: 10 }) {
+            LoadingProgress().width(40).height(40).color($r('app.color.brand_blue'))
             Text('正在加载视频…').fontSize(13).fontColor($r('sys.color.font_secondary'))
-          }.width('100%').layoutWeight(1).justifyContent(FlexAlign.Center)
+          }.width('100%').height(this.compactWidth ? 220 : 320).justifyContent(FlexAlign.Center)
         }
-      } else if (this.previewObject !== null && this.objectKind(this.previewObject.key) === 'audio') {
-        Column({ space: 22 }) {
-          SymbolGlyph($r('sys.symbol.music_note_list')).fontSize(72).fontColor([$r('app.color.brand_blue')])
-          Text(this.displayName(this.previewObject.key))
-            .fontSize(15).fontColor($r('sys.color.font_primary')).textAlign(TextAlign.Center)
-            .maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
-            .constraintSize({ maxWidth: '72%' })
+      } else {
+        Column({ space: 14 }) {
+          SymbolGlyph($r('sys.symbol.music_note_list')).fontSize(52).fontColor([$r('app.color.brand_blue')])
           if (this.playbackPreparing) {
             Row({ space: 8 }) {
-              LoadingProgress().width(20).height(20).color($r('app.color.brand_blue'))
+              LoadingProgress().width(18).height(18).color($r('app.color.brand_blue'))
               Text('正在加载音频…').fontSize(12).fontColor($r('sys.color.font_secondary'))
             }
           } else {
@@ -990,7 +976,7 @@ export struct WideStorageManagement {
             min: 0,
             max: this.audioDurationMs > 0 ? this.audioDurationMs : 1
           })
-            .width('72%')
+            .width('100%')
             .onChange((value: number, mode: SliderChangeMode) => {
               if (mode === SliderChangeMode.End || mode === SliderChangeMode.Click) {
                 this.seekAudio(value);
@@ -998,35 +984,23 @@ export struct WideStorageManagement {
             })
           Button({ type: ButtonType.Circle, stateEffect: true }) {
             SymbolGlyph(this.audioPlaying ? $r('sys.symbol.pause_fill') : $r('sys.symbol.play_fill'))
-              .fontSize(28).fontColor([Color.White])
+              .fontSize(24).fontColor([Color.White])
           }
-          .width(64).height(64)
+          .width(56).height(56)
           .backgroundColor($r('app.color.brand_blue'))
           .opacity(this.playbackPreparing ? 0.45 : 1)
           .enabled(!this.playbackPreparing)
           .onClick(() => this.toggleAudio())
         }
-        .width('100%').layoutWeight(1)
-        .justifyContent(FlexAlign.Center).alignItems(HorizontalAlign.Center)
-      } else if (this.previewObject !== null) {
-        Image(this.previewUrls[this.previewObject.key] ?? '')
-          .width('100%').layoutWeight(1)
-          .objectFit(ImageFit.Contain)
-          .autoResize(true)
-          .borderRadius(16)
+        .width('100%')
+        .padding({ top: 6, bottom: 6 })
       }
     }
-    .width('100%').height('100%')
-    .backgroundColor($r('app.color.doctor_workspace_background'))
-    .padding({
-      left: this.compactWidth ? 16 : 28,
-      right: this.compactWidth ? 16 : 28,
-      top: 88 + this.statusBarHeight,
-      bottom: 24 + this.naviIndicatorHeight
-    })
-    .alignItems(HorizontalAlign.Start)
+    .width(this.compactWidth ? 320 : 560)
+    .alignItems(HorizontalAlign.Center)
   }
 
+  /** 重命名半模态内容：文件名输入。 */
   @Builder
   private renameEditorDialog() {
     Column({ space: 16 }) {
@@ -1054,11 +1028,7 @@ export struct WideStorageManagement {
 
   build() {
     Stack() {
-      if (this.previewObject !== null) {
-        // 二级页：白底媒体详情（图片/音频/视频）。
-        this.mediaDetailPage()
-      } else {
-        Scroll(this.managementScroller) {
+      Scroll(this.managementScroller) {
           Column() {
             this.storageContent()
           }
@@ -1072,21 +1042,35 @@ export struct WideStorageManagement {
           })
           .alignItems(HorizontalAlign.Start)
         }
-        .width('100%')
-        .height('100%')
-        .align(Alignment.Top)
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.Spring)
-      }
+      .width('100%')
+      .height('100%')
+      .align(Alignment.Top)
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
+      // 重命名半模态：宽窗口居中弹出，窄窗口自动退化为底部半模态。
+      .bindSheet(this.showRenameEditor!!, this.renameEditorDialog(), {
+        height: SheetSize.FIT_CONTENT,
+        showClose: true,
+        title: { title: '重命名文件' },
+        preferType: SheetType.CENTER,
+        enableOutsideInteractive: false,
+        backgroundColor: $r('sys.color.comp_background_primary')
+      })
+      // 媒体预览半模态：白底居中弹窗，关闭时释放播放器。
+      .bindSheet(this.showMediaSheet!!, this.mediaSheetDialog(), {
+        height: SheetSize.FIT_CONTENT,
+        showClose: true,
+        title: { title: this.previewObject === null ? '预览' : this.displayName(this.previewObject.key) },
+        preferType: SheetType.CENTER,
+        enableOutsideInteractive: false,
+        backgroundColor: $r('sys.color.comp_background_primary'),
+        onDisappear: () => {
+          if (this.showMediaSheet) {
+            this.showMediaSheet = false;
+            this.previewObject = null;
+          }
+        }
+      })
     }
-    // 重命名半模态：宽窗口居中弹出，窄窗口自动退化为底部半模态。
-    .bindSheet(this.showRenameEditor!!, this.renameEditorDialog(), {
-      height: SheetSize.FIT_CONTENT,
-      showClose: true,
-      title: { title: '重命名文件' },
-      preferType: SheetType.CENTER,
-      enableOutsideInteractive: false,
-      backgroundColor: $r('sys.color.comp_background_primary')
-    })
   }
 }
