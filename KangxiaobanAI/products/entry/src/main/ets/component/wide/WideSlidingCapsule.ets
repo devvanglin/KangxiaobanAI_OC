@@ -25,10 +25,9 @@ export interface WideSlidingCapsuleItem {
   badgeAtCorner?: boolean;
 }
 
-// 标题栏 stackBuilder 会周期性销毁重建本组件，逐帧滑动状态随之丢失，
-// 表现为点击后滑块瞬移。这里按实例键记住上一实例的滑块位置，
-// 新实例挂载时从旧位置继续播放滑动动画。
-const capsulePositionMemory: Map<string, number> = new Map<string, number>();
+// 滑块位移由显式 animateTo 补间（见 applySelection），滑动动画
+// 不依赖组件存续状态，标题栏 stackBuilder 重建也不影响。
+const capsuleLastPosition: Map<string, number> = new Map<string, number>();
 
 @ComponentV2
 export struct WideSlidingCapsule {
@@ -38,7 +37,7 @@ export struct WideSlidingCapsule {
   @Param itemFontSize: number = 16;
   @Param fillWidth: boolean = false;
   @Param iconOnly: boolean = false;
-  /** 跨实例滑动记忆键：同一胶囊在重建前后保持一致即可续播动画。 */
+  /** 跨实例滑动记忆键：同一胶囊在重建前后保持一致即可续播滑动。 */
   @Param slideMemoryKey: string = '';
   @Event onSelect: (index: number) => void = (_index: number) => {};
   @Local hoveredIndex: number = -1;
@@ -46,7 +45,6 @@ export struct WideSlidingCapsule {
   @Local measuredWidth: number = 0;
   @Local animatedPosition: number = 0;
   @Local visualSelectedIndex: number = -1;
-  private slideTimerId: number = -1;
 
   private selectedPosition(): number {
     return this.items.findIndex((item: WideSlidingCapsuleItem) => item.index === this.visualSelectedIndex);
@@ -63,21 +61,9 @@ export struct WideSlidingCapsule {
   aboutToAppear(): void {
     this.visualSelectedIndex = this.selectedIndex;
     const position: number = this.selectedPosition();
-    const target: number = position < 0 ? 0 : position;
-    const remembered: number | undefined = capsulePositionMemory.get(this.slideMemoryId());
-    if (this.slideMemoryKey.length > 0 && remembered !== undefined &&
-      Math.abs(remembered - target) > 0.001) {
-      this.animatedPosition = remembered;
-      this.animatePillTo(target);
-    } else {
-      this.animatedPosition = target;
-    }
-  }
-
-  aboutToDisappear(): void {
-    if (this.slideTimerId >= 0) {
-      clearInterval(this.slideTimerId);
-      this.slideTimerId = -1;
+    this.animatedPosition = position < 0 ? 0 : position;
+    if (this.slideMemoryKey.length > 0) {
+      capsuleLastPosition.set(this.slideMemoryId(), this.animatedPosition);
     }
   }
 
@@ -86,49 +72,30 @@ export struct WideSlidingCapsule {
     if (this.selectedIndex === this.visualSelectedIndex) {
       return;
     }
-    this.visualSelectedIndex = this.selectedIndex;
-    const position: number = this.selectedPosition();
-    if (position < 0 || position === this.animatedPosition) {
-      return;
-    }
-    this.animatePillTo(position);
+    this.applySelection(this.selectedIndex);
   }
 
-  // 显式帧驱动滑动：不依赖 animateTo/.animation() 等隐式动画机制。实测隐式
-  // 动画对该 translate 不生效（滑块瞬移），逐帧推进状态变量在任何环境都必然
-  // 渲染出滑动过程；easeOutCubic 提供平滑减速的收尾手感。
-  private animatePillTo(target: number): void {
-    if (this.slideTimerId >= 0) {
-      clearInterval(this.slideTimerId);
+  private applySelection(index: number): void {
+    const position: number = this.items.findIndex((item: WideSlidingCapsuleItem) => item.index === index);
+    if (position < 0) {
+      return;
     }
-    const start: number = this.animatedPosition;
-    const startedAt: number = Date.now();
-    const duration: number = 280;
-    this.slideTimerId = setInterval((): void => {
-      const progress: number = Math.min(1, (Date.now() - startedAt) / duration);
-      const eased: number = 1 - Math.pow(1 - progress, 3);
-      this.animatedPosition = start + (target - start) * eased;
-      if (this.slideMemoryKey.length > 0) {
-        capsulePositionMemory.set(this.slideMemoryId(), this.animatedPosition);
-      }
-      if (progress >= 1) {
-        clearInterval(this.slideTimerId);
-        this.slideTimerId = -1;
-        this.animatedPosition = target;
-      }
-    }, 16);
+    this.visualSelectedIndex = index;
+    this.getUIContext().animateTo({ duration: 280, curve: Curve.Friction }, (): void => {
+      this.animatedPosition = position;
+    });
+    if (this.slideMemoryKey.length > 0) {
+      capsuleLastPosition.set(this.slideMemoryId(), position);
+    }
   }
 
   private slideTo(index: number): void {
     if (index === this.visualSelectedIndex && index === this.selectedIndex) {
       return;
     }
-    const position: number = this.items.findIndex((item: WideSlidingCapsuleItem) => item.index === index);
-    if (position < 0) {
+    if (this.items.findIndex((item: WideSlidingCapsuleItem) => item.index === index) < 0) {
       return;
     }
-    this.visualSelectedIndex = index;
-    this.animatePillTo(position);
     // 选择必须同步上抛，不允许延迟：本组件挂在 HdsNavigation 标题栏的
     // stackBuilder 里，而标题栏 options（秒级时钟 mainTitle、返回键显隐等）
     // 每次父组件重渲都是新对象，stackBuilder 内容会被周期性销毁重建。此前的
@@ -136,6 +103,7 @@ export struct WideSlidingCapsule {
     // 表现为点击后高亮滑过去又弹回、内容不切换。现在点击立即上抛，选择事实
     // 只存在于父级状态中；"先播动画再切内容"的体验由父级延迟挂载内容来保证
     // （MainPage.updateManagementNav 延迟 280ms 更新内容索引）。
+    this.applySelection(index);
     this.onSelect(index);
   }
 
