@@ -46,3 +46,4 @@ elderly-care-repos/probe_server.py
 
 # Local fleet credentials (never commit).
 .codex/private/*.json
+kangxiaoban-service/kxb-deploy-linux-amd64
