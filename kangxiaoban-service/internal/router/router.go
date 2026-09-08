@@ -167,6 +167,15 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		authed.POST("/admin/ai/prompts", perm("admin:all"), aiAdminHandler.AdminPromptCreate)
 		authed.PUT("/admin/ai/prompts/:id", perm("admin:all"), aiAdminHandler.AdminPromptUpdate)
 		authed.DELETE("/admin/ai/prompts/:id", perm("admin:all"), aiAdminHandler.AdminPromptDelete)
+		authed.GET("/admin/ai/skills", perm("admin:all"), aiAdminHandler.AdminSkillList)
+		authed.POST("/admin/ai/skills", perm("admin:all"), aiAdminHandler.AdminSkillCreate)
+		authed.PUT("/admin/ai/skills/:id", perm("admin:all"), aiAdminHandler.AdminSkillUpdate)
+		authed.DELETE("/admin/ai/skills/:id", perm("admin:all"), aiAdminHandler.AdminSkillDelete)
+		authed.GET("/admin/ai/mcp/servers", perm("admin:all"), aiAdminHandler.AdminMCPServerList)
+		authed.POST("/admin/ai/mcp/servers", perm("admin:all"), aiAdminHandler.AdminMCPServerCreate)
+		authed.PUT("/admin/ai/mcp/servers/:id", perm("admin:all"), aiAdminHandler.AdminMCPServerUpdate)
+		authed.DELETE("/admin/ai/mcp/servers/:id", perm("admin:all"), aiAdminHandler.AdminMCPServerDelete)
+		authed.POST("/admin/ai/mcp/servers/:id/probe", perm("admin:all"), aiAdminHandler.AdminMCPServerProbe)
 
 		// 长者档案（读）
 		elders := authed.Group("/elders", perm("elder:read"))

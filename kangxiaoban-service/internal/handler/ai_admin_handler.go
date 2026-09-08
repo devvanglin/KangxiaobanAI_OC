@@ -226,6 +226,214 @@ func (h *AIAdminHandler) AdminPromptDelete(c *gin.Context) {
 	OK(c, gin.H{"deleted": true})
 }
 
+// ---- Skills 管理 ----
+
+type aiSkillReq struct {
+	RoleScope    string `json:"role_scope"`
+	Code         string `json:"code"`
+	Name         string `json:"name"`
+	Description  string `json:"description"`
+	Version      string `json:"version"`
+	Tags         string `json:"tags"`
+	Instructions string `json:"instructions"`
+	SortOrder    int    `json:"sort_order"`
+	Enabled      bool   `json:"enabled"`
+}
+
+// AdminSkillList GET /api/v1/admin/ai/skills?role=caregiver|doctor|all
+func (h *AIAdminHandler) AdminSkillList(c *gin.Context) {
+	rows, err := h.svc.AdminListSkills(c.Request.Context(), c.Query("role"))
+	if err != nil {
+		Fail(c, http.StatusInternalServerError, 500, "技能列表加载失败")
+		return
+	}
+	OK(c, rows)
+}
+
+// AdminSkillCreate POST /api/v1/admin/ai/skills
+func (h *AIAdminHandler) AdminSkillCreate(c *gin.Context) {
+	var req aiSkillReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Fail(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	row, err := h.svc.AdminCreateSkill(c.Request.Context(), service.AISkillInput{
+		RoleScope: req.RoleScope, Code: req.Code, Name: req.Name, Description: req.Description,
+		Version: req.Version, Tags: req.Tags, Instructions: req.Instructions,
+		SortOrder: req.SortOrder, Enabled: req.Enabled,
+	})
+	if err != nil {
+		if errors.Is(err, service.ErrAIValidation) {
+			Fail(c, http.StatusBadRequest, 400, err.Error())
+			return
+		}
+		Fail(c, http.StatusInternalServerError, 500, "技能创建失败")
+		return
+	}
+	OK(c, row)
+}
+
+// AdminSkillUpdate PUT /api/v1/admin/ai/skills/:id
+func (h *AIAdminHandler) AdminSkillUpdate(c *gin.Context) {
+	id, parseErr := strconv.ParseUint(c.Param("id"), 10, 64)
+	if parseErr != nil {
+		Fail(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	var req aiSkillReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Fail(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	row, err := h.svc.AdminUpdateSkill(c.Request.Context(), uint(id), service.AISkillInput{
+		RoleScope: req.RoleScope, Code: req.Code, Name: req.Name, Description: req.Description,
+		Version: req.Version, Tags: req.Tags, Instructions: req.Instructions,
+		SortOrder: req.SortOrder, Enabled: req.Enabled,
+	})
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			Fail(c, http.StatusNotFound, 404, "技能不存在")
+			return
+		}
+		if errors.Is(err, service.ErrAIValidation) {
+			Fail(c, http.StatusBadRequest, 400, err.Error())
+			return
+		}
+		Fail(c, http.StatusInternalServerError, 500, "技能保存失败")
+		return
+	}
+	OK(c, row)
+}
+
+// AdminSkillDelete DELETE /api/v1/admin/ai/skills/:id
+func (h *AIAdminHandler) AdminSkillDelete(c *gin.Context) {
+	id, parseErr := strconv.ParseUint(c.Param("id"), 10, 64)
+	if parseErr != nil {
+		Fail(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	if err := h.svc.AdminDeleteSkill(c.Request.Context(), uint(id)); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			Fail(c, http.StatusNotFound, 404, "技能不存在")
+			return
+		}
+		if errors.Is(err, service.ErrAIValidation) {
+			Fail(c, http.StatusBadRequest, 400, err.Error())
+			return
+		}
+		Fail(c, http.StatusInternalServerError, 500, "技能删除失败")
+		return
+	}
+	OK(c, gin.H{"deleted": true})
+}
+
+// ---- MCP 管理 ----
+
+type aiMCPServerReq struct {
+	Name     string `json:"name"`
+	Endpoint string `json:"endpoint"`
+	APIKey   string `json:"api_key"`
+	Enabled  bool   `json:"enabled"`
+}
+
+// AdminMCPServerList GET /api/v1/admin/ai/mcp/servers
+func (h *AIAdminHandler) AdminMCPServerList(c *gin.Context) {
+	rows, err := h.svc.AdminListMCPServers(c.Request.Context())
+	if err != nil {
+		Fail(c, http.StatusInternalServerError, 500, "MCP 服务列表加载失败")
+		return
+	}
+	OK(c, rows)
+}
+
+// AdminMCPServerCreate POST /api/v1/admin/ai/mcp/servers
+func (h *AIAdminHandler) AdminMCPServerCreate(c *gin.Context) {
+	var req aiMCPServerReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Fail(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	row, err := h.svc.AdminCreateMCPServer(c.Request.Context(), service.AdminMCPServerInput{
+		Name: req.Name, Endpoint: req.Endpoint, APIKey: req.APIKey, Enabled: req.Enabled,
+	})
+	if err != nil {
+		if errors.Is(err, service.ErrAIValidation) {
+			Fail(c, http.StatusBadRequest, 400, err.Error())
+			return
+		}
+		Fail(c, http.StatusInternalServerError, 500, "MCP 服务创建失败")
+		return
+	}
+	OK(c, row)
+}
+
+// AdminMCPServerUpdate PUT /api/v1/admin/ai/mcp/servers/:id
+func (h *AIAdminHandler) AdminMCPServerUpdate(c *gin.Context) {
+	id, parseErr := strconv.ParseUint(c.Param("id"), 10, 64)
+	if parseErr != nil {
+		Fail(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	var req aiMCPServerReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Fail(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	row, err := h.svc.AdminUpdateMCPServer(c.Request.Context(), uint(id), service.AdminMCPServerInput{
+		Name: req.Name, Endpoint: req.Endpoint, APIKey: req.APIKey, Enabled: req.Enabled,
+	})
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			Fail(c, http.StatusNotFound, 404, "MCP 服务不存在")
+			return
+		}
+		if errors.Is(err, service.ErrAIValidation) {
+			Fail(c, http.StatusBadRequest, 400, err.Error())
+			return
+		}
+		Fail(c, http.StatusInternalServerError, 500, "MCP 服务保存失败")
+		return
+	}
+	OK(c, row)
+}
+
+// AdminMCPServerDelete DELETE /api/v1/admin/ai/mcp/servers/:id
+func (h *AIAdminHandler) AdminMCPServerDelete(c *gin.Context) {
+	id, parseErr := strconv.ParseUint(c.Param("id"), 10, 64)
+	if parseErr != nil {
+		Fail(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	if err := h.svc.AdminDeleteMCPServer(c.Request.Context(), uint(id)); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			Fail(c, http.StatusNotFound, 404, "MCP 服务不存在")
+			return
+		}
+		Fail(c, http.StatusInternalServerError, 500, "MCP 服务删除失败")
+		return
+	}
+	OK(c, gin.H{"deleted": true})
+}
+
+// AdminMCPServerProbe POST /api/v1/admin/ai/mcp/servers/:id/probe
+func (h *AIAdminHandler) AdminMCPServerProbe(c *gin.Context) {
+	id, parseErr := strconv.ParseUint(c.Param("id"), 10, 64)
+	if parseErr != nil {
+		Fail(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	row, err := h.svc.AdminProbeMCPServer(c.Request.Context(), uint(id))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			Fail(c, http.StatusNotFound, 404, "MCP 服务不存在")
+			return
+		}
+		Fail(c, http.StatusInternalServerError, 500, "MCP 探测失败")
+		return
+	}
+	OK(c, row)
+}
+
 // RagEmbeddingModels GET /api/v1/admin/ai/rag/embedding-models
 func (h *AIAdminHandler) RagEmbeddingModels(c *gin.Context) {
 	models, err := h.svc.ListRAGModels(c.Request.Context(), "text-embedding")

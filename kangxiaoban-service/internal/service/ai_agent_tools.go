@@ -51,6 +51,8 @@ func (s *AIService) buildAgentTools(ctx context.Context, connection *model.AICon
 			tools = append(tools, spec.definition)
 		}
 	}
+	// Bridged MCP tools come last so native data tools keep prompt priority.
+	tools = append(tools, s.mcpAgentTools(ctx)...)
 	return tools
 }
 
