@@ -41,9 +41,15 @@ func (h *AIHandler) ListSuggestions(c *gin.Context) {
 // ListModels GET /api/v1/ai/models
 func (h *AIHandler) ListModels(c *gin.Context) {
 	claims, ok := middleware.ClaimsFrom(c)
-	if !ok { Fail(c, http.StatusUnauthorized, 401, "未登录"); return }
+	if !ok {
+		Fail(c, http.StatusUnauthorized, 401, "未登录")
+		return
+	}
 	items, err := h.svc.ListAvailableModels(service.WithAIRoleScope(c.Request.Context(), aiRoleScope(claims)))
-	if err != nil { Fail(c, 500, 500, "查询可用 AI 模型失败"); return }
+	if err != nil {
+		Fail(c, 500, 500, "查询可用 AI 模型失败")
+		return
+	}
 	OK(c, gin.H{"list": items})
 }
 
@@ -57,6 +63,7 @@ type aiConversationReq struct {
 
 type aiMessageReq struct {
 	Content string `json:"content" binding:"required"`
+	Mode    string `json:"mode"` // chat 普通对话 / work 工作台数据助手
 }
 
 // Chat POST /api/v1/ai/chat
@@ -169,7 +176,7 @@ func (h *AIHandler) SendMessage(c *gin.Context) {
 		return
 	}
 	ctx := service.WithAIRoleScope(c.Request.Context(), aiRoleScope(claims))
-	exchange, err := h.svc.SendMessage(ctx, claims.UserID, id, req.Content)
+	exchange, err := h.svc.SendMessage(ctx, claims.UserID, id, req.Content, req.Mode)
 	if err != nil {
 		handleAIConversationError(c, err, "发送 AI 消息失败")
 		return

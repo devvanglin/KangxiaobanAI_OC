@@ -4,8 +4,8 @@ package model
 type Medication struct {
 	Base
 	Name          string `gorm:"size:128;not null;index" json:"name"`
-	Category      string `gorm:"size:32;default:西药" json:"category"`    // 西药/中药/保健品
-	Specification string `gorm:"size:64" json:"specification"`           // 例: 100mg×30片
+	Category      string `gorm:"size:32;default:西药" json:"category"` // 西药/中药/保健品
+	Specification string `gorm:"size:64" json:"specification"`       // 例: 100mg×30片
 	Manufacturer  string `gorm:"size:128" json:"manufacturer"`
 	UsageMethod   string `gorm:"size:32;default:口服" json:"usage_method"` // 口服/注射/外用/雾化
 	Stock         int    `gorm:"default:0" json:"stock"`

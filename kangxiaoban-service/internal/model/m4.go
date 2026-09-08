@@ -38,11 +38,11 @@ type Bill struct {
 // FundFlow 资金流水。方向 in 预缴/out 抵扣。
 type FundFlow struct {
 	Base
-	ElderID       uint    `gorm:"index" json:"elder_id"`
-	Direction     string  `gorm:"size:8" json:"direction"` // in / out
-	RelatedMonth  string  `gorm:"size:10" json:"related_month"`
-	Reason        string  `gorm:"size:128" json:"reason"`
-	Amount        float64 `json:"amount"`
+	ElderID      uint    `gorm:"index" json:"elder_id"`
+	Direction    string  `gorm:"size:8" json:"direction"` // in / out
+	RelatedMonth string  `gorm:"size:10" json:"related_month"`
+	Reason       string  `gorm:"size:128" json:"reason"`
+	Amount       float64 `json:"amount"`
 }
 
 // MedicationRecord 用药记录。状态 pending/taken/refused/missed。

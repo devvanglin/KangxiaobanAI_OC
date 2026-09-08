@@ -111,16 +111,16 @@ type Turn struct {
 
 // RunRequest is one agent invocation.
 type RunRequest struct {
-	Mode            Mode
-	SystemPrompt    string
-	Skills          []string // rendered instruction fragments appended to the prompt
-	History         []Turn
-	UserMessage     string
-	Tools           []*ToolDefinition
-	MaxTurns        int
-	Temperature     float64
-	MaxContextRunes int    // soft budget for history; older turns get summarized
-	Summary         string // rolling summary of previously compacted history
+	Mode          Mode
+	SystemPrompt  string
+	Skills        []string // rendered instruction fragments appended to the prompt
+	History       []Turn
+	UserMessage   string
+	Tools         []*ToolDefinition
+	MaxTurns      int
+	Temperature   float64
+	ContextWindow int    // model context window used for history budgeting
+	Summary       string // rolling summary of previously compacted history
 }
 
 // RunResult is the completed agent answer plus everything the UI needs to

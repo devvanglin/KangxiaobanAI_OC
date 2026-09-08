@@ -16,6 +16,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"kangxiaoban-service/internal/agent"
 	"kangxiaoban-service/internal/config"
 	"kangxiaoban-service/internal/model"
 	"kangxiaoban-service/internal/security"
@@ -47,8 +48,9 @@ type AIExchange struct {
 
 // AIService 对话网关：provider=local 使用离线规则，provider=http 走真实模型。
 type AIService struct {
-	cfg *config.AIConfig
-	db  *gorm.DB
+	cfg              *config.AIConfig
+	db               *gorm.DB
+	agentNativeTools bool
 }
 
 type aiRoleScopeKey struct{}
@@ -108,7 +110,7 @@ func (s *AIService) configForContext(ctx context.Context) (*config.AIConfig, *mo
 }
 
 func NewAIService(cfg *config.AIConfig, db *gorm.DB) *AIService {
-	return &AIService{cfg: cfg, db: db}
+	return &AIService{cfg: cfg, db: db, agentNativeTools: agentNativeToolsFromEnv()}
 }
 
 // ListPromptSuggestions returns the current tenant's enabled starter prompts.
@@ -265,8 +267,10 @@ func (s *AIService) UsageByModel(ctx context.Context) ([]ModelUsageStat, error) 
 	return rows, nil
 }
 
-// SendMessage asks the configured AI and atomically persists both sides of the exchange.
-func (s *AIService) SendMessage(ctx context.Context, userID, conversationID uint, content string) (*AIExchange, error) {
+// SendMessage asks the agent and atomically persists both sides of the
+// exchange. mode=chat keeps ordinary conversation (knowledge-base tool only);
+// mode=work exposes the institutional read-only data tools.
+func (s *AIService) SendMessage(ctx context.Context, userID, conversationID uint, content, mode string) (*AIExchange, error) {
 	content = strings.TrimSpace(content)
 	if userID == 0 || conversationID == 0 || content == "" {
 		return nil, fmt.Errorf("%w: user_id, conversation_id and content are required", ErrAIValidation)
@@ -276,7 +280,7 @@ func (s *AIService) SendMessage(ctx context.Context, userID, conversationID uint
 		First(&owned).Error; err != nil {
 		return nil, mapAIConversationNotFound(err)
 	}
-	answer, modelName, err := s.Chat(ctx, userID, content)
+	answer, modelName, reasoning, trace, err := s.chatWithAgent(ctx, userID, owned, content, agent.NormalizeMode(mode))
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +291,7 @@ func (s *AIService) SendMessage(ctx context.Context, userID, conversationID uint
 			First(&conversation).Error; err != nil {
 			return mapAIConversationNotFound(err)
 		}
-		return persistAIExchange(tx, &conversation, userID, content, answer, modelName, exchange)
+		return persistAIExchange(tx, &conversation, userID, content, answer, modelName, exchange, reasoning, trace)
 	})
 	if err != nil {
 		return nil, err
@@ -317,7 +321,7 @@ func (s *AIService) ChatAndPersistDefault(ctx context.Context, userID uint, ques
 		} else if err != nil {
 			return err
 		}
-		return persistAIExchange(tx, &conversation, userID, question, answer, modelName, nil)
+		return persistAIExchange(tx, &conversation, userID, question, answer, modelName, nil, "", "")
 	})
 	if err != nil {
 		return "", "", err
@@ -415,28 +419,31 @@ func (s *AIService) recordUsage(ctx context.Context, userID uint, configRow *mod
 	}
 }
 
-// ragContextForChat 调用租户统一 Dify 知识库检索接口并拼接参考片段。布尔值表示
-// 是否发起了检索调用（即管理端统计的“RAG 知识库调用次数”）。检索失败不阻断对话。
-func (s *AIService) ragContextForChat(ctx context.Context, row *model.AIConnection, question string) (string, bool) {
+// ragRetrieve 调用租户统一 Dify 知识库检索接口并返回参考片段。检索失败返回错误，
+// 由调用方决定是否阻断（对话永远不因检索失败而失败）。
+func (s *AIService) ragRetrieve(ctx context.Context, row *model.AIConnection, question string, topK int) ([]string, error) {
 	baseURL := strings.TrimRight(strings.TrimSpace(row.RAGBaseURL), "/")
 	datasetID := strings.TrimSpace(row.RAGDatasetID)
 	if baseURL == "" || datasetID == "" {
-		return "", false
+		return nil, ErrRAGNotConfigured
 	}
 	apiKey := ""
 	if value, err := security.Decrypt(s.cfg.ConfigKey, row.RAGAPIKeyEncrypted); err == nil {
 		apiKey = value
 	}
+	if topK <= 0 {
+		topK = 3
+	}
 	body, _ := json.Marshal(map[string]interface{}{
 		"query": question,
 		"retrieval_model": map[string]interface{}{
 			"search_method": "semantic_search", "reranking_enable": false,
-			"top_k": 3, "score_threshold_enabled": false,
+			"top_k": topK, "score_threshold_enabled": false,
 		},
 	})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/v1/datasets/"+datasetID+"/retrieve", bytes.NewReader(body))
 	if err != nil {
-		return "", true
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if apiKey != "" {
@@ -445,11 +452,11 @@ func (s *AIService) ragContextForChat(ctx context.Context, row *model.AIConnecti
 	client := &http.Client{Timeout: 8 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", true
+		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return "", true
+		return nil, fmt.Errorf("rag retrieve HTTP %d", resp.StatusCode)
 	}
 	var out struct {
 		Records []struct {
@@ -459,22 +466,33 @@ func (s *AIService) ragContextForChat(ctx context.Context, row *model.AIConnecti
 		} `json:"records"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return "", true
+		return nil, err
 	}
 	parts := make([]string, 0, len(out.Records))
 	for _, record := range out.Records {
-		content := strings.TrimSpace(record.Segment.Content)
-		if content != "" {
+		if content := strings.TrimSpace(record.Segment.Content); content != "" {
 			parts = append(parts, content)
 		}
 	}
-	if len(parts) == 0 {
-		return "", true
-	}
-	return strings.Join(parts, "\n---\n"), true
+	return parts, nil
 }
 
-func persistAIExchange(tx *gorm.DB, conversation *model.AIConversation, userID uint, question, answer, modelName string, exchange *AIExchange) error {
+// ragContextForChat 把检索片段拼成注入文本；布尔值表示是否发起了检索调用
+// （即管理端统计的“RAG 知识库调用次数”）。
+func (s *AIService) ragContextForChat(ctx context.Context, row *model.AIConnection, question string) (string, bool) {
+	baseURL := strings.TrimRight(strings.TrimSpace(row.RAGBaseURL), "/")
+	datasetID := strings.TrimSpace(row.RAGDatasetID)
+	if baseURL == "" || datasetID == "" {
+		return "", false
+	}
+	fragments, err := s.ragRetrieve(ctx, row, question, 3)
+	if err != nil || len(fragments) == 0 {
+		return "", true
+	}
+	return strings.Join(fragments, "\n---\n"), true
+}
+
+func persistAIExchange(tx *gorm.DB, conversation *model.AIConversation, userID uint, question, answer, modelName string, exchange *AIExchange, reasoning, trace string) error {
 	now := time.Now()
 	userMessage := model.AIMessage{
 		ConversationID: conversation.ID, UserID: userID, Role: "user", Content: question, SentAt: now,
@@ -483,7 +501,8 @@ func persistAIExchange(tx *gorm.DB, conversation *model.AIConversation, userID u
 		return err
 	}
 	assistantMessage := model.AIMessage{
-		ConversationID: conversation.ID, UserID: userID, Role: "assistant", Content: answer, Model: modelName, SentAt: now,
+		ConversationID: conversation.ID, UserID: userID, Role: "assistant", Content: answer, Model: modelName,
+		Reasoning: reasoning, Trace: trace, SentAt: now,
 	}
 	if err := tx.Create(&assistantMessage).Error; err != nil {
 		return err

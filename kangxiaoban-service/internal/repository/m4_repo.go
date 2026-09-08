@@ -41,7 +41,9 @@ func (r *ScheduleRepository) ListHandovers(date string, page, size int) ([]model
 	return items, total, err
 }
 
-func (r *ScheduleRepository) CreateHandover(h *model.ShiftHandover) error { return r.db.Create(h).Error }
+func (r *ScheduleRepository) CreateHandover(h *model.ShiftHandover) error {
+	return r.db.Create(h).Error
+}
 
 // FinanceRepository 费用账单 + 资金流水。
 type FinanceRepository struct{ db *gorm.DB }

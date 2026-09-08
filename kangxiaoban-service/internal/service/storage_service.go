@@ -98,9 +98,9 @@ func (s *StorageService) Buckets(ctx context.Context) ([]StorageBucket, error) {
 
 // StorageListing 桶内某一层级的浏览结果：子文件夹与当前层级的文件。
 type StorageListing struct {
-	Prefix  string           `json:"prefix"`
-	Folders []StorageFolder  `json:"folders"`
-	Objects []StorageObject  `json:"objects"`
+	Prefix  string          `json:"prefix"`
+	Folders []StorageFolder `json:"folders"`
+	Objects []StorageObject `json:"objects"`
 }
 
 // StorageFolder 子文件夹项；Prefix 为含尾斜杠的完整前缀，进入时直接作为列表前缀。

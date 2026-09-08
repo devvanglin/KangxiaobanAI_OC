@@ -17,6 +17,43 @@ type AIPromptSuggestion struct {
 
 func (AIPromptSuggestion) TableName() string { return "ai_prompt_suggestions" }
 
+// AISkill is one tenant-owned agent skill: a bounded instruction fragment
+// injected into the role system prompt. The metadata mirrors the SKILL.md
+// frontmatter contract (name, description, version, tags) so skills stay
+// portable and reviewable; instructions are advisory only.
+type AISkill struct {
+	Base
+	RoleScope    string `gorm:"size:16;default:all;index" json:"role_scope"`
+	Code         string `gorm:"size:64;index;not null" json:"code"`
+	Name         string `gorm:"size:64;not null" json:"name"`
+	Description  string `gorm:"size:255" json:"description"`
+	Version      string `gorm:"size:16;default:1.0.0" json:"version"`
+	Tags         string `gorm:"size:255" json:"tags"`
+	Instructions string `gorm:"type:text;not null" json:"instructions"`
+	SortOrder    int    `gorm:"default:0" json:"sort_order"`
+	Enabled      bool   `gorm:"default:true;index" json:"enabled"`
+	IsBuiltin    bool   `gorm:"default:false" json:"is_builtin"`
+}
+
+func (AISkill) TableName() string { return "ai_skills" }
+
+// AIMCPServer is one tenant-registered Model Context Protocol server. The
+// gateway bridges its tools into the agent registry over streamable HTTP;
+// API keys are encrypted and never serialized.
+type AIMCPServer struct {
+	Base
+	Name             string     `gorm:"size:64;not null" json:"name"`
+	Endpoint         string     `gorm:"size:512;not null" json:"endpoint"`
+	APIKeyEncrypted  string     `gorm:"size:2048" json:"-"`
+	Enabled          bool       `gorm:"default:true;index" json:"enabled"`
+	Status           string     `gorm:"size:16;default:unknown" json:"status"`
+	ToolCount        int        `gorm:"default:0" json:"tool_count"`
+	LastProbeAt      *time.Time `json:"last_probe_at"`
+	LastProbeMessage string     `gorm:"size:255" json:"last_probe_message"`
+}
+
+func (AIMCPServer) TableName() string { return "ai_mcp_servers" }
+
 // AIModelConfig is tenant-owned configuration for one role's AI gateway.
 // API keys are deliberately never serialized.
 type AIModelConfig struct {
@@ -57,17 +94,21 @@ type AIConnection struct {
 
 func (AIConnection) TableName() string { return "ai_connections" }
 
-// AIConversation is one authenticated user's isolated AI chat thread.
+// AIConversation is one authenticated user's isolated AI chat thread. Summary
+// carries the rolling compaction of older turns produced by context management.
 type AIConversation struct {
 	Base
 	UserID        uint        `gorm:"index:idx_ai_conversations_user_updated,priority:1;not null" json:"user_id"`
 	Title         string      `gorm:"size:120;not null" json:"title"`
 	IsDefault     bool        `gorm:"index" json:"is_default"`
 	LastMessageAt *time.Time  `gorm:"index:idx_ai_conversations_user_updated,priority:2" json:"last_message_at"`
+	Summary       string      `gorm:"type:text" json:"summary,omitempty"`
 	Messages      []AIMessage `gorm:"foreignKey:ConversationID;constraint:OnDelete:CASCADE" json:"-"`
 }
 
 // AIMessage is one immutable user or assistant message in an AI conversation.
+// Assistant rows may carry the agent's reasoning text and execution trace
+// (JSON steps) for the client thinking-process UI.
 type AIMessage struct {
 	Base
 	ConversationID uint      `gorm:"index:idx_ai_messages_conversation_sent,priority:1;not null" json:"conversation_id"`
@@ -75,6 +116,8 @@ type AIMessage struct {
 	Role           string    `gorm:"size:16;not null" json:"role"`
 	Content        string    `gorm:"type:text;not null" json:"content"`
 	Model          string    `gorm:"size:128" json:"model"`
+	Reasoning      string    `gorm:"type:text" json:"reasoning,omitempty"`
+	Trace          string    `gorm:"type:text" json:"trace,omitempty"`
 	SentAt         time.Time `gorm:"index:idx_ai_messages_conversation_sent,priority:2;not null" json:"sent_at"`
 }
 

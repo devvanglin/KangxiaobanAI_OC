@@ -3,24 +3,48 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
+// agentExchangeTimeout bounds one full agent exchange. The agent may run
+// several model turns plus tool calls, which is far slower than one REST
+// request; the value stays generous because on-prem models are slow and the
+// client UI owns its own spinner.
+const agentExchangeTimeout = 180 * time.Second
+
+// isAgentExchangePath reports whether the request is one AI agent exchange.
+func isAgentExchangePath(path string) bool {
+	if path == "/api/v1/ai/chat" {
+		return true
+	}
+	return strings.HasPrefix(path, "/api/v1/ai/conversations/") && strings.HasSuffix(path, "/messages")
+}
+
 // RequestTimeout gives context-aware REST handlers a finite deadline so a
 // stalled database or upstream dependency can release the native client's
 // request. The WebSocket endpoint is deliberately excluded because its
 // request lifetime is the lifetime of the upgraded connection rather than one
-// response. Handlers must pass c.Request.Context() to their dependencies.
+// response. AI agent exchanges get the longer agentExchangeTimeout instead.
+// Handlers must pass c.Request.Context() to their dependencies.
 func RequestTimeout(timeout time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if c.Request.URL.Path == "/api/v1/ws" || timeout <= 0 {
+		if timeout <= 0 {
 			c.Next()
 			return
 		}
+		if c.Request.URL.Path == "/api/v1/ws" {
+			c.Next()
+			return
+		}
+		effective := timeout
+		if isAgentExchangePath(c.Request.URL.Path) {
+			effective = agentExchangeTimeout
+		}
 
-		ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
+		ctx, cancel := context.WithTimeout(c.Request.Context(), effective)
 		defer cancel()
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
