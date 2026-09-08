@@ -54,6 +54,18 @@ export interface AiConversation {
   last_message_at?: string | null;
 }
 
+/** agent 思考过程的一步（工具调用 / 推理 / 提示）。 */
+export interface AiAgentStep {
+  type: string;
+  title?: string;
+  detail?: string;
+  tool?: string;
+  args_preview?: string;
+  result?: string;
+  ok: boolean;
+  duration_ms: number;
+}
+
 export interface AiConversationMessage {
   id: number;
   tenant_id: number;
@@ -64,6 +76,8 @@ export interface AiConversationMessage {
   role: string;
   content: string;
   model: string;
+  reasoning?: string;
+  trace?: string;
   sent_at: string;
 }
 
@@ -81,6 +95,7 @@ export interface AiConversationCreateRequest {
 
 export interface AiConversationSendRequest {
   content: string;
+  mode?: string;
 }
 
 export interface AiConversationDeleteResponse {

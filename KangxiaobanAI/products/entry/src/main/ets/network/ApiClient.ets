@@ -58,19 +58,20 @@ export class ApiClient {
     });
   }
 
-  private static requestOnce<T>(method: HttpMethod, path: string, body?: Object): Promise<ApiResp<T>> {
+  private static requestOnce<T>(method: HttpMethod, path: string, body?: Object, timeoutMs?: number): Promise<ApiResp<T>> {
     const httpRequest = http.createHttp();
     const header: Record<string, string> = { 'Content-Type': 'application/json' };
     const token: string = AuthStore.getToken();
     if (token.length > 0) {
       header['Authorization'] = 'Bearer ' + token;
     }
+    const watchdogMs: number = timeoutMs !== undefined && timeoutMs > 0 ? timeoutMs : ApiClient.REQUEST_TIMEOUT_MS;
     const options: http.HttpRequestOptions = {
       method: toRequestMethod(method),
       header: header,
       expectDataType: http.HttpDataType.STRING,
       connectTimeout: ApiClient.CONNECT_TIMEOUT_MS,
-      readTimeout: ApiClient.READ_TIMEOUT_MS
+      readTimeout: Math.max(ApiClient.READ_TIMEOUT_MS, watchdogMs)
     };
     if (method === 'PATCH') {
       options.customMethod = 'PATCH';
@@ -90,8 +91,8 @@ export class ApiClient {
         } catch (_error) {
           // The request may already have been released by NetworkKit.
         }
-        reject(new Error(`请求超时(${ApiClient.REQUEST_TIMEOUT_MS}ms)`));
-      }, ApiClient.REQUEST_TIMEOUT_MS);
+        reject(new Error(`请求超时(${watchdogMs}ms)`));
+      }, watchdogMs);
       const finishError = (error: Object): void => {
         if (settled) {
           return;
@@ -149,12 +150,12 @@ export class ApiClient {
     });
   }
 
-  private static async request<T>(method: HttpMethod, path: string, body?: Object): Promise<ApiResp<T>> {
+  private static async request<T>(method: HttpMethod, path: string, body?: Object, timeoutMs?: number): Promise<ApiResp<T>> {
     const retryable: boolean = ApiClient.shouldRetry(method, path);
     let retryIndex: number = 0;
     while (true) {
       try {
-        return await ApiClient.requestOnce<T>(method, path, body);
+        return await ApiClient.requestOnce<T>(method, path, body, timeoutMs);
       } catch (error) {
         if (!retryable || retryIndex >= ApiClient.MAX_NETWORK_RETRIES) {
           const message: string = error instanceof Error ? error.message : '网络请求失败';
@@ -240,8 +241,8 @@ export class ApiClient {
     };
   }
 
-  public static post<T>(path: string, body?: Object): Promise<ApiResp<T>> {
-    return ApiClient.request<T>('POST', path, body);
+  public static post<T>(path: string, body?: Object, timeoutMs?: number): Promise<ApiResp<T>> {
+    return ApiClient.request<T>('POST', path, body, timeoutMs);
   }
 
   /** Upload one file as a multipart form field while retaining auth headers. */

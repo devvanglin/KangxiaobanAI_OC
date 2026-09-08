@@ -40,6 +40,7 @@ import { WideSlidingCapsule, WideSlidingCapsuleItem } from '../component/wide/Wi
 import ApiClient from '../network/ApiClient';
 import AuthStore from '../network/AuthStore';
 import {
+  AiAgentStep,
   AiConversation,
   AiConversationCreateRequest,
   AiConversationDeleteResponse,
@@ -68,6 +69,8 @@ interface ChatMessage {
   role: ChatRole;
   content: string;
   feedback?: ChatFeedback;
+  reasoning?: string;
+  trace?: AiAgentStep[];
 }
 
 interface ChatSession {
@@ -108,6 +111,7 @@ export struct WideDoctorAiPage {
   @Local historySearchVisible: boolean = false;
   @Local historySearchText: string = '';
   @Local embeddedAssistantMode: number = 0;
+  @Local expandedTraceId: string = '';
   @Local isHistoryLoading: boolean = false;
   @Local promptSuggestionRows: AiInformationFeedItem[][] = [
     new Array<AiInformationFeedItem>(),
@@ -195,12 +199,26 @@ export struct WideDoctorAiPage {
   }
 
   private messageFromServer(message: AiConversationMessage): ChatMessage {
-    return {
+    const result: ChatMessage = {
       id: `${message.id}`,
       role: message.role === 'assistant' ? 'ai' : 'user',
       content: message.content,
       feedback: 'none'
     };
+    if (message.reasoning !== undefined && message.reasoning.length > 0) {
+      result.reasoning = message.reasoning;
+    }
+    if (message.trace !== undefined && message.trace.length > 0) {
+      try {
+        const steps: AiAgentStep[] = JSON.parse(message.trace) as AiAgentStep[];
+        if (steps.length > 0) {
+          result.trace = steps;
+        }
+      } catch (_error) {
+        // Malformed traces are ignored; the answer itself still renders.
+      }
+    }
+    return result;
   }
 
   private messagesFromServer(messages: AiConversationMessage[]): ChatMessage[] {
@@ -867,9 +885,9 @@ export struct WideDoctorAiPage {
     const requestVersion: number = ++this.aiRequestVersion;
     try {
       const conversationId: number = Number(this.activeSessionId);
-      const request: AiConversationSendRequest = { content: text };
+      const request: AiConversationSendRequest = { content: text, mode: this.embeddedAssistantMode === 1 ? 'work' : 'chat' };
       const response = await ApiClient.post<AiConversationExchangeResponse>(
-        `/ai/conversations/${conversationId}/messages`, request);
+        `/ai/conversations/${conversationId}/messages`, request, 190000);
       if (requestVersion !== this.aiRequestVersion) {
         return;
       }
@@ -908,9 +926,9 @@ export struct WideDoctorAiPage {
     const requestVersion: number = ++this.aiRequestVersion;
     try {
       const conversationId: number = Number(this.activeSessionId);
-      const request: AiConversationSendRequest = { content: text };
+      const request: AiConversationSendRequest = { content: text, mode: this.embeddedAssistantMode === 1 ? 'work' : 'chat' };
       const response = await ApiClient.post<AiConversationExchangeResponse>(
-        `/ai/conversations/${conversationId}/messages`, request);
+        `/ai/conversations/${conversationId}/messages`, request, 190000);
       if (requestVersion !== this.aiRequestVersion) {
         return;
       }
@@ -1148,6 +1166,9 @@ export struct WideDoctorAiPage {
   @Builder
   private aiMessageItem(message: ChatMessage) {
     Column({ space: 12 }) {
+      if (this.traceSteps(message).length > 0) {
+        this.agentTraceBlock(message)
+      }
       this.aiContent(message.content)
 
       Row() {
@@ -1163,6 +1184,102 @@ export struct WideDoctorAiPage {
     .width('100%')
     .padding({ left: this.pagePadding(), right: this.pagePadding() })
     .margin({ bottom: 20 })
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  private traceSteps(message: ChatMessage): AiAgentStep[] {
+    return message.trace ?? [];
+  }
+
+  private toggleTrace(message: ChatMessage): void {
+    this.expandedTraceId = this.expandedTraceId === message.id ? '' : message.id;
+  }
+
+  private stepKindLabel(type: string): string {
+    if (type === 'tool_call') {
+      return '调用工具';
+    }
+    if (type === 'reasoning') {
+      return '思考';
+    }
+    if (type === 'retrieval') {
+      return '知识库检索';
+    }
+    return '步骤';
+  }
+
+  @Builder
+  private agentTraceBlock(message: ChatMessage) {
+    Column({ space: 8 }) {
+      Row({ space: 6 }) {
+        SymbolGlyph($r('sys.symbol.doc_text'))
+          .fontSize(14)
+          .fontColor([$r('app.color.brand_blue')])
+        Text(`思考过程 · ${this.traceSteps(message).length} 步`)
+          .fontSize(13)
+          .fontColor($r('sys.color.font_secondary'))
+          .layoutWeight(1)
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(13)
+          .fontColor([$r('sys.color.font_tertiary')])
+          .rotate({ angle: this.expandedTraceId === message.id ? 90 : 0 })
+      }
+      .width('100%')
+      .onClick(() => {
+        this.toggleTrace(message);
+      })
+      if (this.expandedTraceId === message.id) {
+        ForEach(this.traceSteps(message), (step: AiAgentStep, index: number) => {
+          Column({ space: 2 }) {
+            Row({ space: 6 }) {
+              Circle()
+                .width(6)
+                .height(6)
+                .fill(step.ok ? $r('app.color.brand_blue') : $r('app.color.status_danger'))
+              Text(this.stepKindLabel(step.type) + (step.tool !== undefined && step.tool.length > 0 ? ` · ${step.tool}` : ''))
+                .fontSize(12)
+                .fontColor($r('sys.color.font_secondary'))
+              if (step.duration_ms > 0) {
+                Text(`${step.duration_ms}ms`)
+                  .fontSize(11)
+                  .fontColor($r('sys.color.font_tertiary'))
+              }
+            }
+            if (step.args_preview !== undefined && step.args_preview.length > 0) {
+              Text(`参数 ${step.args_preview}`)
+                .fontSize(11)
+                .fontColor($r('sys.color.font_tertiary'))
+                .maxLines(2)
+            }
+            if (step.result !== undefined && step.result.length > 0) {
+              Text(step.result)
+                .fontSize(12)
+                .fontColor($r('sys.color.font_secondary'))
+                .maxLines(4)
+            }
+            if (step.detail !== undefined && step.detail.length > 0) {
+              Text(step.detail)
+                .fontSize(12)
+                .fontColor($r('sys.color.font_secondary'))
+                .maxLines(6)
+            }
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Start)
+        }, (step: AiAgentStep, index: number) => `${message.id}-${index}-${step.type}`)
+        if (message.reasoning !== undefined && message.reasoning.length > 0) {
+          Text(message.reasoning)
+            .fontSize(12)
+            .fontColor($r('sys.color.font_secondary'))
+            .maxLines(10)
+            .width('100%')
+        }
+      }
+    }
+    .width('100%')
+    .padding(10)
+    .backgroundColor($r('sys.color.comp_background_secondary'))
+    .borderRadius(12)
     .alignItems(HorizontalAlign.Start)
   }
 

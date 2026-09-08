@@ -28,6 +28,13 @@ interface RetrieveSettings {
 }
 interface RetrieveSegment { content?: string; }
 interface RetrieveRecord { segment?: RetrieveSegment; score?: number; }
+interface McpServerRecord { id: number; name: string; endpoint: string; enabled: boolean; status: string; tool_count: number; last_probe_at?: string; last_probe_message?: string; }
+interface McpServerPage { list: McpServerRecord[]; }
+interface SkillRecord { id: number; role_scope: string; code: string; name: string; description: string; version: string; tags: string; instructions: string; sort_order: number; enabled: boolean; is_builtin: boolean; }
+interface SkillPage { list: SkillRecord[]; }
+interface SkillSaveRequest { role_scope: string; code: string; name: string; description: string; version: string; tags: string; instructions: string; sort_order: number; enabled: boolean; }
+interface McpSaveRequest { name: string; endpoint: string; api_key: string; enabled: boolean; }
+interface McpProbeRequest { }
 interface RetrieveRequest {
   query: string;
   retrieval_model: RetrieveSettings;
@@ -119,6 +126,22 @@ export struct WideModelManagement {
   @Local saved: boolean = false;
   @Local usage: AIUsageSummary = { total_tokens: 0, today_calls: 0, avg_daily_calls: 0, rag_calls: 0 };
   @Local usageLoaded: boolean = false;
+  @Local mcpServers: McpServerRecord[] = [];
+  @Local selectedMcpId: number = 0;
+  @Local mcpName: string = '';
+  @Local mcpEndpoint: string = '';
+  @Local mcpApiKey: string = '';
+  @Local mcpEnabled: boolean = true;
+  @Local mcpBusy: boolean = false;
+  @Local skills: SkillRecord[] = [];
+  @Local selectedSkillId: number = 0;
+  @Local skillName: string = '';
+  @Local skillCode: string = '';
+  @Local skillRole: string = 'all';
+  @Local skillDescription: string = '';
+  @Local skillInstructions: string = '';
+  @Local skillEnabled: boolean = true;
+  @Local skillBusy: boolean = false;
 
   aboutToAppear(): void {
     this.load();
@@ -128,6 +151,210 @@ export struct WideModelManagement {
     this.loadConnection();
     this.loadRagDatasets();
     this.loadSourceModels();
+    this.loadMcpServers();
+    this.loadSkills();
+  }
+
+  private async loadMcpServers(): Promise<void> {
+    try {
+      const response = await ApiClient.get<McpServerPage>('/admin/ai/mcp/servers');
+      if (response.code === 0 && response.data !== undefined) {
+        this.mcpServers = response.data.list ?? [];
+        if (!this.mcpServers.some((server: McpServerRecord): boolean => server.id === this.selectedMcpId)) {
+          this.selectedMcpId = this.mcpServers.length > 0 ? this.mcpServers[0].id : 0;
+          this.fillMcpEditor();
+        }
+      }
+    } catch (_error) { this.showToast('MCP 服务列表加载失败'); }
+  }
+
+  private selectMcpServer(id: number): void {
+    this.selectedMcpId = id;
+    this.fillMcpEditor();
+  }
+
+  private selectedMcp(): McpServerRecord | undefined {
+    return this.mcpServers.find((server: McpServerRecord): boolean => server.id === this.selectedMcpId);
+  }
+
+  private fillMcpEditor(): void {
+    const server: McpServerRecord | undefined = this.selectedMcp();
+    this.mcpName = server?.name ?? '';
+    this.mcpEndpoint = server?.endpoint ?? '';
+    this.mcpApiKey = '';
+    this.mcpEnabled = server?.enabled ?? true;
+  }
+
+  private createMcpServer(): void {
+    this.selectedMcpId = 0;
+    this.mcpName = '';
+    this.mcpEndpoint = '';
+    this.mcpApiKey = '';
+    this.mcpEnabled = true;
+  }
+
+  private async saveMcpServer(): Promise<void> {
+    if (this.mcpName.trim().length === 0 || this.mcpEndpoint.trim().length === 0) {
+      this.showToast('名称与端点必填');
+      return;
+    }
+    this.mcpBusy = true;
+    const request: McpSaveRequest = {
+      name: this.mcpName.trim(), endpoint: this.mcpEndpoint.trim(),
+      api_key: this.mcpApiKey.trim(), enabled: this.mcpEnabled
+    };
+    try {
+      const response = this.selectedMcpId > 0
+        ? await ApiClient.put<McpServerRecord>(`/admin/ai/mcp/servers/${this.selectedMcpId}`, request)
+        : await ApiClient.post<McpServerRecord>('/admin/ai/mcp/servers', request);
+      if (response.code !== 0) {
+        this.showToast(response.msg.length > 0 ? response.msg : 'MCP 服务保存失败');
+      } else {
+        this.showToast('MCP 服务已保存');
+        await this.loadMcpServers();
+      }
+    } catch (_error) {
+      this.showToast('MCP 服务保存失败，请检查网络');
+    }
+    this.mcpBusy = false;
+  }
+
+  private async deleteMcpServer(): Promise<void> {
+    if (this.selectedMcpId === 0) {
+      return;
+    }
+    this.mcpBusy = true;
+    try {
+      const response = await ApiClient.delete<McpServerRecord>(`/admin/ai/mcp/servers/${this.selectedMcpId}`);
+      if (response.code !== 0) {
+        this.showToast(response.msg.length > 0 ? response.msg : '删除失败');
+      } else {
+        this.showToast('已删除');
+        this.createMcpServer();
+        await this.loadMcpServers();
+      }
+    } catch (_error) {
+      this.showToast('删除失败，请检查网络');
+    }
+    this.mcpBusy = false;
+  }
+
+  private async probeMcpServer(): Promise<void> {
+    if (this.selectedMcpId === 0) {
+      this.showToast('请先保存服务后再探测');
+      return;
+    }
+    this.mcpBusy = true;
+    try {
+      const probeRequest: McpProbeRequest = {};
+      const response = await ApiClient.post<McpServerRecord>(`/admin/ai/mcp/servers/${this.selectedMcpId}/probe`, probeRequest);
+      if (response.code === 0 && response.data !== undefined) {
+        this.showToast(response.data.last_probe_message ?? '探测完成');
+        await this.loadMcpServers();
+      } else {
+        this.showToast(response.msg.length > 0 ? response.msg : '探测失败');
+      }
+    } catch (_error) {
+      this.showToast('探测失败，请检查网络');
+    }
+    this.mcpBusy = false;
+  }
+
+  private async loadSkills(): Promise<void> {
+    try {
+      const response = await ApiClient.get<SkillPage>('/admin/ai/skills');
+      if (response.code === 0 && response.data !== undefined) {
+        this.skills = response.data.list ?? [];
+        if (!this.skills.some((skill: SkillRecord): boolean => skill.id === this.selectedSkillId)) {
+          this.selectedSkillId = this.skills.length > 0 ? this.skills[0].id : 0;
+          this.fillSkillEditor();
+        }
+      }
+    } catch (_error) { this.showToast('技能列表加载失败'); }
+  }
+
+  private selectSkill(id: number): void {
+    this.selectedSkillId = id;
+    this.fillSkillEditor();
+  }
+
+  private selectedSkill(): SkillRecord | undefined {
+    return this.skills.find((skill: SkillRecord): boolean => skill.id === this.selectedSkillId);
+  }
+
+  private fillSkillEditor(): void {
+    const skill: SkillRecord | undefined = this.selectedSkill();
+    this.skillName = skill?.name ?? '';
+    this.skillCode = skill?.code ?? '';
+    this.skillRole = skill?.role_scope ?? 'all';
+    this.skillDescription = skill?.description ?? '';
+    this.skillInstructions = skill?.instructions ?? '';
+    this.skillEnabled = skill?.enabled ?? true;
+  }
+
+  private createSkill(): void {
+    this.selectedSkillId = 0;
+    this.skillName = '';
+    this.skillCode = '';
+    this.skillRole = 'all';
+    this.skillDescription = '';
+    this.skillInstructions = '';
+    this.skillEnabled = true;
+  }
+
+  private async saveSkill(): Promise<void> {
+    if (this.skillName.trim().length === 0 || this.skillInstructions.trim().length === 0) {
+      this.showToast('技能名称与指引内容必填');
+      return;
+    }
+    this.skillBusy = true;
+    const code = this.skillCode.trim().length > 0 ? this.skillCode.trim() :
+      (`custom_${Date.now()}`);
+    const request: SkillSaveRequest = {
+      role_scope: this.skillRole, code: code, name: this.skillName.trim(),
+      description: this.skillDescription.trim(), version: '1.0.0', tags: '',
+      instructions: this.skillInstructions.trim(), sort_order: 50, enabled: this.skillEnabled
+    };
+    try {
+      const response = this.selectedSkillId > 0
+        ? await ApiClient.put<SkillRecord>(`/admin/ai/skills/${this.selectedSkillId}`, request)
+        : await ApiClient.post<SkillRecord>('/admin/ai/skills', request);
+      if (response.code !== 0) {
+        this.showToast(response.msg.length > 0 ? response.msg : '技能保存失败');
+      } else {
+        this.showToast('技能已保存');
+        await this.loadSkills();
+      }
+    } catch (_error) {
+      this.showToast('技能保存失败，请检查网络');
+    }
+    this.skillBusy = false;
+  }
+
+  private async deleteSkill(): Promise<void> {
+    if (this.selectedSkillId === 0) {
+      return;
+    }
+    this.skillBusy = true;
+    try {
+      const response = await ApiClient.delete<SkillRecord>(`/admin/ai/skills/${this.selectedSkillId}`);
+      if (response.code !== 0) {
+        this.showToast(response.msg.length > 0 ? response.msg : '删除失败');
+      } else {
+        this.showToast('已删除');
+        this.createSkill();
+        await this.loadSkills();
+      }
+    } catch (_error) {
+      this.showToast('删除失败，请检查网络');
+    }
+    this.skillBusy = false;
+  }
+
+  private roleTagLabel(role: string): string {
+    if (role === 'caregiver') { return '护工端'; }
+    if (role === 'doctor') { return '医师端'; }
+    return '通用';
   }
 
   /** 页级提示统一走系统 Toast：白底、短暂显示后自动消失。 */
@@ -1230,6 +1457,197 @@ export struct WideModelManagement {
     }.width('100%').alignItems(HorizontalAlign.Start)
   }
 
+  @Builder
+  private mcpRow(server: McpServerRecord) {
+    Column({ space: 3 }) {
+      Row({ space: 8 }) {
+        Text(server.name).fontSize(13)
+          .fontWeight(this.selectedMcpId === server.id ? FontWeight.Medium : FontWeight.Regular)
+          .fontColor($r('sys.color.font_primary')).layoutWeight(1).maxLines(1)
+        Text(server.enabled ? (server.status === 'ok' ? '在线' : server.status === 'error' ? '异常' : '未探测') : '停用')
+          .fontSize(11).fontColor(server.enabled && server.status === 'ok' ?
+          $r('app.color.doctor_workspace_success') : $r('sys.color.font_tertiary'))
+          .padding({ left: 8, right: 8, top: 2, bottom: 2 }).borderRadius(10)
+          .backgroundColor(server.enabled && server.status === 'ok' ? '#F0FDF4' : $r('sys.color.comp_background_secondary'))
+      }.width('100%').alignItems(VerticalAlign.Center)
+      Text(server.endpoint).fontSize(12).fontColor($r('sys.color.font_tertiary'))
+        .width('100%').maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+    }.width('100%').alignItems(HorizontalAlign.Start)
+    .padding({ left: 12, right: 12, top: 9, bottom: 9 }).borderRadius(8)
+    .border({ width: 0.5, color: this.selectedMcpId === server.id ?
+      $r('app.color.brand_blue') : $r('sys.color.comp_divider') })
+    .backgroundColor(this.selectedMcpId === server.id ? '#F0F5FF' : $r('sys.color.comp_background_primary'))
+    .onClick(() => this.selectMcpServer(server.id))
+  }
+
+  @Builder
+  private mcpModule() {
+    Row({ space: 12 }) {
+      Column({ space: 10 }) {
+        Row({ space: 8 }) {
+          Text('MCP 服务').fontSize(13).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+          Blank()
+          Text('＋ 新建').fontSize(13).fontColor($r('app.color.brand_blue'))
+            .onClick(() => this.createMcpServer())
+        }.width('100%')
+        Scroll() {
+          Column({ space: 6 }) {
+            if (this.mcpServers.length === 0) {
+              Text('暂无注册的 MCP 服务').fontSize(12).fontColor($r('sys.color.font_tertiary')).width('100%')
+            }
+            ForEach(this.mcpServers, (server: McpServerRecord) => {
+              this.mcpRow(server)
+            }, (server: McpServerRecord) => `mcp-${server.id}`)
+          }.width('100%').alignItems(HorizontalAlign.Start)
+        }.constraintSize({ maxHeight: 430 }).scrollBar(BarState.Off).width('100%')
+      }.width(260)
+      .padding(14)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(12)
+      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+      .alignItems(HorizontalAlign.Start)
+
+      Column({ space: 12 }) {
+        Row({ space: 12 }) {
+          Text(this.selectedMcpId > 0 ? '编辑服务' : '注册服务')
+            .fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+          Blank()
+          this.cardLink('探测', () => this.probeMcpServer())
+          this.cardLink('删除', () => this.deleteMcpServer())
+          Button('保存').height(36).fontSize(13).borderRadius(8)
+            .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
+            .onClick(() => this.saveMcpServer())
+        }.width('100%').alignItems(VerticalAlign.Center)
+        this.promptEditorField('名称')
+        TextInput({ text: $$this.mcpName, placeholder: '例如：机构工具服务' }).height(40).width('100%')
+        this.promptEditorField('端点（streamable HTTP）')
+        TextInput({ text: $$this.mcpEndpoint, placeholder: 'https://host/mcp' }).height(40).width('100%')
+        this.promptEditorField(this.selectedMcpId > 0 ? 'API Key（留空保持不变）' : 'API Key（可选）')
+        TextInput({ text: $$this.mcpApiKey, placeholder: '密钥仅保存在服务器' }).type(InputType.Password).height(40).width('100%')
+        Row({ space: 8 }) {
+          Toggle({ type: ToggleType.Switch, isOn: this.mcpEnabled })
+            .selectedColor($r('app.color.brand_blue'))
+            .onChange((isOn: boolean) => this.mcpEnabled = isOn)
+          Text(this.mcpEnabled ? '启用（工具注入对话/工作助手）' : '停用')
+            .fontSize(13).fontColor($r('sys.color.font_primary'))
+        }.width('100%')
+        if (this.selectedMcp() !== undefined && (this.selectedMcp()?.last_probe_message ?? '').length > 0) {
+          Text(`最近探测：${this.selectedMcp()?.last_probe_message ?? ''}`)
+            .fontSize(12).fontColor($r('sys.color.font_secondary')).width('100%')
+        }
+        Text('说明：MCP 工具经 streamable HTTP 桥接，模型可像内置工具一样调用；单服务超时 5 秒，不影响对话可用性。')
+          .fontSize(12).fontColor($r('sys.color.font_tertiary')).width('100%')
+      }.layoutWeight(1)
+      .padding(14)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(12)
+      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+      .alignItems(HorizontalAlign.Start)
+    }.width('100%').alignItems(VerticalAlign.Top)
+  }
+
+  @Builder
+  private skillRow(skill: SkillRecord) {
+    Column({ space: 3 }) {
+      Row({ space: 8 }) {
+        Text(skill.name).fontSize(13)
+          .fontWeight(this.selectedSkillId === skill.id ? FontWeight.Medium : FontWeight.Regular)
+          .fontColor($r('sys.color.font_primary')).layoutWeight(1).maxLines(1)
+        Text(this.roleTagLabel(skill.role_scope)).fontSize(11)
+          .fontColor($r('sys.color.font_secondary'))
+          .padding({ left: 8, right: 8, top: 2, bottom: 2 }).borderRadius(10)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+        Text(skill.enabled ? '启用' : '停用').fontSize(11)
+          .fontColor(skill.enabled ? $r('app.color.doctor_workspace_success') : $r('sys.color.font_tertiary'))
+      }.width('100%').alignItems(VerticalAlign.Center)
+      Text(skill.description.length > 0 ? skill.description : skill.code).fontSize(12)
+        .fontColor($r('sys.color.font_tertiary')).width('100%').maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }.width('100%').alignItems(HorizontalAlign.Start)
+    .padding({ left: 12, right: 12, top: 9, bottom: 9 }).borderRadius(8)
+    .border({ width: 0.5, color: this.selectedSkillId === skill.id ?
+      $r('app.color.brand_blue') : $r('sys.color.comp_divider') })
+    .backgroundColor(this.selectedSkillId === skill.id ? '#F0F5FF' : $r('sys.color.comp_background_primary'))
+    .onClick(() => this.selectSkill(skill.id))
+  }
+
+  @Builder
+  private skillsModule() {
+    Row({ space: 12 }) {
+      Column({ space: 10 }) {
+        Row({ space: 8 }) {
+          Text('技能').fontSize(13).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+          Blank()
+          Text('＋ 新建').fontSize(13).fontColor($r('app.color.brand_blue'))
+            .onClick(() => this.createSkill())
+        }.width('100%')
+        Scroll() {
+          Column({ space: 6 }) {
+            if (this.skills.length === 0) {
+              Text('暂无技能').fontSize(12).fontColor($r('sys.color.font_tertiary')).width('100%')
+            }
+            ForEach(this.skills, (skill: SkillRecord) => {
+              this.skillRow(skill)
+            }, (skill: SkillRecord) => `skill-${skill.id}`)
+          }.width('100%').alignItems(HorizontalAlign.Start)
+        }.constraintSize({ maxHeight: 430 }).scrollBar(BarState.Off).width('100%')
+      }.width(260)
+      .padding(14)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(12)
+      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+      .alignItems(HorizontalAlign.Start)
+
+      Column({ space: 12 }) {
+        Row({ space: 12 }) {
+          Text(this.selectedSkillId > 0 ? '编辑技能' : '新建技能')
+            .fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+          Blank()
+          this.cardLink('删除', () => this.deleteSkill())
+          Button('保存').height(36).fontSize(13).borderRadius(8)
+            .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
+            .onClick(() => this.saveSkill())
+        }.width('100%').alignItems(VerticalAlign.Center)
+        Row({ space: 12 }) {
+          Column({ space: 4 }) {
+            this.promptEditorField('技能名称')
+            TextInput({ text: $$this.skillName, placeholder: '例如：跌倒应急处置' }).height(40).width('100%')
+          }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+          Column({ space: 4 }) {
+            this.promptEditorField('编码（内置技能不可改）')
+            TextInput({ text: $$this.skillCode, placeholder: 'fall-response' }).enabled(!this.selectedSkill()?.is_builtin).height(40).width('100%')
+          }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+          Column({ space: 4 }) {
+            this.promptEditorField('适用端')
+            Select([{ value: '通用' } as SelectOption, { value: '护工端' } as SelectOption, { value: '医师端' } as SelectOption])
+              .selected(this.skillRole === 'all' ? 0 : this.skillRole === 'caregiver' ? 1 : 2)
+              .value(this.roleTagLabel(this.skillRole))
+              .font({ size: 14 }).width('100%')
+              .onSelect((index: number) => {
+                this.skillRole = index === 1 ? 'caregiver' : index === 2 ? 'doctor' : 'all';
+              })
+          }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+        }.width('100%').alignItems(VerticalAlign.Top)
+        this.promptEditorField('描述')
+        TextInput({ text: $$this.skillDescription, placeholder: '一句话描述该技能的用途' }).height(40).width('100%')
+        this.promptEditorField('技能指引（注入对应端助手的提示词片段）')
+        TextArea({ text: $$this.skillInstructions, placeholder: '写给模型的执行要点...' })
+          .height(220).fontSize(13).width('100%')
+        Row({ space: 8 }) {
+          Toggle({ type: ToggleType.Switch, isOn: this.skillEnabled })
+            .selectedColor($r('app.color.brand_blue'))
+            .onChange((isOn: boolean) => this.skillEnabled = isOn)
+          Text(this.skillEnabled ? '启用' : '停用').fontSize(13).fontColor($r('sys.color.font_primary'))
+        }.width('100%')
+      }.layoutWeight(1)
+      .padding(14)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(12)
+      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+      .alignItems(HorizontalAlign.Start)
+    }.width('100%').alignItems(VerticalAlign.Top)
+  }
+
   /** 测试检索：对绑定知识库发起 retrieve 并展示命中分段。 */
   @Builder
   private retrieveDialog() {
@@ -1437,9 +1855,9 @@ export struct WideModelManagement {
             } else if (this.activeSection === 'prompts') {
               this.promptsModule()
             } else if (this.activeSection === 'mcp') {
-              this.wipModule('MCP 服务')
+              this.mcpModule()
             } else if (this.activeSection === 'skills') {
-              this.wipModule('Skills 管理')
+              this.skillsModule()
             } else {
               this.ragModule()
             }
