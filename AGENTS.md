@@ -274,8 +274,15 @@ state. When the embedded AI conversation history is collapsed, it slides out fro
 exposes a compact capsule for expanding history, searching, and creating a conversation. The collapsed state is
 stored in local preferences, survives navigation away from AI, and is restored after the application relaunches.
 The root `HdsNavigation` owns both the phone title bar and the wide caregiver title bar. Both use HDS
-`IMMERSIVE`/`ADAPTIVE` system material with a bound `GRADIENT_BLUR` scroll effect. The wide caregiver title actions are
-supplied through the HDS title bar `stackBuilder`, while the page title remains native HDS title content. The root title
+`IMMERSIVE`/`ADAPTIVE` system material with a bound `GRADIENT_BLUR` scroll effect. The wide title actions (the sliding
+nav capsule and AI-history shortcuts) are NOT title-bar `stackBuilder` content: `HdsNavigation` tears down
+`stackBuilder` content whenever title-bar options or scroll bindings change, which repeatedly destroyed the pill
+mid-animation, snapped its landing point, or swallowed taps. They are hosted on `MainPage.wideTitleActionsOverlay()`,
+a stable page node layered above the title bar (the same fix pattern as the account avatar); passive overlay containers
+use `HitTestMode.None` so taps still reach the native title bar and back button, and the overlay hides while a
+`NavPathStack` destination is pushed or the resident-detail cover is open. The title `mainTitle` is a
+minute-precision `workspaceClockTime` clock (a seconds tick rebuilt the whole title bar every second); the clock text
+is only assigned when it actually changes. The root title
 bar dynamically binds the visible Home/task, resident master/detail, or message list/chat Scroller; split views switch
 the binding to the pane the user selects or scrolls. Wide scroll content uses a title-bar-aware initial inset and can
 then scroll behind the HDS material surface. Do not replace this with a custom blur Row, an opaque structural panel, or
@@ -590,19 +597,22 @@ title bar uses the `56vp + statusBarHeight` rhythm, keeps identity/title on the 
 AI, and avatar-only account action on the right. The message badge owns notification count; do not add a duplicate bell
 or shift chip. Detailed shift progress remains in the home workbench.
 
-**stackBuilder-hosted components must not depend on their own survival.** Title bar `stackBuilder` content
-(`WideSlidingCapsule`, `WideCaregiverTitleActions`, `WideDoctorTitleActions`) is torn down and rebuilt whenever
-`HdsNavigation` title-bar options change — and `navigationTitleBarOptions()` returns a fresh object on every
-`MainPage` build, so with the seconds-precision `workspaceClockTime` clock as `mainTitle` this can happen every
-second. Rules that follow from the `0fb6edb7` capsule fix:
+**Interactive content must not live in the title-bar `stackBuilder`.** `HdsNavigation` tears down `stackBuilder`
+content whenever title-bar options change, scroll bindings change, or its own title surface is rebuilt; the destroyed
+widget loses in-flight animations, and a rebuilt instance can render a stale selection (the "pill rushes over" /
+"click animates then springs back" bug class, fought across `0fb6edb7`–`445481e0`). The nav capsule
+(`WideSlidingCapsule` via `WideCaregiverTitleActions`/`WideDoctorTitleActions`) and the title-bar account avatar/menu
+therefore live on stable page nodes (`MainPage.wideTitleActionsOverlay()`, `titleAccountMenuAnchor()`). Remaining
+rules:
 
-- A user selection made inside such a component must be raised to the parent **synchronously**. Never defer an
-  `onSelect`/callback with `setTimeout` plus a cancellation token: if the rebuild lands inside the window, the
-  callback is silently swallowed (the "click animates then springs back / does nothing" bug class).
-- "Do the heavy thing later" belongs to the parent, whose lifecycle is stable: the parent updates its confirmed
-  state immediately (so a rebuilt child reads the new value in `aboutToAppear`) and defers the expensive content
-  swap on its own timer (see `MainPage.updateManagementNav` and `managementContentIndex`).
-- When reviewing any new title-bar interaction, assume the host builder can be destroyed at any frame boundary.
+- A user selection inside a nav component is still raised to the parent **synchronously**; never defer an
+  `onSelect`/callback with `setTimeout` plus a cancellation token.
+- The pill tween uses a critically damped spring (`curves.springMotion(0.3, 1.0)`) so it settles on the target
+  without overshoot and inherits velocity on rapid retargeting.
+- Navigation switches apply selection and content in the same frame; the former parent-side 80 ms deferred content
+  swap (`managementContentIndex`, `deferCaregiverContent`) was removed together with the stackBuilder host.
+- If a future title-bar interaction must go into `stackBuilder` anyway, assume the host builder can be destroyed at
+  any frame boundary and design for it.
 
 ### 8.2 Safe areas and window classes
 

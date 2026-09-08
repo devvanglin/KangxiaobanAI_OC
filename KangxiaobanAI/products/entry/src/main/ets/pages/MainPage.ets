@@ -73,9 +73,6 @@ const CAREGIVER_FULL_WORKSPACE_MIN_WIDTH: number = 1180;
 const DOCTOR_FULL_WORKSPACE_MIN_WIDTH: number = 1180;
 const CAREGIVER_TEXT_NAVIGATION_MIN_WIDTH: number = 680;
 const WIDE_TITLE_BAR_HEIGHT: number = 56;
-/** 两端共用的"先播滑块、后切内容"让帧间隔：内容切换和标题栏滚动绑定若与
- * 补间同帧发生，会把滑块动画吞掉；让补间先出前几帧，再做内容侧的工作。 */
-const CONTENT_SWITCH_DELAY_MS: number = 80;
 const CAREGIVER_AI_HISTORY_COLLAPSED_KEY: string = 'caregiver_ai_history_collapsed';
 const DOCTOR_AI_HISTORY_COLLAPSED_KEY: string = 'doctor_ai_history_collapsed';
 
@@ -116,9 +113,9 @@ struct MainPage {
   private tabsBar: BottomTabBarStyle[] = TabsBarModel.getTabBarByPage(PageKeyEnum.ADAPTIVE_TAB) ?? [];
   private pageConfigs: TabPageConfig[] = TAB_PAGE_CONFIGS;
   @Local currentTabIndex: number = 0;
-  /** 护工端标题胶囊的立即选中索引：选中事实只存这里，重建出的胶囊读到它就不会回弹。 */
+  /** 护工端标题胶囊的选中索引（含 AI=3）：内容索引 currentTabIndex 不含 AI 态，
+   * 两者仅在 AI 会话打开期间分叉。 */
   @Local caregiverNavIndex: number = 0;
-  private caregiverContentTimerId: number = -1;
   @Local primaryTabIndex: number = 0;
   @Local isSidebarCollapsed: boolean = false;
   @Local isAiChatShow: boolean = false;
@@ -165,8 +162,6 @@ struct MainPage {
   @Local caregiverUnreadMessageCount: number = 0;
   @Local caregiverMaterialScrollerOwner: CaregiverMaterialScrollerOwner = 'residentDetail';
   @Local managementNavIndex: number = 0;
-  /** 实际渲染内容用的管理端导航索引；延迟于 managementNavIndex，给胶囊滑块动画让出渲染帧。 */
-  @Local managementContentIndex: number = 0;
   @Local adminHasLocalNavLayer: boolean = false;
   @Local adminBackRequestToken: number = 0;
   @Local doctorResidentDetailVisible: boolean = false;
@@ -180,7 +175,6 @@ struct MainPage {
   @Local titleAccountMenuVisible: boolean = false;
   @Local titleAccountPressed: boolean = false;
   @Local businessStore: BusinessStore = BusinessStore.getShared();
-  private managementContentTimerId: number = -1;
   private wideHomeScroller: Scroller = new Scroller();
   private wideHomeTaskDetailScroller: Scroller = new Scroller();
   private wideResidentMasterScroller: Scroller = new Scroller();
@@ -224,14 +218,6 @@ struct MainPage {
   aboutToDisappear(): void {
     this.businessWsClient.close();
     this.stopWorkspaceClock();
-    if (this.managementContentTimerId !== -1) {
-      clearTimeout(this.managementContentTimerId);
-      this.managementContentTimerId = -1;
-    }
-    if (this.caregiverContentTimerId !== -1) {
-      clearTimeout(this.caregiverContentTimerId);
-      this.caregiverContentTimerId = -1;
-    }
     this.caregiverHasLocalBackLayer = false;
     WindowUtil.setImmersiveMode(false);
   }
@@ -242,10 +228,10 @@ struct MainPage {
   }
 
   private refreshWorkspaceClock(): void {
-    // 标题栏 options 每变化一次，HdsNavigation 就会销毁重建 stackBuilder 里的
-    // 导航胶囊（滑块动画被打断、点击被吞的根源）。秒级时钟曾让这件事每秒发生：
-    // 280ms 的滑块补间约有 28% 概率被时钟触发的重建拦腰打断。标题只保留到分钟，
-    // 且文本真正变化时才赋值，把重建频率从 1 次/秒降到 1 次/分钟。
+    // 标题栏 options 每变化一次，HdsNavigation 都会整体销毁重建标题栏内容
+    // （导航胶囊曾挂在那里，动画被打断、点击被吞的根源）。秒级时钟曾让这件事
+    // 每秒发生。标题只保留到分钟，且文本真正变化时才赋值，把重建频率降到
+    // 1 次/分钟。
     const next: string = this.formatCurrentTime();
     if (next !== this.workspaceClockTime) {
       this.workspaceClockTime = next;
@@ -302,9 +288,8 @@ struct MainPage {
     return this.primaryTabIndex >= 0 && this.primaryTabIndex <= 1 ? this.primaryTabIndex : 0;
   }
 
-  /** 标题栏胶囊专用：唯一事实来源是 caregiverNavIndex（switchTab/openAiChat/
-   * closeAiChat 都同步维护它）。胶囊挂在 stackBuilder 里可能随时被重建，
-   * 重建后的新实例必须直接读到最新选中位，否则会先弹回旧位置再二次补间。 */
+  /** 标题胶囊的选中来源：唯一事实来源是 caregiverNavIndex（switchTab/openAiChat/
+   * closeAiChat 都同步维护它），胶囊组件据此渲染高亮与滑块位置。 */
   private caregiverTitleNavIndex(): number {
     return this.caregiverNavIndex >= 0 && this.caregiverNavIndex <= 3 ? this.caregiverNavIndex : 0;
   }
@@ -341,11 +326,11 @@ struct MainPage {
   }
 
   private isDoctorResidentWorkspace(): boolean {
-    return this.isManagementWideWorkspace() && this.globalInfoModel.role === '医师' && this.managementContentIndex === 1;
+    return this.isManagementWideWorkspace() && this.globalInfoModel.role === '医师' && this.managementNavIndex === 1;
   }
 
   private isDoctorAiWorkspace(): boolean {
-    return this.isManagementWideWorkspace() && this.globalInfoModel.role === '医师' && this.managementContentIndex === 2;
+    return this.isManagementWideWorkspace() && this.globalInfoModel.role === '医师' && this.managementNavIndex === 2;
   }
 
   private showDoctorResidentBackButton(): boolean {
@@ -368,19 +353,9 @@ struct MainPage {
       this.doctorResidentDetailVisible = false;
       this.doctorResidentScrollerOwner = 'residentDetail';
     }
-    // 选中态立即生效：标题栏胶囊（stackBuilder 内）可能随时被重建，重建后
-    // aboutToAppear 读取的正是这个值，高亮因此永不回弹。
+    // 选中与内容同帧立即切换：胶囊挂在页面稳定节点上，不受标题栏重建影响，
+    // 不再需要"先播动画后切内容"的让帧延迟。
     this.managementNavIndex = index;
-    // 内容延迟挂载：管理端模块是整块服务端界面，挂载开销大。让滑块补间先出
-    // 前几帧再挂载（定时器挂在生命周期稳定的 MainPage 上）；标题栏 options 已
-    // 不随导航切换变化（分钟时钟 + 立即索引），补间本身不会被这次挂载打断。
-    if (this.managementContentTimerId !== -1) {
-      clearTimeout(this.managementContentTimerId);
-    }
-    this.managementContentTimerId = setTimeout((): void => {
-      this.managementContentTimerId = -1;
-      this.managementContentIndex = index;
-    }, CONTENT_SWITCH_DELAY_MS);
   }
 
   /**
@@ -554,6 +529,32 @@ struct MainPage {
     })
   }
 
+  /**
+   * 宽屏标题动作（导航胶囊 / AI 历史快捷键）挂在页面自身的稳定节点上。
+   * 此前它们挂在 HdsNavigation 标题栏 stackBuilder 里：options 变化、滚动绑定
+   * 变化都会把 stackBuilder 内容整体销毁重建，反复造成滑块动画中途消失、
+   * 闪现落点、高亮回弹、点击被吞。头像入口已用同一方案修复点击被吞。
+   * 容器全部 hitTestBehavior(None)（自身不测试、子节点不受影响），
+   * 只有真正的交互控件接收点击，其余区域透传给原生标题栏（返回键等）。
+   */
+  @Builder
+  private wideTitleActionsOverlay() {
+    if ((this.isCaregiverWideWorkspace() || this.isManagementWideWorkspace()) &&
+      this.pathStack.size() === 0 && !this.isResidentDetailShow) {
+      Column() {
+        if (this.isCaregiverWideWorkspace()) {
+          this.wideCaregiverTitleActions()
+        } else {
+          this.wideDoctorTitleActions()
+        }
+      }
+      .width('100%')
+      .height(this.globalInfoModel.statusBarHeight + WIDE_TITLE_BAR_HEIGHT)
+      .padding({ top: this.globalInfoModel.statusBarHeight })
+      .hitTestBehavior(HitTestMode.None)
+    }
+  }
+
   @Builder
   private wideDoctorTitleActions() {
     WideDoctorTitleActions({
@@ -589,8 +590,7 @@ struct MainPage {
         title: {
           mainTitle: this.workspaceClockTime
         },
-        menu: { value: [] },
-        stackBuilder: (): void => this.wideCaregiverTitleActions()
+        menu: { value: [] }
       };
       if (this.showCaregiverLocalBackButton()) {
         content.backIcon = {
@@ -617,8 +617,7 @@ struct MainPage {
     if (this.isManagementWideWorkspace()) {
       const content: TitleBarContentOptions = {
         title: { mainTitle: this.workspaceClockTime },
-        menu: { value: [] },
-        stackBuilder: (): void => this.wideDoctorTitleActions()
+        menu: { value: [] }
       };
       if (this.showDoctorResidentBackButton()) {
         content.backIcon = {
@@ -708,28 +707,12 @@ struct MainPage {
     this.currentTabIndex = index;
   }
 
-  /** 护工端内容侧延迟开关：与"滑块补间"同帧发生的内容切换、根节点 visibility
-   * 翻转和 bindToScrollable 滚动绑定变化都会让补间失真（护工端此前"点了没动画"
-   * 的原因）。选中态经 caregiverNavIndex 立即生效，内容统一推迟到下一拍。
-   * 定时器挂在生命周期稳定的 MainPage 上，不依赖胶囊组件存活。 */
-  private deferCaregiverContent(action: () => void): void {
-    if (this.caregiverContentTimerId !== -1) {
-      clearTimeout(this.caregiverContentTimerId);
-    }
-    this.caregiverContentTimerId = setTimeout((): void => {
-      this.caregiverContentTimerId = -1;
-      action();
-    }, CONTENT_SWITCH_DELAY_MS);
-  }
-
   private switchTab(index: number): void {
     if (this.isWideLayout()) {
-      // 与管理端同款节奏：胶囊选中立即生效（滑块动画先播），内容延迟切换。
+      // 胶囊挂在页面稳定节点上，标题栏重建不再打断补间；选中与内容同帧生效。
+      this.isAiChatShow = false;
       this.caregiverNavIndex = index;
-      this.deferCaregiverContent((): void => {
-        this.isAiChatShow = false;
-        this.updateTabSelection(index);
-      });
+      this.updateTabSelection(index);
     } else {
       this.controller.changeIndex(index);
     }
@@ -896,20 +879,13 @@ struct MainPage {
   }
 
   private openAiChat(): void {
-    // 胶囊先滑向 AI（caregiverNavIndex 立即生效），AI 覆盖层与滚动绑定
-    // 随内容节奏延迟出现，避免同帧切换吞掉滑块动画。
     this.caregiverNavIndex = 3;
-    this.deferCaregiverContent((): void => {
-      this.isAiChatShow = true;
-    });
+    this.isAiChatShow = true;
   }
 
   private closeAiChat(): void {
-    // 先恢复胶囊到当前内容页，再延迟收起 AI 覆盖层（节奏同 openAiChat）。
+    this.isAiChatShow = false;
     this.caregiverNavIndex = this.wideCaregiverActiveTabIndex();
-    this.deferCaregiverContent((): void => {
-      this.isAiChatShow = false;
-    });
   }
 
   private updateAiHistoryCollapsed(collapsed: boolean): void {
@@ -986,11 +962,11 @@ struct MainPage {
       this.pathStack.pop();
       return true;
     }
-    if (this.isManagementWideWorkspace() && this.managementContentIndex === 0 && this.adminHasLocalNavLayer) {
+    if (this.isManagementWideWorkspace() && this.managementNavIndex === 0 && this.adminHasLocalNavLayer) {
       this.adminBackRequestToken += 1;
       return true;
     }
-    if (this.isManagementWideWorkspace() && this.managementContentIndex !== 0) {
+    if (this.isManagementWideWorkspace() && this.managementNavIndex !== 0) {
       this.updateManagementNav(0);
       return true;
     }
@@ -1497,9 +1473,8 @@ struct MainPage {
   @Builder
   private wideCaregiverTitleActions() {
     WideCaregiverTitleActions({
-      // 必须传立即索引而不是 currentTabIndex：胶囊挂在 stackBuilder 里可能随时
-      // 被销毁重建，重建出的新实例读到的选中位必须已是最新值，否则滑块会先
-      // 弹回旧位置、等内容追上后再二次补间（点击后"滑过去又弹回来"的根因）。
+      // 必须传立即索引而不是 currentTabIndex：让胶囊高亮与滑块在点按同帧即
+      // 反映最新选中，不等内容索引追上。
       currentTabIndex: this.caregiverTitleNavIndex(),
       primaryTabIndex: this.primaryTabIndex,
       unreadMessageCount: this.caregiverUnreadMessageCount,
@@ -1580,7 +1555,7 @@ struct MainPage {
           naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
           compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
           managementScroller: this.wideManagementScroller,
-          managementNavIndex: this.managementContentIndex,
+          managementNavIndex: this.managementNavIndex,
           adminBackRequestToken: this.adminBackRequestToken,
           onLocalNavLayerChange: (hasLayer: boolean) => {
             this.adminHasLocalNavLayer = hasLayer;
@@ -1828,6 +1803,7 @@ struct MainPage {
         this.residentDetailCover()
       }
 
+      this.wideTitleActionsOverlay()
       this.titleAccountMenuAnchor()
     }
     .width('100%')

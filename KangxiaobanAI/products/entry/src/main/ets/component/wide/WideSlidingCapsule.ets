@@ -26,12 +26,11 @@ export interface WideSlidingCapsuleItem {
   badgeAtCorner?: boolean;
 }
 
-// 滑块位移由显式 animateTo 补间（见 applySelection）。本组件挂在 HdsNavigation
-// 标题栏的 stackBuilder 里，实例可能在任意帧边界被销毁重建，可靠性不依赖自身
-// 存活，而是两条父级约定：点击同步上抛；父级把"立即选中索引"回传给
-// selectedIndex，重建出的新实例在 aboutToAppear 直接落在最新选中位，不回弹。
-// 早期"跨实例位置记忆"实验（frame-timer / position-map）已被证实无法在重建下
-// 存活，相关代码已移除；重建频率本身由父级控制（标题栏 options 保持稳定）。
+// 滑块位移由显式 animateTo + 临界阻尼弹簧补间（见 applySelection）：到位即停
+// 不过冲，快速连点时按 springMotion 语义继承当前值与速度。本组件由父级挂在
+// 页面稳定节点上（不再进 HdsNavigation 标题栏 stackBuilder），实例生命周期
+// 稳定，补间不会被标题栏重建打断；可靠性约定仍是：点击同步上抛，父级把
+// 最新选中索引回传给 selectedIndex。
 
 @ComponentV2
 export struct WideSlidingCapsule {
@@ -91,12 +90,10 @@ export struct WideSlidingCapsule {
     if (this.items.findIndex((item: WideSlidingCapsuleItem) => item.index === index) < 0) {
       return;
     }
-    // 选择必须同步上抛，不允许延迟：本组件挂在 HdsNavigation 标题栏的
-    // stackBuilder 里，而标题栏 options 变化（时钟、返回键显隐等）会让
-    // stackBuilder 内容被销毁重建。此前的"延迟 280ms + token 取消"机制在重建
-    // 落在窗口内时会把 onSelect 整个吞掉，表现为点击后高亮滑过去又弹回、内容
-    // 不切换。现在点击立即上抛，选择事实只存在于父级状态中；"先播动画再切内容"
-    // 的体验由父级延迟挂载内容来保证（MainPage 两端内容均延迟 80ms 切换）。
+    // 选择必须同步上抛，不允许延迟：历史上本组件挂在标题栏 stackBuilder 里，
+    // "延迟上抛 + token 取消"机制在宿主重建落在窗口内时会把 onSelect 整个吞掉，
+    // 表现为点击后高亮滑过去又弹回、内容不切换。现在点击立即上抛，选中与内容
+    // 同帧切换；宿主已稳定，补间总能完整播放。
     this.applySelection(index);
     this.onSelect(index);
   }

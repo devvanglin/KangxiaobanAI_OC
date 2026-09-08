@@ -34,6 +34,7 @@ export struct WideDoctorTitleActions {
     Row({ space: 8 }) {
       Blank()
         .layoutWeight(1)
+        .hitTestBehavior(HitTestMode.None)
       WideSlidingCapsule({
         items: this.navigationItems(),
         selectedIndex: this.selectedIndex,
@@ -48,5 +49,7 @@ export struct WideDoctorTitleActions {
     .padding({ right: (this.compactWidth ? 18 : 28) + 50 })
     .justifyContent(FlexAlign.End)
     .alignItems(VerticalAlign.Center)
+    // 挂在 MainPage 稳定节点上：空白区域透传给下层原生标题栏，胶囊自身接收点击。
+    .hitTestBehavior(HitTestMode.None)
   }
 }

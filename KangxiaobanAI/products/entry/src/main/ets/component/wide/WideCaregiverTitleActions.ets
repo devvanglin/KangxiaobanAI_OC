@@ -139,6 +139,7 @@ export struct WideCaregiverTitleActions {
     }
     .height(48)
     .alignItems(VerticalAlign.Center)
+    .hitTestBehavior(HitTestMode.Default)
   }
 
   build() {
@@ -146,6 +147,7 @@ export struct WideCaregiverTitleActions {
       Row({ space: 6 }) {
         Blank()
           .layoutWeight(1)
+          .hitTestBehavior(HitTestMode.None)
         this.primaryNavigation()
       }
       .width('100%')
@@ -154,6 +156,10 @@ export struct WideCaregiverTitleActions {
       .padding({ right: (this.compactWidth ? 18 : 28) + 54 })
       .justifyContent(FlexAlign.End)
       .alignItems(VerticalAlign.Center)
+      // 本组件挂在 MainPage 的稳定节点上（不再走标题栏 stackBuilder）：
+      // 空白区域必须透传点击给下层原生标题栏，只有导航胶囊所在的
+      // primaryNavigation 行接收触摸。
+      .hitTestBehavior(HitTestMode.None)
 
       if (this.aiChatVisible) {
         Row() {
@@ -174,5 +180,6 @@ export struct WideCaregiverTitleActions {
     .width('100%')
     .height('100%')
     .backgroundColor(Color.Transparent)
+    .hitTestBehavior(HitTestMode.None)
   }
 }
