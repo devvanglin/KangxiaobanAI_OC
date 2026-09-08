@@ -49,6 +49,7 @@ interface RiskRow {
   label: string;
   value: string;
   level: StatusLevel;
+  time: string;
 }
 
 @ComponentV2
@@ -568,15 +569,16 @@ export struct WideResidentPage {
         right.record_time.localeCompare(left.record_time))[0];
     if (latest && (latest.risk_summary?.trim().length ?? 0) > 0) {
       rows.push({ label: '体征风险', value: latest.risk_summary ?? '',
-        level: this.serverRiskLevel(latest.risk_level) });
+        level: this.serverRiskLevel(latest.risk_level), time: this.timeText(latest.record_time) });
     }
     for (let index: number = 0; index < alerts.length; index++) {
       const item: Alert = alerts[index];
       const level: StatusLevel = item.level === 'emergency' ? 'danger' : item.level === 'important' ? 'warning' : 'normal';
-      rows.push({ label: item.type, value: item.content, level: level });
+      rows.push({ label: item.type, value: item.content, level: level, time: this.timeText(item.create_time) });
     }
     if (rows.length === 0) {
-      rows.push({ label: '综合风险', value: latest ? '服务器未报告异常风险' : '暂无服务器风险记录', level: 'normal' });
+      rows.push({ label: '综合风险', value: latest ? '服务器未报告异常风险' : '暂无服务器风险记录',
+        level: 'normal', time: latest ? this.timeText(latest.record_time) : '' });
     }
     return rows;
   }
@@ -1351,27 +1353,61 @@ export struct WideResidentPage {
   @Builder
   private riskCard(resident: ResidentData) {
     Column({ space: 0 }) {
-      this.cardTitle('风险评估', '来自服务器告警记录')
+      this.cardTitle('健康告警', '来自服务器告警记录')
       Repeat(this.riskRows(resident))
         .each((repeatItem: RepeatItem<RiskRow>) => {
-          Row() {
-            Text(repeatItem.item.label)
-              .fontSize($r('sys.float.Body_M'))
-              .fontColor($r('sys.color.font_secondary'))
-              .layoutWeight(1)
-            Text(repeatItem.item.value)
-              .fontSize($r('sys.float.Body_S'))
-              .fontWeight(FontWeight.Medium)
-              .fontColor(this.statusColor(repeatItem.item.level))
+          Row({ space: 12 }) {
+            Column({ space: 4 }) {
+              Text(repeatItem.item.label)
+                .fontSize($r('sys.float.Body_M'))
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_primary'))
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+              Text(repeatItem.item.value)
+                .fontSize($r('sys.float.Body_S'))
+                .fontColor($r('sys.color.font_secondary'))
+                .maxLines(2)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+            }
+            .alignItems(HorizontalAlign.Start)
+            .layoutWeight(1)
+
+            Column({ space: 6 }) {
+              Text(this.riskLevelText(repeatItem.item.level))
+                .fontSize($r('sys.float.Caption_M'))
+                .fontColor(this.statusColor(repeatItem.item.level))
+                .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+                .backgroundColor(this.statusBackground(repeatItem.item.level))
+                .borderRadius(5)
+              if (repeatItem.item.time.length > 0) {
+                Text(repeatItem.item.time)
+                  .fontSize($r('sys.float.Caption_M'))
+                  .fontColor($r('sys.color.font_tertiary'))
+              }
+            }
+            .alignItems(HorizontalAlign.End)
           }
           .width('100%')
-          .height(38)
+          .constraintSize({ minHeight: 62 })
+          .padding({ top: 10, bottom: 10 })
           .alignItems(VerticalAlign.Center)
+          .border({ width: { bottom: 0.5 }, color: $r('sys.color.comp_divider') })
         })
-        .key((item: RiskRow) => item.label)
+        .key((item: RiskRow) => `${item.label}_${item.value}`)
     }
     .width('100%')
     .padding({ left: 16, right: 16, top: 4, bottom: 10 })
+  }
+
+  private riskLevelText(level: StatusLevel): string {
+    if (level === 'danger') {
+      return '危险';
+    }
+    if (level === 'warning') {
+      return '警告';
+    }
+    return '正常';
   }
 
   @Builder
@@ -1412,21 +1448,11 @@ export struct WideResidentPage {
 
   @Builder
   private contactCard(resident: ResidentData) {
-    Column({ space: 8 }) {
-      this.cardTitle('紧急联系人', '')
-      Text(resident.emergencyContact)
-        .width('100%')
-        .fontSize($r('sys.float.Body_M'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-      Text(resident.emergencyPhone)
-        .width('100%')
-        .fontSize($r('sys.float.Body_S'))
-        .fontColor($r('sys.color.font_secondary'))
+    Column({ space: 0 }) {
+      this.descriptionRow('紧急联系人', `${resident.emergencyContact} ${resident.emergencyPhone}`, true)
     }
     .width('100%')
-    .padding({ left: 16, right: 16, top: 4, bottom: 16 })
-    .alignItems(HorizontalAlign.Start)
+    .padding({ left: 16, right: 16, top: 4, bottom: 10 })
   }
 
   @Builder

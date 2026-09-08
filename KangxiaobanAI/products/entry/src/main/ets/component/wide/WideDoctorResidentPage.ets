@@ -49,6 +49,7 @@ interface RiskRow {
   label: string;
   value: string;
   level: StatusLevel;
+  time: string;
 }
 
 // Doctor-owned resident surface; keep its UI state independent from the caregiver workspace.
@@ -518,15 +519,16 @@ export struct WideDoctorResidentPage {
         right.record_time.localeCompare(left.record_time))[0];
     if (latest && (latest.risk_summary?.trim().length ?? 0) > 0) {
       rows.push({ label: '体征风险', value: latest.risk_summary ?? '',
-        level: this.serverRiskLevel(latest.risk_level) });
+        level: this.serverRiskLevel(latest.risk_level), time: this.timeText(latest.record_time) });
     }
     for (let index: number = 0; index < alerts.length; index++) {
       const item: Alert = alerts[index];
       const level: StatusLevel = item.level === 'emergency' ? 'danger' : item.level === 'important' ? 'warning' : 'normal';
-      rows.push({ label: item.type, value: item.content, level: level });
+      rows.push({ label: item.type, value: item.content, level: level, time: this.timeText(item.create_time) });
     }
     if (rows.length === 0) {
-      rows.push({ label: '综合风险', value: latest ? '服务器未报告异常风险' : '暂无服务器风险记录', level: 'normal' });
+      rows.push({ label: '综合风险', value: latest ? '服务器未报告异常风险' : '暂无服务器风险记录',
+        level: 'normal', time: latest ? this.timeText(latest.record_time) : '' });
     }
     return rows;
   }
@@ -1239,94 +1241,70 @@ export struct WideDoctorResidentPage {
   @Builder
   private riskCard(resident: ResidentData) {
     Column({ space: 0 }) {
-      this.cardTitle('预警情况', '来自服务器告警记录')
+      this.cardTitle('健康告警', '来自服务器告警记录')
       Repeat(this.riskRows(resident))
         .each((repeatItem: RepeatItem<RiskRow>) => {
-          Row() {
-            Text(repeatItem.item.label)
-              .fontSize($r('sys.float.Body_M'))
-              .fontColor($r('sys.color.font_secondary'))
-              .layoutWeight(1)
-            Text(repeatItem.item.value)
-              .fontSize($r('sys.float.Body_S'))
-              .fontWeight(FontWeight.Medium)
-              .fontColor(this.statusColor(repeatItem.item.level))
+          Row({ space: 12 }) {
+            Column({ space: 4 }) {
+              Text(repeatItem.item.label)
+                .fontSize($r('sys.float.Body_M'))
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_primary'))
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+              Text(repeatItem.item.value)
+                .fontSize($r('sys.float.Body_S'))
+                .fontColor($r('sys.color.font_secondary'))
+                .maxLines(2)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+            }
+            .alignItems(HorizontalAlign.Start)
+            .layoutWeight(1)
+
+            Column({ space: 6 }) {
+              Text(this.riskLevelText(repeatItem.item.level))
+                .fontSize($r('sys.float.Caption_M'))
+                .fontColor(this.statusColor(repeatItem.item.level))
+                .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+                .backgroundColor(this.statusBackground(repeatItem.item.level))
+                .borderRadius(5)
+              if (repeatItem.item.time.length > 0) {
+                Text(repeatItem.item.time)
+                  .fontSize($r('sys.float.Caption_M'))
+                  .fontColor($r('sys.color.font_tertiary'))
+              }
+            }
+            .alignItems(HorizontalAlign.End)
           }
           .width('100%')
-          .height(38)
+          .constraintSize({ minHeight: 62 })
+          .padding({ top: 10, bottom: 10 })
           .alignItems(VerticalAlign.Center)
+          .border({ width: { bottom: 0.5 }, color: $r('sys.color.comp_divider') })
         })
-        .key((item: RiskRow) => item.label)
-      this.openAlertList(resident)
+        .key((item: RiskRow) => `${item.label}_${item.value}`)
     }
     .width('100%')
     .padding({ left: 16, right: 16, top: 4, bottom: 10 })
   }
 
-  /** 该长者的未处理服务器告警（与工作台「重点关注」同一过滤口径）。 */
-  private openAlertsOf(resident: ResidentData): Alert[] {
-    return this.businessStore.alerts
-      .filter((item: Alert): boolean => item.elder_id?.toString() === resident.id &&
-        item.status !== 'handled' && item.status !== 'closed')
-      .sort((left: Alert, right: Alert): number => right.create_time.localeCompare(left.create_time));
-  }
-
-  @Builder
-  private openAlertList(resident: ResidentData) {
-    Column({ space: 0 }) {
-      Divider()
-        .strokeWidth(0.5)
-        .color($r('sys.color.comp_divider'))
-        .margin({ top: 6, bottom: 6 })
-      if (this.openAlertsOf(resident).length === 0) {
-        Text('当前无未处理预警')
-          .width('100%')
-          .height(38)
-          .fontSize($r('sys.float.Body_S'))
-          .fontColor($r('sys.color.font_tertiary'))
-      } else {
-        ForEach(this.openAlertsOf(resident), (alert: Alert) => {
-          Row({ space: 8 }) {
-            Text(alert.level === 'emergency' ? '紧急' : alert.level === 'important' ? '重要' : '一般')
-              .fontSize($r('sys.float.Caption_M'))
-              .fontColor(alert.level === 'emergency' ? $r('app.color.doctor_workspace_danger') :
-                $r('app.color.doctor_workspace_warning'))
-            Text(alert.content)
-              .fontSize($r('sys.float.Body_S'))
-              .fontColor($r('sys.color.font_primary'))
-              .layoutWeight(1)
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-            Text(this.timeText(alert.create_time))
-              .fontSize($r('sys.float.Caption_M'))
-              .fontColor($r('sys.color.font_tertiary'))
-          }
-          .width('100%')
-          .height(38)
-          .alignItems(VerticalAlign.Center)
-        }, (alert: Alert) => `alert-${alert.id}`)
-      }
+  private riskLevelText(level: StatusLevel): string {
+    if (level === 'danger') {
+      return '危险';
     }
-    .width('100%')
+    if (level === 'warning') {
+      return '警告';
+    }
+    return '正常';
   }
 
   @Builder
   private contactCard(resident: ResidentData) {
-    Column({ space: 8 }) {
-      this.cardTitle('紧急联系人', '')
-      Text(resident.emergencyContact)
-        .width('100%')
-        .fontSize($r('sys.float.Body_M'))
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-      Text(resident.emergencyPhone)
-        .width('100%')
-        .fontSize($r('sys.float.Body_S'))
-        .fontColor($r('sys.color.font_secondary'))
+    Column({ space: 0 }) {
+      this.descriptionRow('紧急联系人', `${resident.emergencyContact} ${resident.emergencyPhone}`, true)
     }
     .width('100%')
-    .padding({ left: 16, right: 16, top: 4, bottom: 16 })
-    .alignItems(HorizontalAlign.Start)
+    .padding({ left: 16, right: 16, top: 4, bottom: 10 })
   }
 
   @Builder
