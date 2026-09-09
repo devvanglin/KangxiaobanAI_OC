@@ -228,10 +228,13 @@ func (r *streamRouter) feed(piece string) {
 	const holdback = 15
 	for {
 		buf := r.buf.String()
-		lower := strings.ToLower(buf)
 		bestIdx, bestTag, bestClose := -1, "", false
 		for _, tag := range []string{"<think>", "</think>", "<tool_call>", "</tool_call>"} {
-			if idx := strings.Index(lower, tag); idx >= 0 && (bestIdx < 0 || idx < bestIdx) {
+			// Protocol tags are ASCII and emitted in this exact lowercase form.
+			// Searching the original buffer is important: strings.ToLower can
+			// change the byte length of surrounding Unicode text, making an index
+			// from the lowercased copy invalid for slicing the original buffer.
+			if idx := strings.Index(buf, tag); idx >= 0 && (bestIdx < 0 || idx < bestIdx) {
 				bestIdx, bestTag, bestClose = idx, tag, strings.HasPrefix(tag, "</")
 			}
 		}
