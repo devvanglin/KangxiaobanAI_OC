@@ -95,16 +95,31 @@
 ## 进度清单
 - [x] 起始状态 git 提交推送（2ddb2b6a）
 - [x] 记忆文件建立（本文件）
-- [ ] 侦察 GPU 主机：找到 InsightFace/EmotiEffLib/joyai 部署、web 端口、API 形态（先 10.10.1.1 再 .2）
-- [ ] 调研（必要时上网）：EmotiEffLib 用法、joyai 是什么（可能是行为识别服务名）
-- [ ] 后端：入住人像照 → 人脸注册管线 + elder 映射
-- [ ] 后端：摄像头绑定走廊 + 行为事件表 + 事件写入 + MinIO 视频落桶
-- [ ] 后端：qwen 表情复审调用
-- [ ] 后端：EMQX 雷达自动注册 + 类型指定 + 房间分配 + 入住联动 + 数据落点
-- [ ] 前端：设备添加仅摄像头；雷达类型指定/房间分配 UI
-- [ ] 前端：【长者】行为 tab（时间条回放）+ 设备 tab 雷达
+- [x] 侦察 GPU 主机：全部在 10.10.1.1（见上方侦察结论；10.10.1.2 未查，暂不需要）
+- [x] 后端 A1：internal/face 客户端 + FaceConfig(KXB_FACE_SERVICE_URL 默认 https://10.10.1.1:8088)
+      + face_enrollments 表 + 入住 CreateIntake 异步注册人像（commit 已推送）
+- [ ] 后端 A2：BehaviorEvent 行为事件表 + MinIO cctv-footage-storage 上传（裁脸图/视频片段）
+- [ ] 后端 A3：分析 worker（摄像头轮询 /rtsp/start|frame → /recognize → known 长者 →
+      /behavior + qwen 复审 + 8s 视频片段 → behavior_events + WS 推送）
+      注意 ffmpeg：scratch 容器无 ffmpeg，需服务器放静态 ffmpeg 并挂载 + KXB_FFMPEG_PATH
+- [ ] 后端 A4：GET /elders/:id/behavior-events 分页接口 + 长者人脸注册状态接口
+- [ ] 后端 B1：CreateDevice 校验 device_type=millimeter_wave 拒绝手动添加
+- [ ] 后端 B2：pending 雷达 → 指定 Product(breath_radar/fall_radar) → 分配房间 →
+      房间被入住自动绑 ElderID（联动钩子：elder 入住/分配房间 & 雷达分配房间两处）
+- [ ] 前端 F1：设备添加仅摄像头；雷达类型/房间分配 UI
+- [ ] 前端 F2：【长者】行为 tab（时间条+视频回放 MinIO 预签名 URL）
+- [ ] 前端 F3：【长者】设备 tab 显示绑定雷达
 - [ ] 构建验证 + 部署 + 设备端验证
 - [ ] AGENTS.md 更新
+
+## 下一步（重置后从这里继续）
+1. A2：写 internal/storage 或复用现有 MinIO 客户端（查 internal/service/storage_service.go 的
+   客户端用法：PutObject 即可），BehaviorEvent 模型加 AutoMigrate。
+2. A3：分析循环参考 iot.StartOfflineScanner 的 goroutine 模式（main.go 启动）；每摄像头
+   /rtsp/start 后轮询 /rtsp/frame + /recognize，known → 事件；限制频率（如每摄像头 10s）。
+3. qwen 复审：用 ai_service 的 cfg.BaseURL(NewAPI)+APIKey，POST /v1/chat/completions，
+   messages 里 image_url 用 data URL，model=KXB_FACE_REVIEW_MODEL 默认 Qwen3-VL-4B-Instruct。
+4. 前端长者详情页在 WideResidentPage（护工）/WideDoctorResidentPage（医师），行为 tab 需新增。
 
 ## 关键坑位备忘
 - 前端构建必须带 DEVECO_SDK_HOME/JAVA_HOME/PATH（见仓库根 _build-with-java.bat）。
