@@ -158,6 +158,10 @@ func (r *RunRequest) buildSystemPrompt(withTools bool) string {
 	b.WriteString(strings.TrimSpace(r.SystemPrompt))
 	b.WriteString("\n\n你是康小伴平台的智能助理。回答使用简体中文，条理清晰，" +
 		"涉及健康与护理的内容仅作参考提示，不做诊断结论，紧急情况提醒联系值班人员。")
+	b.WriteString("\n\n【回答前先思考】\n" +
+		"- 每次回答前，先用 <think> 和 </think> 输出 1-3 句简要思考：用户意图、是否需要调用工具、回答计划。\n" +
+		"- 思考里不要写最终回答本身；思考结束后必须另起一段输出给用户看的最终中文回答。\n" +
+		"- 需要机构数据时，思考结束后直接按工具规范调用工具。")
 	for _, skill := range r.Skills {
 		if trimmed := strings.TrimSpace(skill); trimmed != "" {
 			b.WriteString("\n\n【技能指引】\n" + trimmed)
@@ -259,8 +263,16 @@ func (a *Agent) Run(ctx context.Context, req RunRequest) (*RunResult, error) {
 		result.PromptTokens += resp.PromptTokens
 		result.CompletionTokens += resp.CompletionTokens
 		result.TotalTokens += resp.TotalTokens
-		// Defense in depth: recover hermes-style tool calls from plain
-		// content even if the client layer did not strip them already.
+		// Defense in depth: recover hermes-style tool calls and <think>
+		// reasoning from plain content even if the client layer did not
+		// strip them already.
+		if strings.Contains(resp.Content, "<think>") {
+			think, remainder := ParseThinkBlock(resp.Content)
+			if think != "" {
+				resp.Reasoning = appendReasoning(resp.Reasoning, think)
+			}
+			resp.Content = remainder
+		}
 		if len(resp.ToolCalls) == 0 && hasTextToolCall(resp.Content) {
 			if calls, remainder := ParseTextToolCalls(resp.Content); len(calls) > 0 {
 				resp.Content = strings.TrimSpace(remainder)
@@ -324,9 +336,15 @@ func (a *Agent) Run(ctx context.Context, req RunRequest) (*RunResult, error) {
 			result.appendStepLimit()
 			return result, nil
 		}
-		// Empty reply: nudge the model once rather than ending silently.
-		messages = append(messages, ChatMessage{Role: "user",
-			Content: "请基于已有信息给出最终回答；若信息不足，请说明还缺什么。"})
+		// Empty reply: the model likely wrote everything inside <think>;
+		// nudge it toward producing the user-facing final answer.
+		if strings.TrimSpace(resp.Content) == "" {
+			nudge := "请基于已有信息给出最终回答；若信息不足，请说明还缺什么。"
+			if strings.TrimSpace(resp.Reasoning) != "" {
+				nudge = "你把内容写在了 <think> 里。现在请直接输出给用户看的最终中文回答，不要再包含 <think>。"
+			}
+			messages = append(messages, ChatMessage{Role: "user", Content: nudge})
+		}
 	}
 	result.Answer = "这个问题我暂时没有完成完整的查询流程，请稍后重试或换一种问法。"
 	result.Steps = append(result.Steps, Step{Type: StepNotice, Title: "达到推理轮次上限", Detail: "已停止继续调用工具", OK: false})

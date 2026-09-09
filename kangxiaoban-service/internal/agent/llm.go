@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const defaultMaxCompletionTokens = 800
+const defaultMaxCompletionTokens = 1024
 
 // OpenAIClient talks to one OpenAI-compatible /v1/chat/completions endpoint
 // (vLLM, new-api gateways and friends).
@@ -177,6 +177,13 @@ func (c *OpenAIClient) do(ctx context.Context, req ChatRequest, allowNative bool
 	if response.TotalTokens <= 0 {
 		response.TotalTokens = response.PromptTokens + response.CompletionTokens
 	}
+	// Prompt-based thinking: models instructed to reason in <think> blocks
+	// return the block inside content; move it into Reasoning.
+	if strings.Contains(response.Content, "<think>") {
+		think, remainder := ParseThinkBlock(response.Content)
+		response.Reasoning = appendReasoning(response.Reasoning, think)
+		response.Content = remainder
+	}
 	for _, call := range choice.Message.ToolCalls {
 		response.ToolCalls = append(response.ToolCalls, ToolInvocation{
 			ID: call.ID, Name: strings.TrimSpace(call.Function.Name),
@@ -286,6 +293,34 @@ func parseToolCallPayload(payload string) (ToolInvocation, error) {
 		Args:    normalizeToolArguments(envelope.Arguments),
 		Preview: truncateRunes(payload, 200),
 	}, nil
+}
+
+// ParseThinkBlock extracts a <think>…</think> reasoning block from message
+// content and returns the reasoning plus the remaining user-facing text. An
+// unclosed block consumes the whole remainder (the model forgot the closing
+// tag); both parts are trimmed.
+func ParseThinkBlock(content string) (string, string) {
+	start := strings.Index(content, "<think>")
+	if start < 0 {
+		return "", content
+	}
+	before := strings.TrimSpace(content[:start])
+	rest := content[start+len("<think>"):]
+	end := strings.Index(rest, "</think>")
+	if end < 0 {
+		return strings.TrimSpace(rest), before
+	}
+	think := strings.TrimSpace(rest[:end])
+	after := strings.TrimSpace(rest[end+len("</think>"):])
+	joined := before
+	if after != "" {
+		if joined != "" {
+			joined += "\n" + after
+		} else {
+			joined = after
+		}
+	}
+	return think, joined
 }
 
 func hasTextToolCall(content string) bool {
