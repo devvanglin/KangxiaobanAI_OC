@@ -5,3 +5,4 @@ kangxiaoban.db.*
 
 # 本机环境（勿提交真实密钥）
 .env
+.codex/private/

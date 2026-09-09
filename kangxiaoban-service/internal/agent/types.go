@@ -42,12 +42,82 @@ func NormalizeMode(value string) Mode {
 // text (the loop keeps running); only context cancellation aborts.
 type ToolFunc func(ctx context.Context, args string) (string, error)
 
+// ToolTrust describes who owns a tool implementation. TrustedBusiness tools
+// are compiled into this service and remain inside the tenant-scoped business
+// boundary. External tools come from an administrator-configured MCP server
+// and are denied by the default sandbox.
+type ToolTrust string
+
+const (
+	TrustedBusiness ToolTrust = "business"
+	ExternalTool    ToolTrust = "external"
+)
+
+// ToolSandbox is a capability boundary around model-directed tool calls. Host
+// filesystem and shell primitives are never registered. The only shell/file
+// tools permitted by this guard are the built-in OpenSandbox adapters, which
+// execute inside a separately created sandbox with no host mounts and denied
+// egress. The guard also limits input, output and calls.
+type ToolSandbox struct {
+	AllowExternalTools bool
+	MaxToolCalls       int
+	MaxArgsBytes       int
+	MaxResultBytes     int
+}
+
+func DefaultToolSandbox() *ToolSandbox {
+	return &ToolSandbox{MaxToolCalls: 8, MaxArgsBytes: 16 * 1024, MaxResultBytes: 64 * 1024}
+}
+
+func (s *ToolSandbox) Authorize(tool *ToolDefinition, args string, callCount int) error {
+	if s == nil || tool == nil {
+		return nil
+	}
+	if s.MaxToolCalls > 0 && callCount >= s.MaxToolCalls {
+		return fmt.Errorf("工具调用次数超过沙箱限制")
+	}
+	if s.MaxArgsBytes > 0 && len([]byte(args)) > s.MaxArgsBytes {
+		return fmt.Errorf("工具参数超过沙箱限制")
+	}
+	if tool.Trust == ExternalTool && !s.AllowExternalTools {
+		return fmt.Errorf("外部工具未获得沙箱授权")
+	}
+	if tool.Trust == ExternalTool && isDangerousExternalTool(tool.Name, args) {
+		return fmt.Errorf("外部工具触及被沙箱禁止的系统能力")
+	}
+	return nil
+}
+
+func (s *ToolSandbox) LimitResult(value string) string {
+	if s == nil || s.MaxResultBytes <= 0 || len([]byte(value)) <= s.MaxResultBytes {
+		return value
+	}
+	data := []byte(value)
+	return string(data[:s.MaxResultBytes]) + "\n[沙箱已截断工具结果]"
+}
+
+func isDangerousExternalTool(name, args string) bool {
+	lower := strings.ToLower(name + " " + args)
+	for _, marker := range []string{
+		"shell", "exec", "command", "powershell", "cmd", "bash", "python", "docker", "kubectl",
+		"read_file", "write_file", "list_files", "filesystem", "file_system", "download", "upload",
+		"process", "kill", "/etc/", "/proc/", "/sys/", "/root/", "c:\\\\", "..\\", "../",
+		"curl", "wget", "http_request", "browser", "sql", "database", "environment", "env", "secret",
+	} {
+		if strings.Contains(lower, marker) {
+			return true
+		}
+	}
+	return false
+}
+
 // ToolDefinition is one tool exposed to the model. ParametersJSON is the
 // OpenAI JSON-schema object for the "parameters" field.
 type ToolDefinition struct {
 	Name           string
 	Description    string
 	ParametersJSON json.RawMessage
+	Trust          ToolTrust
 	Handler        ToolFunc
 }
 
@@ -117,6 +187,7 @@ type RunRequest struct {
 	History       []Turn
 	UserMessage   string
 	Tools         []*ToolDefinition
+	Sandbox       *ToolSandbox
 	MaxTurns      int
 	Temperature   float64
 	ContextWindow int            // model context window used for history budgeting
@@ -339,6 +410,24 @@ func (a *Agent) Run(ctx context.Context, req RunRequest) (*RunResult, error) {
 					step.Result = "工具不存在"
 					step.OK = false
 					output = "工具不存在: " + call.Name
+				} else if req.Sandbox != nil {
+					if sandboxErr := req.Sandbox.Authorize(tool, call.Args, result.ToolCallCount-1); sandboxErr != nil {
+						step.Result = sandboxErr.Error()
+						step.OK = false
+						output = "沙箱拒绝工具调用: " + sandboxErr.Error()
+					} else {
+						text, toolErr := tool.Handler(ctx, call.Args)
+						step.DurationMS = time.Since(startedAt).Milliseconds()
+						if toolErr != nil {
+							step.Result = "执行失败: " + truncateRunes(toolErr.Error(), 200)
+							step.OK = false
+							output = "工具执行失败: " + toolErr.Error()
+						} else {
+							output = req.Sandbox.LimitResult(text)
+							step.Result = truncateRunes(output, 400)
+							step.OK = true
+						}
+					}
 				} else {
 					text, toolErr := tool.Handler(ctx, call.Args)
 					step.DurationMS = time.Since(startedAt).Milliseconds()

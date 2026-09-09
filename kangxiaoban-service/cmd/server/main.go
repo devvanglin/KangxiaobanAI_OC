@@ -74,6 +74,7 @@ func main() {
 	notificationSvc := service.NewNotificationService(notificationRepo)
 	messageSvc := service.NewMessageService(messageRepo)
 	aiSvc := service.NewAIService(&cfg.AI, db)
+	aiSvc.SetSandboxConfig(cfg.Sandbox)
 	aiSvc.SetPackageEventPublisher(hub)
 	assessmentAgentSvc.SetPackageRecommender(aiSvc)
 	storageSvc := service.NewStorageService(cfg.Storage, cfg.JWT.Secret)

@@ -516,6 +516,11 @@ elder subscription, copies package items into a care plan and caregiver tasks, a
 assigned caregiver. A model cannot invent a template, write a subscription directly, or bypass the active-template
 check. Recommendation failure never rolls back the completed assessment; the session exposes `pending`, `assigned`, or
 `failed` status and the doctor must review the advisory recommendation before execution.
+The workbench Agent may also expose `sandbox_list_files`, `sandbox_read_file`, `sandbox_write_file`, and `sandbox_shell`
+when the server-side OpenSandbox connection is explicitly enabled. These are not host tools: each exchange creates a
+short-lived OpenSandbox container with no host directory mounts, denied egress, bounded CPU/memory/TTL, and a `/workspace`
+relative-path boundary. The sandbox API key stays in the backend environment. MCP tools remain external capabilities and
+are denied by the Agent sandbox by default; adding a new external tool requires an explicit reviewed policy change.
 Voice assessment is strict half-duplex. Each TTS turn carries a unique `turn_id`; the server ends generation with
 `await_playback` but does not accept PCM or start the no-answer timer. The native renderer must write every byte,
 `drain()` its playback buffer, and send `playback_complete(turn_id)`. Only the matching acknowledgement changes the

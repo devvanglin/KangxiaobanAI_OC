@@ -14,9 +14,20 @@ type Config struct {
 	JWT             JWTConfig
 	MQTT            MQTTConfig
 	AI              AIConfig
+	Sandbox         SandboxConfig
 	AssessmentAgent AssessmentAgentConfig
 	Stream          StreamConfig
 	Storage         StorageConfig
+}
+
+// SandboxConfig points to the separately deployed OpenSandbox control plane.
+// The API key remains server-side and is never exposed to the model or client.
+type SandboxConfig struct {
+	Enabled  bool
+	Domain   string
+	Protocol string
+	APIKey   string
+	Image    string
 }
 
 // StorageConfig MinIO/S3 对象存储（管理端「存储」预览）。
@@ -125,6 +136,13 @@ func Load() *Config {
 			APIKey:       os.Getenv("KXB_AI_API_KEY"),
 			ConfigKey:    env("KXB_AI_CONFIG_KEY", env("KXB_JWT_SECRET", "change-me-in-production")),
 			SystemPrompt: env("KXB_AI_SYSTEM_PROMPT", "你是康小伴智慧康养护理平台的照护助理，回答须谨慎、贴题、仅作参考，不做临床诊断。"),
+		},
+		Sandbox: SandboxConfig{
+			Enabled:  env("KXB_SANDBOX_ENABLED", "false") == "true",
+			Domain:   env("KXB_SANDBOX_DOMAIN", "127.0.0.1:18081"),
+			Protocol: env("KXB_SANDBOX_PROTOCOL", "http"),
+			APIKey:   os.Getenv("KXB_SANDBOX_API_KEY"),
+			Image:    env("KXB_SANDBOX_IMAGE", "python:3.12-slim"),
 		},
 		AssessmentAgent: AssessmentAgentConfig{
 			WebSocketURL: env("KXB_ASSESSMENT_AGENT_WS_URL", "ws://10.10.1.11:8000/assessment-ws"),

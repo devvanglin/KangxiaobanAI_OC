@@ -378,6 +378,7 @@ func (s *AIService) mcpAgentTools(ctx context.Context) []*agent.ToolDefinition {
 			serverID := server.ID
 			definition := &agent.ToolDefinition{
 				Name:           toolName,
+				Trust:          agent.ExternalTool,
 				Description:    fmt.Sprintf("[%s] %s", server.Name, strings.TrimSpace(toolDef.Description)),
 				ParametersJSON: normalizeMCPSchema(toolDef.InputSchema),
 				Handler: func(ctx context.Context, args string) (string, error) {

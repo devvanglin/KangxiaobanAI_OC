@@ -52,6 +52,7 @@ type AIService struct {
 	db               *gorm.DB
 	agentNativeTools bool
 	packageEvents    packageEventPublisher
+	sandboxCfg       config.SandboxConfig
 }
 
 type packageEventPublisher interface {
@@ -121,6 +122,8 @@ func NewAIService(cfg *config.AIConfig, db *gorm.DB) *AIService {
 func (s *AIService) SetPackageEventPublisher(publisher packageEventPublisher) {
 	s.packageEvents = publisher
 }
+
+func (s *AIService) SetSandboxConfig(cfg config.SandboxConfig) { s.sandboxCfg = cfg }
 
 // WithAIRoleScope selects the role-specific model assignment while retaining
 // the caller's authenticated tenant context.

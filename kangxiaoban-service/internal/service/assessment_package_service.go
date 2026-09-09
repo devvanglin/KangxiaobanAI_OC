@@ -53,7 +53,7 @@ func (s *AIService) RecommendPackage(ctx context.Context, actorID, assessmentID 
 	runner := &agent.Agent{LLM: s.agentClient(cfg), Model: cfg.Model}
 	result, err := runner.Run(ctx, agent.RunRequest{
 		Mode: agent.ModeWork, SystemPrompt: "你是康小伴的护理套餐决策助手。套餐推荐仅作照护运营建议，不能替代医师判断。你必须调用工具完成真实落地，先读候选套餐，再选择一个最匹配的启用套餐并推送给护工。若报告不足，选择与照护等级和风险最匹配的套餐，并在理由中注明需医师复核。",
-		UserMessage: userMessage, Tools: tools, MaxTurns: 5, Temperature: 0.1,
+		UserMessage: userMessage, Tools: tools, Sandbox: agent.DefaultToolSandbox(), MaxTurns: 5, Temperature: 0.1,
 	})
 	if err != nil {
 		return err
