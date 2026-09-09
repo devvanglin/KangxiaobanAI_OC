@@ -91,7 +91,8 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	assessmentAgentHandler := handler.NewAssessmentAgentHandler(assessmentAgentSvc, userRepo, cfg.JWT.Secret,
 		cfg.AssessmentAgent.WebSocketURL, cfg.AssessmentAgent.ProxyToken)
 	photoSvc := service.NewAdmissionPhotoService(db, cfg.Server.UploadDir)
-	admissionHandler := handler.NewAdmissionHandler(admissionSvc, photoSvc)
+	faceEnrollSvc := service.NewFaceEnrollService(db, cfg.Face, cfg.Server.UploadDir)
+	admissionHandler := handler.NewAdmissionHandler(admissionSvc, faceEnrollSvc, photoSvc)
 	notificationHandler := handler.NewNotificationHandler(notificationSvc)
 	messageHandler := handler.NewMessageHandler(messageSvc, hub, userRepo)
 	systemHandler := handler.NewSystemHandler()

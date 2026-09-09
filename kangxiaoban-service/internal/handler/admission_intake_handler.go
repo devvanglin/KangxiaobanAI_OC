@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
@@ -23,6 +24,12 @@ func (h *AdmissionHandler) CreateIntake(c *gin.Context) {
 	if err != nil {
 		h.fail(c, err, "办理入住失败")
 		return
+	}
+	// 人像照注册为异步尽力而为：失败记录在 face_enrollments，可重试，
+	// 不阻塞也不影响入住办理结果。
+	if h.face != nil && result.Elder.ID > 0 {
+		enrollCtx := context.Background()
+		go h.face.EnrollElderFromPortrait(enrollCtx, result.Elder.ID)
 	}
 	OK(c, result)
 }

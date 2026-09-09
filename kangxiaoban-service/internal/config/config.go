@@ -14,6 +14,7 @@ type Config struct {
 	JWT             JWTConfig
 	MQTT            MQTTConfig
 	AI              AIConfig
+	Face            FaceConfig
 	Sandbox         SandboxConfig
 	AssessmentAgent AssessmentAgentConfig
 	Stream          StreamConfig
@@ -59,6 +60,13 @@ type AIConfig struct {
 	ConfigKey    string     // 用于数据库中 AI 密钥的加密；生产环境应显式注入
 	SystemPrompt string
 	RAG          DifyConfig // Dify RAG 知识库连接；留空表示未启用
+}
+
+// FaceConfig DGX 人脸/表情识别服务（InsightFace + EmotiEffLib + JoyAI）。
+// 内网自签 HTTPS；密钥不需要——保护靠内网隔离与服务端 token 化调用。
+type FaceConfig struct {
+	Enabled bool
+	BaseURL string
 }
 
 // DifyConfig Dify RAG 连接，与 MinIO 同款：密钥只保存在服务端环境变量，
@@ -150,6 +158,10 @@ func Load() *Config {
 				DatasetID: env("KXB_DIFY_DATASET_ID", ""),
 				APIKey:    os.Getenv("KXB_DIFY_API_KEY"),
 			},
+		},
+		Face: FaceConfig{
+			Enabled: env("KXB_FACE_ENABLED", "true") == "true",
+			BaseURL: env("KXB_FACE_SERVICE_URL", "https://10.10.1.1:8088"),
 		},
 		Sandbox: SandboxConfig{
 			Enabled:  env("KXB_SANDBOX_ENABLED", "false") == "true",

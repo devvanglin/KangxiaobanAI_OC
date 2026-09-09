@@ -134,3 +134,16 @@ type AISandboxSetting struct {
 }
 
 func (AISandboxSetting) TableName() string { return "ai_sandbox_settings" }
+
+// FaceEnrollment 记录长者人像照在人脸服务中的注册状态（每长者一行）。
+// person_id 契约为 elder-<ID>；特征向量只存在于 GPU 服务的特征库中。
+type FaceEnrollment struct {
+	Base
+	ElderID    uint      `gorm:"uniqueIndex" json:"elder_id"`
+	PersonID   string    `gorm:"size:64" json:"person_id"`
+	Status     string    `gorm:"size:16;default:pending" json:"status"` // pending/ok/failed
+	Error      string    `gorm:"size:512" json:"error,omitempty"`
+	EnrolledAt time.Time `json:"enrolled_at"`
+}
+
+func (FaceEnrollment) TableName() string { return "face_enrollments" }

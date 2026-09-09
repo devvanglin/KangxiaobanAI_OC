@@ -16,6 +16,7 @@ import (
 type AdmissionHandler struct {
 	svc    *service.AdmissionService
 	photos *service.AdmissionPhotoService
+	face   *service.FaceEnrollService
 }
 
 // The binary image itself is capped at 5 MiB by the service. Leave a small
@@ -23,8 +24,9 @@ type AdmissionHandler struct {
 // Gin parse an arbitrarily large request before that validation runs.
 const maxAdmissionPhotoRequestBytes int64 = 6 << 20
 
-func NewAdmissionHandler(svc *service.AdmissionService, photos ...*service.AdmissionPhotoService) *AdmissionHandler {
-	h := &AdmissionHandler{svc: svc}
+// faceEnroll 人像照注册（可为 nil：未启用时跳过）。
+func NewAdmissionHandler(svc *service.AdmissionService, faceEnroll *service.FaceEnrollService, photos ...*service.AdmissionPhotoService) *AdmissionHandler {
+	h := &AdmissionHandler{svc: svc, face: faceEnroll}
 	if len(photos) > 0 {
 		h.photos = photos[0]
 	}
