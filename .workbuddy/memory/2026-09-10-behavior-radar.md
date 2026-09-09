@@ -42,6 +42,33 @@
 - 服务器 .env 有历史遗留坏行（第 29 行附近游离 token，是 KXB_SANDBOX_API_KEY 值被截断），别用 godotenv
   严格解析它；沙箱现在管理端 UI 可配置（ai_sandbox_settings，DB 优先 env 回退）。
 
+## 侦察结论（2026-09-10 凌晨，已核实）
+
+### AI 服务全在 10.10.1.1（spark-998d，DGX Spark，SSH nvidia@）
+- **FaceCare Console 人脸/表情服务：`http://10.10.1.1:8088`**（FastAPI，0.0.0.0:8088）
+  - `GET /health`；`GET /` 人脸登记/识别 UI（face_ui.html）
+  - `POST /enroll` `{"person_id":"resident-001","image":"data:image/jpeg;base64,..."}` → 只存特征向量
+    （person_id 约定用 `elder-<ID>`；特征库 `data/face_registry.json`）
+  - `POST /recognize` `{"image":"data:image/jpeg;base64,..."}` → 人脸框、身份余弦相似度
+    （阈值 0.45，未过阈值 known=false）、EmotiEffLib 表情标签+分数
+  - `POST /behavior` → 转发图像给 JoyAI-VL，返回老人行为+场景描述（看护摄像头人设）
+  - `POST /session/reset`
+  - 组件：InsightFace buffalo_l(SCRFD+w600k_r50 ArcFace) CUDA、EmotiEffLib enet_b0_8_best_vgaf CUDA
+  - 服务目录 `/home/nvidia/JoyAI-VL-Interaction/face_identity_emotion/`（face_service.py + start.sh，
+    systemd --user 单元 face-identity-emotion.service）
+- **vLLM：`http://10.10.1.1:8065`**（OpenAI 兼容 /v1/chat/completions，跑 Qwen3-VL-4B-Instruct，
+  本地模型库 ~/models）；NewAPI(10.10.1.12:3030) 也聚合了视觉模型，qwen 复审走 NewAPI 即可。
+- 8070 另有 python 服务（未确认用途）；JoyAI-VL-Interaction 仓库在 ~/JoyAI-VL-Interaction
+  （services/{asr,tts,webinfer,webui,background-agent}，jdopensource/JoyAI-VL-Interaction 项目，
+  行为识别走 /behavior 转发即可，不用直接碰）。
+- 参考测试素材：~/elderly-video-test/elderly-fashion.webm。
+
+### 视频方案决定
+- Go 后端跑在 FROM scratch 容器里没有 ffmpeg → 在服务器放一个**静态 ffmpeg**，compose 挂载进容器并设
+  `KXB_FFMPEG_PATH=/usr/local/bin/ffmpeg`；事件触发时 `ffmpeg -t 8 -i rtsp://... ` 切 8 秒 mp4
+  传 MinIO `cxtv→cctv-footage-storage` 桶（注意桶名拼写 cctv-footage-storage）；后续可升级环形分段。
+- 人脸裁切：/recognize 返回人脸框 → Go 侧裁 JPEG → 传 MinIO 同桶 `faces/` 前缀。
+
 ## 设计决策（实施中确定，随时补充）
 - 行为事件表 `behavior_events`（tenant, elder_id, device_id, area_id, detected_at,
   face_crop_object, video_object, expression_emotieff, expression_qwen, expression_final,
