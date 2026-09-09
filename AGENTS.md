@@ -389,6 +389,7 @@ before extending preload.
 | Doctor admission | local module surface | `WideDoctorAdmission` | doctor quality module |
 | Operational intake | `NavPathStack` destination | doctor workbench | `WideDoctorAdmissionForm` |
 | Voice assessment | `NavPathStack.replacePath/pushPath` after a completed intake or from cases | `MainPage` | `WideAssessmentAgentPage` |
+| Assessment report | `NavPathStack.replacePath/pushPath` after Agent completion or from the assessment ledger | `MainPage` | `WideAssessmentReportPage` |
 | Administrator workspace | local wide workspace branch | `MainPage` | `WideAdminWorkspace` |
 
 There is no `router_map.json`/`route_map.json` in the core product. If notification, card, deep link, dynamic HAR, or
@@ -563,7 +564,8 @@ Current production source is under `KangxiaobanAI/products/entry/src/main/ets`.
 | `component/wide/WideDoctorWorkspace.ets` | compatibility facade that delegates the visible doctor console to `WideAdminWorkspace`; the former duplicate doctor builders were removed |
 | `component/wide/WideDoctorAdmission.ets` | backend-persisted four-step appendix A/B/C admission workflow, server preview/scoring, screenings, care-plan selection, confirmations, and submission result |
 | `component/wide/WideDoctorAdmissionForm.ets` | one-page operational intake, case upload, save-without-assessment, and post-commit Agent handoff |
-| `component/wide/WideAssessmentAgentPage.ets` | native HDS voice/text assessment, microphone permission fallback, progress, resume, and completion report |
+| `component/wide/WideAssessmentAgentPage.ets` | native HDS voice/text assessment, microphone permission fallback, progress, resume, and completion handoff |
+| `component/wide/WideAssessmentReportPage.ets` | fresh authenticated loading and presentation of a completed Agent assessment report |
 | `network/AssessmentAgentClient.ets` | authenticated WebSocket, 16 kHz PCM microphone streaming, ASR events, and Float32 TTS playback |
 | `component/wide/WideAreaManagement.ets` | compatibility-aware floor/room/bed and corridor/stair area management |
 | `component/wide/WideCarePackageManagement.ets` | administrator care-package template, item, and elder subscription UI |

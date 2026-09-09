@@ -26,6 +26,12 @@ func (r *CareRepository) ListAssessments(ctx context.Context, elderID uint, page
 	return out, total, err
 }
 
+func (r *CareRepository) GetAssessment(ctx context.Context, id uint) (*model.Assessment, error) {
+	var assessment model.Assessment
+	err := r.db.WithContext(ctx).Where("id = ?", id).First(&assessment).Error
+	return &assessment, err
+}
+
 func (r *CareRepository) CreateAssessment(ctx context.Context, v *model.Assessment) error {
 	return r.db.WithContext(ctx).Create(v).Error
 }

@@ -2,8 +2,9 @@ import { abilityAccessCtrl, common, Permissions } from '@kit.AbilityKit';
 import {
   HdsNavDestination, HdsNavDestinationTitleMode, ScrollEffectType, TitleBarStyleOptions, hdsMaterial
 } from '@kit.UIDesignKit';
-import { AssessmentAgentSession } from '../../network/AssessmentAgentApi';
+import { AssessmentAgentApi, AssessmentAgentSession } from '../../network/AssessmentAgentApi';
 import { AssessmentAgentClient, AssessmentAgentEvent } from '../../network/AssessmentAgentClient';
+import { BusinessStore } from '../../network/BusinessStore';
 
 const MICROPHONE_PERMISSION: Permissions = 'ohos.permission.MICROPHONE';
 
@@ -13,6 +14,7 @@ export struct WideAssessmentAgentPage {
   @Param statusBarHeight: number = 0;
   @Param naviIndicatorHeight: number = 0;
   @Event onClose: () => void = () => {};
+  @Event onViewReport: (assessmentId: number) => void = (_assessmentId: number) => {};
   @Local statusText: string = '正在连接评估服务…';
   @Local currentIndex: number = 0;
   @Local currentTopic: string = '';
@@ -28,6 +30,7 @@ export struct WideAssessmentAgentPage {
   @Local completed: boolean = false;
   @Local report: string = '';
   @Local answered: number = 0;
+  @Local assessmentId: number = 0;
   private client: AssessmentAgentClient = new AssessmentAgentClient();
   private scroller: Scroller = new Scroller();
 
@@ -108,8 +111,23 @@ export struct WideAssessmentAgentPage {
       this.statusText = '评估已完成，结果已保存到长者评估';
       void this.client.stopMicrophone();
       this.listening = false;
+      void this.refreshCompletedAssessment();
     } else if (event.type === 'error') {
       this.statusText = event.message ?? '评估服务发生错误';
+    }
+  }
+
+  private async refreshCompletedAssessment(): Promise<void> {
+    try {
+      const response = await AssessmentAgentApi.getSession(this.session.session_key);
+      if (response.code === 0 && response.data !== undefined) {
+        this.assessmentId = response.data.assessment_id ?? 0;
+        if (response.data.report.length > 0) { this.report = response.data.report; }
+      }
+      await BusinessStore.getShared().load(true);
+    } catch (_error) {
+      // The report remains visible from the completion event. The ledger will
+      // retry its normal server load when the doctor opens it again.
     }
   }
 
@@ -249,6 +267,11 @@ export struct WideAssessmentAgentPage {
         .backgroundColor($r('sys.color.comp_background_secondary')).borderRadius(12)
       Button('返回工作台').height(44).borderRadius(12).fontColor(Color.White)
         .backgroundColor($r('app.color.brand_blue')).onClick(() => this.onClose())
+      if (this.assessmentId > 0) {
+        Button('查看完整评估报告').height(44).borderRadius(12)
+          .fontColor($r('app.color.brand_blue')).backgroundColor($r('sys.color.comp_background_secondary'))
+          .onClick(() => this.onViewReport(this.assessmentId))
+      }
     }.width('100%').padding(28).alignItems(HorizontalAlign.Center)
       .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(18)
   }

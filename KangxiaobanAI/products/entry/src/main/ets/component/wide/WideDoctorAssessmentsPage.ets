@@ -58,6 +58,7 @@ export struct WideDoctorAssessmentsPage {
   @Param statusBarHeight: number = 0;
   @Param naviIndicatorHeight: number = 0;
   @Event onClose: () => void = () => {};
+  @Event onOpenReport: (assessmentId: number) => void = (_assessmentId: number) => {};
 
   @Local businessStore: BusinessStore = BusinessStore.getShared();
   @Local typeFilter: string = 'all';
@@ -347,11 +348,16 @@ export struct WideDoctorAssessmentsPage {
         .layoutWeight(2)
 
         Row({ space: 10 }) {
-          Text(this.expandedId === item.id ? '收起' : '查看')
+          Text(item.report !== undefined && item.report.trim().length > 0 ? '查看报告' :
+            (this.expandedId === item.id ? '收起' : '查看'))
             .fontSize(13)
             .fontColor($r('app.color.brand_blue'))
             .onClick(() => {
-              this.expandedId = this.expandedId === item.id ? -1 : item.id;
+              if (item.report !== undefined && item.report.trim().length > 0) {
+                this.onOpenReport(item.id);
+              } else {
+                this.expandedId = this.expandedId === item.id ? -1 : item.id;
+              }
             })
         }
         .layoutWeight(2)
@@ -366,7 +372,11 @@ export struct WideDoctorAssessmentsPage {
         this.hoveredId = isHover ? item.id : -1;
       })
       .onClick(() => {
-        this.expandedId = this.expandedId === item.id ? -1 : item.id;
+        if (item.report !== undefined && item.report.trim().length > 0) {
+          this.onOpenReport(item.id);
+        } else {
+          this.expandedId = this.expandedId === item.id ? -1 : item.id;
+        }
       })
 
       if (this.expandedId === item.id) {

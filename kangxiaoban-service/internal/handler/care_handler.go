@@ -31,6 +31,20 @@ func (h *CareHandler) ListAssessments(c *gin.Context) {
 	OK(c, gin.H{"list": items, "page": page, "size": size, "total": total})
 }
 
+func (h *CareHandler) GetAssessment(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || id == 0 {
+		Fail(c, http.StatusBadRequest, 400, "评估 ID 无效")
+		return
+	}
+	assessment, err := h.svc.GetAssessment(c.Request.Context(), uint(id))
+	if err != nil {
+		Fail(c, http.StatusNotFound, 404, "评估记录不存在")
+		return
+	}
+	OK(c, assessment)
+}
+
 func (h *CareHandler) CreateAssessment(c *gin.Context) {
 	var req model.Assessment
 	if err := c.ShouldBindJSON(&req); err != nil || req.ElderID == 0 || req.AssessmentType == "" {

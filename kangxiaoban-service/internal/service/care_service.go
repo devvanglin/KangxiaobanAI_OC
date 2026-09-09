@@ -22,6 +22,9 @@ func NewCareService(repo *repository.CareRepository) *CareService { return &Care
 func (s *CareService) ListAssessments(ctx context.Context, elderID uint, page, size int) ([]model.Assessment, int64, error) {
 	return s.repo.ListAssessments(ctx, elderID, page, size)
 }
+func (s *CareService) GetAssessment(ctx context.Context, id uint) (*model.Assessment, error) {
+	return s.repo.GetAssessment(ctx, id)
+}
 func (s *CareService) CreateAssessment(ctx context.Context, v *model.Assessment) error {
 	if v.AssessedAt.IsZero() {
 		v.AssessedAt = time.Now()

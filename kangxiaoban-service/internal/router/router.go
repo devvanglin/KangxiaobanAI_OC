@@ -227,6 +227,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 
 		// 护理闭环：评估 -> 计划 -> 执行 -> 复核
 		authed.GET("/assessments", perm("health:read"), careHandler.ListAssessments)
+		authed.GET("/assessments/:id", perm("health:read"), careHandler.GetAssessment)
 		authed.POST("/assessments", perm("health:write"), careHandler.CreateAssessment)
 		authed.GET("/assessment-agent/question-bank", perm("health:read"), assessmentAgentHandler.CurrentQuestionBank)
 		authed.POST("/assessment-agent/sessions", perm("health:write"), assessmentAgentHandler.CreateSession)

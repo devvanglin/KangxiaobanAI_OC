@@ -43,6 +43,7 @@ import { WideCaregiverTitleActions } from '../component/wide/WideCaregiverTitleA
 import { WideAdminWorkspace } from '../component/wide/WideAdminWorkspace';
 import { WideDoctorAdmissionForm } from '../component/wide/WideDoctorAdmissionForm';
 import { WideAssessmentAgentPage } from '../component/wide/WideAssessmentAgentPage';
+import { WideAssessmentReportPage } from '../component/wide/WideAssessmentReportPage';
 import { AssessmentAgentSession } from '../network/AssessmentAgentApi';
 import { WideDoctorBedsPage } from '../component/wide/WideDoctorBedsPage';
 import { WideDoctorTasksPage } from '../component/wide/WideDoctorTasksPage';
@@ -1720,7 +1721,17 @@ struct MainPage {
         naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
         onClose: () => {
           this.pathStack.pop();
+        },
+        onViewReport: (assessmentId: number) => {
+          this.pathStack.replacePath({ name: 'AssessmentReportPage', param: assessmentId });
         }
+      })
+    } else if (name === 'AssessmentReportPage') {
+      WideAssessmentReportPage({
+        assessmentId: param as number,
+        statusBarHeight: this.globalInfoModel.statusBarHeight,
+        naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
+        onClose: () => { this.pathStack.pop(); }
       })
     } else if (name === 'DoctorBedsPage') {
       WideDoctorBedsPage({
@@ -1768,6 +1779,9 @@ struct MainPage {
         naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
         onClose: () => {
           this.pathStack.pop();
+        },
+        onOpenReport: (assessmentId: number) => {
+          this.pathStack.pushPath({ name: 'AssessmentReportPage', param: assessmentId });
         }
       })
     } else if (name === 'DoctorBillsPage') {
