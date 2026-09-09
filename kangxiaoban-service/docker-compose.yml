@@ -38,6 +38,8 @@ services:
       KXB_DIFY_BASE_URL: "${KXB_DIFY_BASE_URL:-}"
       KXB_DIFY_DATASET_ID: "${KXB_DIFY_DATASET_ID:-}"
       KXB_DIFY_API_KEY: "${KXB_DIFY_API_KEY:-}"
+      KXB_FACE_ENABLED: "${KXB_FACE_ENABLED:-true}"
+      KXB_FACE_SERVICE_URL: "${KXB_FACE_SERVICE_URL:-https://10.10.1.1:8088}"
       # Authenticated proxy to the isolated AsLive assessment runtime.
       KXB_ASSESSMENT_AGENT_WS_URL: "${KXB_ASSESSMENT_AGENT_WS_URL:-ws://10.10.1.11:8000/assessment-ws}"
       KXB_ASSESSMENT_AGENT_TOKEN: "${KXB_ASSESSMENT_AGENT_TOKEN:?set KXB_ASSESSMENT_AGENT_TOKEN in .env}"
