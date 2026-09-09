@@ -337,11 +337,14 @@ spatial records, and renders each selected floor as a 2D grid floor plan in `Wid
 type defaults, room 3×2 and corridor 6×1), and the canvas supports tap-to-place, drag-to-move, a resize dialog, and
 per-floor layouts persisted through the area APIs. `订阅` manages tenant-owned care-package templates and elder
 subscriptions that generate runtime
-care plans and tasks. The model page edits one tenant-level unified model-service connection (`ai_connections`:
-one OpenAI-compatible endpoint (vLLM and friends) plus one Dify RAG connection; keys are encrypted server-side and
-never returned to clients) through the `编辑模型网关` dialog and `GET/PUT /api/v1/admin/ai/connection`. Role AIs no
+care plans and tasks. The model-service connection (NewAPI/OpenAI-compatible endpoint) and the Dify RAG connection
+are owned by server-side environment variables (`KXB_AI_BASE_URL`/`KXB_AI_API_KEY`/`KXB_AI_PROVIDER` and
+`KXB_DIFY_BASE_URL`/`KXB_DIFY_DATASET_ID`/`KXB_DIFY_API_KEY`), exactly like MinIO storage: the admin page shows a
+read-only connection status from `GET /api/v1/admin/ai/connection` (configured flags only, never URLs or keys) and
+renders MinIO-style explicit unconfigured states; the former `编辑模型网关` dialog and `PUT /admin/ai/connection`
+were removed, and the legacy `ai_connections` table plus its startup backfill are no longer read. Role AIs no
 longer own connections: the per-role `提示词` panel assigns the model plus system prompt to the caregiver/doctor
-`ai_model_configs` assignments, and the chat gateway merges connection + assignment. The page follows the redesign
+`ai_model_configs` assignments, and the chat gateway merges the env connection + assignment. The page follows the redesign
 platform layout on a 1280vp-centered column: a page header with live stat tags (connected models, enabled
 assignments, today's calls, weighted average response), a sliding-capsule module nav that switches between the
 stacked-style modules (模型管理 / 提示词库 / MCP 管理 / Skills 管理 / RAG 知识库 / 评估题库),
@@ -728,11 +731,12 @@ touch/focus target size, large-font behavior, and keyboard/mouse handling on 2-i
 - new/select/delete/send flows call typed REST endpoints;
 - remote provider errors surface as service failures and are not rewritten as local answers;
 - the response records its actual provider/model identity;
-- the gateway merges one tenant-level unified connection (`ai_connections`: endpoint, keys, enable, RAG) with the
+- the gateway merges the server-side `.env` connection (`KXB_AI_*` endpoint/key/enable plus `KXB_DIFY_*` RAG;
+  never editable or readable from clients) with the
   role assignment (`ai_model_configs`: model and system prompt per role); assignments no longer carry endpoints;
 - every gateway call writes one tenant-scoped `ai_usage_logs` row (provider-reported tokens when available, a
   character-based estimate for the local provider, RAG attempts, success flag, duration) without message content;
-- when the unified connection enables RAG on an http endpoint, the gateway performs a best-effort Dify dataset
+- when the env-configured RAG connection is set on an http endpoint, the gateway performs a best-effort Dify dataset
   retrieval and injects the
   fragments as reference context; retrieval failures do not block the chat and local-provider connections never retrieve;
 - UI-only feedback, copy/edit state, scrolling, focus, keyboard behavior, and simple rich-text parsing remain local.

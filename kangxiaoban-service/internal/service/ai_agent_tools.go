@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"kangxiaoban-service/internal/agent"
+	"kangxiaoban-service/internal/config"
 	"kangxiaoban-service/internal/model"
 )
 
@@ -23,7 +24,7 @@ type agentToolSpec struct {
 // buildAgentTools assembles the tool list for one exchange. Work mode carries
 // the institutional data tools; both modes keep the knowledge-base search tool
 // so ordinary conversation can still consult institutional documents.
-func (s *AIService) buildAgentTools(ctx context.Context, connection *model.AIConnection, permissions []string, mode agent.Mode) []*agent.ToolDefinition {
+func (s *AIService) buildAgentTools(ctx context.Context, rag config.DifyConfig, permissions []string, mode agent.Mode) []*agent.ToolDefinition {
 	has := func(code string) bool {
 		for _, permission := range permissions {
 			if permission == code {
@@ -43,7 +44,7 @@ func (s *AIService) buildAgentTools(ctx context.Context, connection *model.AICon
 			agentToolSpec{"dash:read", s.toolGetTodaySchedule()},
 		)
 	}
-	specs = append(specs, agentToolSpec{"", s.toolSearchKnowledgeBase(ctx, connection)})
+	specs = append(specs, agentToolSpec{"", s.toolSearchKnowledgeBase(ctx, rag)})
 
 	tools := make([]*agent.ToolDefinition, 0, len(specs))
 	for _, spec := range specs {
@@ -420,10 +421,10 @@ func (s *AIService) toolGetTodaySchedule() *agent.ToolDefinition {
 	}
 }
 
-// toolSearchKnowledgeBase turns the tenant's Dify dataset into an agent tool
-// so the model decides when to consult institutional documents. Retrieval
-// failures surface as tool errors and never abort the exchange.
-func (s *AIService) toolSearchKnowledgeBase(ctx context.Context, connection *model.AIConnection) *agent.ToolDefinition {
+// toolSearchKnowledgeBase turns the server-configured Dify dataset into an
+// agent tool so the model decides when to consult institutional documents.
+// Retrieval failures surface as tool errors and never abort the exchange.
+func (s *AIService) toolSearchKnowledgeBase(ctx context.Context, rag config.DifyConfig) *agent.ToolDefinition {
 	type args struct {
 		Query string `json:"query"`
 	}
@@ -438,7 +439,7 @@ func (s *AIService) toolSearchKnowledgeBase(ctx context.Context, connection *mod
 			if err := toolArgs(raw, &input); err != nil || strings.TrimSpace(input.Query) == "" {
 				return "", fmt.Errorf("query 必填")
 			}
-			fragments, err := s.ragRetrieve(toolCtx, connection, strings.TrimSpace(input.Query), 3)
+			fragments, err := s.ragRetrieve(toolCtx, rag, strings.TrimSpace(input.Query), 3)
 			if err != nil {
 				return "", fmt.Errorf("知识库暂时不可用")
 			}

@@ -44,19 +44,8 @@ func TestChatWithAgentWorkModeSendsSchemas(t *testing.T) {
 	ctx := context.WithValue(context.Background(), model.TenantContextKey, uint(1))
 	ctx = WithAIRoleScope(ctx, "caregiver")
 
-	// point the tenant connection at the capture server (create when absent)
-	var connection model.AIConnection
-	if err := db.WithContext(ctx).First(&connection).Error; err != nil {
-		connection = model.AIConnection{Provider: "http", BaseURL: server.URL, Enabled: true}
-		if err := db.WithContext(ctx).Create(&connection).Error; err != nil {
-			t.Fatal(err)
-		}
-	} else if err := db.WithContext(ctx).Model(&model.AIConnection{}).Where("1 = 1").
-		Updates(map[string]interface{}{"provider": "http", "base_url": server.URL, "enabled": true}).Error; err != nil {
-		t.Fatal(err)
-	}
-
-	cfg := &config.AIConfig{Enabled: true, Provider: "local", ConfigKey: "test-key"}
+	// point the model service at the capture server through the env config
+	cfg := &config.AIConfig{Enabled: true, Provider: "http", BaseURL: server.URL, ConfigKey: "test-key"}
 	svc := NewAIService(cfg, db)
 
 	var user model.User

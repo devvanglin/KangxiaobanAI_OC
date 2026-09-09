@@ -28,8 +28,16 @@ services:
       KXB_MQTT_CLIENT_ID: "${KXB_MQTT_CLIENT_ID:-kxb-backend}"
       KXB_MQTT_USERNAME: "${KXB_MQTT_USERNAME:-}"
       KXB_MQTT_PASSWORD: "${KXB_MQTT_PASSWORD:-}"
-      KXB_AI_ENABLED: "true"
-      KXB_AI_PROVIDER: "local"
+      # 模型服务（NewAPI/vLLM）与 Dify RAG 连接改由服务器 .env 配置，
+      # 密钥不进镜像不进代码；留空时网关处于本地 provider / 未配置状态。
+      KXB_AI_ENABLED: "${KXB_AI_ENABLED:-true}"
+      KXB_AI_PROVIDER: "${KXB_AI_PROVIDER:-local}"
+      KXB_AI_BASE_URL: "${KXB_AI_BASE_URL:-}"
+      KXB_AI_MODEL: "${KXB_AI_MODEL:-}"
+      KXB_AI_API_KEY: "${KXB_AI_API_KEY:-}"
+      KXB_DIFY_BASE_URL: "${KXB_DIFY_BASE_URL:-}"
+      KXB_DIFY_DATASET_ID: "${KXB_DIFY_DATASET_ID:-}"
+      KXB_DIFY_API_KEY: "${KXB_DIFY_API_KEY:-}"
       # Authenticated proxy to the isolated AsLive assessment runtime.
       KXB_ASSESSMENT_AGENT_WS_URL: "${KXB_ASSESSMENT_AGENT_WS_URL:-ws://10.10.1.11:8000/assessment-ws}"
       KXB_ASSESSMENT_AGENT_TOKEN: "${KXB_ASSESSMENT_AGENT_TOKEN:?set KXB_ASSESSMENT_AGENT_TOKEN in .env}"

@@ -154,7 +154,6 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		authed.DELETE("/admin/storage/buckets/:bucket/objects", perm("admin:all"), storageHandler.DeleteObject)
 		authed.POST("/admin/storage/buckets/:bucket/objects/rename", perm("admin:all"), storageHandler.RenameObject)
 		authed.GET("/admin/ai/connection", perm("admin:all"), aiAdminHandler.Connection)
-		authed.PUT("/admin/ai/connection", perm("admin:all"), aiAdminHandler.UpdateConnection)
 		authed.GET("/admin/ai/rag/datasets", perm("admin:all"), aiAdminHandler.ListRAGDatasets)
 		authed.POST("/admin/ai/rag/datasets", perm("admin:all"), aiAdminHandler.ProbeRagDatasets)
 		authed.GET("/admin/ai/rag/embedding-models", perm("admin:all"), aiAdminHandler.RagEmbeddingModels)

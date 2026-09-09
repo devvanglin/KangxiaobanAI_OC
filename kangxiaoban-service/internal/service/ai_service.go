@@ -19,7 +19,6 @@ import (
 	"kangxiaoban-service/internal/agent"
 	"kangxiaoban-service/internal/config"
 	"kangxiaoban-service/internal/model"
-	"kangxiaoban-service/internal/security"
 )
 
 const (
@@ -73,31 +72,13 @@ func (s *AIService) roleScope(ctx context.Context) string {
 	return "caregiver"
 }
 
-// connectionForContext loads the tenant's unified model-service connection.
-func (s *AIService) connectionForContext(ctx context.Context) *model.AIConnection {
-	var row model.AIConnection
-	if err := s.db.WithContext(ctx).Order("id ASC").First(&row).Error; err != nil {
-		return nil
-	}
-	return &row
-}
-
-// configForContext merges the tenant connection (endpoint, keys, enable) with
-// the role assignment (model, system prompt) into one chat configuration.
+// configForContext merges the server-side environment connection (endpoint,
+// keys, enable, RAG) with the role assignment (model, system prompt) into one
+// chat configuration. The connection itself is never editable from clients.
 func (s *AIService) configForContext(ctx context.Context) (*config.AIConfig, *model.AIModelConfig) {
 	base := *s.cfg
 	if base.SystemPrompt == "" {
 		base.SystemPrompt = "你是康小伴智慧康养护理平台的照护助理，回答须谨慎、贴题、仅作参考，不做临床诊断。"
-	}
-	connection := s.connectionForContext(ctx)
-	if connection != nil {
-		base.Enabled = base.Enabled && connection.Enabled
-		base.Provider = connection.Provider
-		base.BaseURL = connection.BaseURL
-		base.APIKey = ""
-		if value, decryptErr := security.Decrypt(s.cfg.ConfigKey, connection.APIKeyEncrypted); decryptErr == nil {
-			base.APIKey = value
-		}
 	}
 	var row model.AIModelConfig
 	err := s.db.WithContext(ctx).Where("role_scope IN ? AND enabled = ? AND allowed = ?", []string{s.roleScope(ctx), "all"}, true, true).
@@ -360,14 +341,11 @@ func (s *AIService) Chat(ctx context.Context, userID uint, question string) (str
 	startedAt := time.Now()
 	ragUsed := false
 	if provider == "http" {
-		connection := s.connectionForContext(ctx)
-		if connection != nil {
-			ragContext, attempted := s.ragContextForChat(ctx, connection, question)
-			ragUsed = attempted
-			if ragContext != "" {
-				cfg.SystemPrompt = strings.TrimSpace(cfg.SystemPrompt) +
-					"\n\n以下是机构知识库检索到的参考资料，回答时请优先依据其内容并保持谨慎：\n" + ragContext
-			}
+		ragContext, attempted := s.ragContextForChat(ctx, cfg.RAG, question)
+		ragUsed = attempted
+		if ragContext != "" {
+			cfg.SystemPrompt = strings.TrimSpace(cfg.SystemPrompt) +
+				"\n\n以下是机构知识库检索到的参考资料，回答时请优先依据其内容并保持谨慎：\n" + ragContext
 		}
 	}
 	answer, modelName, promptTokens, completionTokens, totalTokens, chatErr := s.dispatchChat(ctx, cfg, provider, question)
@@ -435,18 +413,15 @@ func (s *AIService) recordUsage(ctx context.Context, userID uint, configRow *mod
 	}
 }
 
-// ragRetrieve 调用租户统一 Dify 知识库检索接口并返回参考片段。检索失败返回错误，
+// ragRetrieve 调用服务端 .env 配置的 Dify 知识库检索接口并返回参考片段。检索失败返回错误，
 // 由调用方决定是否阻断（对话永远不因检索失败而失败）。
-func (s *AIService) ragRetrieve(ctx context.Context, row *model.AIConnection, question string, topK int) ([]string, error) {
-	baseURL := normalizeAPIBase(row.RAGBaseURL)
-	datasetID := strings.TrimSpace(row.RAGDatasetID)
+func (s *AIService) ragRetrieve(ctx context.Context, rag config.DifyConfig, question string, topK int) ([]string, error) {
+	baseURL := normalizeAPIBase(rag.BaseURL)
+	datasetID := strings.TrimSpace(rag.DatasetID)
 	if baseURL == "" || datasetID == "" {
 		return nil, ErrRAGNotConfigured
 	}
-	apiKey := ""
-	if value, err := security.Decrypt(s.cfg.ConfigKey, row.RAGAPIKeyEncrypted); err == nil {
-		apiKey = value
-	}
+	apiKey := strings.TrimSpace(rag.APIKey)
 	if topK <= 0 {
 		topK = 3
 	}
@@ -495,13 +470,13 @@ func (s *AIService) ragRetrieve(ctx context.Context, row *model.AIConnection, qu
 
 // ragContextForChat 把检索片段拼成注入文本；布尔值表示是否发起了检索调用
 // （即管理端统计的“RAG 知识库调用次数”）。
-func (s *AIService) ragContextForChat(ctx context.Context, row *model.AIConnection, question string) (string, bool) {
-	baseURL := strings.TrimRight(strings.TrimSpace(row.RAGBaseURL), "/")
-	datasetID := strings.TrimSpace(row.RAGDatasetID)
+func (s *AIService) ragContextForChat(ctx context.Context, rag config.DifyConfig, question string) (string, bool) {
+	baseURL := strings.TrimRight(strings.TrimSpace(rag.BaseURL), "/")
+	datasetID := strings.TrimSpace(rag.DatasetID)
 	if baseURL == "" || datasetID == "" {
 		return "", false
 	}
-	fragments, err := s.ragRetrieve(ctx, row, question, 3)
+	fragments, err := s.ragRetrieve(ctx, rag, question, 3)
 	if err != nil || len(fragments) == 0 {
 		return "", true
 	}
@@ -703,9 +678,36 @@ type ModelTestResult struct {
 	Error     string `json:"error,omitempty"`
 }
 
+// ragEnv 返回服务端环境变量中的 Dify 连接；地址未配置时返回 false，
+// 由调用方把请求映射为 ErrRAGNotConfigured（对齐 MinIO 未配置语义）。
+func (s *AIService) ragEnv() (config.DifyConfig, bool) {
+	if strings.TrimSpace(s.cfg.RAG.BaseURL) == "" {
+		return config.DifyConfig{}, false
+	}
+	return s.cfg.RAG, true
+}
+
+// modelEnv 返回服务端环境变量中的模型服务连接；地址未配置或 provider 不是
+// http 时返回 false，由调用方映射为 ErrModelSourceNotConfigured。
+func (s *AIService) modelEnv() (baseURL, apiKey string, ok bool) {
+	if s.cfg.Provider != "http" || strings.TrimSpace(s.cfg.BaseURL) == "" {
+		return "", "", false
+	}
+	return s.cfg.BaseURL, strings.TrimSpace(s.cfg.APIKey), true
+}
+
 // TestProviderModels 对选定模型逐个发起一次最小对话补全，验证网关连通性。
-// 只返回测试结果（耗时与失败原因），不落库、不影响对话统计。
+// 显式地址为空时回落到服务端 .env 配置；只返回测试结果（耗时与失败原因），
+// 不落库、不影响对话统计。
 func (s *AIService) TestProviderModels(ctx context.Context, baseURL, apiKey string, models []string) ([]ModelTestResult, error) {
+	if strings.TrimSpace(baseURL) == "" {
+		if envURL, envKey, ok := s.modelEnv(); ok {
+			baseURL, apiKey = envURL, envKey
+		}
+	}
+	if strings.TrimSpace(apiKey) == "" {
+		apiKey = strings.TrimSpace(s.cfg.APIKey)
+	}
 	baseURL = normalizeAPIBase(baseURL)
 	if baseURL == "" {
 		return nil, ErrModelSourceNotConfigured
@@ -800,19 +802,18 @@ func (s *AIService) ListRAGModels(ctx context.Context, modelType string) ([]RAGE
 	if modelType != "text-embedding" && modelType != "rerank" {
 		modelType = "text-embedding"
 	}
-	connection := s.connectionForContext(ctx)
-	if connection == nil || !connection.RAGEnabled || strings.TrimSpace(connection.RAGBaseURL) == "" {
+	rag, ok := s.ragEnv()
+	if !ok {
 		return nil, ErrRAGNotConfigured
 	}
-	baseURL := normalizeAPIBase(connection.RAGBaseURL)
-	apiKey, _ := security.Decrypt(s.cfg.ConfigKey, connection.RAGAPIKeyEncrypted)
+	baseURL := normalizeAPIBase(rag.BaseURL)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
 		baseURL+"/workspaces/current/models/model-types/"+modelType, nil)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
 	}
-	if apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+apiKey)
+	if rag.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+rag.APIKey)
 	}
 	client := &http.Client{Timeout: 8 * time.Second}
 	resp, err := client.Do(req)
@@ -843,12 +844,11 @@ func (s *AIService) ListRAGModels(ctx context.Context, modelType string) ([]RAGE
 // UploadRAGDocument 把文件与客户端构造的 data 配置 JSON 转发到 Dify
 // create-by-file，返回文档创建结果（id/name/batch 等）。
 func (s *AIService) UploadRAGDocument(ctx context.Context, datasetID, fileName string, content []byte, dataJSON string) (map[string]interface{}, error) {
-	connection := s.connectionForContext(ctx)
-	if connection == nil || !connection.RAGEnabled || strings.TrimSpace(connection.RAGBaseURL) == "" {
+	rag, ok := s.ragEnv()
+	if !ok {
 		return nil, ErrRAGNotConfigured
 	}
-	baseURL := normalizeAPIBase(connection.RAGBaseURL)
-	apiKey, _ := security.Decrypt(s.cfg.ConfigKey, connection.RAGAPIKeyEncrypted)
+	baseURL := normalizeAPIBase(rag.BaseURL)
 	if strings.TrimSpace(dataJSON) == "" {
 		dataJSON = `{"indexing_technique":"high_quality","process_rule":{"mode":"automatic"}}`
 	}
@@ -874,8 +874,8 @@ func (s *AIService) UploadRAGDocument(ctx context.Context, datasetID, fileName s
 		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-	if apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+apiKey)
+	if rag.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+rag.APIKey)
 	}
 	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(req)
@@ -903,12 +903,11 @@ type CreateRAGDatasetInput struct {
 
 // CreateRAGDataset 在 Dify 上创建知识库，返回数据集信息（含 id）。
 func (s *AIService) CreateRAGDataset(ctx context.Context, in CreateRAGDatasetInput) (map[string]interface{}, error) {
-	connection := s.connectionForContext(ctx)
-	if connection == nil || !connection.RAGEnabled || strings.TrimSpace(connection.RAGBaseURL) == "" {
+	rag, ok := s.ragEnv()
+	if !ok {
 		return nil, ErrRAGNotConfigured
 	}
-	baseURL := normalizeAPIBase(connection.RAGBaseURL)
-	apiKey, _ := security.Decrypt(s.cfg.ConfigKey, connection.RAGAPIKeyEncrypted)
+	baseURL := normalizeAPIBase(rag.BaseURL)
 	if strings.TrimSpace(in.Name) == "" {
 		return nil, fmt.Errorf("%w: 知识库名称必填", ErrAIValidation)
 	}
@@ -933,8 +932,8 @@ func (s *AIService) CreateRAGDataset(ctx context.Context, in CreateRAGDatasetInp
 		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+apiKey)
+	if rag.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+rag.APIKey)
 	}
 	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
@@ -954,19 +953,18 @@ func (s *AIService) CreateRAGDataset(ctx context.Context, in CreateRAGDatasetInp
 
 // GetRAGIndexingStatus 查询一批文档的解析（嵌入）进度。
 func (s *AIService) GetRAGIndexingStatus(ctx context.Context, datasetID, batchID string) (map[string]interface{}, error) {
-	connection := s.connectionForContext(ctx)
-	if connection == nil || !connection.RAGEnabled || strings.TrimSpace(connection.RAGBaseURL) == "" {
+	rag, ok := s.ragEnv()
+	if !ok {
 		return nil, ErrRAGNotConfigured
 	}
-	baseURL := normalizeAPIBase(connection.RAGBaseURL)
-	apiKey, _ := security.Decrypt(s.cfg.ConfigKey, connection.RAGAPIKeyEncrypted)
+	baseURL := normalizeAPIBase(rag.BaseURL)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
 		baseURL+"/v1/datasets/"+datasetID+"/documents/"+batchID+"/indexing-status", nil)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrRAGUnavailable, err)
 	}
-	if apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+apiKey)
+	if rag.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+rag.APIKey)
 	}
 	client := &http.Client{Timeout: 8 * time.Second}
 	resp, err := client.Do(req)
@@ -1003,24 +1001,19 @@ type ProviderModel struct {
 }
 
 // ListRAGDatasets 代理读取已配置 Dify 的知识库清单，供管理端大模型页展示与选择。
-// 密钥只存在服务端，客户端永远不接触 Dify API Key。
+// 密钥只存在服务端环境变量，客户端永远不接触 Dify API Key。
 func (s *AIService) ListRAGDatasets(ctx context.Context) ([]RAGDataset, error) {
-	connection := s.connectionForContext(ctx)
-	if connection == nil || !connection.RAGEnabled || strings.TrimSpace(connection.RAGBaseURL) == "" {
+	rag, ok := s.ragEnv()
+	if !ok {
 		return nil, ErrRAGNotConfigured
 	}
-	ragAPIKey, _ := security.Decrypt(s.cfg.ConfigKey, connection.RAGAPIKeyEncrypted)
-	return s.ListRAGDatasetsAt(ctx, connection.RAGBaseURL, ragAPIKey)
+	return s.ListRAGDatasetsAt(ctx, rag.BaseURL, rag.APIKey)
 }
 
-// ProbeRAGDatasets 用调用方提供的地址/密钥做保存前探测；密钥留空时回退到已存密钥。
+// ProbeRAGDatasets 用调用方提供的地址/密钥做探测；密钥留空时回退到环境变量密钥。
 func (s *AIService) ProbeRAGDatasets(ctx context.Context, baseURL, apiKey string) ([]RAGDataset, error) {
 	if strings.TrimSpace(apiKey) == "" {
-		if connection := s.connectionForContext(ctx); connection != nil {
-			if value, decryptErr := security.Decrypt(s.cfg.ConfigKey, connection.RAGAPIKeyEncrypted); decryptErr == nil {
-				apiKey = value
-			}
-		}
+		apiKey = strings.TrimSpace(s.cfg.RAG.APIKey)
 	}
 	return s.ListRAGDatasetsAt(ctx, baseURL, apiKey)
 }
@@ -1081,24 +1074,20 @@ func (s *AIService) ListRAGDatasetsAt(ctx context.Context, baseURL, apiKey strin
 	return datasets, nil
 }
 
-// ListProviderModels 代理读取租户统一模型服务（vLLM 等 OpenAI 兼容部署）的可用模型清单。
+// ListProviderModels 代理读取服务端 .env 配置的模型服务（vLLM/NewAPI 等
+// OpenAI 兼容部署）的可用模型清单。
 func (s *AIService) ListProviderModels(ctx context.Context) ([]ProviderModel, error) {
-	connection := s.connectionForContext(ctx)
-	if connection == nil || connection.Provider != "http" || strings.TrimSpace(connection.BaseURL) == "" {
+	baseURL, apiKey, ok := s.modelEnv()
+	if !ok {
 		return nil, ErrModelSourceNotConfigured
 	}
-	apiKey, _ := security.Decrypt(s.cfg.ConfigKey, connection.APIKeyEncrypted)
-	return s.ListProviderModelsAt(ctx, connection.BaseURL, apiKey)
+	return s.ListProviderModelsAt(ctx, baseURL, apiKey)
 }
 
-// ProbeProviderModels 用调用方提供的地址/密钥做保存前探测；密钥留空时回退到已存密钥。
+// ProbeProviderModels 用调用方提供的地址/密钥做探测；密钥留空时回退到环境变量密钥。
 func (s *AIService) ProbeProviderModels(ctx context.Context, baseURL, apiKey string) ([]ProviderModel, error) {
 	if strings.TrimSpace(apiKey) == "" {
-		if connection := s.connectionForContext(ctx); connection != nil {
-			if value, decryptErr := security.Decrypt(s.cfg.ConfigKey, connection.APIKeyEncrypted); decryptErr == nil {
-				apiKey = value
-			}
-		}
+		apiKey = strings.TrimSpace(s.cfg.APIKey)
 	}
 	return s.ListProviderModelsAt(ctx, baseURL, apiKey)
 }
@@ -1108,12 +1097,11 @@ func (s *AIService) ProbeProviderModels(ctx context.Context, baseURL, apiKey str
 // 转发到已配置的 Dify 实例。body 为客户端构造的 JSON（可为空）。
 // 返回 Dify 的 JSON 响应与上游状态码。
 func (s *AIService) RagProxyAPI(ctx context.Context, method, subPath, rawQuery string, body []byte) (map[string]interface{}, int, error) {
-	connection := s.connectionForContext(ctx)
-	if connection == nil || !connection.RAGEnabled || strings.TrimSpace(connection.RAGBaseURL) == "" {
+	rag, ok := s.ragEnv()
+	if !ok {
 		return nil, 0, ErrRAGNotConfigured
 	}
-	baseURL := normalizeAPIBase(connection.RAGBaseURL)
-	apiKey, _ := security.Decrypt(s.cfg.ConfigKey, connection.RAGAPIKeyEncrypted)
+	baseURL := normalizeAPIBase(rag.BaseURL)
 	subPath = strings.Trim(subPath, "/")
 	if subPath == "" {
 		return nil, 0, fmt.Errorf("%w: 缺少 API 路径", ErrAIValidation)
@@ -1133,8 +1121,8 @@ func (s *AIService) RagProxyAPI(ctx context.Context, method, subPath, rawQuery s
 	if len(body) > 0 {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	if apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+apiKey)
+	if rag.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+rag.APIKey)
 	}
 	client := &http.Client{Timeout: 20 * time.Second}
 	resp, err := client.Do(req)
@@ -1230,76 +1218,29 @@ func (s *AIService) ListProviderModelsAt(ctx context.Context, baseURL, apiKey st
 	return models, nil
 }
 
-// AIConnectionUpdate carries the editable unified connection fields. Empty key
-// fields keep the stored secrets, mirroring the assignment update contract.
-type AIConnectionUpdate struct {
-	Provider     string
-	BaseURL      string
-	APIKey       string
-	RAGEnabled   bool
-	RAGBaseURL   string
-	RAGDatasetID string
-	RAGAPIKey    string
-	Enabled      bool
+// AIConnectionStatus 是管理端只读的模型服务/Dify 连接状态视图。
+// 地址与密钥只存在于服务端 .env，客户端永远拿不到具体值。
+type AIConnectionStatus struct {
+	Provider             string `json:"provider"`
+	Enabled              bool   `json:"enabled"`
+	BaseURLConfigured    bool   `json:"base_url_configured"`
+	APIKeyConfigured     bool   `json:"api_key_configured"`
+	RAGConfigured        bool   `json:"rag_configured"`
+	RAGDatasetConfigured bool   `json:"rag_dataset_configured"`
+	RAGAPIKeyConfigured  bool   `json:"rag_api_key_configured"`
 }
 
-// Connection 返回租户统一模型服务连接；尚无记录时返回本地默认值（不落库）。
-func (s *AIService) Connection(ctx context.Context) (*model.AIConnection, error) {
-	if connection := s.connectionForContext(ctx); connection != nil {
-		return connection, nil
+// ConnectionStatus 返回环境变量配置的连接状态（只读，不接触数据库）。
+func (s *AIService) ConnectionStatus() AIConnectionStatus {
+	return AIConnectionStatus{
+		Provider:             strings.ToLower(strings.TrimSpace(s.cfg.Provider)),
+		Enabled:              s.cfg.Enabled,
+		BaseURLConfigured:    strings.TrimSpace(s.cfg.BaseURL) != "",
+		APIKeyConfigured:     strings.TrimSpace(s.cfg.APIKey) != "",
+		RAGConfigured:        strings.TrimSpace(s.cfg.RAG.BaseURL) != "",
+		RAGDatasetConfigured: strings.TrimSpace(s.cfg.RAG.DatasetID) != "",
+		RAGAPIKeyConfigured:  strings.TrimSpace(s.cfg.RAG.APIKey) != "",
 	}
-	return &model.AIConnection{Provider: "local", Enabled: true}, nil
-}
-
-// UpdateConnection 创建或更新租户唯一的模型服务连接。
-func (s *AIService) UpdateConnection(ctx context.Context, input AIConnectionUpdate) (*model.AIConnection, error) {
-	provider := strings.ToLower(strings.TrimSpace(input.Provider))
-	if provider != "local" && provider != "http" {
-		provider = "local"
-	}
-	var saved *model.AIConnection
-	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var row model.AIConnection
-		err := tx.Order("id ASC").First(&row).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			row = model.AIConnection{Provider: provider}
-		} else if err != nil {
-			return err
-		}
-		row.Provider = provider
-		row.BaseURL = strings.TrimSpace(input.BaseURL)
-		row.RAGEnabled = input.RAGEnabled
-		row.RAGBaseURL = strings.TrimSpace(input.RAGBaseURL)
-		row.RAGDatasetID = strings.TrimSpace(input.RAGDatasetID)
-		row.Enabled = input.Enabled
-		if strings.TrimSpace(input.APIKey) != "" {
-			encrypted, encryptErr := security.Encrypt(s.cfg.ConfigKey, strings.TrimSpace(input.APIKey))
-			if encryptErr != nil {
-				return encryptErr
-			}
-			row.APIKeyEncrypted = encrypted
-		}
-		if strings.TrimSpace(input.RAGAPIKey) != "" {
-			encrypted, encryptErr := security.Encrypt(s.cfg.ConfigKey, strings.TrimSpace(input.RAGAPIKey))
-			if encryptErr != nil {
-				return encryptErr
-			}
-			row.RAGAPIKeyEncrypted = encrypted
-		}
-		if row.ID == 0 {
-			if err := tx.Create(&row).Error; err != nil {
-				return err
-			}
-		} else if err := tx.Save(&row).Error; err != nil {
-			return err
-		}
-		saved = &row
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return saved, nil
 }
 
 // AdminPromptInput 是管理端维护提示词建议的字段。

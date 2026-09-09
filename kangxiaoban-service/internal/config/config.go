@@ -56,8 +56,17 @@ type AIConfig struct {
 	BaseURL      string
 	Model        string
 	APIKey       string
-	ConfigKey    string // 用于数据库中 AI 密钥的加密；生产环境应显式注入
+	ConfigKey    string     // 用于数据库中 AI 密钥的加密；生产环境应显式注入
 	SystemPrompt string
+	RAG          DifyConfig // Dify RAG 知识库连接；留空表示未启用
+}
+
+// DifyConfig Dify RAG 连接，与 MinIO 同款：密钥只保存在服务端环境变量，
+// 客户端只能通过 admin 接口间接访问，永远拿不到地址与密钥。
+type DifyConfig struct {
+	BaseURL   string // 例如 http://10.10.1.13/v1 之外的主机根地址（不含 /v1）
+	DatasetID string // 聊天检索默认知识库；留空则仅允许管理端代理浏览
+	APIKey    string
 }
 
 // AssessmentAgentConfig points at the isolated AsLive speech runtime. Native
@@ -136,6 +145,11 @@ func Load() *Config {
 			APIKey:       os.Getenv("KXB_AI_API_KEY"),
 			ConfigKey:    env("KXB_AI_CONFIG_KEY", env("KXB_JWT_SECRET", "change-me-in-production")),
 			SystemPrompt: env("KXB_AI_SYSTEM_PROMPT", "你是康小伴智慧康养护理平台的照护助理，回答须谨慎、贴题、仅作参考，不做临床诊断。"),
+			RAG: DifyConfig{
+				BaseURL:   env("KXB_DIFY_BASE_URL", ""),
+				DatasetID: env("KXB_DIFY_DATASET_ID", ""),
+				APIKey:    os.Getenv("KXB_DIFY_API_KEY"),
+			},
 		},
 		Sandbox: SandboxConfig{
 			Enabled:  env("KXB_SANDBOX_ENABLED", "false") == "true",

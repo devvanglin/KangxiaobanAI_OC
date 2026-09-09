@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"kangxiaoban-service/internal/config"
 	"kangxiaoban-service/internal/model"
-	"kangxiaoban-service/internal/security"
 )
 
 func TestChatRecordsUsageLogForLocalProvider(t *testing.T) {
@@ -110,11 +110,8 @@ func TestChatHTTPRecordsProviderUsageTokens(t *testing.T) {
 		fmt.Fprint(w, `{"choices":[{"message":{"content":"好的，请注意休息。"}}],"usage":{"prompt_tokens":12,"completion_tokens":34,"total_tokens":46}}`)
 	}))
 	t.Cleanup(server.Close)
-	if err := db.WithContext(ctx).Create(&model.AIConnection{
-		Provider: "http", BaseURL: server.URL, Enabled: true,
-	}).Error; err != nil {
-		t.Fatal(err)
-	}
+	svc.cfg.Provider = "http"
+	svc.cfg.BaseURL = server.URL
 	if err := db.WithContext(ctx).Create(&model.AIModelConfig{
 		RoleScope: "caregiver", Provider: "http", Model: "remote-model",
 		Enabled: true, Allowed: true, IsDefault: true,
@@ -160,16 +157,9 @@ func TestChatHTTPInjectsRAGContextAndCountsCall(t *testing.T) {
 		fmt.Fprint(w, `{"records":[{"segment":{"content":"跌倒处置流程：先评估意识与伤情。"}}]}`)
 	}))
 	t.Cleanup(ragServer.Close)
-	ragKey, err := security.Encrypt("", "rag-key")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := db.WithContext(ctx).Create(&model.AIConnection{
-		Provider: "http", BaseURL: chatServer.URL, Enabled: true,
-		RAGEnabled: true, RAGBaseURL: ragServer.URL, RAGDatasetID: "ds-1", RAGAPIKeyEncrypted: ragKey,
-	}).Error; err != nil {
-		t.Fatal(err)
-	}
+	svc.cfg.Provider = "http"
+	svc.cfg.BaseURL = chatServer.URL
+	svc.cfg.RAG = config.DifyConfig{BaseURL: ragServer.URL, DatasetID: "ds-1", APIKey: "rag-key"}
 	if err := db.WithContext(ctx).Create(&model.AIModelConfig{
 		RoleScope: "caregiver", Provider: "http", Model: "remote-model",
 		Enabled: true, Allowed: true, IsDefault: true,
@@ -207,11 +197,8 @@ func TestChatHTTPFailureStillRecordsAttempt(t *testing.T) {
 		http.Error(w, "provider unavailable", http.StatusBadGateway)
 	}))
 	t.Cleanup(server.Close)
-	if err := db.WithContext(ctx).Create(&model.AIConnection{
-		Provider: "http", BaseURL: server.URL, Enabled: true,
-	}).Error; err != nil {
-		t.Fatal(err)
-	}
+	svc.cfg.Provider = "http"
+	svc.cfg.BaseURL = server.URL
 	if err := db.WithContext(ctx).Create(&model.AIModelConfig{
 		RoleScope: "caregiver", Provider: "http", Model: "remote-model",
 		Enabled: true, Allowed: true, IsDefault: true,

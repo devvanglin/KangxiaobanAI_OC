@@ -112,9 +112,6 @@ func AutoMigrateAndSeed(db *gorm.DB, seedBusiness bool) error {
 	if err := seedAISkills(db); err != nil {
 		return fmt.Errorf("seed AI skills: %w", err)
 	}
-	if err := ensureAIConnections(db); err != nil {
-		return fmt.Errorf("ensure AI connections: %w", err)
-	}
 	if err := seedOperationPolicies(db); err != nil {
 		return fmt.Errorf("seed operation policies: %w", err)
 	}

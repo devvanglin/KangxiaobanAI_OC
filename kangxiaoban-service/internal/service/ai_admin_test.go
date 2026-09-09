@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,12 +10,18 @@ import (
 	"strings"
 	"testing"
 
+	"kangxiaoban-service/internal/config"
 	"kangxiaoban-service/internal/model"
-	"kangxiaoban-service/internal/security"
 )
 
+// envChatServer 把 env 配置指向 httptest 服务的公共助手：http provider + 地址。
+func pointEnvAtServer(svc *AIService, serverURL string) {
+	svc.cfg.Provider = "http"
+	svc.cfg.BaseURL = serverURL
+}
+
 func TestListRAGDatasetsReturnsDifyInventory(t *testing.T) {
-	svc, db, ctx := newAIServiceTest(t)
+	svc, _, ctx := newAIServiceTest(t)
 	var auth string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/datasets" {
@@ -28,16 +33,7 @@ func TestListRAGDatasetsReturnsDifyInventory(t *testing.T) {
 		fmt.Fprint(w, `{"data":[{"id":"ds-1","name":"照护SOP","description":"护理规范与应急流程","document_count":12,"word_count":8500000},{"id":"ds-2","name":"急救手册","document_count":3}],"total":2}`)
 	}))
 	t.Cleanup(server.Close)
-	ragKey, err := security.Encrypt("", "dify-key")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := db.WithContext(ctx).Create(&model.AIConnection{
-		Provider: "http", Enabled: true,
-		RAGEnabled: true, RAGBaseURL: server.URL, RAGDatasetID: "ds-1", RAGAPIKeyEncrypted: ragKey,
-	}).Error; err != nil {
-		t.Fatal(err)
-	}
+	svc.cfg.RAG = config.DifyConfig{BaseURL: server.URL, DatasetID: "ds-1", APIKey: "dify-key"}
 	datasets, err := svc.ListRAGDatasets(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -59,24 +55,19 @@ func TestListRAGDatasetsWithoutConnectionIsTyped(t *testing.T) {
 }
 
 func TestListRAGDatasetsUnavailableIsTyped(t *testing.T) {
-	svc, db, ctx := newAIServiceTest(t)
+	svc, _, ctx := newAIServiceTest(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "boom", http.StatusInternalServerError)
 	}))
 	t.Cleanup(server.Close)
-	if err := db.WithContext(ctx).Create(&model.AIConnection{
-		Provider: "http", Enabled: true,
-		RAGEnabled: true, RAGBaseURL: server.URL,
-	}).Error; err != nil {
-		t.Fatal(err)
-	}
+	svc.cfg.RAG = config.DifyConfig{BaseURL: server.URL}
 	if _, err := svc.ListRAGDatasets(ctx); !errors.Is(err, ErrRAGUnavailable) {
 		t.Fatalf("error = %v, want ErrRAGUnavailable", err)
 	}
 }
 
 func TestListProviderModelsReturnsVLLMInventory(t *testing.T) {
-	svc, db, ctx := newAIServiceTest(t)
+	svc, _, ctx := newAIServiceTest(t)
 	var auth string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/models" {
@@ -88,15 +79,8 @@ func TestListProviderModelsReturnsVLLMInventory(t *testing.T) {
 		fmt.Fprint(w, `{"object":"list","data":[{"id":"Qwen2.5-7B-Instruct"},{"id":"Qwen2.5-14B-Instruct"}]}`)
 	}))
 	t.Cleanup(server.Close)
-	apiKey, err := security.Encrypt("", "vllm-key")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := db.WithContext(ctx).Create(&model.AIConnection{
-		Provider: "http", BaseURL: server.URL, APIKeyEncrypted: apiKey, Enabled: true,
-	}).Error; err != nil {
-		t.Fatal(err)
-	}
+	pointEnvAtServer(svc, server.URL)
+	svc.cfg.APIKey = "vllm-key"
 	models, err := svc.ListProviderModels(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -116,53 +100,41 @@ func TestListProviderModelsWithoutConnectionIsTyped(t *testing.T) {
 	}
 }
 
-func TestConnectionUpdatePersistsWithTenantScope(t *testing.T) {
-	svc, db, ctx := newAIServiceTest(t)
-	saved, err := svc.UpdateConnection(ctx, AIConnectionUpdate{
-		Provider: "http", BaseURL: "http://10.0.0.8:8000", APIKey: "sk-test",
-		RAGEnabled: true, RAGBaseURL: "https://dify.example.com", RAGDatasetID: "ds-9", RAGAPIKey: "dify-key",
-		Enabled: true,
-	})
+func TestConnectionStatusReflectsEnvWithoutLeaks(t *testing.T) {
+	svc, _, _ := newAIServiceTest(t)
+	status := svc.ConnectionStatus()
+	if status.Enabled != true || status.Provider != "local" || status.BaseURLConfigured ||
+		status.APIKeyConfigured || status.RAGConfigured || status.RAGDatasetConfigured || status.RAGAPIKeyConfigured {
+		t.Fatalf("default status = %+v", status)
+	}
+	raw, err := json.Marshal(status)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if saved.ID == 0 || saved.Provider != "http" || saved.APIKeyEncrypted == "" || saved.RAGAPIKeyEncrypted == "" {
-		t.Fatalf("saved connection = %+v", saved)
-	}
-	if strings.Contains(saved.APIKeyEncrypted, "sk-test") {
-		t.Fatal("connection key must be stored encrypted")
+	if strings.Contains(string(raw), "://") || strings.Contains(string(raw), "sk-") {
+		t.Fatalf("status view must never contain endpoint or key material: %s", raw)
 	}
 
-	// 密钥留空表示保留原值。
-	if _, err := svc.UpdateConnection(ctx, AIConnectionUpdate{
-		Provider: "http", BaseURL: "http://10.0.0.9:8000", Enabled: true,
-	}); err != nil {
-		t.Fatal(err)
+	svc.cfg.Provider = "http"
+	svc.cfg.BaseURL = "http://10.0.0.8:8000"
+	svc.cfg.APIKey = "sk-test"
+	svc.cfg.RAG = config.DifyConfig{BaseURL: "https://dify.example.com", DatasetID: "ds-9", APIKey: "dify-key"}
+	status = svc.ConnectionStatus()
+	if !status.BaseURLConfigured || !status.APIKeyConfigured ||
+		!status.RAGConfigured || !status.RAGDatasetConfigured || !status.RAGAPIKeyConfigured {
+		t.Fatalf("configured status = %+v", status)
 	}
-	reloaded, err := svc.Connection(ctx)
-	if err != nil {
-		t.Fatal(err)
+	if status.Provider != "http" {
+		t.Fatalf("provider = %q", status.Provider)
 	}
-	if reloaded.BaseURL != "http://10.0.0.9:8000" || reloaded.APIKeyEncrypted == "" {
-		t.Fatalf("key not preserved across update: %+v", reloaded)
-	}
-
-	// 第二个租户的连接互不可见。
-	tenant2 := model.Tenant{Base: model.Base{ID: 2, TenantID: 2}, Code: "conn-tenant-two", Name: "连接第二机构", Status: 1}
-	if err := db.Create(&tenant2).Error; err != nil {
-		t.Fatal(err)
-	}
-	ctx2 := context.WithValue(context.Background(), model.TenantContextKey, uint(2))
-	second, err := svc.Connection(ctx2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if second.BaseURL != "" {
-		t.Fatalf("tenant two saw tenant one connection: %+v", second)
+	raw, _ = json.Marshal(status)
+	if strings.Contains(string(raw), "10.0.0.8") || strings.Contains(string(raw), "sk-test") ||
+		strings.Contains(string(raw), "dify.example.com") || strings.Contains(string(raw), "dify-key") {
+		t.Fatalf("status view leaked endpoint or key values: %s", raw)
 	}
 }
 
-func TestChatUsesConnectionEndpointAndAssignmentModel(t *testing.T) {
+func TestChatUsesEnvEndpointAndAssignmentModel(t *testing.T) {
 	svc, db, ctx := newAIServiceTest(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -185,11 +157,7 @@ func TestChatUsesConnectionEndpointAndAssignmentModel(t *testing.T) {
 		fmt.Fprint(w, `{"choices":[{"message":{"content":"好的。"}}],"usage":{"prompt_tokens":5,"completion_tokens":2,"total_tokens":7}}`)
 	}))
 	t.Cleanup(server.Close)
-	if err := db.WithContext(ctx).Create(&model.AIConnection{
-		Provider: "http", BaseURL: server.URL, Enabled: true,
-	}).Error; err != nil {
-		t.Fatal(err)
-	}
+	pointEnvAtServer(svc, server.URL)
 	if err := db.WithContext(ctx).Create(&model.AIModelConfig{
 		RoleScope: "caregiver", Provider: "http", Model: "assigned-model",
 		SystemPrompt: "你是照护助理。", Enabled: true, Allowed: true, IsDefault: true,
@@ -206,7 +174,7 @@ func TestChatUsesConnectionEndpointAndAssignmentModel(t *testing.T) {
 }
 
 func TestListRAGDatasetsFetchesAllPages(t *testing.T) {
-	svc, db, ctx := newAIServiceTest(t)
+	svc, _, ctx := newAIServiceTest(t)
 	page := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		page += 1
@@ -218,12 +186,7 @@ func TestListRAGDatasetsFetchesAllPages(t *testing.T) {
 		fmt.Fprint(w, `{"data":[{"id":"ds-2","name":"第二页"}],"has_more":false}`)
 	}))
 	t.Cleanup(server.Close)
-	if err := db.WithContext(ctx).Create(&model.AIConnection{
-		Provider: "http", Enabled: true,
-		RAGEnabled: true, RAGBaseURL: server.URL,
-	}).Error; err != nil {
-		t.Fatal(err)
-	}
+	svc.cfg.RAG = config.DifyConfig{BaseURL: server.URL}
 	datasets, err := svc.ListRAGDatasets(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -236,7 +199,7 @@ func TestListRAGDatasetsFetchesAllPages(t *testing.T) {
 	}
 }
 
-func TestProbeProviderModelsWithoutSavedConnection(t *testing.T) {
+func TestProbeProviderModelsWithoutEnvConfig(t *testing.T) {
 	svc, _, ctx := newAIServiceTest(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer probe-key" {
@@ -255,28 +218,20 @@ func TestProbeProviderModelsWithoutSavedConnection(t *testing.T) {
 	}
 }
 
-func TestProbeProviderModelsFallsBackToStoredKey(t *testing.T) {
-	svc, db, ctx := newAIServiceTest(t)
+func TestProbeProviderModelsFallsBackToEnvKey(t *testing.T) {
+	svc, _, ctx := newAIServiceTest(t)
 	var auth string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth = r.Header.Get("Authorization")
 		fmt.Fprint(w, `{"data":[]}`)
 	}))
 	t.Cleanup(server.Close)
-	storedKey, err := security.Encrypt("", "stored-key")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := db.WithContext(ctx).Create(&model.AIConnection{
-		Provider: "http", BaseURL: server.URL, APIKeyEncrypted: storedKey, Enabled: true,
-	}).Error; err != nil {
-		t.Fatal(err)
-	}
+	svc.cfg.APIKey = "stored-key"
 	if _, err := svc.ProbeProviderModels(ctx, server.URL, ""); err != nil {
 		t.Fatal(err)
 	}
 	if auth != "Bearer stored-key" {
-		t.Fatalf("auth = %q, want stored key fallback", auth)
+		t.Fatalf("auth = %q, want env key fallback", auth)
 	}
 }
 
@@ -330,19 +285,14 @@ func TestTestProviderModelsUsesTypedEndpoints(t *testing.T) {
 }
 
 func TestListRAGDatasetsToleratesV1Suffix(t *testing.T) {
-	svc, db, ctx := newAIServiceTest(t)
+	svc, _, ctx := newAIServiceTest(t)
 	var hit string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hit = r.URL.Path
 		fmt.Fprint(w, `{"data":[{"id":"ds-1","name":"知识库"}]}`)
 	}))
 	t.Cleanup(server.Close)
-	if err := db.WithContext(ctx).Create(&model.AIConnection{
-		Provider: "http", Enabled: true,
-		RAGEnabled: true, RAGBaseURL: server.URL + "/v1",
-	}).Error; err != nil {
-		t.Fatal(err)
-	}
+	svc.cfg.RAG = config.DifyConfig{BaseURL: server.URL + "/v1"}
 	datasets, err := svc.ListRAGDatasets(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -400,7 +350,7 @@ func TestAdminPromptSuggestionCrud(t *testing.T) {
 }
 
 func TestListRAGEmbeddingModelsAndUploadDocument(t *testing.T) {
-	svc, db, ctx := newAIServiceTest(t)
+	svc, _, ctx := newAIServiceTest(t)
 	var auth string
 	var gotPath string
 	var gotData string
@@ -422,13 +372,7 @@ func TestListRAGEmbeddingModelsAndUploadDocument(t *testing.T) {
 		fmt.Fprint(w, `{"id":"doc-1","name":"手册.pdf","batch":"batch-1"}`)
 	}))
 	t.Cleanup(server.Close)
-	if err := db.WithContext(ctx).Create(&model.AIConnection{
-		Provider: "http", Enabled: true,
-		RAGEnabled: true, RAGBaseURL: server.URL, RAGDatasetID: "ds-1",
-		RAGAPIKeyEncrypted: func() string { v, _ := security.Encrypt("", "dify-key"); return v }(),
-	}).Error; err != nil {
-		t.Fatal(err)
-	}
+	svc.cfg.RAG = config.DifyConfig{BaseURL: server.URL, DatasetID: "ds-1", APIKey: "dify-key"}
 
 	models, err := svc.ListRAGModels(ctx, "text-embedding")
 	if err != nil {
@@ -455,18 +399,13 @@ func TestListRAGEmbeddingModelsAndUploadDocument(t *testing.T) {
 }
 
 func TestListRAGDatasetsToleratesNullFields(t *testing.T) {
-	svc, db, ctx := newAIServiceTest(t)
+	svc, _, ctx := newAIServiceTest(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		// 经济模式或旧知识库的 embedding_model / indexing_technique 可能为 null。
 		fmt.Fprint(w, `{"data":[{"id":"ds-null","name":"旧知识库","document_count":3,"word_count":null,"embedding_model":null,"indexing_technique":null,"updated_at":1757049600}]}`)
 	}))
 	t.Cleanup(server.Close)
-	if err := db.WithContext(ctx).Create(&model.AIConnection{
-		Provider: "http", Enabled: true,
-		RAGEnabled: true, RAGBaseURL: server.URL,
-	}).Error; err != nil {
-		t.Fatal(err)
-	}
+	svc.cfg.RAG = config.DifyConfig{BaseURL: server.URL}
 	datasets, err := svc.ListRAGDatasets(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -478,7 +417,7 @@ func TestListRAGDatasetsToleratesNullFields(t *testing.T) {
 }
 
 func TestRagProxyForwardsMethodPathKeyAndBody(t *testing.T) {
-	svc, db, ctx := newAIServiceTest(t)
+	svc, _, ctx := newAIServiceTest(t)
 	var gotMethod, gotPath, gotQuery, gotAuth, gotBody string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotMethod = r.Method
@@ -490,16 +429,7 @@ func TestRagProxyForwardsMethodPathKeyAndBody(t *testing.T) {
 		fmt.Fprint(w, `{"id":"ds-1","name":"改名后"}`)
 	}))
 	t.Cleanup(server.Close)
-	storedKey, err := security.Encrypt("", "dify-key")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := db.WithContext(ctx).Create(&model.AIConnection{
-		Provider: "http", Enabled: true,
-		RAGEnabled: true, RAGBaseURL: server.URL, RAGAPIKeyEncrypted: storedKey,
-	}).Error; err != nil {
-		t.Fatal(err)
-	}
+	svc.cfg.RAG = config.DifyConfig{BaseURL: server.URL, APIKey: "dify-key"}
 	result, upstream, err := svc.RagProxyAPI(ctx, "PATCH", "datasets/ds-1", "keyword=x", []byte(`{"name":"改名后"}`))
 	if err != nil {
 		t.Fatal(err)
@@ -516,17 +446,13 @@ func TestRagProxyForwardsMethodPathKeyAndBody(t *testing.T) {
 }
 
 func TestRagProxyMapsUpstreamErrorWithMessage(t *testing.T) {
-	svc, db, ctx := newAIServiceTest(t)
+	svc, _, ctx := newAIServiceTest(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprint(w, `{"code":"not_found","message":"Dataset not found"}`)
 	}))
 	t.Cleanup(server.Close)
-	if err := db.WithContext(ctx).Create(&model.AIConnection{
-		Provider: "http", Enabled: true, RAGEnabled: true, RAGBaseURL: server.URL,
-	}).Error; err != nil {
-		t.Fatal(err)
-	}
+	svc.cfg.RAG = config.DifyConfig{BaseURL: server.URL}
 	result, upstream, err := svc.RagProxyAPI(ctx, "DELETE", "datasets/nope", "", nil)
 	if err == nil || upstream != 404 {
 		t.Fatalf("err=%v upstream=%d, want 404 with error", err, upstream)

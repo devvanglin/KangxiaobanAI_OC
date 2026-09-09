@@ -11,14 +11,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"kangxiaoban-service/internal/model"
 	"kangxiaoban-service/internal/service"
 )
 
-// AIAdminHandler serves admin AI management surfaces: the unified tenant
-// connection, the Dify knowledge-base inventory and the OpenAI-compatible
-// (vLLM) model inventory. Provider keys stay server-side; the admin client
-// only sees configured flags and the fetched lists.
+// AIAdminHandler serves admin AI management surfaces: the read-only
+// model-service/Dify connection status, the Dify knowledge-base inventory and
+// the OpenAI-compatible (vLLM/NewAPI) model inventory. Endpoints and keys live
+// only in server-side .env; the admin client sees configured flags and the
+// fetched lists, never the values themselves.
 type AIAdminHandler struct {
 	svc *service.AIService
 }
@@ -27,62 +27,11 @@ func NewAIAdminHandler(svc *service.AIService) *AIAdminHandler {
 	return &AIAdminHandler{svc: svc}
 }
 
-func connectionView(row *model.AIConnection) gin.H {
-	return gin.H{
-		"provider":               row.Provider,
-		"base_url":               row.BaseURL,
-		"api_key_configured":     row.APIKeyEncrypted != "",
-		"rag_enabled":            row.RAGEnabled,
-		"rag_base_url":           row.RAGBaseURL,
-		"rag_dataset_id":         row.RAGDatasetID,
-		"rag_api_key_configured": row.RAGAPIKeyEncrypted != "",
-		"enabled":                row.Enabled,
-	}
-}
-
 // Connection GET /api/v1/admin/ai/connection
+// 只读返回服务端 .env 配置的连接状态（与 MinIO「存储」同款）；连接改由
+// 运维在服务器环境变量中配置，客户端无写入入口。
 func (h *AIAdminHandler) Connection(c *gin.Context) {
-	row, err := h.svc.Connection(c.Request.Context())
-	if err != nil {
-		Fail(c, http.StatusInternalServerError, 500, "AI 连接加载失败")
-		return
-	}
-	OK(c, connectionView(row))
-}
-
-type aiConnectionUpdateReq struct {
-	Provider     string `json:"provider"`
-	BaseURL      string `json:"base_url"`
-	APIKey       string `json:"api_key"`
-	RAGEnabled   bool   `json:"rag_enabled"`
-	RAGBaseURL   string `json:"rag_base_url"`
-	RAGDatasetID string `json:"rag_dataset_id"`
-	RAGAPIKey    string `json:"rag_api_key"`
-	Enabled      *bool  `json:"enabled"`
-}
-
-// UpdateConnection PUT /api/v1/admin/ai/connection
-func (h *AIAdminHandler) UpdateConnection(c *gin.Context) {
-	var req aiConnectionUpdateReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		Fail(c, http.StatusBadRequest, 400, "参数错误")
-		return
-	}
-	enabled := true
-	if req.Enabled != nil {
-		enabled = *req.Enabled
-	}
-	row, err := h.svc.UpdateConnection(c.Request.Context(), service.AIConnectionUpdate{
-		Provider: req.Provider, BaseURL: req.BaseURL, APIKey: req.APIKey,
-		RAGEnabled: req.RAGEnabled, RAGBaseURL: req.RAGBaseURL,
-		RAGDatasetID: req.RAGDatasetID, RAGAPIKey: req.RAGAPIKey,
-		Enabled: enabled,
-	})
-	if err != nil {
-		Fail(c, http.StatusInternalServerError, 500, "AI 连接保存失败")
-		return
-	}
-	OK(c, connectionView(row))
+	OK(c, h.svc.ConnectionStatus())
 }
 
 type aiEndpointProbeReq struct {
@@ -438,7 +387,7 @@ func (h *AIAdminHandler) AdminMCPServerProbe(c *gin.Context) {
 func (h *AIAdminHandler) RagEmbeddingModels(c *gin.Context) {
 	models, err := h.svc.ListRAGModels(c.Request.Context(), "text-embedding")
 	if err != nil {
-		h.failProxy(c, err, "未配置 Dify RAG 连接，请先在「编辑模型网关」中填写", "嵌入模型列表获取失败，请检查 Dify 地址与密钥")
+		h.failProxy(c, err, "未配置 Dify RAG 连接，请在服务端 .env 配置 KXB_DIFY_BASE_URL / KXB_DIFY_API_KEY 后重启服务", "嵌入模型列表获取失败，请检查 Dify 地址与密钥")
 		return
 	}
 	OK(c, models)
@@ -448,7 +397,7 @@ func (h *AIAdminHandler) RagEmbeddingModels(c *gin.Context) {
 func (h *AIAdminHandler) RagRerankModels(c *gin.Context) {
 	models, err := h.svc.ListRAGModels(c.Request.Context(), "rerank")
 	if err != nil {
-		h.failProxy(c, err, "未配置 Dify RAG 连接，请先在「编辑模型网关」中填写", "嵌入模型列表获取失败，请检查 Dify 地址与密钥")
+		h.failProxy(c, err, "未配置 Dify RAG 连接，请在服务端 .env 配置 KXB_DIFY_BASE_URL / KXB_DIFY_API_KEY 后重启服务", "重排模型列表获取失败，请检查 Dify 地址与密钥")
 		return
 	}
 	OK(c, models)
@@ -476,7 +425,7 @@ func (h *AIAdminHandler) UploadRagDocument(c *gin.Context) {
 	result, err := h.svc.UploadRAGDocument(c.Request.Context(), c.Param("datasetId"),
 		file.Filename, content, c.PostForm("data"))
 	if err != nil {
-		h.failProxy(c, err, "未配置 Dify RAG 连接，请先在「编辑模型网关」中填写", "文档上传失败，请检查 Dify 地址与密钥")
+		h.failProxy(c, err, "未配置 Dify RAG 连接，请在服务端 .env 配置 KXB_DIFY_BASE_URL / KXB_DIFY_API_KEY 后重启服务", "文档上传失败，请检查 Dify 地址与密钥")
 		return
 	}
 	OK(c, result)
@@ -505,7 +454,7 @@ func (h *AIAdminHandler) CreateRagDataset(c *gin.Context) {
 			Fail(c, http.StatusBadRequest, 400, err.Error())
 			return
 		}
-		h.failProxy(c, err, "未配置 Dify RAG 连接，请先在「编辑模型网关」中填写", "知识库创建失败，请检查 Dify 地址与密钥")
+		h.failProxy(c, err, "未配置 Dify RAG 连接，请在服务端 .env 配置 KXB_DIFY_BASE_URL / KXB_DIFY_API_KEY 后重启服务", "知识库创建失败，请检查 Dify 地址与密钥")
 		return
 	}
 	OK(c, result)
@@ -516,7 +465,7 @@ func (h *AIAdminHandler) RagIndexingStatus(c *gin.Context) {
 	result, err := h.svc.GetRAGIndexingStatus(c.Request.Context(),
 		c.Param("datasetId"), c.Param("batch"))
 	if err != nil {
-		h.failProxy(c, err, "未配置 Dify RAG 连接，请先在「编辑模型网关」中填写", "解析进度获取失败，请检查 Dify 地址与密钥")
+		h.failProxy(c, err, "未配置 Dify RAG 连接，请在服务端 .env 配置 KXB_DIFY_BASE_URL / KXB_DIFY_API_KEY 后重启服务", "解析进度获取失败，请检查 Dify 地址与密钥")
 		return
 	}
 	OK(c, result)
@@ -550,7 +499,7 @@ func (h *AIAdminHandler) RagProxy(c *gin.Context) {
 	result, upstreamStatus, err := h.svc.RagProxyAPI(c.Request.Context(), c.Request.Method,
 		subPath, c.Request.URL.RawQuery, body)
 	if err != nil {
-		h.failProxy(c, err, "未配置 Dify RAG 连接，请先在「编辑模型网关」中填写", "知识库请求失败，请检查 Dify 地址与密钥")
+		h.failProxy(c, err, "未配置 Dify RAG 连接，请在服务端 .env 配置 KXB_DIFY_BASE_URL / KXB_DIFY_API_KEY 后重启服务", "知识库请求失败，请检查 Dify 地址与密钥")
 		return
 	}
 	if upstreamStatus < 200 || upstreamStatus >= 300 {
@@ -574,7 +523,7 @@ func (h *AIAdminHandler) RagProxy(c *gin.Context) {
 func (h *AIAdminHandler) ListRAGDatasets(c *gin.Context) {
 	datasets, err := h.svc.ListRAGDatasets(c.Request.Context())
 	if err != nil {
-		h.failProxy(c, err, "未配置 Dify RAG 连接，请先在「编辑模型索引」中填写", "知识库连接失败，请检查 Dify 地址与密钥")
+		h.failProxy(c, err, "未配置 Dify RAG 连接，请在服务端 .env 配置 KXB_DIFY_BASE_URL / KXB_DIFY_API_KEY 后重启服务", "知识库连接失败，请检查 Dify 地址与密钥")
 		return
 	}
 	OK(c, datasets)
@@ -584,14 +533,14 @@ func (h *AIAdminHandler) ListRAGDatasets(c *gin.Context) {
 func (h *AIAdminHandler) ListProviderModels(c *gin.Context) {
 	models, err := h.svc.ListProviderModels(c.Request.Context())
 	if err != nil {
-		h.failProxy(c, err, "未配置模型服务连接，请先在「编辑模型索引」中填写 vLLM 地址", "模型服务连接失败，请检查地址与密钥")
+		h.failProxy(c, err, "未配置模型服务连接，请在服务端 .env 配置 KXB_AI_BASE_URL / KXB_AI_API_KEY 后重启服务", "模型服务连接失败，请检查地址与密钥")
 		return
 	}
 	OK(c, models)
 }
 
-// failProxy 探测/测试类失败统一以 HTTP 200 + 业务码返回，让网关编辑弹窗
-// 能把具体原因（未配置/连接失败）原样展示给管理员，而不是被网络层吞掉。
+// failProxy 探测/测试类失败统一以 HTTP 200 + 业务码返回，让管理端能把具体
+// 原因（未配置/连接失败）原样展示给管理员，而不是被网络层吞掉。
 func (h *AIAdminHandler) failProxy(c *gin.Context, err error, notConfiguredMsg, unavailableMsg string) {
 	// 业务码必须 < 500：前端网络层把 >=500 的业务码转成通用异常，会吞掉具体原因。
 	switch {
@@ -600,7 +549,7 @@ func (h *AIAdminHandler) failProxy(c *gin.Context, err error, notConfiguredMsg, 
 	case errors.Is(err, service.ErrRAGUnavailable), errors.Is(err, service.ErrModelSourceUnavailable):
 		statusHint := ""
 		if match := regexp.MustCompile(`HTTP \d+$`).FindStringSubmatch(err.Error()); len(match) > 0 {
-			statusHint = "（上游 " + match[0] + "，密钥可能已失效，请重新填写并保存）"
+			statusHint = "（上游 " + match[0] + "，密钥可能已失效，请检查服务端 .env 配置）"
 		}
 		respond(c, http.StatusOK, 400, unavailableMsg+statusHint, nil)
 	default:

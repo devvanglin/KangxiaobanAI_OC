@@ -42,13 +42,17 @@ interface RetrieveRequest {
 interface RagKBUpdateRequest { name?: string; description?: string; }
 interface RagRetrieveResponse { records?: RetrieveRecord[]; }
 interface ProviderModel { id: string; }
-interface AIConnectionView {
-  provider: string; base_url: string; api_key_configured: boolean; rag_enabled: boolean;
-  rag_base_url: string; rag_dataset_id: string; rag_api_key_configured: boolean; enabled: boolean;
+/** 只读的连接状态视图：模型服务/Dify 连接改由服务端 .env 配置，
+ * 客户端只能看到「是否已配置」旗标，永远拿不到地址与密钥（与 MinIO 一致）。 */
+interface AIConnectionStatus {
+  provider: string; enabled: boolean; base_url_configured: boolean; api_key_configured: boolean;
+  rag_configured: boolean; rag_dataset_configured: boolean; rag_api_key_configured: boolean;
 }
-interface AIConnectionRequest {
-  provider: string; base_url: string; api_key: string; rag_enabled: boolean;
-  rag_base_url: string; rag_dataset_id: string; rag_api_key: string; enabled: boolean;
+function emptyConnectionStatus(): AIConnectionStatus {
+  return {
+    provider: 'local', enabled: false, base_url_configured: false, api_key_configured: false,
+    rag_configured: false, rag_dataset_configured: false, rag_api_key_configured: false
+  } as AIConnectionStatus;
 }
 interface ModelTestResult { model: string; success: boolean; latency_ms: number; error?: string; }
 interface AIModelProbeRequest { base_url: string; api_key: string; models?: string[]; }
@@ -59,7 +63,6 @@ interface AdminPromptRequest { role_scope: string; title: string; prompt: string
 interface PromptListEntry {
   key: string; kind: string; role: string; title: string; preview: string; enabled: boolean;
 }
-interface AIRagProbeRequest { base_url: string; api_key: string; }
 interface StatTagParam { label: string; value: string; }
 interface AssessmentAgentQuestion { id: string; topic: string; question: string; }
 interface AssessmentAgentQuestionBank {
@@ -83,17 +86,7 @@ export struct WideModelManagement {
   @Local configs: AIModelConfig[] = [];
   @Local activeSection: string = 'models';
   @Local promptFilter: string = 'all';
-  @Local connBaseUrl: string = '';
-  @Local connApiKey: string = '';
-  @Local connRagBaseUrl: string = '';
-  @Local connRagDatasetId: string = '';
-  @Local connRagApiKey: string = '';
-  @Local savedKeyConfigured: boolean = false;
-  @Local savedRagKeyConfigured: boolean = false;
-  @Local editorSelectedModels: string[] = [];
-  @Local editorTesting: boolean = false;
-  @Local editorTestResults: ModelTestResult[] = [];
-  @Local editorRagFetching: boolean = false;
+  @Local connStatus: AIConnectionStatus = emptyConnectionStatus();
   @Local showFilePick: boolean = false;
   @Local pickedFiles: KBPickedFile[] = [];
   @Local showRetrieve: boolean = false;
@@ -108,9 +101,6 @@ export struct WideModelManagement {
   @Local kbSettingsDesc: string = '';
   @Local kbBusy: boolean = false;
   @Local kbConfirmDelete: boolean = false;
-  @Local showEditor: boolean = false;
-  @Local editorFetched: ProviderModel[] = [];
-  @Local editorFetching: boolean = false;
   @Local promptScenario: string = 'caregiver';
   @Local promptSearch: string = '';
   @Local selectedPromptKey: string = 'system-caregiver';
@@ -130,7 +120,6 @@ export struct WideModelManagement {
   @Local ragError: string = '';
   @Local modelStats: ModelUsageStat[] = [];
   @Local modelStatsLoaded: boolean = false;
-  @Local saved: boolean = false;
   @Local usage: AIUsageSummary = { total_tokens: 0, today_calls: 0, avg_daily_calls: 0, rag_calls: 0 };
   @Local usageLoaded: boolean = false;
   @Local mcpServers: McpServerRecord[] = [];
@@ -460,17 +449,13 @@ export struct WideModelManagement {
     } catch (_error) { this.modelStatsLoaded = false; }
   }
 
+  /** 连接由服务端 .env 配置，这里只拉取只读状态旗标用于空态与状态展示。 */
   private async loadConnection(): Promise<void> {
     try {
-      const response = await ApiClient.get<AIConnectionView>('/admin/ai/connection');
+      const response = await ApiClient.get<AIConnectionStatus>('/admin/ai/connection');
       if (response.code !== 0 || response.data === undefined) throw new Error(response.msg);
-      const view: AIConnectionView = response.data;
-      this.connBaseUrl = view.base_url;
-      this.connRagBaseUrl = view.rag_base_url;
-      this.connRagDatasetId = view.rag_dataset_id;
-      this.savedKeyConfigured = view.api_key_configured;
-      this.savedRagKeyConfigured = view.rag_api_key_configured;
-    } catch (_error) { this.showToast('AI 连接加载失败'); }
+      this.connStatus = response.data;
+    } catch (_error) { this.showToast('AI 连接状态加载失败'); }
   }
 
   private async loadRagDatasets(): Promise<void> {
@@ -582,109 +567,6 @@ export struct WideModelManagement {
     return ['caregiver', 'doctor'];
   }
 
-  private async fetchEditorModels(): Promise<void> {
-    if (this.connBaseUrl.trim().length === 0) {
-      this.editorFetched = [];
-      this.editorSelectedModels = [];
-      this.editorTestResults = [];
-      this.showToast('请先填写模型服务 Base URL');
-      return;
-    }
-    this.editorFetching = true;
-    this.editorSelectedModels = [];
-    this.editorTestResults = [];
-    try {
-      const payload: AIModelProbeRequest = {
-        base_url: this.connBaseUrl.trim(), api_key: this.connApiKey
-      };
-      const response = await ApiClient.post<ProviderModel[]>('/admin/ai/llm/models', payload);
-      if (response.code !== 0 || response.data === undefined) {
-        this.editorFetched = [];
-        this.showToast(response.msg.length > 0 ? response.msg : '模型获取失败，请检查地址与密钥');
-      } else {
-        this.editorFetched = response.data;
-        if (response.data.length === 0) { this.showToast('模型服务未返回任何模型'); }
-      }
-    } catch (_error) {
-      this.editorFetched = [];
-      this.showToast('模型获取失败，请检查网络');
-    }
-    this.editorFetching = false;
-  }
-
-  private toggleModelSelection(modelId: string): void {
-    if (this.editorSelectedModels.indexOf(modelId) >= 0) {
-      this.editorSelectedModels = this.editorSelectedModels.filter((item: string) => item !== modelId);
-    } else {
-      this.editorSelectedModels = this.editorSelectedModels.concat(modelId);
-    }
-  }
-
-  private allModelsSelected(): boolean {
-    return this.editorFetched.length > 0 && this.editorSelectedModels.length === this.editorFetched.length;
-  }
-
-  private toggleSelectAllModels(): void {
-    if (this.allModelsSelected()) {
-      this.editorSelectedModels = [];
-    } else {
-      this.editorSelectedModels = this.editorFetched.map((item: ProviderModel) => item.id);
-    }
-  }
-
-  private testResultOf(modelId: string): ModelTestResult | undefined {
-    return this.editorTestResults.find((item: ModelTestResult) => item.model === modelId);
-  }
-
-  private async testSelectedModels(): Promise<void> {
-    if (this.editorSelectedModels.length === 0) {
-      this.showToast('请先选择要测试的模型');
-      return;
-    }
-    if (this.editorTesting) { return; }
-    this.editorTesting = true;
-    try {
-      const payload: AIModelProbeRequest = {
-        base_url: this.connBaseUrl.trim(), api_key: this.connApiKey,
-        models: this.editorSelectedModels
-      };
-      const response = await ApiClient.post<ModelTestResult[]>('/admin/ai/llm/test', payload);
-      if (response.code !== 0 || response.data === undefined) {
-        this.showToast(response.msg.length > 0 ? response.msg : '模型测试失败');
-      } else {
-        this.editorTestResults = response.data;
-      }
-    } catch (_error) {
-      this.showToast('模型测试失败，请检查网络');
-    }
-    this.editorTesting = false;
-  }
-
-  private async fetchEditorRag(): Promise<void> {
-    if (this.connRagBaseUrl.trim().length === 0) {
-      this.showToast('请先填写 Dify RAG URL');
-      return;
-    }
-    this.editorRagFetching = true;
-    try {
-      const payload: AIRagProbeRequest = {
-        base_url: this.connRagBaseUrl.trim(), api_key: this.connRagApiKey
-      };
-      const response = await ApiClient.post<RAGDataset[]>('/admin/ai/rag/datasets', payload);
-      if (response.code !== 0 || response.data === undefined) {
-        this.ragDatasets = [];
-        this.showToast(response.msg.length > 0 ? response.msg : '知识库获取失败，请检查地址与密钥');
-      } else {
-        this.ragDatasets = response.data;
-        if (response.data.length === 0) { this.showToast('Dify 服务未返回任何知识库'); }
-      }
-    } catch (_error) {
-      this.ragDatasets = [];
-      this.showToast('知识库获取失败，请检查网络');
-    }
-    this.editorRagFetching = false;
-  }
-
   /** 千分位格式化，用于 token 与调用次数展示。 */
   private formatCount(value: number): string {
     const rounded: number = Math.round(value);
@@ -700,55 +582,6 @@ export struct WideModelManagement {
 
   private usageValue(value: number): string {
     return this.usageLoaded ? this.formatCount(value) : '--';
-  }
-
-  private async saveConnection(): Promise<void> {
-    const payload: AIConnectionRequest = {
-      provider: 'http',
-      base_url: this.connBaseUrl.trim(),
-      api_key: this.connApiKey,
-      rag_enabled: true,
-      rag_base_url: this.connRagBaseUrl.trim(),
-      rag_dataset_id: this.connRagDatasetId.trim(),
-      rag_api_key: this.connRagApiKey,
-      enabled: true
-    };
-    const response = await ApiClient.put<AIConnectionView>('/admin/ai/connection', payload);
-    if (response.code !== 0) { this.showToast(response.msg || 'AI 连接保存失败'); return; }
-    this.saved = true;
-    this.showEditor = false;
-    this.connApiKey = '';
-    this.connRagApiKey = '';
-    await this.loadConnection();
-    this.loadRagDatasets();
-    this.loadSourceModels();
-  }
-
-  /** 把某个 Dify 知识库设为机构当前使用的知识库。 */
-  private async setConnectionDataset(datasetId: string): Promise<void> {
-    const payload: AIConnectionRequest = {
-      provider: 'http',
-      base_url: this.connBaseUrl.trim(),
-      api_key: '',
-      rag_enabled: true,
-      rag_base_url: this.connRagBaseUrl.trim(),
-      rag_dataset_id: datasetId,
-      rag_api_key: '',
-      enabled: true
-    };
-    const response = await ApiClient.put<AIConnectionView>('/admin/ai/connection', payload);
-    if (response.code !== 0) { this.showToast(response.msg.length > 0 ? response.msg : '知识库切换失败'); return; }
-    await this.loadConnection();
-  }
-
-  private openEditor(): void {
-    this.saved = false;
-    this.editorFetched = [];
-    this.editorRagFetching = false;
-    this.editorSelectedModels = [];
-    this.editorTestResults = [];
-    this.editorTesting = false;
-    this.showEditor = true;
   }
 
   private static readonly KB_EXTENSIONS: string[] =
@@ -1091,10 +924,14 @@ export struct WideModelManagement {
   private async testBoundModel(): Promise<void> {
     const modelId: string = this.promptModel.trim();
     if (modelId.length === 0) { this.showToast('请先绑定模型'); return; }
-    if (this.connBaseUrl.trim().length === 0) { this.showToast('请先保存网关地址'); return; }
+    if (!this.connStatus.base_url_configured) {
+      this.showToast('模型服务未配置：请在服务端 .env 设置 KXB_AI_BASE_URL');
+      return;
+    }
     try {
+      // 地址与密钥由服务端环境变量持有，这里传空即回落到 .env 配置。
       const payload: AIModelProbeRequest = {
-        base_url: this.connBaseUrl.trim(), api_key: '', models: [modelId]
+        base_url: '', api_key: '', models: [modelId]
       };
       const response = await ApiClient.post<ModelTestResult[]>('/admin/ai/llm/test', payload);
       if (response.code !== 0 || response.data === undefined || response.data.length === 0) {
@@ -1186,10 +1023,6 @@ export struct WideModelManagement {
           .margin({ left: 12 })
           .onClick(() => this.openFilePickDialog())
       }
-      Button('编辑模型网关').height(38).fontSize(14).borderRadius(8)
-        .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
-        .margin({ left: 12 })
-        .onClick(() => this.openEditor())
     }.width('100%')
     .alignItems(VerticalAlign.Center)
   }
@@ -1250,11 +1083,46 @@ export struct WideModelManagement {
     .alignItems(HorizontalAlign.Start)
   }
 
+  /** 只读连接状态角标：来自服务端 .env 的配置旗标。 */
+  @Builder
+  private connStatusChip(label: string, ok: boolean) {
+    Row({ space: 6 }) {
+      Row().width(8).height(8).borderRadius(4)
+        .backgroundColor(ok ? $r('app.color.doctor_workspace_success') : $r('sys.color.font_tertiary'))
+      Text(`${label} · ${ok ? '已连接' : '未配置'}`).fontSize(12).fontColor($r('sys.color.font_secondary'))
+    }.alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  private envUnconfiguredCard(title: string, hint: string, onRetry: () => void) {
+    Column({ space: 10 }) {
+      SymbolGlyph($r('sys.symbol.exclamationmark_triangle'))
+        .fontSize(34).fontColor([$r('app.color.doctor_workspace_warning')])
+      Text(title).fontSize(16).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+      Text(hint).fontSize(13).fontColor($r('sys.color.font_secondary'))
+        .textAlign(TextAlign.Center).width('100%')
+      Text('重试').fontSize(14).fontColor($r('app.color.brand_blue'))
+        .onClick(() => onRetry())
+    }.width('100%').padding({ top: 32, bottom: 32 })
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(12).border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .alignItems(HorizontalAlign.Center)
+  }
+
   @Builder
   private modelsModule() {
     Column({ space: 12 }) {
-      if (this.sourceLoading) {
-        Text('正在从统一连接获取模型列表…').fontSize(14).fontColor($r('sys.color.font_secondary'))
+      this.connStatusChip('模型服务',
+        this.connStatus.base_url_configured && this.connStatus.api_key_configured)
+      if (!this.connStatus.base_url_configured) {
+        this.envUnconfiguredCard('模型服务未配置',
+          '模型服务连接已改由服务端统一配置。请在后端服务器 .env 中设置 KXB_AI_BASE_URL / KXB_AI_API_KEY，重启服务后重试。',
+          (): void => {
+            this.loadConnection();
+            this.loadSourceModels();
+          })
+      } else if (this.sourceLoading) {
+        Text('正在从模型服务获取模型列表…').fontSize(14).fontColor($r('sys.color.font_secondary'))
           .width('100%').padding({ top: 24, bottom: 24 }).textAlign(TextAlign.Center)
       } else if (this.sourceError.length > 0) {
         Column({ space: 8 }) {
@@ -1489,7 +1357,15 @@ export struct WideModelManagement {
   @Builder
   private ragModule() {
     Column({ space: 12 }) {
-      if (this.ragLoading) {
+      this.connStatusChip('Dify 知识库', this.connStatus.rag_configured)
+      if (!this.connStatus.rag_configured) {
+        this.envUnconfiguredCard('Dify 知识库未配置',
+          'Dify RAG 连接已改由服务端统一配置。请在后端服务器 .env 中设置 KXB_DIFY_BASE_URL / KXB_DIFY_DATASET_ID / KXB_DIFY_API_KEY，重启服务后重试。',
+          (): void => {
+            this.loadConnection();
+            this.loadRagDatasets();
+          })
+      } else if (this.ragLoading) {
         Text('正在从 Dify 获取知识库列表…').fontSize(14).fontColor($r('sys.color.font_secondary'))
           .width('100%').padding({ top: 24, bottom: 24 }).textAlign(TextAlign.Center)
       } else if (this.ragError.length > 0) {
@@ -1837,122 +1713,6 @@ export struct WideModelManagement {
       .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
   }
 
-  /** 编辑模型网关：机构统一的模型服务连接与 Dify RAG 连接。 */
-  @Builder
-  private editorDialog() {
-    Column({ space: 12 }) {
-      Text('编辑模型网关').fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
-        .width('100%')
-      Scroll() {
-        Column({ space: 12 }) {
-          Text('模型服务（OpenAI 兼容）').fontSize(13).fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary')).width('100%')
-          Row({ space: 8 }) {
-            TextInput({ placeholder: '模型服务 Base URL', text: $$this.connBaseUrl })
-              .height(40).layoutWeight(1)
-            Button('获取模型测试').height(40).fontSize(13)
-              .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
-              .onClick(() => this.fetchEditorModels())
-          }.width('100%')
-          TextInput({ placeholder: this.savedKeyConfigured ?
-            'API Key（留空表示保留原密钥）' : 'API Key（尚未配置，必填）', text: $$this.connApiKey })
-            .height(40).type(InputType.Password)
-          if (!this.savedKeyConfigured) {
-            Text('当前未保存密钥，必须填写后保存').fontSize(12)
-              .fontColor($r('app.color.doctor_workspace_danger')).width('100%')
-          }
-          if (this.editorFetching) {
-            Text('正在获取模型…').fontSize(12).fontColor($r('sys.color.font_secondary')).width('100%')
-          }
-          if (this.editorFetched.length > 0) {
-            Row({ space: 10 }) {
-              Text(`已选 ${this.editorSelectedModels.length}/${this.editorFetched.length}`)
-                .fontSize(12).fontColor($r('sys.color.font_secondary'))
-              Blank()
-              Text('全选').fontSize(13).fontColor($r('app.color.brand_blue'))
-                .onClick(() => this.toggleSelectAllModels())
-              Text(this.editorTesting ? '测试中…' : '测试所选').fontSize(13).fontColor($r('app.color.brand_blue'))
-                .onClick(() => this.testSelectedModels())
-            }.width('100%')
-            Scroll() {
-              Column({ space: 6 }) {
-                ForEach(this.editorFetched, (item: ProviderModel) => {
-                  Row({ space: 8 }) {
-                    Text(this.editorSelectedModels.indexOf(item.id) >= 0 ? '✓' : '')
-                      .fontSize(12).fontColor($r('app.color.brand_blue'))
-                      .width(20).height(20).textAlign(TextAlign.Center)
-                      .borderRadius(10)
-                      .border({ width: 0.5, color: this.editorSelectedModels.indexOf(item.id) >= 0 ?
-                        $r('app.color.brand_blue') : $r('sys.color.comp_divider') })
-                    Text(item.id).fontSize(13).fontColor($r('sys.color.font_primary'))
-                      .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-                    if (this.testResultOf(item.id) !== undefined) {
-                      Text(this.testResultOf(item.id)!.success ?
-                        `✓ ${this.testResultOf(item.id)!.latency_ms}ms` :
-                        `✗ ${this.testResultOf(item.id)!.error}`)
-                        .fontSize(12).fontColor(this.testResultOf(item.id)!.success ?
-                          $r('app.color.doctor_workspace_success') : $r('app.color.doctor_workspace_danger'))
-                    }
-                  }.width('100%').padding({ left: 10, right: 10, top: 8, bottom: 8 })
-                    .borderRadius(8)
-                    .border({ width: 0.5, color: this.editorSelectedModels.indexOf(item.id) >= 0 ?
-                      $r('app.color.brand_blue') : $r('sys.color.comp_divider') })
-                    .backgroundColor(this.editorSelectedModels.indexOf(item.id) >= 0 ? '#F0F5FF' :
-                      $r('sys.color.comp_background_primary'))
-                    .onClick(() => this.toggleModelSelection(item.id))
-                }, (item: ProviderModel) => `editor-model-${item.id}`)
-              }.width('100%').alignItems(HorizontalAlign.Start)
-            }.constraintSize({ maxHeight: 150 }).scrollBar(BarState.Off).width('100%')
-          }
-          Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
-          Text('Dify RAG 知识库').fontSize(13).fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary')).width('100%')
-          TextInput({ placeholder: 'Dify RAG URL', text: $$this.connRagBaseUrl }).height(40)
-          TextInput({ placeholder: this.savedRagKeyConfigured ?
-            'RAG API Key（留空表示保留原密钥）' : 'RAG API Key（尚未配置，必填）', text: $$this.connRagApiKey })
-            .height(40).type(InputType.Password)
-          if (!this.savedRagKeyConfigured) {
-            Text('当前未保存密钥，必须填写后保存').fontSize(12)
-              .fontColor($r('app.color.doctor_workspace_danger')).width('100%')
-          }
-          Button('获取知识库测试').width('100%').height(40).fontSize(13)
-            .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
-            .onClick(() => this.fetchEditorRag())
-          if (this.editorRagFetching) {
-            Text('正在获取知识库…').fontSize(12).fontColor($r('sys.color.font_secondary')).width('100%')
-          }
-          if (this.ragDatasets.length > 0) {
-            Scroll() {
-              Column({ space: 6 }) {
-                ForEach(this.ragDatasets, (item: RAGDataset) => {
-                  Row({ space: 8 }) {
-                    Text(item.name).fontSize(13).fontColor($r('sys.color.font_primary'))
-                      .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-                    Text(`${item.document_count} 篇`).fontSize(12).fontColor($r('sys.color.font_tertiary'))
-                  }.width('100%').padding({ left: 10, right: 10, top: 8, bottom: 8 })
-                    .borderRadius(8)
-                    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-                    .backgroundColor($r('sys.color.comp_background_primary'))
-                }, (item: RAGDataset) => `editor-rag-${item.id}`)
-              }.width('100%').alignItems(HorizontalAlign.Start)
-            }.constraintSize({ maxHeight: 150 }).scrollBar(BarState.Off).width('100%')
-          }
-          Text('网关对全部端默认开启；护工/医师各自在「提示词」里分配模型与提示词。')
-            .fontSize(12).fontColor($r('sys.color.font_tertiary'))
-        }.width('100%')
-      }.scrollBar(BarState.Off).constraintSize({ maxHeight: 420 }).width('100%')
-      Row({ space: 10 }) {
-        Button('取消').layoutWeight(1).height(40)
-          .fontColor($r('sys.color.font_secondary')).backgroundColor($r('sys.color.comp_background_secondary'))
-          .onClick(() => { this.showEditor = false; })
-        Button(this.saved ? '已保存' : '保存连接').layoutWeight(1).height(40).fontSize(13)
-          .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
-          .onClick(() => this.saveConnection())
-      }.width('100%')
-    }.width(this.compactWidth ? '92%' : 520).padding(24)
-      .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
-  }
-
   build() {
     Stack() {
       Scroll(this.managementScroller) {
@@ -2029,10 +1789,6 @@ export struct WideModelManagement {
           }.width(this.compactWidth ? '92%' : 480).padding(24)
             .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
         }.width('100%').height('100%')
-          .backgroundColor('#66000000').justifyContent(FlexAlign.Center)
-      }
-      if (this.showEditor) {
-        Row() { this.editorDialog() }.width('100%').height('100%')
           .backgroundColor('#66000000').justifyContent(FlexAlign.Center)
       }
     }.width('100%').height('100%')
