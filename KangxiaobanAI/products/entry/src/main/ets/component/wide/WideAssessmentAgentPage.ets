@@ -13,9 +13,11 @@ const MICROPHONE_PERMISSION: Permissions = 'ohos.permission.MICROPHONE';
 const EMOTION_IDLE: string = '02'; // 待机放空
 const EMOTION_WAKING: string = '01'; // 连接/唤醒
 const EMOTION_CURIOUS: string = '03'; // 倒计时即将到点的温和提醒
+const EMOTION_RECEIVING: string = '31'; // 接收任务（长者说话/ASR 识别期间）
 const EMOTION_LISTENING: string = '35'; // 等待输入（聆听）
 const EMOTION_REPLYING: string = '39'; // 输出回复（嘴随播报开合）
-const EMOTION_THINKING: string = '30'; // 思考中（生成报告）
+const EMOTION_THINKING: string = '30'; // 思考中（回答结束/生成报告）
+const EMOTION_SEARCHING: string = '40'; // 检索资料（长者超时未回答）
 const EMOTION_DONE: string = '33'; // 任务完成（撒花）
 const EMOTION_ERROR: string = '34'; // 出错/断线
 const COUNTDOWN_URGENT_SECONDS: number = 10;
@@ -53,6 +55,10 @@ export struct WideAssessmentAgentPage {
   private webReady: boolean = false;
   private everConnected: boolean = false;
   private currentEmotion: string = EMOTION_IDLE;
+  /** 长者正在说话（ASR 识别中）→ 接收任务表情。 */
+  private elderSpeaking: boolean = false;
+  /** 长者超时未回答 → 检索资料表情。 */
+  private timedOut: boolean = false;
   private countdownTotal: number = 0;
   private countdownTimerId: number = -1;
 
@@ -108,26 +114,37 @@ export struct WideAssessmentAgentPage {
 
   // ==================== 表情舞台（Mood Mates 云宝） ====================
 
-  /** 按当前评估阶段推导表情 ID，并同步到 Web 舞台。 */
+  /** 按当前评估阶段推导表情 ID，并同步到 Web 舞台。
+   *  优先级：完成 > 断线 > 长者说话(31) > 超时未答(40) > 生成报告(30)
+   *  > 聆听(35/03) > TTS 播报(39) > 唤醒/待机。 */
   private syncEmotion(): void {
     let emotion: string = EMOTION_IDLE;
     if (this.completed) {
       emotion = EMOTION_DONE;
     } else if (!this.connected) {
       emotion = this.everConnected ? EMOTION_ERROR : EMOTION_WAKING;
-    } else if (this.finishing) {
+    } else if (this.elderSpeaking) {
+      emotion = EMOTION_RECEIVING;
+    } else if (this.timedOut) {
+      emotion = EMOTION_SEARCHING;
+    } else if (this.finishing || this.statusText.indexOf('生成') >= 0 ||
+      this.statusText.indexOf('确认完整回答') >= 0) {
       emotion = EMOTION_THINKING;
     } else if (this.listening || this.answerReady) {
       emotion = this.isCountdownUrgent() ? EMOTION_CURIOUS : EMOTION_LISTENING;
     } else if (this.assistantText.length > 0 || this.statusText.indexOf('播报') >= 0 ||
       this.statusText.indexOf('提问') >= 0) {
       emotion = EMOTION_REPLYING;
-    } else if (this.statusText.indexOf('生成') >= 0) {
-      emotion = EMOTION_THINKING;
     } else if (!this.everConnected) {
       emotion = EMOTION_WAKING;
     }
     this.applyEmotion(emotion);
+  }
+
+  /** 进入新一轮问答交互时清除上一轮的说话/超时状态。 */
+  private resetTurnInteractionState(): void {
+    this.elderSpeaking = false;
+    this.timedOut = false;
   }
 
   private applyEmotion(id: string): void {
@@ -170,6 +187,11 @@ export struct WideAssessmentAgentPage {
       if (this.countdownSeconds <= 0) {
         this.stopCountdown();
         this.countdownSeconds = 0;
+        // 超时未回答：检索资料表情，等待服务端跳转下一题。
+        this.timedOut = true;
+        this.elderSpeaking = false;
+        this.statusText = '未检测到回答，即将进入下一题';
+        this.syncEmotion();
         return;
       }
       this.countdownSeconds -= 1;
@@ -228,17 +250,20 @@ export struct WideAssessmentAgentPage {
       this.listening = false;
       this.answerReady = false;
       this.stopCountdown();
+      this.resetTurnInteractionState();
       this.client.pauseMicrophone();
       this.statusText = '评估助手正在提问，请听完后再回答';
     } else if (event.type === 'asr') {
       const hadSpeech: boolean = this.recognizedText.length > 0;
       this.recognizedText += event.text ?? '';
-      // 长者开口后服务端的静默窗口接管节奏，客户端倒计时使命结束。
+      // 长者开口：接收任务表情；客户端倒计时使命结束（静默窗口交给服务端）。
+      this.elderSpeaking = true;
       if (!hadSpeech) { this.stopCountdown(true); }
     } else if (event.type === 'start') {
       this.listening = false;
       this.answerReady = false;
       this.stopCountdown();
+      this.resetTurnInteractionState();
       this.client.pauseMicrophone();
       this.assistantText = '';
       this.statusText = '评估助手正在播报…';
@@ -255,6 +280,7 @@ export struct WideAssessmentAgentPage {
       this.statusText = this.microphoneAvailable ? '现在可以回答，正在聆听…' : '现在可以使用文字回答';
       this.listening = this.microphoneAvailable;
       this.answerReady = true;
+      this.timedOut = false;
       this.startCountdown();
     } else if (event.type === 'assess_answer') {
       this.answered = Math.max(this.answered, event.index !== undefined ? event.index + 1 : this.answered);
@@ -263,6 +289,7 @@ export struct WideAssessmentAgentPage {
       this.listening = false;
       this.answerReady = false;
       this.stopCountdown();
+      this.resetTurnInteractionState();
       this.client.pauseMicrophone();
       this.statusText = event.status === 'generating' ? '正在生成并保存评估报告…' :
         event.status === 'recognizing' ? '正在确认完整回答…' : this.statusText;
@@ -275,6 +302,7 @@ export struct WideAssessmentAgentPage {
       void this.client.stopMicrophone();
       this.listening = false;
       this.stopCountdown();
+      this.resetTurnInteractionState();
       void this.refreshCompletedAssessment(0);
     } else if (event.type === 'error') {
       this.statusText = event.message ?? '评估服务发生错误';
@@ -347,6 +375,9 @@ export struct WideAssessmentAgentPage {
     this.client.pauseMicrophone();
     this.inputText = '';
     this.recognizedText = text;
+    // 文字回答同样视为“回答已提交”，直到服务端进入确认/生成阶段。
+    this.elderSpeaking = true;
+    this.timedOut = false;
     this.syncEmotion();
     await this.client.sendText(text);
   }
