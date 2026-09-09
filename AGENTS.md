@@ -188,7 +188,8 @@ business source. Do not infer a module type from its directory name; the `module
 - Home skill: `entity.system.home` + `ohos.want.action.home`
 - Pages profile: only `pages/LoginPage` and `pages/MainPage`
 - Route map: none
-- Restricted permissions: none
+- Restricted permissions: `ohos.permission.MICROPHONE`, requested only when a doctor starts the native voice
+  assessment; text answers remain available when permission is denied
 - Root business dependencies: none
 - Test dev dependencies: `@ohos/hypium` 1.0.25 and `@ohos/hamock` 1.0.0
 - Release obfuscation: currently disabled in module build configuration
@@ -343,7 +344,7 @@ longer own connections: the per-role `提示词` panel assigns the model plus sy
 `ai_model_configs` assignments, and the chat gateway merges connection + assignment. The page follows the redesign
 platform layout on a 1280vp-centered column: a page header with live stat tags (connected models, enabled
 assignments, today's calls, weighted average response), a sliding-capsule module nav that switches between the
-stacked-style modules (模型管理 / 提示词库 / MCP 管理 / Skills 管理 / RAG 知识库 — the middle two are explicit
+stacked-style modules (模型管理 / 提示词库 / MCP 管理 / Skills 管理 / RAG 知识库 / 评估题库),
 planned-only placeholders), a model card grid whose per-model today calls / average response / success rate aggregate from the
 protected `/api/v1/admin/ai/usage/models` endpoint, a prompt-assignment table (with an 全部/护工端/医师端 chip filter
 and a copy-to-the-other-role action) over the role configs, and Dify
@@ -356,6 +357,8 @@ process rule, and polls `indexing-status` on a completion page. The 提示词库
 per-role prompt entries (the role system prompt plus persisted starter-prompt suggestions managed through the
 `/api/v1/admin/ai/prompts` CRUD), and an editor with model binding, temperature and context-length params. The proxies
 require `admin:all` and return typed not-configured/unavailable errors that the page renders as explicit states.
+The `评估题库` module edits the tenant-owned, versioned JSON contract used by the voice-assessment Agent. Each session
+snapshots the selected version so later edits do not change an assessment already in progress.
 Device management accepts MQTT radar
 metadata and manually configured RTSP cameras. Camera behavior remains an explicit empty state until the vision
 adapter is integrated.
@@ -384,6 +387,8 @@ before extending preload.
 | Doctor resident workspace | doctor-owned local workspace branch | `MainPage` | `WideDoctorResidentPage` |
 | Doctor AI workspace | doctor-owned local workspace branch | `MainPage` | `WideDoctorAiPage` |
 | Doctor admission | local module surface | `WideDoctorAdmission` | doctor quality module |
+| Operational intake | `NavPathStack` destination | doctor workbench | `WideDoctorAdmissionForm` |
+| Voice assessment | `NavPathStack.replacePath/pushPath` after a completed intake or from cases | `MainPage` | `WideAssessmentAgentPage` |
 | Administrator workspace | local wide workspace branch | `MainPage` | `WideAdminWorkspace` |
 
 There is no `router_map.json`/`route_map.json` in the core product. If notification, card, deep link, dynamic HAR, or
@@ -479,13 +484,38 @@ mapping boundary explicit:
   without a server record render an empty state; do not reintroduce fallback people, vitals, tasks, or conversations.
 - Task progress, message replies, AI conversations, and doctor admission drafts/submissions write through server APIs.
 - AI starter prompts, health thresholds, billing rates, operation thresholds, assessment templates/options/dictionaries,
-  and level-specific care packages are tenant-owned database reference data. Clients must not duplicate their values.
+  voice-assessment question-bank versions, and level-specific care packages are tenant-owned database reference data.
+  Clients must not duplicate their values.
 - `WideAdminWorkspace` modules outside the operations overview remain explicit placeholders. The doctor parity shell
   intentionally uses those same placeholders; a placeholder is not permission to populate a local demo dataset.
 - View-only labels, enum presentation names, responsive dimensions, and temporary form state remain client concerns;
   persistent business facts and configurable institutional rules belong to the server.
 
-### 6.6 Doctor admission workflow and state contract
+### 6.6 Voice-assessment Agent integration
+
+`assessment-agent/` is the repository copy of the AsLive ASR/VAD/TTS/LLM transport runtime (the original working copy
+also exists at `D:\1\AsLive-main`) but does not own resident identity, question-bank
+configuration, authorization, or assessment records. The production AsLive runtime is hosted at `10.10.1.11:8000`;
+the native client never connects to it directly. The Go backend at `10.10.1.12` creates a tenant/user/intake-scoped
+session, snapshots the current JSON question bank, and proxies the authenticated native WebSocket to AsLive's protected
+`/assessment-ws` endpoint using a server-only token. The token exists only in protected remote environment files.
+
+The operational intake form has three distinct outcomes: `保存草稿` keeps local unfinished input; `保存并返回` commits
+the elder, bed, care plan, bill and case attachment without starting an assessment; `进行评估` commits that same intake
+first and only then creates an Agent session. The salutation is derived from the committed gender snapshot: male uses
+`爷爷`, female uses `奶奶`, always prefixed by the resident name. Each answered/skipped/timed-out item is persisted by
+the backend so a doctor can continue from the cases page. Completion atomically creates one `comprehensive_agent`
+record in the normal tenant-scoped `assessments` ledger with the structured answers and generated report; it remains
+advisory and requires doctor review. Do not let AsLive write the institution database or accept client-supplied identity,
+question banks, scores, or completion ownership.
+Voice assessment is strict half-duplex. Each TTS turn carries a unique `turn_id`; the server ends generation with
+`await_playback` but does not accept PCM or start the no-answer timer. The native renderer must write every byte,
+`drain()` its playback buffer, and send `playback_complete(turn_id)`. Only the matching acknowledgement changes the
+server to `listening` and enables microphone PCM. While speaking, waiting for playback, processing ASR, or generating
+the next turn, microphone capture may stay allocated but its bytes must not be uploaded. Assessment end-of-utterance
+uses a longer silence window than ordinary chat so a natural thinking pause does not advance the question.
+
+### 6.7 Doctor admission workflow and state contract
 
 `WideDoctorAdmission` is a backend-connected local module surface, not a route or a `NavPathStack` destination.
 `AdmissionRepository` loads the
@@ -532,7 +562,9 @@ Current production source is under `KangxiaobanAI/products/entry/src/main/ets`.
 | `component/wide/WideCaregiverWorkspace.ets` | responsive top command-bar shell, sliding primary navigation, live message badge, persistent wide feature roots, avatar account actions, local-back cleanup, and safe-area forwarding |
 | `component/wide/WideDoctorWorkspace.ets` | compatibility facade that delegates the visible doctor console to `WideAdminWorkspace`; the former duplicate doctor builders were removed |
 | `component/wide/WideDoctorAdmission.ets` | backend-persisted four-step appendix A/B/C admission workflow, server preview/scoring, screenings, care-plan selection, confirmations, and submission result |
-| `component/wide/WideDoctorQuickPanel.ets` | doctor workbench quick views for beds, tasks, alerts, assessments, bills, and daily schedules |
+| `component/wide/WideDoctorAdmissionForm.ets` | one-page operational intake, case upload, save-without-assessment, and post-commit Agent handoff |
+| `component/wide/WideAssessmentAgentPage.ets` | native HDS voice/text assessment, microphone permission fallback, progress, resume, and completion report |
+| `network/AssessmentAgentClient.ets` | authenticated WebSocket, 16 kHz PCM microphone streaming, ASR events, and Float32 TTS playback |
 | `component/wide/WideAreaManagement.ets` | compatibility-aware floor/room/bed and corridor/stair area management |
 | `component/wide/WideCarePackageManagement.ets` | administrator care-package template, item, and elder subscription UI |
 | `component/wide/WideAdminWorkspace.ets` | server-backed administrator overview plus the doctor workbench; the removed doctor collaboration/assessment/risk/monitoring entries are out of visible navigation |

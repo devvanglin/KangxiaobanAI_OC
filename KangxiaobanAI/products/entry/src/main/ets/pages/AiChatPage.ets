@@ -2138,13 +2138,13 @@ export struct AiChatPage {
   }
 
   @Builder
-  private historyItems(sessions: ChatSession[]) {
+  private historyItems() {
     Column({ space: 1 }) {
-      if (sessions.length === 0) {
+      if (this.filteredHistorySessions().length === 0) {
         this.emptyHistory()
       } else {
-        ForEach(sessions, (session: ChatSession, index: number) => {
-          if (this.shouldShowSessionGroup(sessions, index)) {
+        ForEach(this.filteredHistorySessions(), (session: ChatSession, index: number) => {
+          if (this.shouldShowSessionGroup(this.filteredHistorySessions(), index)) {
             this.sessionGroupTitle(this.sessionGroupLabel(session.updatedAt))
           }
           this.historySessionItem(session)
@@ -2171,7 +2171,7 @@ export struct AiChatPage {
           .alignItems(VerticalAlign.Center)
 
           this.newConversationButton()
-          this.historyItems(this.filteredHistorySessions())
+          this.historyItems()
         }
         .width('100%')
         .padding({
@@ -2205,7 +2205,7 @@ export struct AiChatPage {
         this.newConversationButton()
 
         Scroll() {
-          this.historyItems(this.filteredHistorySessions())
+          this.historyItems()
         }
         .layoutWeight(1)
         .align(Alignment.Top)
@@ -2452,7 +2452,7 @@ export struct AiChatPage {
         }
 
         Scroll(this.historyScroller) {
-          this.historyItems(this.filteredHistorySessions())
+          this.historyItems()
         }
         .layoutWeight(1)
         .width('100%')

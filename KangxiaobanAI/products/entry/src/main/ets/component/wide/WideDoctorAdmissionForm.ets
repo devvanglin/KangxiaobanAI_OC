@@ -19,6 +19,7 @@ import ApiClient from '../../network/ApiClient';
 import AuthStore from '../../network/AuthStore';
 import AdmissionRepository, { AdmissionFailureKind, AdmissionResult } from '../../network/AdmissionRepository';
 import { AdmissionIntakePayload, AdmissionIntakeResult, AdmissionPhoto } from '../../network/AdmissionApi';
+import { AssessmentAgentApi, AssessmentAgentSession } from '../../network/AssessmentAgentApi';
 import { PreferenceManager } from '../../util/PreferenceManager';
 
 interface AdmissionPhotoBinary {
@@ -399,6 +400,7 @@ export struct WideDoctorAdmissionForm {
   @Param statusBarHeight: number = 0;
   @Param naviIndicatorHeight: number = 0;
   @Event onClose: () => void = () => {};
+  @Event onStartAssessment: (session: AssessmentAgentSession) => void = (_session: AssessmentAgentSession) => {};
 
   @Local name: string = '';
   @Local gender: string = '';
@@ -1502,7 +1504,7 @@ export struct WideDoctorAdmissionForm {
     return true;
   }
 
-  private async confirmForm(): Promise<void> {
+  private async confirmForm(startAssessment: boolean = false): Promise<void> {
     if (!this.requiredReady()) {
       this.showToast('请填写必填项并选择真实空床位');
       return;
@@ -1568,6 +1570,30 @@ export struct WideDoctorAdmissionForm {
       // Refresh the shared operational snapshot after the server transaction
       // commits so resident, bed, task, and billing surfaces see the new record.
       void BusinessStore.getShared().load(true);
+      if (startAssessment) {
+        try {
+          const sessionResponse = await AssessmentAgentApi.createSession(result.data.intake.id);
+          if (!this.submissionIsCurrent(submissionToken)) {
+            return;
+          }
+          if (sessionResponse.code !== 0 || sessionResponse.data === undefined) {
+            if (this.submissionUiIsCurrent(submissionToken)) {
+              this.showToast(sessionResponse.msg || '入住已完成，但评估会话创建失败，可从长者评估重新发起');
+            }
+            return;
+          }
+          if (this.submissionUiIsCurrent(submissionToken)) {
+            this.onStartAssessment(sessionResponse.data);
+          }
+        } catch (_assessmentError) {
+          if (this.submissionUiIsCurrent(submissionToken)) {
+            this.showToast('入住已完成，但评估服务暂不可用');
+          }
+        }
+      } else if (this.submissionUiIsCurrent(submissionToken)) {
+        this.showToast('建档与病例已保存');
+        this.onClose();
+      }
     } catch (_error) {
       if (this.submissionUiIsCurrent(submissionToken)) {
         this.submitError = '入住办理请求失败，请稍后重试';
@@ -1792,7 +1818,7 @@ export struct WideDoctorAdmissionForm {
       return '正在上传…';
     }
     if (state === 'failed') {
-      return '上传失败，点击“确认办理入住”重试';
+      return '上传失败，点击“保存并返回”或“进行评估”重试';
     }
     return '';
   }
@@ -2912,16 +2938,21 @@ export struct WideDoctorAdmissionForm {
           .opacity(this.submitting || this.photoPicking.length > 0 ? 0.45 : 1)
           .enabled(!this.submitting && this.photoPicking.length === 0)
           .onClick(() => this.closeForm())
-        Button('保存').height(44).borderRadius(12).fontSize(14)
+        Button('保存草稿').height(44).borderRadius(12).fontSize(14)
           .backgroundColor($r('sys.color.comp_background_secondary'))
           .opacity(this.submitting || this.photoPicking.length > 0 ? 0.45 : 1)
           .enabled(!this.submitting && this.photoPicking.length === 0)
           .onClick(() => this.saveDraft())
-        Button(this.submitting ? '提交中…' : '确认办理入住').height(44).borderRadius(12).fontSize(14)
+        Button(this.submitting ? '提交中…' : '保存并返回').height(44).borderRadius(12).fontSize(14)
+          .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
+          .opacity(this.requiredReady() && !this.submitting ? 1 : 0.45)
+          .enabled(this.requiredReady() && !this.submitting)
+          .onClick(() => this.confirmForm(false))
+        Button(this.submitting ? '提交中…' : '进行评估').height(44).borderRadius(12).fontSize(14)
           .fontColor(Color.White).backgroundColor($r('app.color.brand_blue'))
           .opacity(this.requiredReady() && !this.submitting ? 1 : 0.45)
           .enabled(this.requiredReady() && !this.submitting)
-          .onClick(() => this.confirmForm())
+          .onClick(() => this.confirmForm(true))
       }
       .width('100%')
       .justifyContent(FlexAlign.End)

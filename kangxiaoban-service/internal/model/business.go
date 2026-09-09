@@ -106,10 +106,13 @@ type Assessment struct {
 	Base
 	ElderID        uint      `gorm:"index;not null" json:"elder_id"`
 	AssessorID     uint      `gorm:"index" json:"assessor_id"`
-	AssessmentType string    `gorm:"size:32;not null" json:"assessment_type"` // adl/fall/cognition/nutrition
+	AssessmentType string    `gorm:"size:32;not null" json:"assessment_type"` // adl/fall/cognition/nutrition/comprehensive_agent
 	Score          *float64  `json:"score"`
 	RiskLevel      string    `gorm:"size:16" json:"risk_level"`
-	Notes          string    `gorm:"size:1024" json:"notes"`
+	Notes          string    `gorm:"size:2048" json:"notes"`
+	Source         string    `gorm:"size:32;index" json:"source"`
+	AgentSessionID *uint     `gorm:"uniqueIndex" json:"agent_session_id,omitempty"`
+	Report         string    `gorm:"type:text" json:"report,omitempty"`
 	AssessedAt     time.Time `json:"assessed_at"`
 }
 

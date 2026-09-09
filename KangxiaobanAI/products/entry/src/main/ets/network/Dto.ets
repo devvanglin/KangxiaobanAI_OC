@@ -457,6 +457,9 @@ export interface Assessment {
   score?: number;
   risk_level: string;
   notes: string;
+  source?: string;
+  agent_session_id?: number;
+  report?: string;
   assessed_at: string;
 }
 

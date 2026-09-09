@@ -1,6 +1,10 @@
 {
   "string": [
     {
+      "name": "microphone_permission_reason",
+      "value": "用于长者语音评估时采集回答，未授权时仍可使用文字回答"
+    },
+    {
       "name": "module_desc",
       "value": "Kanxiaoban module"
     },

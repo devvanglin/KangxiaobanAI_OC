@@ -35,7 +35,8 @@ func RequestTimeout(timeout time.Duration) gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		if c.Request.URL.Path == "/api/v1/ws" {
+		if c.Request.URL.Path == "/api/v1/ws" ||
+			(strings.HasPrefix(c.Request.URL.Path, "/api/v1/assessment-agent/sessions/") && strings.HasSuffix(c.Request.URL.Path, "/ws")) {
 			c.Next()
 			return
 		}

@@ -42,6 +42,8 @@ import { WideDoctorCasesPage } from '../component/wide/WideDoctorCasesPage';
 import { WideCaregiverTitleActions } from '../component/wide/WideCaregiverTitleActions';
 import { WideAdminWorkspace } from '../component/wide/WideAdminWorkspace';
 import { WideDoctorAdmissionForm } from '../component/wide/WideDoctorAdmissionForm';
+import { WideAssessmentAgentPage } from '../component/wide/WideAssessmentAgentPage';
+import { AssessmentAgentSession } from '../network/AssessmentAgentApi';
 import { WideDoctorBedsPage } from '../component/wide/WideDoctorBedsPage';
 import { WideDoctorTasksPage } from '../component/wide/WideDoctorTasksPage';
 import { WideDoctorAlertsPage } from '../component/wide/WideDoctorAlertsPage';
@@ -174,6 +176,9 @@ struct MainPage {
   @Local doctorResidentBackRequestToken: number = 0;
   @Local doctorResidentScrollerOwner: DoctorResidentScrollerOwner = 'residentDetail';
   @Local doctorAiHistoryCollapsed: boolean = false;
+  @Local doctorAiHistoryOpenRequestToken: number = 0;
+  @Local doctorAiHistorySearchRequestToken: number = 0;
+  @Local doctorAiNewConversationRequestToken: number = 0;
   @Local workspaceClockTime: string = '--:--';
   /** 标题栏账户菜单显隐：头像与面板都挂在页面自身树上，不受 stackBuilder 重建影响。 */
   @Local titleAccountMenuVisible: boolean = false;
@@ -567,9 +572,13 @@ struct MainPage {
       selectedIndex: this.managementNavIndex,
       isDoctor: this.workspaceCode() === 'doctor',
       compactWidth: BreakpointUtil.isTablet(this.globalInfoModel.widthBreakpoint),
+      aiHistoryCollapsed: this.doctorAiHistoryCollapsed,
       onSelect: (index: number) => {
         this.updateManagementNav(index);
       },
+      onOpenAiHistory: () => this.requestDoctorAiHistoryOpen(),
+      onSearchAiHistory: () => this.requestDoctorAiHistorySearch(),
+      onNewAiConversation: () => this.requestNewDoctorAiConversation(),
       onOpenAbout: () => this.pathStack.pushPath({ name: 'AboutPage' }),
       onOpenGeneral: () => this.pathStack.pushPath({ name: 'GeneralSettingsPage' }),
       onLogout: () => this.handleLogout()
@@ -920,6 +929,18 @@ struct MainPage {
 
   private requestNewAiConversation(): void {
     this.aiNewConversationRequestToken += 1;
+  }
+
+  private requestDoctorAiHistoryOpen(): void {
+    this.doctorAiHistoryOpenRequestToken += 1;
+  }
+
+  private requestDoctorAiHistorySearch(): void {
+    this.doctorAiHistorySearchRequestToken += 1;
+  }
+
+  private requestNewDoctorAiConversation(): void {
+    this.doctorAiNewConversationRequestToken += 1;
   }
 
   private openResidentDetail(resident: ResidentData, vitalSign: VitalSign,
@@ -1552,6 +1573,9 @@ struct MainPage {
           embeddedDoctorWide: true,
           embeddedListScroller: this.wideDoctorAiChatScroller,
           historyCollapsed: this.doctorAiHistoryCollapsed,
+          historyOpenRequestToken: this.doctorAiHistoryOpenRequestToken,
+          historySearchRequestToken: this.doctorAiHistorySearchRequestToken,
+          newConversationRequestToken: this.doctorAiNewConversationRequestToken,
           onHistoryCollapsedChange: (collapsed: boolean) => {
             this.updateDoctorAiHistoryCollapsed(collapsed);
           },
@@ -1684,6 +1708,18 @@ struct MainPage {
         naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
         onClose: () => {
           this.pathStack.pop();
+        },
+        onStartAssessment: (session: AssessmentAgentSession) => {
+          this.pathStack.replacePath({ name: 'AssessmentAgentPage', param: session });
+        }
+      })
+    } else if (name === 'AssessmentAgentPage') {
+      WideAssessmentAgentPage({
+        session: param as AssessmentAgentSession,
+        statusBarHeight: this.globalInfoModel.statusBarHeight,
+        naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
+        onClose: () => {
+          this.pathStack.pop();
         }
       })
     } else if (name === 'DoctorBedsPage') {
@@ -1720,6 +1756,9 @@ struct MainPage {
         naviIndicatorHeight: this.globalInfoModel.naviIndicatorHeight,
         onClose: () => {
           this.pathStack.pop();
+        },
+        onStartAssessment: (session: AssessmentAgentSession) => {
+          this.pathStack.pushPath({ name: 'AssessmentAgentPage', param: session });
         }
       })
     } else if (name === 'DoctorAssessmentsPage') {

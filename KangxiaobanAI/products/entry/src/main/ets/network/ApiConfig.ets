@@ -13,4 +13,5 @@ export class ApiConfig {
   public static readonly API_BASE: string = 'http://10.10.1.12/api/v1';
   // WebSocket 实时推送地址
   public static readonly WS_URL: string = 'ws://10.10.1.12/api/v1/ws';
+  public static readonly ASSESSMENT_WS_BASE: string = 'ws://10.10.1.12/api/v1/assessment-agent/sessions';
 }

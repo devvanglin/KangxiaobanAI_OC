@@ -5,7 +5,13 @@ import {
   TitleBarStyleOptions,
   hdsMaterial
 } from '@kit.UIDesignKit';
-import { AdmissionApi, AdmissionAssessmentRecord, AdmissionMedication } from '../../network/AdmissionApi';
+import { common, Want } from '@kit.AbilityKit';
+import { fileIo as fs, fileUri } from '@kit.CoreFileKit';
+import {
+  AdmissionApi, AdmissionAssessmentRecord, AdmissionIntakeRecord, AdmissionMedication, AdmissionPhoto
+} from '../../network/AdmissionApi';
+import { AssessmentAgentApi, AssessmentAgentSession } from '../../network/AssessmentAgentApi';
+import ApiClient from '../../network/ApiClient';
 
 interface CaseLevelStyle {
   label: string;
@@ -24,16 +30,63 @@ export struct WideDoctorCasesPage {
   @Param statusBarHeight: number = 0;
   @Param naviIndicatorHeight: number = 0;
   @Event onClose: () => void = () => {};
+  @Event onStartAssessment: (session: AssessmentAgentSession) => void = (_session: AssessmentAgentSession) => {};
   @Local cases: AdmissionAssessmentRecord[] = [];
   @Local casesLoading: boolean = false;
   @Local caseSearch: string = '';
   @Local selectedCaseId: number = 0;
   @Local caseDetail: AdmissionAssessmentRecord | undefined = undefined;
   @Local detailLoading: boolean = false;
+  @Local intakes: AdmissionIntakeRecord[] = [];
+  @Local caseFiles: Map<number, AdmissionPhoto> = new Map<number, AdmissionPhoto>();
+  @Local startingIntakeId: number = 0;
   private scroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
     this.loadCases();
+    this.loadIntakeCases();
+  }
+
+  private async loadIntakeCases(): Promise<void> {
+    try {
+      const response = await AdmissionApi.listIntakes();
+      this.intakes = response.code === 0 && response.data !== undefined ? response.data.list ?? [] : [];
+      const files = new Map<number, AdmissionPhoto>();
+      for (let index: number = 0; index < this.intakes.length; index++) {
+        const intake: AdmissionIntakeRecord = this.intakes[index];
+        const photos = await AdmissionApi.listIntakePhotos(intake.id);
+        const caseFile: AdmissionPhoto | undefined = photos.data?.find(
+          (photo: AdmissionPhoto): boolean => photo.kind === 'case_file');
+        if (photos.code === 0 && caseFile !== undefined) { files.set(intake.id, caseFile); }
+      }
+      this.caseFiles = files;
+    } catch (_error) {
+      this.intakes = [];
+    }
+  }
+
+  private async startOrResumeAssessment(intakeId: number): Promise<void> {
+    if (this.startingIntakeId > 0) { return; }
+    this.startingIntakeId = intakeId;
+    try {
+      let response = await AssessmentAgentApi.sessionForIntake(intakeId);
+      if (response.code === 404 || response.data === undefined) {
+        response = await AssessmentAgentApi.createSession(intakeId);
+      }
+      if (response.code !== 0 || response.data === undefined) {
+        this.showToast(response.msg || '评估会话创建失败');
+        return;
+      }
+      if (response.data.status === 'completed') {
+        this.showToast('该长者的语音评估已完成，请在长者评估中查看');
+        return;
+      }
+      this.onStartAssessment(response.data);
+    } catch (_error) {
+      this.showToast('评估服务暂不可用');
+    } finally {
+      this.startingIntakeId = 0;
+    }
   }
 
   /** 页级提示统一走系统 Toast：白底、短暂显示后自动消失。 */
@@ -99,6 +152,39 @@ export struct WideDoctorCasesPage {
     return this.cases.filter((item: AdmissionAssessmentRecord): boolean =>
       item.resident_name.toLowerCase().indexOf(query) >= 0 ||
       item.assessment_no.toLowerCase().indexOf(query) >= 0);
+  }
+
+  private visibleIntakes(): AdmissionIntakeRecord[] {
+    const query: string = this.caseSearch.trim().toLowerCase();
+    if (query.length === 0) { return this.intakes; }
+    return this.intakes.filter((item: AdmissionIntakeRecord): boolean =>
+      (item.resident_name_snapshot ?? '').toLowerCase().indexOf(query) >= 0 ||
+      item.intake_no.toLowerCase().indexOf(query) >= 0);
+  }
+
+  private caseFileExtension(contentType: string): string {
+    if (contentType === 'application/pdf') { return '.pdf'; }
+    if (contentType === 'image/png') { return '.png'; }
+    if (contentType === 'image/webp') { return '.webp'; }
+    return '.jpg';
+  }
+
+  private async viewIntakeCaseFile(intakeId: number): Promise<void> {
+    const file: AdmissionPhoto | undefined = this.caseFiles.get(intakeId);
+    if (file === undefined) { this.showToast('该病例没有附件'); return; }
+    try {
+      const content: ArrayBuffer = await ApiClient.downloadBinaryAuthorized(
+        `/admission-intake-photos/${file.id}/content`);
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const path: string = `${context.cacheDir}/case-${intakeId}-${file.id}${this.caseFileExtension(file.content_type)}`;
+      const output: fs.File = fs.openSync(path, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
+      fs.writeSync(output.fd, content);
+      fs.closeSync(output);
+      const want: Want = { action: 'ohos.want.action.viewData', uri: fileUri.getUriFromPath(path), type: file.content_type };
+      await context.startAbility(want);
+    } catch (_error) {
+      this.showToast('病例附件打开失败');
+    }
   }
 
   private selectedCase(): AdmissionAssessmentRecord | undefined {
@@ -217,7 +303,7 @@ export struct WideDoctorCasesPage {
         .height('100%')
         .justifyContent(FlexAlign.Center)
         .alignItems(HorizontalAlign.Center)
-      } else if (this.visibleCases().length === 0) {
+      } else if (this.visibleCases().length === 0 && this.visibleIntakes().length === 0) {
         Column({ space: 8 }) {
           SymbolGlyph($r('sys.symbol.doc_text'))
             .fontSize(36)
@@ -233,6 +319,9 @@ export struct WideDoctorCasesPage {
       } else {
         Scroll(this.scroller) {
           Column({ space: 8 }) {
+            ForEach(this.visibleIntakes(), (intake: AdmissionIntakeRecord) => {
+              this.intakeCaseRow(intake)
+            }, (intake: AdmissionIntakeRecord) => `intake-case-${intake.id}`)
             ForEach(this.visibleCases(), (item: AdmissionAssessmentRecord) => {
               this.caseRow(item)
             }, (item: AdmissionAssessmentRecord) => `case-${item.id}`)
@@ -250,6 +339,35 @@ export struct WideDoctorCasesPage {
     .width('100%')
     .height('100%')
     .padding(16)
+  }
+
+  @Builder
+  private intakeCaseRow(item: AdmissionIntakeRecord) {
+    Column({ space: 6 }) {
+      Row({ space: 8 }) {
+        Text(item.resident_name_snapshot ?? `长者 ${item.elder_id}`)
+          .fontSize(15).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary')).layoutWeight(1)
+        if (this.caseFiles.has(item.id)) {
+          Text('有病例附件').fontSize(11).fontColor($r('app.color.brand_blue'))
+            .padding({ left: 8, right: 8, top: 3, bottom: 3 }).borderRadius(9)
+            .backgroundColor('rgba(29,99,237,0.10)')
+        }
+      }.width('100%')
+      Row({ space: 8 }) {
+        Text(item.intake_no).fontSize(11).fontColor($r('sys.color.font_tertiary')).layoutWeight(1)
+        if (this.caseFiles.has(item.id)) {
+          Button('查看病例').height(32).fontSize(12).borderRadius(10)
+            .backgroundColor($r('sys.color.comp_background_primary'))
+            .onClick(() => { void this.viewIntakeCaseFile(item.id); })
+        }
+        Button(this.startingIntakeId === item.id ? '准备中…' : '开始/继续评估')
+          .height(32).fontSize(12).borderRadius(10).fontColor(Color.White)
+          .backgroundColor($r('app.color.brand_blue')).enabled(this.startingIntakeId === 0)
+          .onClick(() => { void this.startOrResumeAssessment(item.id); })
+      }.width('100%').alignItems(VerticalAlign.Center)
+    }.width('100%').padding(12).borderRadius(10)
+      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+      .backgroundColor($r('sys.color.comp_background_secondary'))
   }
 
   @Builder
@@ -522,7 +640,7 @@ export struct WideDoctorCasesPage {
             .borderRadius(19)
             .border({ width: 0.5, color: $r('sys.color.comp_divider') })
 
-            Text(`共 ${this.cases.length} 份`)
+            Text(`共 ${this.visibleCases().length + this.visibleIntakes().length} 份`)
               .fontSize(12)
               .fontColor($r('sys.color.font_tertiary'))
             Blank()

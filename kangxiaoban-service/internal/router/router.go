@@ -30,6 +30,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	auditSvc *service.AuditService, auditRepo *repository.AuditRepository,
 	supplySvc *service.SupplyService,
 	careSvc *service.CareService,
+	assessmentAgentSvc *service.AssessmentAgentService,
 	admissionSvc *service.AdmissionService,
 	notificationSvc *service.NotificationService,
 	messageSvc *service.MessageService,
@@ -87,6 +88,8 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	aiUsageHandler := handler.NewAIUsageHandler(aiSvc)
 	aiAdminHandler := handler.NewAIAdminHandler(aiSvc)
 	careHandler := handler.NewCareHandler(careSvc)
+	assessmentAgentHandler := handler.NewAssessmentAgentHandler(assessmentAgentSvc, userRepo, cfg.JWT.Secret,
+		cfg.AssessmentAgent.WebSocketURL, cfg.AssessmentAgent.ProxyToken)
 	photoSvc := service.NewAdmissionPhotoService(db, cfg.Server.UploadDir)
 	admissionHandler := handler.NewAdmissionHandler(admissionSvc, photoSvc)
 	notificationHandler := handler.NewNotificationHandler(notificationSvc)
@@ -225,6 +228,12 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		// 护理闭环：评估 -> 计划 -> 执行 -> 复核
 		authed.GET("/assessments", perm("health:read"), careHandler.ListAssessments)
 		authed.POST("/assessments", perm("health:write"), careHandler.CreateAssessment)
+		authed.GET("/assessment-agent/question-bank", perm("health:read"), assessmentAgentHandler.CurrentQuestionBank)
+		authed.POST("/assessment-agent/sessions", perm("health:write"), assessmentAgentHandler.CreateSession)
+		authed.GET("/assessment-agent/sessions/:key", perm("health:read"), assessmentAgentHandler.GetSession)
+		authed.GET("/assessment-agent/intakes/:intake_id/session", perm("health:read"), assessmentAgentHandler.SessionForIntake)
+		authed.GET("/admin/ai/assessment-question-bank", perm("admin:all"), assessmentAgentHandler.CurrentQuestionBank)
+		authed.PUT("/admin/ai/assessment-question-bank", perm("admin:all"), assessmentAgentHandler.UpdateQuestionBank)
 		authed.GET("/care-plans", perm("task:read"), careHandler.ListPlans)
 		authed.POST("/care-plans", perm("task:write"), careHandler.CreatePlan)
 		authed.POST("/care-plans/:id/items", perm("task:write"), careHandler.AddPlanItem)
@@ -312,6 +321,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		authed.GET("/ai/conversations/:id/messages", aiHandler.ListMessages)
 		authed.POST("/ai/conversations/:id/messages", aiHandler.SendMessage)
 	}
+	r.GET("/api/v1/assessment-agent/sessions/:key/ws", assessmentAgentHandler.ServeSession)
 
 	return r
 }

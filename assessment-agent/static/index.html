@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AsVox | 语音评估问答</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+    <!-- UI 图层 -->
+    <div id="ui-layer">
+
+        <!-- 顶部: 品牌和状态 -->
+        <header class="header">
+            <div class="brand">AsVox <span class="brand-sub">语音评估问答</span></div>
+            <div class="status-panel">
+                <div class="status-item">
+                    <span class="status-dot healthy"></span>
+                    <span id="status-display" class="track-info">READY</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- 左上角: 当前问题卡 -->
+        <section id="question-card" class="question-card" style="display:none">
+            <div class="q-progress"><span id="q-index-text">第 1/10 题</span><span id="q-topic" class="q-topic">—</span></div>
+            <div id="q-text" class="q-text"></div>
+            <div id="ack-line" class="ack-line"></div>
+        </section>
+
+        <!-- 中间: 五色声浪块 -->
+        <div id="viz" class="viz">
+            <div class="viz-bar" data-band="0"></div>
+            <div class="viz-bar" data-band="1"></div>
+            <div class="viz-bar" data-band="2"></div>
+            <div class="viz-bar" data-band="3"></div>
+            <div class="viz-bar" data-band="4"></div>
+        </div>
+
+        <!-- 中央落地页(未开始评估时) -->
+        <div id="landing" class="landing">
+            <div class="landing-title">语音评估问答</div>
+            <div class="landing-desc">语音提问 · 实时识别 · 超时自动跳过 · 自动生成评估报告</div>
+            <button id="landing-start-btn" class="landing-btn"><i class="fas fa-play"></i> 开始评估</button>
+        </div>
+
+        <!-- 交互下方: 被评估者的话 + 倒计时 -->
+        <section id="speech-panel" class="speech-panel" style="display:none">
+            <div class="speech-label"><i class="fas fa-microphone-lines"></i> 被评估者</div>
+            <div id="user-speech" class="user-speech">…</div>
+            <div id="countdown" class="countdown">
+                <div class="cd-track"><div id="cd-fill" class="cd-fill"></div></div>
+                <span id="cd-num" class="cd-num">15s</span>
+            </div>
+            <div id="cd-hint" class="cd-hint" style="display:none">超时未回答，进入下一题…</div>
+        </section>
+
+        <!-- 底部栏 -->
+        <footer id="assess-footer" class="footer" style="display:none">
+            <div class="footer-left">
+                <div class="input-group">
+                    <input type="text" id="text-input" placeholder="打字回答…" autocomplete="off">
+                    <button id="send-btn"><i class="fas fa-paper-plane"></i></button>
+                </div>
+            </div>
+            <div class="footer-center">
+                <button id="record-btn" class="main-ctrl-btn">
+                    <div class="mic-icon"><i class="fas fa-microphone"></i></div>
+                    <span class="btn-label">TAP TO SPEAK</span>
+                </button>
+            </div>
+            <div class="footer-right">
+                <span id="progress-text" class="progress-text">0/10</span>
+                <button id="assess-stop-btn" class="stop-btn"><i class="fas fa-flag-checkered"></i> 结束并出报告</button>
+            </div>
+        </footer>
+    </div>
+
+    <!-- 右侧抽屉: 建档 / 历史 -->
+    <aside id="assess-panel" class="assess-panel">
+        <div class="assess-head">
+            <span><i class="fas fa-clipboard-check"></i> 评估档案</span>
+            <button id="assess-close-btn" class="assess-icon-btn"><i class="fas fa-times"></i></button>
+        </div>
+        <div id="assess-form" class="assess-body">
+            <div class="assess-tip">填写老人档案后开始评估。助手将语音逐题提问，每题 15 秒内未回答将自动判定不配合并进入下一题。</div>
+            <input type="text" id="ap-name" placeholder="姓名 *" autocomplete="off">
+            <div class="assess-row">
+                <input type="number" id="ap-age" placeholder="年龄" min="1" max="130">
+                <select id="ap-gender">
+                    <option value="">性别</option>
+                    <option value="男">男</option>
+                    <option value="女">女</option>
+                </select>
+            </div>
+            <textarea id="ap-complaint" rows="3" placeholder="主诉 / 备注（可选）"></textarea>
+            <button id="assess-start-btn" class="assess-primary">开始评估</button>
+            <div class="assess-history">
+                <h4>历史报告</h4>
+                <ul id="assess-history-list"></ul>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 报告弹层 -->
+    <div id="report-modal" class="report-modal" style="display:none">
+        <div class="report-card">
+            <div class="report-head">
+                <span><i class="fas fa-file-medical-alt"></i> 评估报告</span>
+                <button id="report-close-btn" class="assess-icon-btn"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="report-body" class="report-body"></div>
+            <div class="report-actions">
+                <a id="report-link" class="assess-primary" target="_blank"><i class="fas fa-download"></i> 下载报告</a>
+                <button id="assess-new-btn" class="assess-primary ghost"><i class="fas fa-plus"></i> 新评估</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 音频元素 -->
+    <audio id="audio-player" style="display: none;"></audio>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

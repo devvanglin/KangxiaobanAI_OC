@@ -5,7 +5,11 @@ export struct WideDoctorTitleActions {
   @Param @Require selectedIndex: number;
   @Param compactWidth: boolean = false;
   @Param isDoctor: boolean = true;
+  @Param aiHistoryCollapsed: boolean = false;
   @Event onSelect: (index: number) => void = (_index: number) => {};
+  @Event onOpenAiHistory: () => void = () => {};
+  @Event onSearchAiHistory: () => void = () => {};
+  @Event onNewAiConversation: () => void = () => {};
   @Event onOpenAbout: () => void = () => {};
   @Event onOpenGeneral: () => void = () => {};
   @Event onLogout: () => void = () => {};
@@ -31,26 +35,93 @@ export struct WideDoctorTitleActions {
     ];
   }
 
-  build() {
-    Row({ space: 8 }) {
-      Blank()
-        .layoutWeight(1)
-        .hitTestBehavior(HitTestMode.None)
-      WideSlidingCapsule({
-        items: this.navigationItems(),
-        selectedIndex: this.selectedIndex,
-        itemWidth: this.compactWidth ? (this.isDoctor ? 46 : 64) : (this.isDoctor ? 124 : 100),
-        iconOnly: this.isDoctor && this.compactWidth,
-        onSelect: (index: number) => this.onSelect(index)
+  @Builder
+  private aiHistoryActionButton(symbol: Resource, label: string, action: () => void) {
+    Button({ type: ButtonType.Circle, stateEffect: true }) {
+      SymbolGlyph(symbol)
+        .fontSize(19)
+        .fontColor([$r('sys.color.icon_primary')])
+    }
+    .buttonStyle(ButtonStyleMode.NORMAL)
+    .width(36)
+    .height(36)
+    .padding(0)
+    .backgroundColor(Color.Transparent)
+    .accessibilityText(label)
+    .focusable(true)
+    .focusOnTouch(true)
+    .onClick(action)
+  }
+
+  /** 医师 AI 会话栏收起后保留的恢复、搜索和新建入口。 */
+  @Builder
+  private aiHistoryActions() {
+    Row({ space: 2 }) {
+      this.aiHistoryActionButton($r('sys.symbol.open_sidebar'), '展开对话记录', () => {
+        this.onOpenAiHistory();
       })
+      this.aiHistoryActionButton($r('sys.symbol.magnifyingglass'), '搜索对话记录', () => {
+        this.onSearchAiHistory();
+      })
+      this.aiHistoryActionButton($r('sys.symbol.message_badge_plus_fill'), '新建对话', () => {
+        this.onNewAiConversation();
+      })
+    }
+    .height(44)
+    .padding({ left: 5, right: 5 })
+    .borderRadius(22)
+    .backgroundColor($r('sys.color.comp_background_secondary'))
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .shadow({ radius: 8, color: 'rgba(0,0,0,0.08)', offsetY: 2 })
+    .opacity(this.aiHistoryCollapsed ? 1 : 0)
+    .scale({
+      x: this.aiHistoryCollapsed ? 1 : 0.82,
+      y: this.aiHistoryCollapsed ? 1 : 0.82,
+      centerX: '0%',
+      centerY: '50%'
+    })
+    .translate({ x: this.aiHistoryCollapsed ? 0 : -16 })
+    .animation({ duration: 240, curve: Curve.Friction })
+  }
+
+  build() {
+    Stack({ alignContent: Alignment.TopStart }) {
+      Row({ space: 8 }) {
+        Blank()
+          .layoutWeight(1)
+          .hitTestBehavior(HitTestMode.None)
+        WideSlidingCapsule({
+          items: this.navigationItems(),
+          selectedIndex: this.selectedIndex,
+          itemWidth: this.compactWidth ? (this.isDoctor ? 46 : 64) : (this.isDoctor ? 124 : 100),
+          iconOnly: this.isDoctor && this.compactWidth,
+          onSelect: (index: number) => this.onSelect(index)
+        })
+      }
+      .width('100%')
+      .height('100%')
+      // 头像由 MainPage 的稳定节点承载，这里预留其宽度避免胶囊与其重叠。
+      .padding({ right: (this.compactWidth ? 18 : 28) + 50 })
+      .justifyContent(FlexAlign.End)
+      .alignItems(VerticalAlign.Center)
+      .hitTestBehavior(HitTestMode.None)
+
+      if (this.isDoctor && this.selectedIndex === 2) {
+        Row() {
+          this.aiHistoryActions()
+        }
+        .width('100%')
+        .height('100%')
+        .padding({ left: this.compactWidth ? 136 : 144 })
+        .justifyContent(FlexAlign.Start)
+        .alignItems(VerticalAlign.Center)
+        .zIndex(3)
+        .hitTestBehavior(this.aiHistoryCollapsed ? HitTestMode.Transparent : HitTestMode.None)
+      }
     }
     .width('100%')
     .height('100%')
-    // 头像由 MainPage 的稳定节点承载，这里预留其宽度避免胶囊与其重叠。
-    .padding({ right: (this.compactWidth ? 18 : 28) + 50 })
-    .justifyContent(FlexAlign.End)
-    .alignItems(VerticalAlign.Center)
-    // 挂在 MainPage 稳定节点上：空白区域透传给下层原生标题栏，胶囊自身接收点击。
+    .backgroundColor(Color.Transparent)
     .hitTestBehavior(HitTestMode.None)
   }
 }

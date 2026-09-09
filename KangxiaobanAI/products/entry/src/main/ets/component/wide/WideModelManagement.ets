@@ -61,10 +61,17 @@ interface PromptListEntry {
 }
 interface AIRagProbeRequest { base_url: string; api_key: string; }
 interface StatTagParam { label: string; value: string; }
+interface AssessmentAgentQuestion { id: string; topic: string; question: string; }
+interface AssessmentAgentQuestionBank {
+  id: number; title: string; version: number; no_answer_timeout: number;
+  questions: AssessmentAgentQuestion[]; enabled: boolean;
+}
+interface AssessmentAgentQuestionBankPayload {
+  title: string; no_answer_timeout: number; questions: AssessmentAgentQuestion[];
+}
 
 const DARK_BUTTON_BG: string = '#1D63ED';
-const SECTION_IDS: string[] = ['models', 'prompts', 'mcp', 'skills', 'rag'];
-const SECTION_LABELS: string[] = ['模型管理', '提示词库', 'MCP 管理', 'Skills 管理', 'RAG 知识库'];
+const SECTION_IDS: string[] = ['models', 'prompts', 'mcp', 'skills', 'rag', 'assessment'];
 
 @ComponentV2
 export struct WideModelManagement {
@@ -142,6 +149,11 @@ export struct WideModelManagement {
   @Local skillInstructions: string = '';
   @Local skillEnabled: boolean = true;
   @Local skillBusy: boolean = false;
+  @Local assessmentBank: AssessmentAgentQuestionBank | null = null;
+  @Local assessmentBankJson: string = '';
+  @Local assessmentBankLoading: boolean = false;
+  @Local assessmentBankSaving: boolean = false;
+  @Local assessmentBankError: string = '';
 
   aboutToAppear(): void {
     this.load();
@@ -153,6 +165,62 @@ export struct WideModelManagement {
     this.loadSourceModels();
     this.loadMcpServers();
     this.loadSkills();
+    this.loadAssessmentQuestionBank();
+  }
+
+  private async loadAssessmentQuestionBank(): Promise<void> {
+    this.assessmentBankLoading = true;
+    this.assessmentBankError = '';
+    try {
+      const response = await ApiClient.get<AssessmentAgentQuestionBank>('/admin/ai/assessment-question-bank');
+      if (response.code !== 0 || response.data === undefined) {
+        this.assessmentBankError = response.msg || '评估题库加载失败';
+        return;
+      }
+      this.assessmentBank = response.data;
+      const editable: AssessmentAgentQuestionBankPayload = {
+        title: response.data.title,
+        no_answer_timeout: response.data.no_answer_timeout,
+        questions: response.data.questions ?? []
+      };
+      this.assessmentBankJson = JSON.stringify(editable, null, 2);
+    } catch (_error) {
+      this.assessmentBankError = '无法连接服务器，评估题库加载失败';
+    } finally {
+      this.assessmentBankLoading = false;
+    }
+  }
+
+  private async saveAssessmentQuestionBank(): Promise<void> {
+    if (this.assessmentBankSaving) { return; }
+    let payload: AssessmentAgentQuestionBankPayload;
+    try {
+      payload = JSON.parse(this.assessmentBankJson) as AssessmentAgentQuestionBankPayload;
+    } catch (_error) {
+      this.assessmentBankError = 'JSON 格式错误，请检查逗号、引号和括号';
+      return;
+    }
+    if (payload.title === undefined || payload.no_answer_timeout === undefined ||
+      payload.questions === undefined || payload.questions.length === 0) {
+      this.assessmentBankError = '题库必须包含 title、no_answer_timeout 和非空 questions';
+      return;
+    }
+    this.assessmentBankSaving = true;
+    this.assessmentBankError = '';
+    try {
+      const response = await ApiClient.put<AssessmentAgentQuestionBank>('/admin/ai/assessment-question-bank', payload);
+      if (response.code !== 0 || response.data === undefined) {
+        this.assessmentBankError = response.msg || '评估题库保存失败';
+        return;
+      }
+      this.assessmentBank = response.data;
+      this.showToast(`评估题库已保存为 V${response.data.version}`);
+      await this.loadAssessmentQuestionBank();
+    } catch (_error) {
+      this.assessmentBankError = '评估题库保存失败，请检查网络';
+    } finally {
+      this.assessmentBankSaving = false;
+    }
   }
 
   private async loadMcpServers(): Promise<void> {
@@ -1089,7 +1157,8 @@ export struct WideModelManagement {
       { title: '提示词库', index: 1 },
       { title: 'MCP 管理', index: 2 },
       { title: 'Skills 管理', index: 3 },
-      { title: 'RAG 知识库', index: 4 }
+      { title: 'RAG 知识库', index: 4 },
+      { title: '评估题库', index: 5 }
     ];
   }
 
@@ -1648,6 +1717,52 @@ export struct WideModelManagement {
     }.width('100%').alignItems(VerticalAlign.Top)
   }
 
+  @Builder
+  private assessmentQuestionBankModule() {
+    Column({ space: 14 }) {
+      Row({ space: 10 }) {
+        Column({ space: 4 }) {
+          Text('语音评估题库').fontSize(18).fontWeight(FontWeight.Bold)
+            .fontColor($r('sys.color.font_primary'))
+          Text(this.assessmentBank === null ? '用于入住后的评估 Agent' :
+            `当前版本 V${this.assessmentBank!.version} · ${this.assessmentBank!.questions.length} 题`)
+            .fontSize(12).fontColor($r('sys.color.font_tertiary'))
+        }.alignItems(HorizontalAlign.Start).layoutWeight(1)
+        Button('重新加载').height(38).borderRadius(10)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .enabled(!this.assessmentBankLoading && !this.assessmentBankSaving)
+          .onClick(() => this.loadAssessmentQuestionBank())
+        Button(this.assessmentBankSaving ? '保存中…' : '保存新版本').height(38).borderRadius(10)
+          .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
+          .enabled(!this.assessmentBankLoading && !this.assessmentBankSaving)
+          .onClick(() => this.saveAssessmentQuestionBank())
+      }.width('100%').alignItems(VerticalAlign.Center)
+
+      Text('保持当前 JSON 结构：title、no_answer_timeout、questions；每题包含唯一 id、topic 和 question。保存后新评估使用新版本，进行中的评估不受影响。')
+        .fontSize(13).fontColor($r('sys.color.font_secondary')).width('100%')
+
+      if (this.assessmentBankLoading) {
+        Row({ space: 8 }) {
+          LoadingProgress().width(22).height(22)
+          Text('正在加载评估题库…').fontSize(13).fontColor($r('sys.color.font_secondary'))
+        }.width('100%').padding(16)
+      } else {
+        TextArea({ placeholder: '评估题库 JSON', text: this.assessmentBankJson })
+          .width('100%').height(520).fontSize(13)
+          .fontColor($r('sys.color.font_primary'))
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .borderRadius(12).border({ width: 0.5, color: $r('sys.color.comp_divider') })
+          .padding(16)
+          .onChange((value: string): void => { this.assessmentBankJson = value; })
+      }
+      if (this.assessmentBankError.length > 0) {
+        Text(this.assessmentBankError).fontSize(13).fontColor($r('app.color.doctor_workspace_danger')).width('100%')
+      }
+    }.width('100%').padding(20).alignItems(HorizontalAlign.Start)
+      .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(16)
+      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+  }
+
   /** 测试检索：对绑定知识库发起 retrieve 并展示命中分段。 */
   @Builder
   private retrieveDialog() {
@@ -1858,6 +1973,8 @@ export struct WideModelManagement {
               this.mcpModule()
             } else if (this.activeSection === 'skills') {
               this.skillsModule()
+            } else if (this.activeSection === 'assessment') {
+              this.assessmentQuestionBankModule()
             } else {
               this.ragModule()
             }

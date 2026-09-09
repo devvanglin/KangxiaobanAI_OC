@@ -9,13 +9,14 @@ import (
 
 // Config 应用配置，由环境变量 / .env 注入，区分开发与生产。
 type Config struct {
-	Server   ServerConfig
-	Database DBConfig
-	JWT      JWTConfig
-	MQTT     MQTTConfig
-	AI       AIConfig
-	Stream   StreamConfig
-	Storage  StorageConfig
+	Server          ServerConfig
+	Database        DBConfig
+	JWT             JWTConfig
+	MQTT            MQTTConfig
+	AI              AIConfig
+	AssessmentAgent AssessmentAgentConfig
+	Stream          StreamConfig
+	Storage         StorageConfig
 }
 
 // StorageConfig MinIO/S3 对象存储（管理端「存储」预览）。
@@ -46,6 +47,13 @@ type AIConfig struct {
 	APIKey       string
 	ConfigKey    string // 用于数据库中 AI 密钥的加密；生产环境应显式注入
 	SystemPrompt string
+}
+
+// AssessmentAgentConfig points at the isolated AsLive speech runtime. Native
+// clients use the authenticated Kangxiaoban proxy instead of this address.
+type AssessmentAgentConfig struct {
+	WebSocketURL string
+	ProxyToken   string
 }
 
 type DBConfig struct {
@@ -117,6 +125,10 @@ func Load() *Config {
 			APIKey:       os.Getenv("KXB_AI_API_KEY"),
 			ConfigKey:    env("KXB_AI_CONFIG_KEY", env("KXB_JWT_SECRET", "change-me-in-production")),
 			SystemPrompt: env("KXB_AI_SYSTEM_PROMPT", "你是康小伴智慧康养护理平台的照护助理，回答须谨慎、贴题、仅作参考，不做临床诊断。"),
+		},
+		AssessmentAgent: AssessmentAgentConfig{
+			WebSocketURL: env("KXB_ASSESSMENT_AGENT_WS_URL", "ws://10.10.1.11:8000/assessment-ws"),
+			ProxyToken:   os.Getenv("KXB_ASSESSMENT_AGENT_TOKEN"),
 		},
 		Stream: StreamConfig{
 			Enabled:    env("KXB_STREAM_ENABLED", "true") == "true",

@@ -384,6 +384,17 @@ export interface AdmissionIntakeRecord {
   completed_at?: string;
   care_plan_id?: number;
   bill_id?: number;
+  resident_name_snapshot?: string;
+  resident_gender_snapshot?: string;
+  resident_birth_date_snapshot?: string;
+  resident_age_snapshot?: number;
+}
+
+export interface AdmissionIntakePage {
+  list: AdmissionIntakeRecord[];
+  page: number;
+  size: number;
+  total: number;
 }
 
 export interface AdmissionIntakeResult {
@@ -456,6 +467,14 @@ export class AdmissionApi {
 
   public static createIntake(payload: AdmissionIntakePayload): Promise<ApiResp<AdmissionIntakeResult>> {
     return ApiClient.post<AdmissionIntakeResult>('/admission-intakes', payload);
+  }
+
+  public static listIntakes(): Promise<ApiResp<Paged<AdmissionIntakeRecord>>> {
+    return ApiClient.getAll<AdmissionIntakeRecord>('/admission-intakes?status=completed', 100);
+  }
+
+  public static listIntakePhotos(intakeId: number): Promise<ApiResp<AdmissionPhoto[]>> {
+    return ApiClient.get<AdmissionPhoto[]>(`/admission-intakes/${intakeId}/photos`);
   }
 
   public static uploadPhoto(kind: string, uploadKey: string, contentType: string,

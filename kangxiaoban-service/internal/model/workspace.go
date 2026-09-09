@@ -15,7 +15,7 @@ func WorkspacePermissionCodes(workspace string) []string {
 			"admission:read", "admission:write", "plan:manage", "admin:all"}
 	case "doctor":
 		return []string{
-			"dash:read", "elder:read", "health:read", "task:read", "care:review",
+			"dash:read", "elder:read", "health:read", "health:write", "task:read", "care:review",
 			"alert:read", "alert:handle", "admission:read", "admission:write", "plan:manage"}
 	default:
 		return []string{

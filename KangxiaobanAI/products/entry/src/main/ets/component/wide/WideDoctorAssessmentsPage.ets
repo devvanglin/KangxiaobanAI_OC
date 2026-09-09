@@ -110,10 +110,14 @@ export struct WideDoctorAssessmentsPage {
     return type === 'adl' ? 'ADL 评估' :
       type === 'fall' ? '跌倒评估' :
       type === 'cognition' ? '认知评估' :
-      type === 'nutrition' ? '营养评估' : (type.length > 0 ? type : '综合评估');
+      type === 'nutrition' ? '营养评估' :
+        type === 'comprehensive_agent' ? 'AI 综合评估' : (type.length > 0 ? type : '综合评估');
   }
 
   private typeStyle(type: string): TypeStyle {
+    if (type === 'comprehensive_agent') {
+      return { text: '#534AB7', background: 'rgba(127,119,221,0.14)' };
+    }
     if (type === 'adl') {
       return { text: $r('app.color.brand_blue'), background: 'rgba(29,99,237,0.10)' };
     }
@@ -376,6 +380,10 @@ export struct WideDoctorAssessmentsPage {
           Text(`备注：${item.notes.length > 0 ? item.notes : '无'}`)
             .fontSize(12)
             .fontColor($r('sys.color.font_secondary'))
+          if (item.report !== undefined && item.report.length > 0) {
+            Text(item.report).fontSize(12).fontColor($r('sys.color.font_primary')).width('100%')
+              .padding(12).backgroundColor($r('sys.color.comp_background_primary')).borderRadius(10)
+          }
         }
         .width('100%')
         .padding({ left: 26, right: 16, bottom: 12 })
