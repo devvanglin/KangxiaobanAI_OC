@@ -118,6 +118,15 @@
 - agent 历史回放窗口 24→40 条;线上实测跨轮记忆 OK(“最开始查到的长者总数”→ 正确答 4,无需重新调工具)
 - 前端“康小伴·快速”写死标签 → 显示服务端真实模型名;思考过程展开显示“真实模型:…(在线调用)”
 
+### RAG 修复 + 思考协议(2026-09-09 追加)
+- 原生思考不可用:Qwen3-VL-4B-Instruct 模板无思考分支,直连 vLLM 传 enable_thinking 被静默忽略
+  (实测)。采用提示词 <think> 协议:回答前先思考,解析进 reasoning 步骤;think 里的 tool_call
+  也会被提取执行(模型常把调用写进 think,有回归测试)
+- ragRetrieve 漏了 normalizeAPIBase,配置地址自带 /v1 导致 /v1/v1 永远 404,RAG 自上线即静默失效;
+  修复后线上验证:模型调 search_knowledge_base → Dify 真实检索(200, 3 条)→ 诚实回答
+- 注意:当前 Dify 知识库存的是心理量表/认知障碍类学术文献,没有机构制度文档;要答制度流程需上传对应文档
+- 前端思考/工具过程改为内联平铺展示(Kimi 式),去掉折叠;“真实模型”标注行按用户要求移除
+
 ### 已知边界/后续建议
 - 当前线上唯一对话模型 = Qwen3-VL-4B-Instruct(new-api → DGX-2:8000,max-model-len 4096,
   未开 --enable-auto-tool-choice → 走 hermes 文本协议;模型更换后无需改代码)
