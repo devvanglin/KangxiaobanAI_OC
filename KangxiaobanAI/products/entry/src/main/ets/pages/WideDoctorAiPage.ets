@@ -367,6 +367,11 @@ export struct WideDoctorAiPage {
       for (let index: number = 0; index < serverSessions.length; index++) {
         next.push(this.sessionFromServer(serverSessions[index]));
       }
+      if (next.length === 0 && this.sessions.length > 0 && this.activeSessionId.length > 0) {
+        // 服务器暂时返回空列表时保留本地会话，避免清空正在使用的历史栏
+        this.lastConversationRefreshAt = Date.now();
+        return;
+      }
       this.sessions = next;
       this.lastConversationRefreshAt = Date.now();
       const wanted: string = this.activeSessionId.length > 0 ? this.activeSessionId :
@@ -701,6 +706,12 @@ export struct WideDoctorAiPage {
     this.previousKeyboardAvoidMode = this.getUIContext().getKeyboardAvoidMode();
     this.loadConversations();
     this.loadPromptSuggestions();
+    // 常驻面板只在挂载时加载一次；若首载因网络/时序失败，稍后自动补一次
+    setTimeout(() => {
+      if (this.componentVisible && this.sessions.length === 0) {
+        this.loadConversations();
+      }
+    }, 3000);
   }
 
   aboutToDisappear(): void {
@@ -1012,6 +1023,9 @@ export struct WideDoctorAiPage {
       this.sessions = [updatedSession, ...this.sessions.filter((item: ChatSession): boolean =>
         item.id !== updatedSession.id)];
       this.isGenerating = false;
+      // 作废在途的列表加载并以服务端结果自愈历史栏
+      this.conversationLoadVersion++;
+      this.loadConversations();
       this.scheduleScrollToBottom(100);
     } catch (_error) {
       if (requestVersion === this.aiRequestVersion) {
