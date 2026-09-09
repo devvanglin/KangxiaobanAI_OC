@@ -170,6 +170,7 @@ func (r *RunRequest) buildSystemPrompt(withTools bool) string {
 	if withTools {
 		b.WriteString("\n\n【工具使用规范】\n" +
 			"- 需要机构实时数据时必须调用工具查询，禁止编造长者、任务、告警等数据。\n" +
+			"- 调用工具前，先用 <think> 一句话说明查询理由。\n" +
 			"- 一次尽量只调用完成当前步骤所需的工具，依据结果决定下一步。\n" +
 			"- 工具返回错误时可以直接告知用户原因，不要重复尝试超过两次。\n" +
 			"- 最终回答先给结论，再给关键数据依据，保持简洁。")
