@@ -1324,12 +1324,6 @@ export struct WideDoctorAiPage {
         .width('100%')
         .alignItems(HorizontalAlign.Start)
       }, (step: AiAgentStep, index: number) => `${message.id}-${index}-${step.type}`)
-      if (message.model !== undefined && message.model.length > 0) {
-        Text(`真实模型：${message.model}（在线调用）`)
-          .fontSize(11)
-          .fontColor($r('sys.color.font_tertiary'))
-          .width('100%')
-      }
     }
     .width('100%')
     .padding(10)
