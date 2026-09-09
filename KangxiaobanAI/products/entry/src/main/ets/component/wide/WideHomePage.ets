@@ -19,6 +19,7 @@ import { KeyCode } from '@kit.InputKit';
 import { AiTitleLabel } from '../AiTitleLabel';
 import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule';
 import { BusinessStore } from '../../network/BusinessStore';
+import { DailyTrainingPanel } from './DailyTrainingPanel';
 import ApiClient from '../../network/ApiClient';
 import AuthStore from '../../network/AuthStore';
 import { MessageApi } from '../../network/MessageApi';
@@ -145,6 +146,7 @@ export struct WideHomePage {
   @Local riskTrendValues: number[] = [];
   @Local closureTrendValues: number[] = [];
   @Local showAllTasks: boolean = false;
+  @Local showTrainingPanel: boolean = false;
   @Local quickActionDialog: string = '';
   @Local assistTargetId: number = 0;
   @Local assistText: string = '';
@@ -1277,6 +1279,11 @@ export struct WideHomePage {
   }
 
   private openQuickAction(action: string): void {
+    if (action === 'training') {
+      this.showTrainingPanel = true;
+      return;
+    }
+
     this.assistError = '';
     this.reportError = '';
     this.quickActionDialog = action;
@@ -1527,7 +1534,7 @@ export struct WideHomePage {
         .width('100%')
       Row({ space: 12 }) {
         this.quickActionButton('签到打卡', 'checkin')
-        this.quickActionButton('申请协助', 'assist')
+        this.quickActionButton('每日训练', 'training')
       }.width('100%')
       Row({ space: 12 }) {
         this.quickActionButton('上报异常', 'report')
@@ -2272,6 +2279,12 @@ export struct WideHomePage {
       .edgeEffect(EdgeEffect.Spring)
       .align(Alignment.Top)
       .backgroundColor($r('sys.color.background_secondary'))
+
+      if (this.showTrainingPanel) {
+        DailyTrainingPanel({ onClose: () => { this.showTrainingPanel = false; } })
+          .width('100%')
+          .height('100%')
+      }
 
       if (this.quickActionDialog.length > 0) {
         Row() {

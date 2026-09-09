@@ -132,6 +132,7 @@
 素材从 MinIO 训练桶随机抽取。桶已核实：ad-training-picture(198)/ad-training-music(112)/
 ad-training-video(1)。方案：后端 GET /api/v1/training/daily（按日随机种子采样三桶混合 +
 预签名 URL），前端首页按钮改名并打开全屏训练面板（10 分钟倒计时 + 图片/音频/视频卡片流）。
-- [ ] 后端 T1：训练采样接口
-- [ ] 前端 T2：首页按钮 + 训练面板
-- [ ] 部署验证
+- [x] 后端 T1：GET /training/daily（按日随机种子、8图+3音乐+1视频、预签名 URL）已部署冒烟
+- [x] 前端 T2：DailyTrainingPanel（10 分钟倒计时/图片/音乐 AVPlayer/视频 Video 组件）+
+       WideHomePage「申请协助」→「每日训练」按钮，已构建并装设备
+- [x] 部署验证（training/daily 线上 12 项素材实测通过）
