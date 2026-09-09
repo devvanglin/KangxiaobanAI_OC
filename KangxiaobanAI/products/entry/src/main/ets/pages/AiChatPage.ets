@@ -114,7 +114,6 @@ export struct AiChatPage {
   @Local historySearchVisible: boolean = false;
   @Local historySearchText: string = '';
   @Local embeddedAssistantMode: number = 0;
-  @Local expandedTraceId: string = '';
   @Local modelLabel: string = '在线模型';
   private lastConversationRefreshAt: number = 0;
   private preferenceManager: PreferenceManager = PreferenceManager.getInstance();
@@ -1252,10 +1251,6 @@ export struct AiChatPage {
       step.type !== 'notice' || !step.ok);
   }
 
-  private toggleTrace(message: ChatMessage): void {
-    this.expandedTraceId = this.expandedTraceId === message.id ? '' : message.id;
-  }
-
   private stepKindLabel(type: string): string {
     if (type === 'tool_call') {
       return '调用工具';
@@ -1266,81 +1261,73 @@ export struct AiChatPage {
     if (type === 'retrieval') {
       return '知识库检索';
     }
+    if (type === 'notice') {
+      return '提醒';
+    }
     return '步骤';
   }
 
   @Builder
   private agentTraceBlock(message: ChatMessage) {
     Column({ space: 8 }) {
-      Row({ space: 6 }) {
-        SymbolGlyph($r('sys.symbol.doc_text'))
-          .fontSize(14)
-          .fontColor([$r('app.color.brand_blue')])
-        Text(`思考过程 · ${this.traceSteps(message).length} 步`)
-          .fontSize(13)
-          .fontColor($r('sys.color.font_secondary'))
-          .layoutWeight(1)
-        SymbolGlyph($r('sys.symbol.chevron_right'))
-          .fontSize(13)
-          .fontColor([$r('sys.color.font_tertiary')])
-          .rotate({ angle: this.expandedTraceId === message.id ? 90 : 0 })
-      }
-      .width('100%')
-      .onClick(() => {
-        this.toggleTrace(message);
-      })
-      if (this.expandedTraceId === message.id) {
-        if (message.model !== undefined && message.model.length > 0) {
-          Text(`真实模型：${message.model}（在线调用）`)
-            .fontSize(11)
-            .fontColor($r('sys.color.font_tertiary'))
-            .width('100%')
-        }
-        ForEach(this.traceSteps(message), (step: AiAgentStep, index: number) => {
-          Column({ space: 2 }) {
-            Row({ space: 6 }) {
-              Circle()
-                .width(6)
-                .height(6)
-                .fill(step.ok ? $r('app.color.brand_blue') : $r('app.color.status_danger'))
-              Text(this.stepKindLabel(step.type) + (step.tool !== undefined && step.tool.length > 0 ? ` · ${step.tool}` : ''))
-                .fontSize(12)
-                .fontColor($r('sys.color.font_secondary'))
-              if (step.duration_ms > 0) {
-                Text(`${step.duration_ms}ms`)
-                  .fontSize(11)
-                  .fontColor($r('sys.color.font_tertiary'))
-              }
-            }
-            if (step.args_preview !== undefined && step.args_preview.length > 0) {
-              Text(`参数 ${step.args_preview}`)
-                .fontSize(11)
-                .fontColor($r('sys.color.font_tertiary'))
-                .maxLines(2)
-            }
-            if (step.result !== undefined && step.result.length > 0) {
-              Text(step.result)
-                .fontSize(12)
-                .fontColor($r('sys.color.font_secondary'))
-                .maxLines(4)
-            }
-            if (step.detail !== undefined && step.detail.length > 0) {
-              Text(step.detail)
-                .fontSize(12)
-                .fontColor($r('sys.color.font_secondary'))
-                .maxLines(6)
-            }
-          }
-          .width('100%')
-          .alignItems(HorizontalAlign.Start)
-        }, (step: AiAgentStep, index: number) => `${message.id}-${index}-${step.type}`)
-        if (message.reasoning !== undefined && message.reasoning.length > 0) {
-          Text(message.reasoning)
+      if (message.reasoning !== undefined && message.reasoning.length > 0) {
+        Row({ space: 6 }) {
+          SymbolGlyph($r('sys.symbol.doc_text'))
+            .fontSize(13)
+            .fontColor([$r('app.color.brand_blue')])
+          Text('思考过程')
             .fontSize(12)
             .fontColor($r('sys.color.font_secondary'))
-            .maxLines(10)
-            .width('100%')
         }
+        Text(message.reasoning)
+          .fontSize(12)
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(10)
+          .width('100%')
+      }
+      ForEach(this.traceSteps(message), (step: AiAgentStep, index: number) => {
+        Column({ space: 2 }) {
+          Row({ space: 6 }) {
+            Circle()
+              .width(6)
+              .height(6)
+              .fill(step.ok ? $r('app.color.brand_blue') : $r('app.color.status_danger'))
+            Text(this.stepKindLabel(step.type) + (step.tool !== undefined && step.tool.length > 0 ? ` · ${step.tool}` : ''))
+              .fontSize(12)
+              .fontColor($r('sys.color.font_secondary'))
+            if (step.duration_ms > 0) {
+              Text(`${step.duration_ms}ms`)
+                .fontSize(11)
+                .fontColor($r('sys.color.font_tertiary'))
+            }
+          }
+          if (step.args_preview !== undefined && step.args_preview.length > 0) {
+            Text(`参数 ${step.args_preview}`)
+              .fontSize(11)
+              .fontColor($r('sys.color.font_tertiary'))
+              .maxLines(2)
+          }
+          if (step.result !== undefined && step.result.length > 0) {
+            Text(step.result)
+              .fontSize(12)
+              .fontColor($r('sys.color.font_secondary'))
+              .maxLines(4)
+          }
+          if (step.detail !== undefined && step.detail.length > 0 && step.type !== 'reasoning') {
+            Text(step.detail)
+              .fontSize(12)
+              .fontColor($r('sys.color.font_secondary'))
+              .maxLines(6)
+          }
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+      }, (step: AiAgentStep, index: number) => `${message.id}-${index}-${step.type}`)
+      if (message.model !== undefined && message.model.length > 0) {
+        Text(`真实模型：${message.model}（在线调用）`)
+          .fontSize(11)
+          .fontColor($r('sys.color.font_tertiary'))
+          .width('100%')
       }
     }
     .width('100%')
