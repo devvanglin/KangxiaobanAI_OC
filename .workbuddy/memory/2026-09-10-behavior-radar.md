@@ -110,6 +110,16 @@
 - [ ] 部署：MinIO 建 cctv-footage-storage 桶
 - [ ] 设备端验证 + AGENTS.md 更新
 
+## 剩余主任务快照（行为/雷达部分，训练任务已完成）
+- 前端 F1：WideDeviceManagement 添加设备只留摄像头；pending 雷达的 类型(product)/房间(room) 分配 UI
+- 前端 F2：WideResidentPage + WideDoctorResidentPage 加「行为」tab（GET /elders/:id/behavior-events，
+  时间条 + video_url 回放 + face_crop_url + expression/behavior 展示）
+- 前端 F3：【长者】设备 tab 按 elder_id 过滤 BusinessStore.devices
+- 部署：后端最新二进制（含 behavior/radar/training 接口，已完成训练部分部署，
+  behavior/radar 同一二进制已在 2026-09-10 训练部署时一并上线）
+- 部署：静态 ffmpeg 进容器 + KXB_FFMPEG_PATH（否则行为事件无视频片段）；MinIO 建 cctv-footage-storage 桶（已存在）
+- 设备端行为/雷达实测
+
 ## 下一步（重置后从这里继续）
 1. 前端 F1：WideDeviceManagement.ets 添加设备对话框删毫米波选项；设备列表 pending 雷达加
    「类型」选择（breath_radar/fall_radar→PUT /iot/devices/:id {product}）+「房间」分配
