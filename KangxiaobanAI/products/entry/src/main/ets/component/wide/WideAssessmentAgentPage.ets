@@ -21,6 +21,8 @@ const EMOTION_SEARCHING: string = '40'; // 检索资料（长者超时未回答�
 const EMOTION_DONE: string = '33'; // 任务完成（撒花）
 const EMOTION_ERROR: string = '34'; // 出错/断线
 const COUNTDOWN_URGENT_SECONDS: number = 10;
+const AI_BUBBLE_BG: string = '#F0F5FF';
+const ELDER_BUBBLE_BG: string = '#1D63ED';
 
 @ComponentV2
 export struct WideAssessmentAgentPage {
@@ -70,19 +72,8 @@ export struct WideAssessmentAgentPage {
     }
   }
 
-  private stageHeight(): number {
-    return this.isWideLayout() ? 380 : 250;
-  }
-
-  private currentProgress(): number {
-    const total: number = this.session.questions.length;
-    return total > 0 ? Math.min(this.currentIndex + 1, total) : 0;
-  }
-
-  private progressPercent(): number {
-    const total: number = this.session.questions.length;
-    if (total <= 0) return 0;
-    return Math.round(this.currentProgress() * 100 / total);
+  private ballHeight(): number {
+    return this.isWideLayout() ? 320 : 240;
   }
 
   private phaseLabel(): string {
@@ -103,6 +94,21 @@ export struct WideAssessmentAgentPage {
     return $r('app.color.brand_blue');
   }
 
+  /** 状态行文案：出错类信息优先展示，其余展示“姓名 · 阶段”。 */
+  private statusLineText(): string {
+    const errorState: boolean = !this.connected || this.microphoneAvailable === false ||
+      this.statusText.indexOf('断开') >= 0 || this.statusText.indexOf('失败') >= 0 ||
+      this.statusText.indexOf('错误') >= 0 || this.statusText.indexOf('异常') >= 0 ||
+      this.statusText.indexOf('未授权') >= 0 || this.statusText.indexOf('不可用') >= 0;
+    return errorState ? this.statusText : `${this.session.resident_name} · ${this.phaseLabel()}`;
+  }
+
+  private isStatusWarning(): boolean {
+    return !this.connected || this.statusText.indexOf('断开') >= 0 || this.statusText.indexOf('失败') >= 0 ||
+      this.statusText.indexOf('错误') >= 0 || this.statusText.indexOf('异常') >= 0 ||
+      this.statusText.indexOf('未授权') >= 0 || this.statusText.indexOf('不可用') >= 0;
+  }
+
   aboutToAppear(): void {
     void this.connect();
   }
@@ -112,7 +118,7 @@ export struct WideAssessmentAgentPage {
     void this.client.close();
   }
 
-  // ==================== 表情舞台（Mood Mates 云宝） ====================
+  // ==================== 表情舞台（Grok Ball） ====================
 
   /** 按当前评估阶段推导表情 ID，并同步到 Web 舞台。
    *  优先级：完成 > 断线 > 长者说话(31) > 超时未答(40) > 生成报告(30)
@@ -398,277 +404,131 @@ export struct WideAssessmentAgentPage {
     };
   }
 
-  // ==================== 视图 ====================
+  // ==================== 视图（简洁对话式） ====================
 
+  /** 右上角迷你倒计时：环形表盘 + 秒数，无卡片。 */
   @Builder
-  private sessionHeader() {
-    Column({ space: 14 }) {
-      Row({ space: 14 }) {
-        Column({ space: 4 }) {
-          Text('语音评估').fontSize(13).fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.brand_blue'))
-          Text(`${this.session.resident_name}${this.session.address}`)
-            .fontSize(22).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
-          Text(`${this.session.title} · 题库 V${this.session.question_version}`)
-            .fontSize(13).fontColor($r('sys.color.font_secondary'))
-        }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-        Column({ space: 2 }) {
-          Text(`${this.currentProgress()} / ${this.session.questions.length}`)
-            .fontSize(18).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
-          Text('当前进度').fontSize(11).fontColor($r('sys.color.font_tertiary'))
-        }.alignItems(HorizontalAlign.End)
-      }.width('100%').alignItems(VerticalAlign.Center)
-      Stack({ alignContent: Alignment.Start }) {
-        Row().width('100%').height(6).borderRadius(3)
-          .backgroundColor($r('sys.color.comp_background_secondary'))
-        Row().width(`${this.progressPercent()}%`).height(6).borderRadius(3)
-          .backgroundColor($r('app.color.brand_blue'))
-      }.width('100%').height(6)
-    }.width('100%').padding(20).backgroundColor($r('sys.color.comp_background_primary'))
-      .borderRadius(16).border({ width: 0.5, color: $r('sys.color.comp_divider') })
-      .accessibilityGroup(true)
-      .accessibilityText(`${this.session.resident_name}语音评估，进度${this.currentProgress()}共${this.session.questions.length}题`)
-  }
-
-  @Builder
-  private questionPanel() {
-    Column({ space: 20 }) {
-      Row({ space: 8 }) {
-        SymbolGlyph($r('sys.symbol.questionmark_circle_fill')).fontSize(20)
-          .fontColor([$r('app.color.brand_blue')])
-        Text(this.currentTopic.length > 0 ? this.currentTopic : '当前问题')
-          .fontSize(14).fontWeight(FontWeight.Medium).fontColor($r('app.color.brand_blue'))
-      }.width('100%').alignItems(VerticalAlign.Center)
-
-      Text(this.currentQuestion.length > 0 ? this.currentQuestion : '连接成功后，评估助手将自动播报第一题。')
-        .width('100%').fontSize(this.isWideLayout() ? 26 : 22).fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary')).lineHeight(this.isWideLayout() ? 40 : 33)
-
-      if (this.assistantText.length > 0) {
-        Column({ space: 8 }) {
-          Row({ space: 6 }) {
-            SymbolGlyph($r('sys.symbol.speaker_wave_2_fill')).fontSize(16)
-              .fontColor([$r('sys.color.icon_secondary')])
-            Text('TTS 播报内容').fontSize(12).fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_secondary'))
-          }.width('100%')
-          Text(this.assistantText).width('100%').fontSize(14).lineHeight(23)
-            .fontColor($r('sys.color.font_secondary'))
-        }.width('100%').padding(16).backgroundColor($r('sys.color.comp_background_secondary'))
-          .borderRadius(12).alignItems(HorizontalAlign.Start)
-      }
-    }.width('100%').padding(24).alignItems(HorizontalAlign.Start)
-      .constraintSize({ minHeight: 240 })
-      .backgroundColor($r('sys.color.comp_background_primary'))
-      .borderRadius(18).border({ width: 0.5, color: $r('sys.color.comp_divider') })
-  }
-
-  /** 顶部：题目在左（weight 1），回答倒计时在右上角（固定宽）。 */
-  @Builder
-  private questionRow() {
-    Row({ space: 16 }) {
-      Column() { this.questionPanel() }.layoutWeight(1)
-      Column() { this.countdownCard() }
-        .width(this.isWideLayout() ? 216 : 150)
-        .alignItems(HorizontalAlign.Start)
-    }.width('100%').alignItems(VerticalAlign.Top)
-  }
-
-  /** 中央表情舞台：Mood Mates 云宝，表情随评估阶段实时切换。 */
-  @Builder
-  private expressionStage() {
-    Column({ space: 10 }) {
+  private countdownPill() {
+    Row({ space: 8 }) {
       Stack({ alignContent: Alignment.Center }) {
-        Row()
-          .width('100%').height('100%')
-          .backgroundColor('#F3F7FF')
-          .borderRadius(20)
-        Web({ src: $rawfile('grokball/assessment_stage.html'), controller: this.webController })
-          .width('86%').height('86%')
-          .javaScriptAccess(true)
-          .zoomAccess(false)
-          .backgroundColor(Color.Transparent)
-          .onPageEnd((): void => { this.onStageReady(); })
-      }.width('100%').height(this.stageHeight())
-      Row({ space: 8 }) {
-        Row().width(8).height(8).borderRadius(4).backgroundColor(this.phaseColor())
-        Text(this.phaseLabel()).fontSize(13).fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-        Text('康小伴评估助手').fontSize(12).fontColor($r('sys.color.font_tertiary'))
-          .margin({ left: 'auto' })
-      }.width('100%').padding({ left: 6, right: 6 })
-        .alignItems(VerticalAlign.Center)
-        .accessibilityText(`评估助手表情，当前状态${this.phaseLabel()}`)
-    }.width('100%').alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  private countdownCard() {
-    Column({ space: 12 }) {
-      Row({ space: 10 }) {
-        SymbolGlyph($r('sys.symbol.timer')).fontSize(18)
-          .fontColor([this.isCountdownUrgent() ? $r('app.color.doctor_workspace_warning') :
-            $r('app.color.brand_blue')])
-        Text('回答倒计时').fontSize(13).fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-      }.width('100%').alignItems(VerticalAlign.Center)
-      Row({ space: 14 }) {
-        Stack({ alignContent: Alignment.Center }) {
-          Progress({ value: this.isCountdownActive() ? this.countdownSeconds :
+        Progress({
+          value: this.isCountdownActive() ? this.countdownSeconds :
             (this.countdownTotal > 0 ? this.countdownTotal : 1),
-            total: this.countdownTotal > 0 ? this.countdownTotal : 1, type: ProgressType.Ring })
-            .width(62).height(62).style({ strokeWidth: 7 })
-            .color(this.isCountdownUrgent() ? $r('app.color.doctor_workspace_warning') :
-              $r('app.color.brand_blue'))
-          Text(this.isCountdownActive() ? `${this.countdownSeconds}` : '--')
-            .fontSize(19).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+          total: this.countdownTotal > 0 ? this.countdownTotal : 1, type: ProgressType.Ring
+        })
+          .width(38).height(38).style({ strokeWidth: 5 })
+          .color(this.isCountdownUrgent() ? $r('app.color.doctor_workspace_warning') :
+            $r('app.color.brand_blue'))
+        Text(this.isCountdownActive() ? `${this.countdownSeconds}` : '--')
+          .fontSize(13).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+      }
+      Text(this.isCountdownUrgent() ? '快想一想吧' : this.isCountdownActive() ? '超时将跳过本题' : '回答倒计时')
+        .fontSize(12).fontColor(this.isCountdownUrgent() ? $r('app.color.doctor_workspace_warning') :
+        $r('sys.color.font_tertiary'))
+    }
+    .padding({ left: 12, right: 14, top: 8, bottom: 8 })
+    .borderRadius(999)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .accessibilityText(this.isCountdownActive() ?
+      `回答倒计时剩余${this.countdownSeconds}秒` : '回答倒计时尚未启动')
+  }
+
+  /** AI 气泡：评估助手说的话（当前问题或正在播报的内容）。 */
+  @Builder
+  private aiBubble() {
+    Row() {
+      Column({ space: 4 }) {
+        if (this.currentTopic.length > 0) {
+          Text(this.currentTopic).fontSize(12).fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.brand_blue'))
         }
-        Column({ space: 3 }) {
-          Text(this.isCountdownUrgent() ? '快想一想吧' : this.isCountdownActive() ? '请在倒计时内回答' : '等待播报完成')
-            .fontSize(13).fontWeight(FontWeight.Medium)
-            .fontColor(this.isCountdownUrgent() ? $r('app.color.doctor_workspace_warning') :
-              $r('sys.color.font_primary'))
-          Text(this.isCountdownActive() ? '超时本题将自动跳过' : '倒计时会在聆听开始后启动')
-            .fontSize(11).fontColor($r('sys.color.font_tertiary'))
-        }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-      }.width('100%').alignItems(VerticalAlign.Center)
-    }.width('100%').padding(18)
-      .backgroundColor($r('sys.color.comp_background_primary'))
-      .borderRadius(18).border({ width: 0.5, color: $r('sys.color.comp_divider') })
-      .accessibilityGroup(true)
-      .accessibilityText(this.isCountdownActive() ?
-        `回答倒计时剩余${this.countdownSeconds}秒` : '倒计时尚未启动')
-  }
-
-  @Builder
-  private voiceState() {
-    Row({ space: 10 }) {
-      Stack({ alignContent: Alignment.Center }) {
-        Row().width(34).height(34).borderRadius(17)
-          .backgroundColor($r('sys.color.comp_background_secondary'))
-        SymbolGlyph(this.listening ? $r('sys.symbol.mic_fill') : $r('sys.symbol.waveform'))
-          .fontSize(18).fontColor([this.phaseColor()])
-      }
-      Column({ space: 2 }) {
-        Text(this.phaseLabel()).fontSize(14).fontWeight(FontWeight.Medium)
+        Text(this.assistantText.length > 0 ? this.assistantText :
+          (this.currentQuestion.length > 0 ? this.currentQuestion : '连接成功后，我会开始提问，请听我说完再回答。'))
+          .fontSize(17).lineHeight(28)
           .fontColor($r('sys.color.font_primary'))
-        Text(this.statusText).fontSize(12).fontColor($r('sys.color.font_secondary')).maxLines(2)
-      }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-      if (!this.connected && !this.completed) {
-        LoadingProgress().width(20).height(20).color($r('app.color.brand_blue'))
-      } else {
-        Row().width(8).height(8).borderRadius(4).backgroundColor(this.phaseColor())
-      }
-    }.width('100%').alignItems(VerticalAlign.Center)
-      .accessibilityGroup(true).accessibilityText(`${this.phaseLabel()}，${this.statusText}`)
+      }.alignItems(HorizontalAlign.Start)
+      .constraintSize({ maxWidth: '82%' })
+      .padding({ left: 18, right: 18, top: 14, bottom: 14 })
+      .backgroundColor(AI_BUBBLE_BG)
+      .borderRadius(20)
+    }.width('100%').justifyContent(FlexAlign.Start)
+      .accessibilityGroup(true)
+      .accessibilityText(`评估助手说：${this.assistantText.length > 0 ? this.assistantText : this.currentQuestion}`)
   }
 
+  /** 长人气泡：识别到的回答；聆听中未开口时显示省略号占位。 */
   @Builder
-  private answerPanel() {
-    Column({ space: 16 }) {
-      this.voiceState()
-      Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
-      Column({ space: 8 }) {
-        Text('识别结果').fontSize(12).fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_secondary'))
-        Text(this.recognizedText.length > 0 ? this.recognizedText :
-          (this.answerReady ? '请开始回答，识别文字会实时显示在这里。' : '等待本题播报完成。'))
-          .width('100%').fontSize(16).lineHeight(25)
-          .fontColor(this.recognizedText.length > 0 ? $r('sys.color.font_primary') : $r('sys.color.font_tertiary'))
-      }.width('100%').constraintSize({ minHeight: 110 }).padding(16)
-        .backgroundColor($r('sys.color.comp_background_secondary')).borderRadius(12)
-        .alignItems(HorizontalAlign.Start)
+  private elderBubble() {
+    if (!this.completed && (this.recognizedText.length > 0 || this.listening)) {
+      Row() {
+        Text(this.recognizedText.length > 0 ? this.recognizedText : '……')
+          .fontSize(17).lineHeight(28)
+          .fontColor(Color.White)
+          .constraintSize({ maxWidth: '82%' })
+          .padding({ left: 18, right: 18, top: 14, bottom: 14 })
+          .backgroundColor(ELDER_BUBBLE_BG)
+          .borderRadius(20)
+      }.width('100%').justifyContent(FlexAlign.End)
+      .accessibilityGroup(true)
+      .accessibilityText(`老人回答：${this.recognizedText.length > 0 ? this.recognizedText : '正在聆听'}`)
+    }
+  }
+
+  /** 中央表情球：透明背景，直接浮在页面底色上。 */
+  @Builder
+  private ballStage() {
+    Column({ space: 6 }) {
+      Web({ src: $rawfile('grokball/assessment_stage.html'), controller: this.webController })
+        .width('100%').height(this.ballHeight())
+        .javaScriptAccess(true)
+        .zoomAccess(false)
+        .backgroundColor(Color.Transparent)
+        .onPageEnd((): void => { this.onStageReady(); })
+      Text(this.statusLineText())
+        .fontSize(12).fontColor(this.isStatusWarning() ?
+          $r('app.color.doctor_workspace_warning') : $r('sys.color.font_tertiary'))
+        .textAlign(TextAlign.Center).maxLines(2)
+        .accessibilityText(this.statusLineText())
+    }.width('100%').alignItems(HorizontalAlign.Center)
+  }
+
+  /** 文字回答输入行（麦克风不可用时的兜底 + 主动补录）。 */
+  @Builder
+  private composer() {
+    if (!this.completed) {
       Row({ space: 10 }) {
-        TextInput({ placeholder: '麦克风不可用时，可输入文字回答', text: this.inputText })
-          .layoutWeight(1).height(46).backgroundColor($r('sys.color.comp_background_secondary'))
-          .borderRadius(12).accessibilityText('文字回答输入框')
+        TextInput({ placeholder: this.answerReady ? '也可以在这里输入文字回答' : '等待本题播报完成后可输入',
+          text: this.inputText })
+          .layoutWeight(1).height(44).backgroundColor($r('sys.color.comp_background_primary'))
+          .borderRadius(999).border({ width: 0.5, color: $r('sys.color.comp_divider') })
+          .accessibilityText('文字回答输入框')
           .onChange((value: string): void => { this.inputText = value; })
           .onSubmit((): void => { void this.sendTextAnswer(); })
-        Button('发送').height(46).padding({ left: 18, right: 18 }).borderRadius(12)
+        Button('发送').height(44).padding({ left: 20, right: 20 }).borderRadius(999)
           .fontColor(Color.White).backgroundColor($r('app.color.brand_blue'))
           .enabled(this.connected && this.answerReady && this.inputText.trim().length > 0 &&
             !this.completed && !this.finishing)
           .accessibilityDescription(this.answerReady ? '提交本题文字回答' : '请等待本题播报完成')
           .onClick((): void => { void this.sendTextAnswer(); })
       }.width('100%')
-    }.width('100%').padding(20).alignItems(HorizontalAlign.Start)
-      .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(18)
-      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
-  }
-
-  @Builder
-  private assessmentActions() {
-    if (this.isWideLayout()) {
-      Row({ space: 10 }) {
-        Button('保存并返回').height(44).borderRadius(12)
-          .fontColor($r('sys.color.font_primary'))
-          .backgroundColor($r('sys.color.comp_background_secondary')).onClick(() => this.onClose())
-        Button(this.finishing ? '正在生成报告…' : '提前结束并生成报告').height(44).borderRadius(12)
-          .fontColor($r('app.color.doctor_workspace_warning'))
-          .backgroundColor($r('sys.color.comp_background_primary'))
-          .border({ width: 1, color: $r('app.color.doctor_workspace_warning') })
-          .enabled(this.connected && !this.finishing).onClick(() => { void this.finishAssessment(); })
-      }.width('100%').justifyContent(FlexAlign.End)
-    } else {
-      Column({ space: 10 }) {
-        Button(this.finishing ? '正在生成报告…' : '提前结束并生成报告').width('100%').height(46).borderRadius(12)
-          .fontColor($r('app.color.doctor_workspace_warning'))
-          .backgroundColor($r('sys.color.comp_background_primary'))
-          .border({ width: 1, color: $r('app.color.doctor_workspace_warning') })
-          .enabled(this.connected && !this.finishing).onClick(() => { void this.finishAssessment(); })
-        Button('保存并返回').width('100%').height(46).borderRadius(12)
-          .fontColor($r('sys.color.font_primary'))
-          .backgroundColor($r('sys.color.comp_background_secondary')).onClick(() => this.onClose())
-      }.width('100%')
     }
   }
 
   @Builder
-  private completedCard() {
-    Column({ space: 20 }) {
-      Row({ space: 14 }) {
-        Stack({ alignContent: Alignment.Center }) {
-          Row().width(48).height(48).borderRadius(24)
-            .backgroundColor($r('sys.color.comp_background_secondary'))
-          SymbolGlyph($r('sys.symbol.checkmark_circle_fill')).fontSize(30)
-            .fontColor([$r('app.color.doctor_workspace_success')])
-        }
-        Column({ space: 3 }) {
-          Text('评估已完成').fontSize(23).fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-          Text(`已记录 ${this.answered} 题，报告已保存，等待医师复核。`)
-            .fontSize(13).fontColor($r('sys.color.font_secondary'))
-        }.layoutWeight(1).alignItems(HorizontalAlign.Start)
-      }.width('100%').alignItems(VerticalAlign.Center)
-
-      Column({ space: 10 }) {
-        Text('评估摘要').fontSize(13).fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_secondary'))
-        Text(this.report.length > 0 ? this.report : '报告已保存，可进入完整评估报告查看。')
-          .width('100%').fontSize(15).lineHeight(25).fontColor($r('sys.color.font_primary'))
-      }.width('100%').padding(18).alignItems(HorizontalAlign.Start)
-        .backgroundColor($r('sys.color.comp_background_secondary')).borderRadius(12)
-
-      if (this.packageStatus === 'assigned') {
-        Text('已生成套餐建议并通知护工，请医师复核后执行。').fontSize(13)
-          .fontColor($r('app.color.doctor_workspace_success')).width('100%')
-      } else if (this.packageStatus === 'failed') {
-        Text(`套餐建议生成失败：${this.packageError || '请稍后重试或人工选择套餐'}`).fontSize(13)
-          .fontColor($r('app.color.doctor_workspace_danger')).width('100%')
-      } else if (this.assessmentId > 0) {
-        Text('正在匹配护理套餐…').fontSize(13).fontColor($r('sys.color.font_secondary')).width('100%')
-      }
-
+  private assessmentActions() {
+    if (this.completed) {
       if (this.isWideLayout()) {
         Row({ space: 10 }) {
           Button('返回工作台').height(44).borderRadius(12)
-            .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
+            .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_primary'))
+            .border({ width: 0.5, color: $r('sys.color.comp_divider') })
             .onClick(() => this.onClose())
           if (this.assessmentId > 0) {
             Button('查看完整报告').height(44).borderRadius(12).fontColor(Color.White)
               .backgroundColor($r('app.color.brand_blue')).onClick(() => this.onViewReport(this.assessmentId))
           }
-        }.width('100%').justifyContent(FlexAlign.End)
+        }.width('100%').justifyContent(FlexAlign.Center)
       } else {
         Column({ space: 10 }) {
           if (this.assessmentId > 0) {
@@ -676,40 +536,94 @@ export struct WideAssessmentAgentPage {
               .backgroundColor($r('app.color.brand_blue')).onClick(() => this.onViewReport(this.assessmentId))
           }
           Button('返回工作台').width('100%').height(46).borderRadius(12)
-            .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_secondary'))
+            .fontColor($r('sys.color.font_primary')).backgroundColor($r('sys.color.comp_background_primary'))
+            .border({ width: 0.5, color: $r('sys.color.comp_divider') })
             .onClick(() => this.onClose())
         }.width('100%')
       }
-    }.width('100%').padding(28).alignItems(HorizontalAlign.Start)
-      .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(18)
-      .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    } else if (this.isWideLayout()) {
+      Row({ space: 10 }) {
+        Button('保存并返回').height(40).borderRadius(999)
+          .fontColor($r('sys.color.font_secondary'))
+          .backgroundColor($r('sys.color.comp_background_primary'))
+          .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+          .onClick(() => this.onClose())
+        Button(this.finishing ? '正在生成报告…' : '提前结束并生成报告').height(40).borderRadius(999)
+          .fontColor($r('app.color.doctor_workspace_warning'))
+          .backgroundColor($r('sys.color.comp_background_primary'))
+          .border({ width: 1, color: $r('app.color.doctor_workspace_warning') })
+          .enabled(this.connected && !this.finishing).onClick(() => { void this.finishAssessment(); })
+      }.width('100%').justifyContent(FlexAlign.Center)
+    } else {
+      Column({ space: 10 }) {
+        Button(this.finishing ? '正在生成报告…' : '提前结束并生成报告').width('100%').height(44).borderRadius(999)
+          .fontColor($r('app.color.doctor_workspace_warning'))
+          .backgroundColor($r('sys.color.comp_background_primary'))
+          .border({ width: 1, color: $r('app.color.doctor_workspace_warning') })
+          .enabled(this.connected && !this.finishing).onClick(() => { void this.finishAssessment(); })
+        Button('保存并返回').width('100%').height(44).borderRadius(999)
+          .fontColor($r('sys.color.font_secondary'))
+          .backgroundColor($r('sys.color.comp_background_primary'))
+          .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+          .onClick(() => this.onClose())
+      }.width('100%')
+    }
+  }
+
+  /** 完成态的 AI 气泡内容：结果摘要（替代原完成卡片）。 */
+  @Builder
+  private completedBubble() {
+    Row() {
+      Column({ space: 8 }) {
+        Text('评估已完成').fontSize(12).fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.doctor_workspace_success'))
+        Text(`已记录 ${this.answered} 题，报告已保存，等待医师复核。`)
+          .fontSize(17).lineHeight(28).fontColor($r('sys.color.font_primary'))
+        if (this.packageStatus === 'assigned') {
+          Text('已根据评估生成护理套餐建议并通知护工，请复核后执行。')
+            .fontSize(13).fontColor($r('app.color.doctor_workspace_success'))
+        } else if (this.packageStatus === 'failed') {
+          Text(`套餐建议生成失败：${this.packageError || '请稍后重试或人工选择套餐'}`)
+            .fontSize(13).fontColor($r('app.color.doctor_workspace_danger'))
+        } else if (this.assessmentId > 0) {
+          Text('正在匹配护理套餐…').fontSize(13).fontColor($r('sys.color.font_tertiary'))
+        }
+      }.alignItems(HorizontalAlign.Start)
+      .constraintSize({ maxWidth: '82%' })
+      .padding({ left: 18, right: 18, top: 14, bottom: 14 })
+      .backgroundColor(AI_BUBBLE_BG)
+      .borderRadius(20)
+    }.width('100%').justifyContent(FlexAlign.Start)
   }
 
   build() {
     HdsNavDestination() {
       Scroll(this.scroller) {
-        Column({ space: 16 }) {
-          this.sessionHeader()
-          if (this.completed) {
-            this.expressionStage()
-            this.completedCard()
-          } else {
-            this.questionRow()
-            if (this.isWideLayout()) {
-              Row({ space: 16 }) {
-                Column() { this.expressionStage() }.layoutWeight(1)
-                Column() { this.answerPanel() }.layoutWeight(1)
-              }.width('100%').alignItems(VerticalAlign.Top)
-            } else {
-              this.expressionStage()
-              this.answerPanel()
-            }
-            this.assessmentActions()
+        Column({ space: 10 }) {
+          if (!this.completed) {
+            Row() {
+              Blank()
+              this.countdownPill()
+            }.width('100%')
           }
-        }.width('100%').constraintSize({ maxWidth: 1240 })
-          .padding({ left: this.isWideLayout() ? 28 : 16, right: this.isWideLayout() ? 28 : 16,
-            top: 80 + this.statusBarHeight, bottom: 24 + this.naviIndicatorHeight })
+          if (this.completed) {
+            this.completedBubble()
+          } else {
+            this.aiBubble()
+          }
+          this.ballStage()
+          this.elderBubble()
+          Blank().height(4)
+          this.composer()
+          this.assessmentActions()
+        }
+        .constraintSize({ maxWidth: 780 })
+        .width('100%')
+        .padding({ left: this.isWideLayout() ? 28 : 16, right: this.isWideLayout() ? 28 : 16,
+          top: 72 + this.statusBarHeight, bottom: 20 + this.naviIndicatorHeight })
+        .alignItems(HorizontalAlign.Center)
       }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
+      .align(Alignment.Top)
     }
     .hideBackButton(false)
     .onBackPressed((): boolean => { this.onClose(); return true; })
