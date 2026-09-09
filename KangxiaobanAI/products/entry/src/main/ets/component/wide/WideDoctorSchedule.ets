@@ -84,8 +84,11 @@ export struct WideDoctorSchedule {
    * Prefer the wire-format date prefix so a UTC offset cannot move an item to
    * a neighbouring day in the local timezone.
    */
-  private normalizeDate(value?: string): string {
-    if (value === undefined) return '';
+  private normalizeDate(value?: string | null): string {
+    // Older tenants may contain NULL work_date/due_at values. Treat those as
+    // an unknown date instead of calling trim() on null during the first
+    // post-login render (which otherwise kills the ArkUI process).
+    if (value === undefined || value === null) return '';
     const normalized: string = value.trim();
     if (normalized.length >= 10 && normalized.charAt(4) === '-' &&
       normalized.charAt(7) === '-') {
@@ -102,8 +105,8 @@ export struct WideDoctorSchedule {
     return this.normalizeDate(value);
   }
 
-  private timeLabel(value?: string): string {
-    if (value === undefined || value.trim().length === 0) return '待定';
+  private timeLabel(value?: string | null): string {
+    if (value === undefined || value === null || value.trim().length === 0) return '待定';
     const normalized: string = value.replace('T', ' ');
     return normalized.length >= 16 ? normalized.slice(11, 16) : '待定';
   }
