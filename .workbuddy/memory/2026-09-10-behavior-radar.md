@@ -69,6 +69,21 @@
   传 MinIO `cxtv→cctv-footage-storage` 桶（注意桶名拼写 cctv-footage-storage）；后续可升级环形分段。
 - 人脸裁切：/recognize 返回人脸框 → Go 侧裁 JPEG → 传 MinIO 同桶 `faces/` 前缀。
 
+### FaceCare API 精确契约（已读源码核实；HTTPS 自签证书，Go 客户端须 InsecureSkipVerify）
+- `POST /enroll` `{person_id, image:"data:image/jpeg;base64,.."}` → `{ok,person_id,faces:1}`；
+  **必须恰好 1 张脸**否则 400；**embeddings 被整体替换**（一人一模板，重复 enroll=覆盖）。
+- `POST /recognize` `{image}` → `{ok, faces:[{person_id|null, known, similarity, bbox:[x1,y1,x2,y2], emotion:{label..}}]}`
+  （emotion 为 EmotiEffLib 英文标签，服务内有 EMOTION_NAMES 英→中映射；bbox 可直接用于裁脸）。
+- `POST /behavior` `{image}` → 内部自带身份+表情识别并喂给 JoyAI adapter（127.0.0.1:7060 主模型
+  jdopensource/JoyAI-VL-Interaction；8070=live_adapter；8065=vLLM Qwen3-VL 摘要）
+  → `{ok, behavior:"<文字>", people:[...], model, timing, session_id, stateless}`。
+- `POST /track` `{image}` → 仅人脸框+身份（低延迟）。
+- `/rtsp/start {url:rtsp://..}`（**全局仅 1 路**，多摄像头需轮询 start/frame/stop）、
+  `GET /rtsp/frame`（返回当前帧 JPEG 字节流）、`POST /rtsp/stop`。
+- 服务从 .12 实测可达（curl -sk https://10.10.1.1:8088/health → ok，enrolled_people=2，device=cuda）。
+- 源码：/home/nvidia/JoyAI-VL-Interaction/face_identity_emotion/face_service.py（aiohttp，非 FastAPI）。
+- 已决定：底照 person_id = `elder-<elders.id>`；表情复审 qwen 走 NewAPI(10.10.1.12:3030) 视觉模型。
+
 ## 设计决策（实施中确定，随时补充）
 - 行为事件表 `behavior_events`（tenant, elder_id, device_id, area_id, detected_at,
   face_crop_object, video_object, expression_emotieff, expression_qwen, expression_final,
