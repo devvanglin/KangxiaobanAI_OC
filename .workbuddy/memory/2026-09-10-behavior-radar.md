@@ -126,3 +126,12 @@
 - 远端 sudo 命令引号嵌套易碎：用 SFTP 传 .sh 再 `sudo bash` 执行。
 - hdc 需要绝对路径 + Windows 路径 install；截图用 snapshot_display + bat 包装 file recv。
 - git 禁止把 bin/ 构建产物、.env、密钥文件提交入库（bin/ 已 gitignore）。
+
+## 新增任务（2026-09-10 凌晨，随行为任务下达）
+护工端首页快捷操作【申请协助】改为【每日训练】：阿尔茨海默老人每日 10 分钟认知训练，
+素材从 MinIO 训练桶随机抽取。桶已核实：ad-training-picture(198)/ad-training-music(112)/
+ad-training-video(1)。方案：后端 GET /api/v1/training/daily（按日随机种子采样三桶混合 +
+预签名 URL），前端首页按钮改名并打开全屏训练面板（10 分钟倒计时 + 图片/音频/视频卡片流）。
+- [ ] 后端 T1：训练采样接口
+- [ ] 前端 T2：首页按钮 + 训练面板
+- [ ] 部署验证
