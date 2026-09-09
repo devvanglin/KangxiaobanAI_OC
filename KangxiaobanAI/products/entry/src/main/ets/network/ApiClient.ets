@@ -262,6 +262,7 @@ export class ApiClient {
       let buffer: string = '';
       let lastDone: string = '';
       let settled: boolean = false;
+      let receivedAny: boolean = false;
       const watchdog: number = setTimeout(() => {
         finishError(`请求超时(${timeoutMs}ms)`);
       }, timeoutMs + 5000);
@@ -283,6 +284,7 @@ export class ApiClient {
         }
         settled = true;
         clearTimeout(watchdog);
+        Logger.error('[ApiClient]', `postSSE error: ${message}`);
         try {
           httpRequest.destroy();
         } catch (_error) {
@@ -290,6 +292,7 @@ export class ApiClient {
         reject(new Error(message));
       };
       const processChunk = (chunk: ArrayBuffer): void => {
+        receivedAny = true;
         buffer += decoder.decodeToString(new Uint8Array(chunk));
         let separator: number = buffer.indexOf('\n\n');
         while (separator >= 0) {
@@ -316,8 +319,12 @@ export class ApiClient {
           separator = buffer.indexOf('\n\n');
         }
       };
-      httpRequest.on('dataReceive', (chunk: ArrayBuffer) => {
-        processChunk(chunk);
+      // 部分版本回调为 AsyncCallback（err 在前），部分为数据在前；两者都兼容。
+      httpRequest.on('dataReceive', (first: ArrayBuffer | BusinessError, second?: ArrayBuffer) => {
+        const chunk: ArrayBuffer | undefined = second !== undefined && second !== null ? second : first as ArrayBuffer;
+        if (chunk !== undefined && chunk !== null && chunk.byteLength > 0) {
+          processChunk(chunk);
+        }
       });
       httpRequest.on('dataEnd', () => {
         finishOk();
@@ -339,9 +346,11 @@ export class ApiClient {
         readTimeout: timeoutMs
       };
       httpRequest.requestInStream(ApiConfig.API_BASE + path, options, (err: BusinessError) => {
-        if (err && !settled) {
+        // SSE 由服务端主动关流，此处可能带 err；只要收到过数据就按成功收尾
+        if (err && !settled && !receivedAny) {
           finishError('网络连接失败');
         }
+        finishOk();
       });
     });
   }

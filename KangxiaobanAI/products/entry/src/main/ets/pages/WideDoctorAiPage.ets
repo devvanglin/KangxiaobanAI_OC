@@ -40,6 +40,7 @@ import { WideSlidingCapsule, WideSlidingCapsuleItem } from '../component/wide/Wi
 import ApiClient from '../network/ApiClient';
 import AuthStore from '../network/AuthStore';
 import { PreferenceManager } from '../util/PreferenceManager';
+import Logger from '../util/Logger';
 import {
   AiAgentStep,
   AiConversation,
@@ -355,10 +356,13 @@ export struct WideDoctorAiPage {
     this.isHistoryLoading = true;
     try {
       const response = await ApiClient.get<AiConversationListResponse>('/ai/conversations');
+      Logger.info('[History]', `loadConversations resp code=${response.code} hasData=${response.data !== undefined}`);
       if (!this.componentVisible || loadVersion !== this.conversationLoadVersion) {
+        Logger.info('[History]', `loadConversations skipped: visible=${this.componentVisible} v=${loadVersion}/${this.conversationLoadVersion}`);
         return;
       }
       if (response.code !== 0 || !response.data) {
+        Logger.error('[History]', `loadConversations failed: ${response.msg}`);
         this.showToast(response.msg || '会话列表加载失败');
         return;
       }
@@ -372,6 +376,7 @@ export struct WideDoctorAiPage {
         this.lastConversationRefreshAt = Date.now();
         return;
       }
+      Logger.info('[History]', `loadConversations ok: ${next.length} sessions`);
       this.sessions = next;
       this.lastConversationRefreshAt = Date.now();
       const wanted: string = this.activeSessionId.length > 0 ? this.activeSessionId :
@@ -385,7 +390,8 @@ export struct WideDoctorAiPage {
         this.activeSessionId = '';
         this.messages = [];
       }
-    } catch (_error) {
+    } catch (error) {
+      Logger.error('[History]', `loadConversations exception: ${error instanceof Error ? error.message : JSON.stringify(error)}`);
       this.showToast('无法连接服务器，会话列表加载失败');
     } finally {
       this.isHistoryLoading = false;
