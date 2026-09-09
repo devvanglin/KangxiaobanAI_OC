@@ -92,34 +92,33 @@
 - 人脸底照：入住人像照 → GPU 服务注册（embedding 库在 GPU 侧），elder_id ↔ 人脸 ID 映射落库。
 - 雷达：iot_devices 加 source(emqx_auto/manual)、radar_kind(breathing_hr/fall)、room 绑定走 area/room。
 
-## 进度清单
-- [x] 起始状态 git 提交推送（2ddb2b6a）
-- [x] 记忆文件建立（本文件）
-- [x] 侦察 GPU 主机：全部在 10.10.1.1（见上方侦察结论；10.10.1.2 未查，暂不需要）
-- [x] 后端 A1：internal/face 客户端 + FaceConfig(KXB_FACE_SERVICE_URL 默认 https://10.10.1.1:8088)
-      + face_enrollments 表 + 入住 CreateIntake 异步注册人像（commit 已推送）
-- [ ] 后端 A2：BehaviorEvent 行为事件表 + MinIO cctv-footage-storage 上传（裁脸图/视频片段）
-- [ ] 后端 A3：分析 worker（摄像头轮询 /rtsp/start|frame → /recognize → known 长者 →
-      /behavior + qwen 复审 + 8s 视频片段 → behavior_events + WS 推送）
-      注意 ffmpeg：scratch 容器无 ffmpeg，需服务器放静态 ffmpeg 并挂载 + KXB_FFMPEG_PATH
-- [ ] 后端 A4：GET /elders/:id/behavior-events 分页接口 + 长者人脸注册状态接口
-- [ ] 后端 B1：CreateDevice 校验 device_type=millimeter_wave 拒绝手动添加
-- [ ] 后端 B2：pending 雷达 → 指定 Product(breath_radar/fall_radar) → 分配房间 →
-      房间被入住自动绑 ElderID（联动钩子：elder 入住/分配房间 & 雷达分配房间两处）
-- [ ] 前端 F1：设备添加仅摄像头；雷达类型/房间分配 UI
-- [ ] 前端 F2：【长者】行为 tab（时间条+视频回放 MinIO 预签名 URL）
-- [ ] 前端 F3：【长者】设备 tab 显示绑定雷达
-- [ ] 构建验证 + 部署 + 设备端验证
-- [ ] AGENTS.md 更新
+- [x] 后端 A2：BehaviorEvent 表（internal/model/behavior.go）✅
+- [x] 后端 A3：BehaviorAnalyzer（internal/service/behavior_analyzer.go + behavior_helpers.go，
+      main.go 启动接线）✅ 注意：ffmpeg 片段依赖容器内 ffmpeg（见下）
+- [x] 后端 A4：GET /elders/:id/behavior-events（含脸图/视频预签名 URL）+
+      GET/POST /elders/:id/face-enrollment（internal/handler/behavior_handler.go）✅
+- [x] 后端 B1：CreateDevice 仅允许摄像头 ✅
+- [x] 后端 B2：iot/radar_binding.go 双向绑定（长者 create/update/intake + 雷达分配房间）✅
+- [ ] 后端 B3（可选完善）：健康/告警链路已有（iot.Ingest 内 ElderID→HealthRecord+阈值告警），
+      缺「呼吸心率 SignalRecord → 长者体征 tab 展示」确认（可能已覆盖）
+- [ ] 前端 F1：设备添加对话框只留摄像头；pending 雷达的 类型指定(Product)/房间分配 UI
+- [ ] 前端 F2：【长者】行为 tab：GET /elders/:id/behavior-events 时间条 + video 播放器
+      （video_url/face_crop_url 预签名）+ 表情/行为/相似度展示；挂 WideResidentPage + WideDoctorResidentPage
+- [ ] 前端 F3：【长者】设备 tab：按 elder_id 过滤 BusinessStore.devices
+- [ ] 部署：服务器需要静态 ffmpeg（johnvansickle static build）+ compose 挂载到容器
+      /usr/local/bin/ffmpeg + KXB_FFMPEG_PATH=/usr/local/bin/ffmpeg，否则片段失败但事件仍入库
+- [ ] 部署：MinIO 建 cctv-footage-storage 桶
+- [ ] 设备端验证 + AGENTS.md 更新
 
 ## 下一步（重置后从这里继续）
-1. A2：写 internal/storage 或复用现有 MinIO 客户端（查 internal/service/storage_service.go 的
-   客户端用法：PutObject 即可），BehaviorEvent 模型加 AutoMigrate。
-2. A3：分析循环参考 iot.StartOfflineScanner 的 goroutine 模式（main.go 启动）；每摄像头
-   /rtsp/start 后轮询 /rtsp/frame + /recognize，known → 事件；限制频率（如每摄像头 10s）。
-3. qwen 复审：用 ai_service 的 cfg.BaseURL(NewAPI)+APIKey，POST /v1/chat/completions，
-   messages 里 image_url 用 data URL，model=KXB_FACE_REVIEW_MODEL 默认 Qwen3-VL-4B-Instruct。
-4. 前端长者详情页在 WideResidentPage（护工）/WideDoctorResidentPage（医师），行为 tab 需新增。
+1. 前端 F1：WideDeviceManagement.ets 添加设备对话框删毫米波选项；设备列表 pending 雷达加
+   「类型」选择（breath_radar/fall_radar→PUT /iot/devices/:id {product}）+「房间」分配
+   （{room, building}）。后端 UpdateDevice 已支持任意字段（room 变更自动触发绑定）。
+2. 前端 F2：WideResidentPage 加「行为」tab：调 GET /elders/:id/behavior-events，
+   时间条（日期+小时刻度，事件点），点击事件弹出 video 播放（video_url）+ 脸图（face_crop_url）
+   + 表情（expression + 来源）+ 行为描述。医师端 WideDoctorResidentPage 同步加。
+3. 部署后端：本地 go build linux → 服务器替换 → docker build → compose up（脚本模式照旧）。
+4. MinIO 建桶：用 storage admin API 或 mc 命令建 cctv-footage-storage。
 
 ## 关键坑位备忘
 - 前端构建必须带 DEVECO_SDK_HOME/JAVA_HOME/PATH（见仓库根 _build-with-java.bat）。
