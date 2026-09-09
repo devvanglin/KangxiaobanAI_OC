@@ -39,24 +39,27 @@ type AssessmentAgentAnswer struct {
 // elder. The external runtime never owns institutional identity or records.
 type AssessmentAgentSession struct {
 	Base
-	SessionKey       string                    `gorm:"size:64;uniqueIndex;not null" json:"session_key"`
-	IntakeID         uint                      `gorm:"uniqueIndex;not null" json:"intake_id"`
-	ElderID          uint                      `gorm:"index;not null" json:"elder_id"`
-	AssessorID       uint                      `gorm:"index;not null" json:"assessor_id"`
-	QuestionBankID   uint                      `gorm:"index;not null" json:"question_bank_id"`
-	QuestionVersion  int                       `gorm:"not null" json:"question_version"`
-	Title            string                    `gorm:"size:128;not null" json:"title"`
-	ResidentName     string                    `gorm:"size:64;not null" json:"resident_name"`
-	Gender           string                    `gorm:"size:4" json:"gender"`
-	Address          string                    `gorm:"size:16" json:"address"`
-	NoAnswerTimeout  int                       `gorm:"not null" json:"no_answer_timeout"`
-	QuestionSnapshot []AssessmentAgentQuestion `gorm:"serializer:json" json:"questions"`
-	Answers          []AssessmentAgentAnswer   `gorm:"serializer:json" json:"answers"`
-	Status           string                    `gorm:"size:16;index;not null;default:pending" json:"status"`
-	CurrentIndex     int                       `gorm:"not null;default:0" json:"current_index"`
-	ExternalRecordID string                    `gorm:"size:128" json:"external_record_id"`
-	ReportMarkdown   string                    `gorm:"type:text" json:"report"`
-	AssessmentID     *uint                     `gorm:"index" json:"assessment_id,omitempty"`
-	StartedAt        *time.Time                `json:"started_at,omitempty"`
-	CompletedAt      *time.Time                `json:"completed_at,omitempty"`
+	SessionKey                      string                    `gorm:"size:64;uniqueIndex;not null" json:"session_key"`
+	IntakeID                        uint                      `gorm:"uniqueIndex;not null" json:"intake_id"`
+	ElderID                         uint                      `gorm:"index;not null" json:"elder_id"`
+	AssessorID                      uint                      `gorm:"index;not null" json:"assessor_id"`
+	QuestionBankID                  uint                      `gorm:"index;not null" json:"question_bank_id"`
+	QuestionVersion                 int                       `gorm:"not null" json:"question_version"`
+	Title                           string                    `gorm:"size:128;not null" json:"title"`
+	ResidentName                    string                    `gorm:"size:64;not null" json:"resident_name"`
+	Gender                          string                    `gorm:"size:4" json:"gender"`
+	Address                         string                    `gorm:"size:16" json:"address"`
+	NoAnswerTimeout                 int                       `gorm:"not null" json:"no_answer_timeout"`
+	QuestionSnapshot                []AssessmentAgentQuestion `gorm:"serializer:json" json:"questions"`
+	Answers                         []AssessmentAgentAnswer   `gorm:"serializer:json" json:"answers"`
+	Status                          string                    `gorm:"size:16;index;not null;default:pending" json:"status"`
+	CurrentIndex                    int                       `gorm:"not null;default:0" json:"current_index"`
+	ExternalRecordID                string                    `gorm:"size:128" json:"external_record_id"`
+	ReportMarkdown                  string                    `gorm:"type:text" json:"report"`
+	AssessmentID                    *uint                     `gorm:"index" json:"assessment_id,omitempty"`
+	StartedAt                       *time.Time                `json:"started_at,omitempty"`
+	CompletedAt                     *time.Time                `json:"completed_at,omitempty"`
+	PackageRecommendationStatus     string                    `gorm:"size:16;index" json:"package_recommendation_status,omitempty"`
+	PackageRecommendationTemplateID *uint                     `gorm:"index" json:"package_recommendation_template_id,omitempty"`
+	PackageRecommendationError      string                    `gorm:"size:512" json:"package_recommendation_error,omitempty"`
 }

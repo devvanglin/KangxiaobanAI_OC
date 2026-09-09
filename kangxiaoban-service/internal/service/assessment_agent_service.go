@@ -42,10 +42,21 @@ type AssessmentAgentCompletion struct {
 	Total            int                           `json:"total"`
 }
 
-type AssessmentAgentService struct{ db *gorm.DB }
+type AssessmentPackageRecommender interface {
+	RecommendPackage(ctx context.Context, actorID, assessmentID uint) error
+}
+
+type AssessmentAgentService struct {
+	db          *gorm.DB
+	recommender AssessmentPackageRecommender
+}
 
 func NewAssessmentAgentService(db *gorm.DB) *AssessmentAgentService {
 	return &AssessmentAgentService{db: db}
+}
+
+func (s *AssessmentAgentService) SetPackageRecommender(recommender AssessmentPackageRecommender) {
+	s.recommender = recommender
 }
 
 func defaultAssessmentAgentQuestions() []model.AssessmentAgentQuestion {
@@ -222,6 +233,9 @@ func (s *AssessmentAgentService) GetSession(ctx context.Context, actorID uint, k
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrAssessmentAgentNotFound
 	}
+	if err == nil {
+		s.decoratePackageRecommendation(ctx, &session)
+	}
 	return &session, err
 }
 
@@ -240,7 +254,21 @@ func (s *AssessmentAgentService) SessionForIntake(ctx context.Context, actorID, 
 	if session.AssessorID != actorID {
 		return nil, ErrAssessmentAgentForbidden
 	}
+	s.decoratePackageRecommendation(ctx, &session)
 	return &session, nil
+}
+
+func (s *AssessmentAgentService) decoratePackageRecommendation(ctx context.Context, session *model.AssessmentAgentSession) {
+	if session == nil || session.AssessmentID == nil {
+		return
+	}
+	var recommendation model.AssessmentPackageRecommendation
+	if err := s.db.WithContext(ctx).Where("assessment_id = ?", *session.AssessmentID).First(&recommendation).Error; err != nil {
+		return
+	}
+	session.PackageRecommendationStatus = recommendation.Status
+	session.PackageRecommendationTemplateID = recommendation.TemplateID
+	session.PackageRecommendationError = recommendation.Error
 }
 
 func (s *AssessmentAgentService) MarkStarted(ctx context.Context, actorID uint, key string) (*model.AssessmentAgentSession, error) {
@@ -343,7 +371,34 @@ func (s *AssessmentAgentService) CompleteSession(ctx context.Context, actorID ui
 		completed.ReportMarkdown = completion.Report
 		completed.AssessmentID = &assessment.ID
 		completed.CompletedAt = &now
+		recommendation := model.AssessmentPackageRecommendation{
+			AssessmentID: assessment.ID, ElderID: assessment.ElderID, Status: "pending", AttemptedAt: &now,
+		}
+		if err := tx.Where("assessment_id = ?", assessment.ID).FirstOrCreate(&recommendation).Error; err != nil {
+			return err
+		}
 		return nil
 	})
+	if err == nil && completed.AssessmentID != nil && s.recommender != nil {
+		// Recommendation is deliberately outside the completion transaction: a
+		// slow/unavailable model must not roll back the already completed report.
+		background := context.WithoutCancel(ctx)
+		go func(assessmentID uint) {
+			packageCtx, cancel := context.WithTimeout(background, 2*time.Minute)
+			defer cancel()
+			if recommendErr := s.recommender.RecommendPackage(packageCtx, actorID, assessmentID); recommendErr != nil {
+				_ = s.db.WithContext(packageCtx).Model(&model.AssessmentPackageRecommendation{}).
+					Where("assessment_id = ?", assessmentID).
+					Updates(map[string]interface{}{"status": "failed", "error": truncateRecommendationError(recommendErr.Error())}).Error
+			}
+		}(*completed.AssessmentID)
+	}
 	return &completed, err
+}
+
+func truncateRecommendationError(value string) string {
+	if len([]rune(value)) <= 512 {
+		return value
+	}
+	return string([]rune(value)[:512])
 }

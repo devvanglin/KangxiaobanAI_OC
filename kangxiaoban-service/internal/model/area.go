@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 // AreaType is a spatial node in the institution. Rooms may contain beds;
 // corridors, stairs and common areas may contain devices but never beds.
 type AreaType string
@@ -61,6 +63,7 @@ type CarePackageItem struct {
 type ElderCarePackageSubscription struct {
 	Base
 	ElderID         uint    `gorm:"index;not null" json:"elder_id"`
+	AssessmentID    *uint   `gorm:"uniqueIndex" json:"assessment_id,omitempty"`
 	TemplateID      uint    `gorm:"index;not null" json:"template_id"`
 	CarePlanID      *uint   `gorm:"index" json:"care_plan_id"`
 	TemplateName    string  `gorm:"size:128" json:"template_name"`
@@ -71,4 +74,21 @@ type ElderCarePackageSubscription struct {
 	MonthlyPrice    float64 `gorm:"type:decimal(12,2);default:0" json:"monthly_price"`
 	Currency        string  `gorm:"size:3;default:CNY" json:"currency"`
 	AssignedBy      uint    `gorm:"index" json:"assigned_by"`
+}
+
+// AssessmentPackageRecommendation records the server-side AI recommendation
+// workflow. The model chooses only an active, server-provided template; the
+// actual subscription, plan, tasks and caregiver notification are created by
+// the guarded tool transaction.
+type AssessmentPackageRecommendation struct {
+	Base
+	AssessmentID uint       `gorm:"uniqueIndex;not null" json:"assessment_id"`
+	ElderID      uint       `gorm:"index;not null" json:"elder_id"`
+	TemplateID   *uint      `gorm:"index" json:"template_id,omitempty"`
+	CaregiverID  *uint      `gorm:"index" json:"caregiver_id,omitempty"`
+	Status       string     `gorm:"size:16;index;not null;default:pending" json:"status"`
+	Reason       string     `gorm:"size:2048" json:"reason"`
+	Error        string     `gorm:"size:512" json:"error,omitempty"`
+	AttemptedAt  *time.Time `json:"attempted_at,omitempty"`
+	CompletedAt  *time.Time `json:"completed_at,omitempty"`
 }

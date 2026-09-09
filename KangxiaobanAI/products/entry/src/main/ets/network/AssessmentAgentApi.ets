@@ -35,6 +35,9 @@ export interface AssessmentAgentSession {
   external_record_id: string;
   report: string;
   assessment_id?: number;
+  package_recommendation_status?: string;
+  package_recommendation_template_id?: number;
+  package_recommendation_error?: string;
   started_at?: string;
   completed_at?: string;
 }

@@ -509,6 +509,13 @@ the backend so a doctor can continue from the cases page. Completion atomically 
 record in the normal tenant-scoped `assessments` ledger with the structured answers and generated report; it remains
 advisory and requires doctor review. Do not let AsLive write the institution database or accept client-supplied identity,
 question banks, scores, or completion ownership.
+After completion, the backend starts an asynchronous, idempotent package-recommendation workflow. The configured doctor
+model first reads active tenant care-package candidates through `get_active_care_packages`, then must call the
+server-owned `assign_assessment_package` tool with one real template ID and a reason. That tool transaction creates the
+elder subscription, copies package items into a care plan and caregiver tasks, and writes an in-app notification to the
+assigned caregiver. A model cannot invent a template, write a subscription directly, or bypass the active-template
+check. Recommendation failure never rolls back the completed assessment; the session exposes `pending`, `assigned`, or
+`failed` status and the doctor must review the advisory recommendation before execution.
 Voice assessment is strict half-duplex. Each TTS turn carries a unique `turn_id`; the server ends generation with
 `await_playback` but does not accept PCM or start the no-answer timer. The native renderer must write every byte,
 `drain()` its playback buffer, and send `playback_complete(turn_id)`. Only the matching acknowledgement changes the

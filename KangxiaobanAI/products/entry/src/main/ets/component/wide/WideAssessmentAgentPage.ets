@@ -31,6 +31,8 @@ export struct WideAssessmentAgentPage {
   @Local report: string = '';
   @Local answered: number = 0;
   @Local assessmentId: number = 0;
+  @Local packageStatus: string = '';
+  @Local packageError: string = '';
   private client: AssessmentAgentClient = new AssessmentAgentClient();
   private scroller: Scroller = new Scroller();
 
@@ -111,20 +113,25 @@ export struct WideAssessmentAgentPage {
       this.statusText = '评估已完成，结果已保存到长者评估';
       void this.client.stopMicrophone();
       this.listening = false;
-      void this.refreshCompletedAssessment();
+      void this.refreshCompletedAssessment(0);
     } else if (event.type === 'error') {
       this.statusText = event.message ?? '评估服务发生错误';
     }
   }
 
-  private async refreshCompletedAssessment(): Promise<void> {
+  private async refreshCompletedAssessment(attempt: number = 0): Promise<void> {
     try {
       const response = await AssessmentAgentApi.getSession(this.session.session_key);
       if (response.code === 0 && response.data !== undefined) {
         this.assessmentId = response.data.assessment_id ?? 0;
+        this.packageStatus = response.data.package_recommendation_status ?? 'pending';
+        this.packageError = response.data.package_recommendation_error ?? '';
         if (response.data.report.length > 0) { this.report = response.data.report; }
       }
       await BusinessStore.getShared().load(true);
+      if (this.packageStatus === 'pending' && attempt < 10) {
+        setTimeout(() => { void this.refreshCompletedAssessment(attempt + 1); }, 2000);
+      }
     } catch (_error) {
       // The report remains visible from the completion event. The ledger will
       // retry its normal server load when the doctor opens it again.
@@ -265,6 +272,16 @@ export struct WideAssessmentAgentPage {
         Text(this.report).width('100%').fontSize(14).fontColor($r('sys.color.font_primary')).lineHeight(24)
       }.width('100%').constraintSize({ maxHeight: 360 }).padding(16)
         .backgroundColor($r('sys.color.comp_background_secondary')).borderRadius(12)
+      if (this.packageStatus === 'assigned') {
+        Text('已根据评估推荐订阅套餐，并已推送给护工；请医师复核后执行。').fontSize(13)
+          .fontColor($r('app.color.doctor_workspace_success')).width('100%').textAlign(TextAlign.Center)
+      } else if (this.packageStatus === 'failed') {
+        Text(`套餐推荐失败：${this.packageError || '请稍后重试或人工选择套餐'}`).fontSize(13)
+          .fontColor($r('app.color.doctor_workspace_danger')).width('100%').textAlign(TextAlign.Center)
+      } else if (this.assessmentId > 0) {
+        Text('正在根据评估报告匹配订阅套餐并通知护工…').fontSize(13)
+          .fontColor($r('sys.color.font_secondary')).width('100%').textAlign(TextAlign.Center)
+      }
       Button('返回工作台').height(44).borderRadius(12).fontColor(Color.White)
         .backgroundColor($r('app.color.brand_blue')).onClick(() => this.onClose())
       if (this.assessmentId > 0) {

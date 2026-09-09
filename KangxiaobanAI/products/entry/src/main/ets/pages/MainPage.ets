@@ -267,7 +267,8 @@ struct MainPage {
       const event: WsEvent<Object> = JSON.parse(payload) as WsEvent<Object>;
       if (event.type === 'admission.submitted' || event.type === 'task.updated' ||
         event.type === 'vital.record' || event.type === 'vital.abnormal' ||
-        event.type === 'alert.new' || event.type === 'alert.escalated') {
+        event.type === 'alert.new' || event.type === 'alert.escalated' ||
+        event.type === 'assessment.package.assigned') {
         // Coalesce bursts of realtime events so a refresh never keeps the
         // global loading state alive indefinitely.
         BusinessStore.getShared().requestRefresh();

@@ -51,6 +51,11 @@ type AIService struct {
 	cfg              *config.AIConfig
 	db               *gorm.DB
 	agentNativeTools bool
+	packageEvents    packageEventPublisher
+}
+
+type packageEventPublisher interface {
+	SendToRole(tenantID uint, role, eventType string, data interface{})
 }
 
 type aiRoleScopeKey struct{}
@@ -112,6 +117,13 @@ func (s *AIService) configForContext(ctx context.Context) (*config.AIConfig, *mo
 func NewAIService(cfg *config.AIConfig, db *gorm.DB) *AIService {
 	return &AIService{cfg: cfg, db: db, agentNativeTools: agentNativeToolsFromEnv()}
 }
+
+func (s *AIService) SetPackageEventPublisher(publisher packageEventPublisher) {
+	s.packageEvents = publisher
+}
+
+// WithAIRoleScope selects the role-specific model assignment while retaining
+// the caller's authenticated tenant context.
 
 // ListPromptSuggestions returns the current tenant's enabled starter prompts.
 func (s *AIService) ListPromptSuggestions(ctx context.Context) ([]model.AIPromptSuggestion, error) {
