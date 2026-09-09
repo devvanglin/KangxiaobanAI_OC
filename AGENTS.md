@@ -347,8 +347,13 @@ longer own connections: the per-role `提示词` panel assigns the model plus sy
 `ai_model_configs` assignments, and the chat gateway merges the env connection + assignment. The page follows the redesign
 platform layout on a 1280vp-centered column: a page header with live stat tags (connected models, enabled
 assignments, today's calls, weighted average response), a sliding-capsule module nav that switches between the
-stacked-style modules (模型管理 / 提示词库 / MCP 管理 / Skills 管理 / RAG 知识库 / 评估题库),
-planned-only placeholders), a model card grid whose per-model today calls / average response / success rate aggregate from the
+stacked-style modules (模型管理 / 提示词库 / 工具 / 沙箱 / Skills 管理 / RAG 知识库 / 评估题库).
+The 工具 module renders the built-in Agent tool inventory from `GET /admin/ai/tools` (name, description,
+permission gate, mode, live availability for data/knowledge/sandbox tools) above the MCP server registry;
+the 沙箱 module edits the OpenSandbox connection (enable toggle, control-plane domain, protocol, image,
+write-only encrypted API key) through `GET/PUT /admin/ai/sandbox` backed by the `ai_sandbox_settings`
+singleton row that overrides the `.env` defaults, plus `POST /admin/ai/sandbox/probe` reachability testing.
+A model card grid whose per-model today calls / average response / success rate aggregate from the
 protected `/api/v1/admin/ai/usage/models` endpoint, a prompt-assignment table (with an 全部/护工端/医师端 chip filter
 and a copy-to-the-other-role action) over the role configs, and Dify
 knowledge-base cards (description, document count, word count, last update, embedding model, indexing technique).

@@ -34,6 +34,61 @@ func (h *AIAdminHandler) Connection(c *gin.Context) {
 	OK(c, h.svc.ConnectionStatus())
 }
 
+// ToolsList GET /api/v1/admin/ai/tools
+// 平台内置工具清单（名称/描述/权限门槛/模式/当前可用状态）。
+func (h *AIAdminHandler) ToolsList(c *gin.Context) {
+	OK(c, h.svc.ListAgentTools(c.Request.Context()))
+}
+
+// Sandbox GET /api/v1/admin/ai/sandbox
+// 返回生效的沙箱设置（管理端设置行优先，未配置回落 .env）。
+func (h *AIAdminHandler) Sandbox(c *gin.Context) {
+	view, err := h.svc.SandboxSetting(c.Request.Context())
+	if err != nil {
+		Fail(c, http.StatusInternalServerError, 500, "沙箱设置加载失败")
+		return
+	}
+	OK(c, view)
+}
+
+type aiSandboxUpdateReq struct {
+	Enabled bool   `json:"enabled"`
+	Domain  string `json:"domain"`
+	Protocol string `json:"protocol"`
+	Image   string `json:"image"`
+	APIKey  string `json:"api_key"`
+}
+
+// UpdateSandbox PUT /api/v1/admin/ai/sandbox
+// 保存沙箱设置（密钥加密落库、永不返回；留空表示保留原密钥）。
+func (h *AIAdminHandler) UpdateSandbox(c *gin.Context) {
+	var req aiSandboxUpdateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Fail(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	view, err := h.svc.UpdateSandboxSetting(c.Request.Context(), service.AISandboxSettingInput{
+		Enabled: req.Enabled, Domain: req.Domain, Protocol: req.Protocol,
+		Image: req.Image, APIKey: req.APIKey,
+	})
+	if err != nil {
+		Fail(c, http.StatusInternalServerError, 500, "沙箱设置保存失败")
+		return
+	}
+	OK(c, view)
+}
+
+// SandboxProbe POST /api/v1/admin/ai/sandbox/probe
+// 轻量探测沙箱控制面连通性。
+func (h *AIAdminHandler) SandboxProbe(c *gin.Context) {
+	result, err := h.svc.SandboxProbe(c.Request.Context())
+	if err != nil {
+		h.failProxy(c, err, "沙箱控制面地址未配置，请先在「沙箱」中填写", "沙箱控制面连接失败")
+		return
+	}
+	OK(c, result)
+}
+
 type aiEndpointProbeReq struct {
 	BaseURL string   `json:"base_url"`
 	APIKey  string   `json:"api_key"`

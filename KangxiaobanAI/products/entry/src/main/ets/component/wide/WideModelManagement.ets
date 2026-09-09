@@ -64,6 +64,21 @@ interface PromptListEntry {
   key: string; kind: string; role: string; title: string; preview: string; enabled: boolean;
 }
 interface StatTagParam { label: string; value: string; }
+/** 平台内置 Agent 工具清单条目（GET /admin/ai/tools）。 */
+interface AgentToolInfo {
+  name: string; description: string; permission: string;
+  mode: string; kind: string; active: boolean;
+}
+/** 沙箱设置视图（GET/PUT /admin/ai/sandbox）；密钥只回「是否已配置」旗标。 */
+interface SandboxView {
+  enabled: boolean; domain: string; protocol: string; image: string;
+  api_key_configured: boolean; source: string;
+}
+interface SandboxSaveRequest {
+  enabled: boolean; domain: string; protocol: string; image: string; api_key: string;
+}
+interface SandboxProbeResult { reachable: boolean; status: number; latency_ms: number; enabled: boolean; }
+interface SandboxProbeRequest { }
 interface AssessmentAgentQuestion { id: string; topic: string; question: string; }
 interface AssessmentAgentQuestionBank {
   id: number; title: string; version: number; no_answer_timeout: number;
@@ -74,7 +89,7 @@ interface AssessmentAgentQuestionBankPayload {
 }
 
 const DARK_BUTTON_BG: string = '#1D63ED';
-const SECTION_IDS: string[] = ['models', 'prompts', 'mcp', 'skills', 'rag', 'assessment'];
+const SECTION_IDS: string[] = ['models', 'prompts', 'tools', 'sandbox', 'skills', 'rag', 'assessment'];
 
 @ComponentV2
 export struct WideModelManagement {
@@ -129,6 +144,19 @@ export struct WideModelManagement {
   @Local mcpApiKey: string = '';
   @Local mcpEnabled: boolean = true;
   @Local mcpBusy: boolean = false;
+  @Local agentTools: AgentToolInfo[] = [];
+  @Local toolsLoading: boolean = false;
+  @Local toolsError: string = '';
+  @Local sbEnabled: boolean = false;
+  @Local sbDomain: string = '';
+  @Local sbProtocol: string = 'http';
+  @Local sbImage: string = 'python:3.12-slim';
+  @Local sbApiKey: string = '';
+  @Local sbKeyConfigured: boolean = false;
+  @Local sbSource: string = 'env';
+  @Local sbBusy: boolean = false;
+  @Local sbProbing: boolean = false;
+  @Local sbProbeHint: string = '';
   @Local skills: SkillRecord[] = [];
   @Local selectedSkillId: number = 0;
   @Local skillName: string = '';
@@ -153,8 +181,87 @@ export struct WideModelManagement {
     this.loadRagDatasets();
     this.loadSourceModels();
     this.loadMcpServers();
+    this.loadAgentTools();
+    this.loadSandbox();
     this.loadSkills();
     this.loadAssessmentQuestionBank();
+  }
+
+  /** 平台内置 Agent 工具清单（工具模块上半区）。 */
+  private async loadAgentTools(): Promise<void> {
+    this.toolsLoading = true;
+    this.toolsError = '';
+    try {
+      const response = await ApiClient.get<AgentToolInfo[]>('/admin/ai/tools');
+      if (response.code !== 0 || response.data === undefined) {
+        this.toolsError = response.msg.length > 0 ? response.msg : '工具清单获取失败';
+        this.agentTools = [];
+      } else {
+        this.agentTools = response.data;
+      }
+    } catch (_error) {
+      this.toolsError = '工具清单获取失败，请检查网络';
+      this.agentTools = [];
+    }
+    this.toolsLoading = false;
+  }
+
+  private async loadSandbox(): Promise<void> {
+    try {
+      const response = await ApiClient.get<SandboxView>('/admin/ai/sandbox');
+      if (response.code !== 0 || response.data === undefined) { return; }
+      this.sbEnabled = response.data.enabled;
+      this.sbDomain = response.data.domain;
+      this.sbProtocol = response.data.protocol.length > 0 ? response.data.protocol : 'http';
+      this.sbImage = response.data.image.length > 0 ? response.data.image : 'python:3.12-slim';
+      this.sbKeyConfigured = response.data.api_key_configured;
+      this.sbSource = response.data.source;
+      this.sbApiKey = '';
+    } catch (_error) { this.showToast('沙箱设置加载失败'); }
+  }
+
+  private async saveSandbox(): Promise<void> {
+    if (this.sbBusy) { return; }
+    if (this.sbDomain.trim().length === 0) { this.showToast('控制面地址必填'); return; }
+    this.sbBusy = true;
+    try {
+      const payload: SandboxSaveRequest = {
+        enabled: this.sbEnabled, domain: this.sbDomain.trim(), protocol: this.sbProtocol,
+        image: this.sbImage.trim(), api_key: this.sbApiKey
+      };
+      const response = await ApiClient.put<SandboxView>('/admin/ai/sandbox', payload);
+      if (response.code !== 0 || response.data === undefined) {
+        this.showToast(response.msg.length > 0 ? response.msg : '沙箱设置保存失败');
+        return;
+      }
+      this.sbKeyConfigured = response.data.api_key_configured;
+      this.sbSource = response.data.source;
+      this.sbApiKey = '';
+      this.showToast('沙箱设置已保存');
+      this.loadAgentTools();
+    } catch (_error) {
+      this.showToast('沙箱设置保存失败，请检查网络');
+    }
+    this.sbBusy = false;
+  }
+
+  private async probeSandbox(): Promise<void> {
+    if (this.sbProbing) { return; }
+    this.sbProbing = true;
+    this.sbProbeHint = '正在探测…';
+    try {
+      const probeRequest: SandboxProbeRequest = {};
+      const response = await ApiClient.post<SandboxProbeResult>('/admin/ai/sandbox/probe', probeRequest);
+      if (response.code !== 0 || response.data === undefined) {
+        this.sbProbeHint = response.msg.length > 0 ? response.msg : '探测失败';
+      } else {
+        this.sbProbeHint = `控制面可达 · HTTP ${response.data.status} · ${response.data.latency_ms}ms` +
+          (response.data.enabled ? '' : '（当前未启用）');
+      }
+    } catch (_error) {
+      this.sbProbeHint = '探测失败，请检查网络';
+    }
+    this.sbProbing = false;
   }
 
   private async loadAssessmentQuestionBank(): Promise<void> {
@@ -992,10 +1099,11 @@ export struct WideModelManagement {
     return [
       { title: '模型管理', index: 0 },
       { title: '提示词库', index: 1 },
-      { title: 'MCP 管理', index: 2 },
-      { title: 'Skills 管理', index: 3 },
-      { title: 'RAG 知识库', index: 4 },
-      { title: '评估题库', index: 5 }
+      { title: '工具', index: 2 },
+      { title: '沙箱', index: 3 },
+      { title: 'Skills 管理', index: 4 },
+      { title: 'RAG 知识库', index: 5 },
+      { title: '评估题库', index: 6 }
     ];
   }
 
@@ -1005,14 +1113,21 @@ export struct WideModelManagement {
       WideSlidingCapsule({
         items: this.sectionTabs(),
         selectedIndex: SECTION_IDS.indexOf(this.activeSection) < 0 ? 0 : SECTION_IDS.indexOf(this.activeSection),
-        itemWidth: 118,
-        itemFontSize: 16,
+        itemWidth: this.compactWidth ? 96 : 110,
+        itemFontSize: 15,
         onSelect: (index: number) => {
           const next: string = SECTION_IDS[index] ?? 'models';
           const changed: boolean = next !== this.activeSection;
           this.activeSection = next;
           if (changed && next === 'rag') {
             this.loadRagDatasets();
+          }
+          if (changed && next === 'tools') {
+            this.loadAgentTools();
+            this.loadMcpServers();
+          }
+          if (changed && next === 'sandbox') {
+            this.loadSandbox();
           }
         }
       })
@@ -1425,8 +1540,166 @@ export struct WideModelManagement {
     .onClick(() => this.selectMcpServer(server.id))
   }
 
+  /** 工具模块 = 平台内置 Agent 工具清单 + MCP 服务注册管理。 */
   @Builder
-  private mcpModule() {
+  private toolsModule() {
+    Column({ space: 16 }) {
+      Column({ space: 10 }) {
+        Row({ space: 8 }) {
+          Text('平台内置工具').fontSize(13).fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+          Text('按调用者权限在运行时二次过滤').fontSize(11).fontColor($r('sys.color.font_tertiary'))
+          Blank()
+          Text('刷新').fontSize(13).fontColor($r('app.color.brand_blue'))
+            .onClick(() => this.loadAgentTools())
+        }.width('100%')
+        if (this.toolsLoading) {
+          Text('正在获取工具清单…').fontSize(13).fontColor($r('sys.color.font_secondary'))
+            .width('100%').padding({ top: 16, bottom: 16 }).textAlign(TextAlign.Center)
+        } else if (this.toolsError.length > 0) {
+          Column({ space: 8 }) {
+            Text(this.toolsError).fontSize(13).fontColor($r('sys.color.font_secondary'))
+            Text('重试').fontSize(13).fontColor($r('app.color.brand_blue'))
+              .onClick(() => this.loadAgentTools())
+          }.width('100%').padding({ top: 12, bottom: 12 }).alignItems(HorizontalAlign.Center)
+        } else {
+          GridRow({ columns: 12, gutter: 12 }) {
+            ForEach(this.agentTools, (tool: AgentToolInfo) => {
+              GridCol({ span: this.compactWidth ? 12 : 6 }) {
+                this.agentToolCard(tool)
+              }
+            }, (tool: AgentToolInfo) => `agent-tool-${tool.name}`)
+          }.width('100%')
+        }
+      }.width('100%').alignItems(HorizontalAlign.Start)
+
+      Divider().strokeWidth(0.5).color($r('sys.color.comp_divider'))
+      Column({ space: 10 }) {
+        Text('MCP 服务').fontSize(13).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+        this.mcpSection()
+      }.width('100%').alignItems(HorizontalAlign.Start)
+    }.width('100%').alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private agentToolCard(tool: AgentToolInfo) {
+    Column({ space: 8 }) {
+      Row({ space: 8 }) {
+        Row().width(8).height(8).borderRadius(4)
+          .backgroundColor(tool.active ? $r('app.color.doctor_workspace_success') : $r('sys.color.font_tertiary'))
+        Text(tool.name).fontSize(14).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+          .layoutWeight(1).maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(tool.kind === 'knowledge' ? '知识库' : tool.kind === 'sandbox' ? '沙箱' : '数据')
+          .fontSize(11).fontColor($r('sys.color.font_secondary'))
+          .padding({ left: 8, right: 8, top: 2, bottom: 2 }).borderRadius(10)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+      }.width('100%').alignItems(VerticalAlign.Center)
+      Text(tool.description).fontSize(12).fontColor($r('sys.color.font_secondary'))
+        .width('100%').maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
+      Row({ space: 8 }) {
+        Text(tool.mode === 'all' ? '通用模式' : '仅工作模式')
+          .fontSize(11).fontColor($r('app.color.brand_blue'))
+          .padding({ left: 8, right: 8, top: 2, bottom: 2 }).borderRadius(10)
+          .backgroundColor('#F0F5FF')
+        if (tool.permission.length > 0) {
+          Text(`权限 ${tool.permission}`).fontSize(11).fontColor($r('sys.color.font_tertiary'))
+            .padding({ left: 8, right: 8, top: 2, bottom: 2 }).borderRadius(10)
+            .backgroundColor($r('sys.color.comp_background_secondary'))
+        }
+        Blank()
+        Text(tool.active ? '可用' : '未启用').fontSize(11)
+          .fontColor(tool.active ? $r('app.color.doctor_workspace_success') : $r('sys.color.font_tertiary'))
+      }.width('100%').alignItems(VerticalAlign.Center)
+    }.width('100%')
+    .padding(14)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(12)
+    .border({ width: 0.5, color: $r('sys.color.comp_divider') })
+    .alignItems(HorizontalAlign.Start)
+    .accessibilityGroup(true)
+    .accessibilityText(`工具${tool.name}，${tool.active ? '可用' : '未启用'}`)
+  }
+
+  /** 沙箱模块：运行状态 + 连接设置（密钥加密落库、留空保留）。 */
+  @Builder
+  private sandboxModule() {
+    Column({ space: 16 }) {
+      Column({ space: 12 }) {
+        Row({ space: 8 }) {
+          Text('运行状态').fontSize(13).fontWeight(FontWeight.Medium).fontColor($r('sys.color.font_primary'))
+          Blank()
+          Text(this.sbSource === 'db' ? '管理端配置' : '服务器 .env 默认')
+            .fontSize(11).fontColor($r('sys.color.font_tertiary'))
+            .padding({ left: 8, right: 8, top: 2, bottom: 2 }).borderRadius(10)
+            .backgroundColor($r('sys.color.comp_background_secondary'))
+        }.width('100%')
+        Row({ space: 8 }) {
+          Row().width(8).height(8).borderRadius(4)
+            .backgroundColor(this.sbEnabled && this.sbKeyConfigured ?
+              $r('app.color.doctor_workspace_success') : $r('sys.color.font_tertiary'))
+          Text(this.sbEnabled && this.sbKeyConfigured ? '已启用：工作模式 AI 可使用沙箱工具' :
+            this.sbEnabled ? '已启用但密钥未配置，工具不可用' : '未启用：工作模式 AI 不带沙箱工具')
+            .fontSize(13).fontColor($r('sys.color.font_primary'))
+        }.width('100%')
+        Text('沙箱工具（读写文件 / 执行 Shell）只在一次性隔离容器内运行：无宿主机目录挂载、默认禁止联网。')
+          .fontSize(11).fontColor($r('sys.color.font_tertiary')).width('100%')
+      }.width('100%').padding(16)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(12).border({ width: 0.5, color: $r('sys.color.comp_divider') })
+      .alignItems(HorizontalAlign.Start)
+
+      Column({ space: 12 }) {
+        Row({ space: 12 }) {
+          Text('连接设置').fontSize(16).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+          Blank()
+          this.cardLink(this.sbProbing ? '探测中…' : '测试连通', () => this.probeSandbox())
+          Button('保存').height(36).fontSize(13).borderRadius(8)
+            .fontColor(Color.White).backgroundColor(DARK_BUTTON_BG)
+            .enabled(!this.sbBusy)
+            .onClick(() => this.saveSandbox())
+        }.width('100%').alignItems(VerticalAlign.Center)
+        if (this.sbProbeHint.length > 0) {
+          Text(this.sbProbeHint).fontSize(12).fontColor($r('sys.color.font_secondary')).width('100%')
+        }
+        Row({ space: 12 }) {
+          Column({ space: 4 }) {
+            Text('启用沙箱').fontSize(12).fontColor($r('sys.color.font_secondary'))
+            Row({ space: 8 }) {
+              Toggle({ type: ToggleType.Switch, isOn: this.sbEnabled })
+                .selectedColor($r('app.color.brand_blue'))
+                .onChange((isOn: boolean) => { this.sbEnabled = isOn; })
+              Text(this.sbEnabled ? '已启用' : '已停用').fontSize(13).fontColor($r('sys.color.font_primary'))
+            }.alignItems(VerticalAlign.Center)
+          }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+          Column({ space: 4 }) {
+            Text('运行协议').fontSize(12).fontColor($r('sys.color.font_secondary'))
+            Select([{ value: 'http' } as SelectOption, { value: 'https' } as SelectOption])
+              .selected(this.sbProtocol === 'https' ? 1 : 0)
+              .value(this.sbProtocol)
+              .font({ size: 14 }).width('100%')
+              .onSelect((index: number) => { this.sbProtocol = index === 1 ? 'https' : 'http'; })
+          }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+        }.width('100%').alignItems(VerticalAlign.Top)
+        Text('控制面地址').fontSize(12).fontColor($r('sys.color.font_secondary')).width('100%')
+        TextInput({ placeholder: '例如 10.10.1.12:18081', text: $$this.sbDomain })
+          .height(40)
+        Text('容器镜像').fontSize(12).fontColor($r('sys.color.font_secondary')).width('100%')
+        TextInput({ placeholder: 'python:3.12-slim', text: $$this.sbImage })
+          .height(40)
+        TextInput({ placeholder: this.sbKeyConfigured ? 'API Key（留空表示保留原密钥）' : 'API Key（尚未配置，必填）',
+          text: $$this.sbApiKey })
+          .height(40).type(InputType.Password)
+        Text('保存后工作模式 AI 立即按新配置装配沙箱工具；密钥加密保存、不会回显。')
+          .fontSize(11).fontColor($r('sys.color.font_tertiary')).width('100%')
+      }.width('100%').padding(16)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(12).border({ width: 0.5, color: $r('sys.color.comp_divider') })
+      .alignItems(HorizontalAlign.Start)
+    }.width('100%').alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private mcpSection() {
     Row({ space: 12 }) {
       Column({ space: 10 }) {
         Row({ space: 8 }) {
@@ -1729,8 +2002,10 @@ export struct WideModelManagement {
               this.modelsModule()
             } else if (this.activeSection === 'prompts') {
               this.promptsModule()
-            } else if (this.activeSection === 'mcp') {
-              this.mcpModule()
+            } else if (this.activeSection === 'tools') {
+              this.toolsModule()
+            } else if (this.activeSection === 'sandbox') {
+              this.sandboxModule()
             } else if (this.activeSection === 'skills') {
               this.skillsModule()
             } else if (this.activeSection === 'assessment') {

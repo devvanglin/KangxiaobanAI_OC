@@ -121,3 +121,16 @@ type AIUsageLog struct {
 }
 
 func (AIUsageLog) TableName() string { return "ai_usage_logs" }
+
+// AISandboxSetting 是管理端可维护的 OpenSandbox 连接设置（每租户一行）。
+// 密钥只写不读；未创建行时回落服务器 .env 配置。
+type AISandboxSetting struct {
+	Base
+	Enabled         bool   `gorm:"default:false" json:"enabled"`
+	Domain          string `gorm:"size:255" json:"domain"`
+	Protocol        string `gorm:"size:16;default:http" json:"protocol"`
+	Image           string `gorm:"size:255" json:"image"`
+	APIKeyEncrypted string `gorm:"size:2048" json:"-"`
+}
+
+func (AISandboxSetting) TableName() string { return "ai_sandbox_settings" }

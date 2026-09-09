@@ -52,7 +52,7 @@ func (s *AIService) chatWithAgent(ctx context.Context, userID uint, conversation
 
 	permissions := s.permissionsForUser(ctx, userID)
 	tools := s.buildAgentTools(ctx, cfg.RAG, permissions, mode)
-	sandboxRuntime := newSandboxRuntime(s.sandboxCfg)
+	sandboxRuntime := newSandboxRuntime(s.effectiveSandboxConfig(ctx))
 	if mode == agent.ModeWork {
 		tools = append(tools, s.openSandboxTools(sandboxRuntime)...)
 	}

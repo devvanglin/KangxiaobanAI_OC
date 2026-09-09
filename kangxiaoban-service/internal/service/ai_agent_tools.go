@@ -16,9 +16,61 @@ import (
 // permission it needs; tools whose permission the caller lacks are not
 // registered at all, so the model can never see (nor ask for) data the user
 // cannot read. All queries run through the tenant-scoped request context.
+// agentToolSpec 把工具与它需要的权限绑定；权限为空表示所有登录角色可用。
 type agentToolSpec struct {
 	requiredPermission string
 	definition         *agent.ToolDefinition
+}
+
+// AgentToolInfo 是管理端「工具」页的内置工具清单条目。
+type AgentToolInfo struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Permission  string `json:"permission"`
+	Mode        string `json:"mode"` // work = 仅工作模式 / all = 两种模式
+	Kind        string `json:"kind"` // data / knowledge / sandbox
+	Active      bool   `json:"active"`
+}
+
+// ListAgentTools 返回平台内置工具的清单与当前可用状态（供管理端渲染）。
+// 数据工具在运行时还会按调用者权限二次过滤；这里展示的是注册门槛。
+func (s *AIService) ListAgentTools(ctx context.Context) []AgentToolInfo {
+	// 用完整读权限组装一次真实工具定义，保证名称/描述与运行时不漂移。
+	allPermissions := []string{"elder:read", "health:read", "task:read", "alert:read", "dash:read"}
+	permissionByName := map[string]string{
+		"get_elders": "elder:read", "get_elder_detail": "elder:read",
+		"get_elder_health": "health:read", "get_today_tasks": "task:read",
+		"get_alerts": "alert:read", "get_today_schedule": "dash:read",
+	}
+	definitions := s.buildAgentTools(ctx, s.cfg.RAG, allPermissions, agent.ModeWork)
+	_, ragConfigured := s.ragEnv()
+	tools := make([]AgentToolInfo, 0, len(definitions)+4)
+	for _, definition := range definitions {
+		info := AgentToolInfo{
+			Name:        definition.Name,
+			Description: definition.Description,
+			Permission:  permissionByName[definition.Name],
+			Mode:        "work",
+			Kind:        "data",
+			Active:      true,
+		}
+		if definition.Name == "search_knowledge_base" {
+			info.Mode = "all"
+			info.Kind = "knowledge"
+			info.Active = ragConfigured && strings.TrimSpace(s.cfg.RAG.DatasetID) != ""
+		}
+		tools = append(tools, info)
+	}
+	if cfg := s.effectiveSandboxConfig(ctx); cfg.Enabled && strings.TrimSpace(cfg.Domain) != "" &&
+		strings.TrimSpace(cfg.APIKey) != "" {
+		for _, definition := range s.openSandboxTools(newSandboxRuntime(cfg)) {
+			tools = append(tools, AgentToolInfo{
+				Name: definition.Name, Description: definition.Description,
+				Mode: "work", Kind: "sandbox", Active: true,
+			})
+		}
+	}
+	return tools
 }
 
 // buildAgentTools assembles the tool list for one exchange. Work mode carries
