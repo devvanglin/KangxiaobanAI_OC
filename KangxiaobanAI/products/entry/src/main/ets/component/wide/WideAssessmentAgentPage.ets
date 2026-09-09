@@ -9,7 +9,7 @@ import { BusinessStore } from '../../network/BusinessStore';
 import { BreakpointUtil } from '../../util/BreakpointSystem';
 
 const MICROPHONE_PERMISSION: Permissions = 'ohos.permission.MICROPHONE';
-/** Mood Mates 云宝表情 ID（见 rawfile/moodmates/data/emotions.js，编号契约永不重排）。 */
+/** Grok Ball 表情 ID（见 rawfile/grokball/grok-ball.js，编号契约永不重排）。 */
 const EMOTION_IDLE: string = '02'; // 待机放空
 const EMOTION_WAKING: string = '01'; // 连接/唤醒
 const EMOTION_CURIOUS: string = '03'; // 倒计时即将到点的温和提醒
@@ -452,7 +452,7 @@ export struct WideAssessmentAgentPage {
           .width('100%').height('100%')
           .backgroundColor('#F3F7FF')
           .borderRadius(20)
-        Web({ src: $rawfile('moodmates/assessment_stage.html'), controller: this.webController })
+        Web({ src: $rawfile('grokball/assessment_stage.html'), controller: this.webController })
           .width('86%').height('86%')
           .javaScriptAccess(true)
           .zoomAccess(false)
