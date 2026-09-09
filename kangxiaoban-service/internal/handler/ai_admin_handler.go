@@ -52,11 +52,11 @@ func (h *AIAdminHandler) Sandbox(c *gin.Context) {
 }
 
 type aiSandboxUpdateReq struct {
-	Enabled bool   `json:"enabled"`
-	Domain  string `json:"domain"`
+	Enabled  bool   `json:"enabled"`
+	Domain   string `json:"domain"`
 	Protocol string `json:"protocol"`
-	Image   string `json:"image"`
-	APIKey  string `json:"api_key"`
+	Image    string `json:"image"`
+	APIKey   string `json:"api_key"`
 }
 
 // UpdateSandbox PUT /api/v1/admin/ai/sandbox

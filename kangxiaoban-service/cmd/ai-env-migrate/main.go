@@ -17,8 +17,8 @@ import (
 	"os"
 	"strings"
 
-	godotenv "github.com/joho/godotenv"
 	"github.com/glebarez/sqlite"
+	godotenv "github.com/joho/godotenv"
 	"gorm.io/gorm"
 
 	"kangxiaoban-service/internal/security"

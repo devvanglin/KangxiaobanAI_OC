@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -86,6 +87,11 @@ func main() {
 	}
 	go iotSvc.StartOfflineScanner()
 	go iotSvc.StartEscalationScanner()
+	// 摄像头行为分析器：轮询绑定区域的摄像头，识别长者行为/表情并存档。
+	if cfg.Face.Enabled && strings.TrimSpace(cfg.Face.BaseURL) != "" {
+		analyzer := service.NewBehaviorAnalyzer(db, cfg.Face, &cfg.AI, storageSvc, cfg.Stream.FfmpegPath)
+		analyzer.Start()
+	}
 
 	r := router.New(db, cfg, hub, iotSvc, userRepo, authSvc, elderSvc, resourceSvc, taskSvc, healthSvc,
 		scheduleSvc, financeSvc, medicationSvc, auditSvc, auditRepo, supplySvc, careSvc, assessmentAgentSvc, admissionSvc, notificationSvc, messageSvc, aiSvc, storageSvc)

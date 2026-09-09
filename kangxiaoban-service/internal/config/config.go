@@ -57,7 +57,7 @@ type AIConfig struct {
 	BaseURL      string
 	Model        string
 	APIKey       string
-	ConfigKey    string     // 用于数据库中 AI 密钥的加密；生产环境应显式注入
+	ConfigKey    string // 用于数据库中 AI 密钥的加密；生产环境应显式注入
 	SystemPrompt string
 	RAG          DifyConfig // Dify RAG 知识库连接；留空表示未启用
 }

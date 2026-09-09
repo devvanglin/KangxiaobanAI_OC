@@ -36,10 +36,10 @@ func NewFaceEnrollService(db *gorm.DB, cfg config.FaceConfig, rootDir string) *F
 
 // FaceEnrollmentView 是给前端的注册状态。
 type FaceEnrollmentView struct {
-	ElderID   uint       `json:"elder_id"`
-	PersonID  string     `json:"person_id"`
-	Status    string     `json:"status"` // pending/ok/failed
-	Error     string     `json:"error,omitempty"`
+	ElderID    uint       `json:"elder_id"`
+	PersonID   string     `json:"person_id"`
+	Status     string     `json:"status"` // pending/ok/failed
+	Error      string     `json:"error,omitempty"`
 	EnrolledAt *time.Time `json:"enrolled_at,omitempty"`
 }
 
@@ -81,9 +81,9 @@ func (s *FaceEnrollService) recordResult(ctx context.Context, view *FaceEnrollme
 	var row model.FaceEnrollment
 	err := s.db.WithContext(ctx).Where("elder_id = ?", view.ElderID).First(&row).Error
 	updates := map[string]interface{}{
-		"person_id":  view.PersonID,
-		"status":     view.Status,
-		"error":      view.Error,
+		"person_id":   view.PersonID,
+		"status":      view.Status,
+		"error":       view.Error,
 		"enrolled_at": time.Now(),
 	}
 	if err != nil {

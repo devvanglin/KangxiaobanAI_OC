@@ -27,11 +27,11 @@ type AISandboxView struct {
 
 // AISandboxSettingInput 携带可编辑的沙箱设置；密钥留空表示保留原值。
 type AISandboxSettingInput struct {
-	Enabled bool
-	Domain  string
+	Enabled  bool
+	Domain   string
 	Protocol string
-	Image   string
-	APIKey  string
+	Image    string
+	APIKey   string
 }
 
 // sandboxSettingForContext 读取当前租户的沙箱设置行（可能为 nil）。

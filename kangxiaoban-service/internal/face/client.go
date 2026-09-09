@@ -17,11 +17,11 @@ import (
 
 // Face 是一次识别中单张人脸的结果。
 type Face struct {
-	PersonID   *string  `json:"person_id"`
-	Known      bool     `json:"known"`
-	Similarity float64  `json:"similarity"`
+	PersonID   *string   `json:"person_id"`
+	Known      bool      `json:"known"`
+	Similarity float64   `json:"similarity"`
 	BBox       []float64 `json:"bbox"` // [x1,y1,x2,y2] 像素坐标，可用于裁脸
-	Emotion    *Emotion `json:"emotion,omitempty"`
+	Emotion    *Emotion  `json:"emotion,omitempty"`
 }
 
 // Emotion 是 EmotiEffLib 的表情分类结果（label 为英文标签）。
@@ -32,17 +32,17 @@ type Emotion struct {
 
 // BehaviorResult 是 JoyAI 行为描述接口的响应。
 type BehaviorResult struct {
-	OK       bool     `json:"ok"`
-	Behavior string   `json:"behavior"`
-	People   []Face   `json:"people"`
-	Model    string   `json:"model"`
-	Error    string   `json:"error,omitempty"`
+	OK       bool   `json:"ok"`
+	Behavior string `json:"behavior"`
+	People   []Face `json:"people"`
+	Model    string `json:"model"`
+	Error    string `json:"error,omitempty"`
 }
 
 type healthResult struct {
-	OK           bool    `json:"ok"`
-	Enrolled     int     `json:"enrolled_people"`
-	Threshold    float64 `json:"match_threshold"`
+	OK        bool    `json:"ok"`
+	Enrolled  int     `json:"enrolled_people"`
+	Threshold float64 `json:"match_threshold"`
 }
 
 // Client 调用人脸/表情服务。baseURL 形如 https://10.10.1.1:8088。
@@ -112,8 +112,8 @@ func (c *Client) Health(ctx context.Context) (bool, error) {
 // Enroll 注册（覆盖式）一个人的人脸特征；image 必须只含一张人脸。
 func (c *Client) Enroll(ctx context.Context, personID string, image []byte) error {
 	var out struct {
-		OK     bool   `json:"ok"`
-		Faces  int    `json:"faces"`
+		OK    bool `json:"ok"`
+		Faces int  `json:"faces"`
 	}
 	err := c.postJSON(ctx, "/enroll", map[string]interface{}{
 		"person_id": personID, "image": dataURL(image),
@@ -146,4 +146,37 @@ func (c *Client) Behavior(ctx context.Context, image []byte) (*BehaviorResult, e
 		return nil, err
 	}
 	return &out, nil
+}
+
+// RTSPStart 让服务开始读取一路 RTSP 流（服务端全局单路，多摄像头需轮询）。
+func (c *Client) RTSPStart(ctx context.Context, rtspURL string) error {
+	var out struct {
+		OK bool `json:"ok"`
+	}
+	return c.postJSON(ctx, "/rtsp/start", map[string]interface{}{"url": rtspURL}, &out)
+}
+
+// RTSPStop 停止当前 RTSP 取帧。
+func (c *Client) RTSPStop(ctx context.Context) error {
+	var out struct {
+		OK bool `json:"ok"`
+	}
+	return c.postJSON(ctx, "/rtsp/stop", map[string]interface{}{}, &out)
+}
+
+// RTSPFrame 返回当前帧的 JPEG 字节。
+func (c *Client) RTSPFrame(ctx context.Context) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/rtsp/frame", nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.hc.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("rtsp frame HTTP %d", resp.StatusCode)
+	}
+	return io.ReadAll(resp.Body)
 }

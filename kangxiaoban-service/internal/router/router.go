@@ -92,6 +92,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		cfg.AssessmentAgent.WebSocketURL, cfg.AssessmentAgent.ProxyToken)
 	photoSvc := service.NewAdmissionPhotoService(db, cfg.Server.UploadDir)
 	faceEnrollSvc := service.NewFaceEnrollService(db, cfg.Face, cfg.Server.UploadDir)
+	behaviorHandler := handler.NewBehaviorHandler(db, storageSvc, faceEnrollSvc)
 	admissionHandler := handler.NewAdmissionHandler(admissionSvc, faceEnrollSvc, photoSvc)
 	notificationHandler := handler.NewNotificationHandler(notificationSvc)
 	messageHandler := handler.NewMessageHandler(messageSvc, hub, userRepo)
@@ -189,6 +190,9 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		elders.GET("", elderHandler.List)
 		elders.GET("/:id", elderHandler.Get)
 		elders.GET("/:id/health-records", healthHandler.ListByElder)
+		elders.GET("/:id/behavior-events", behaviorHandler.ListByElder)
+		elders.GET("/:id/face-enrollment", behaviorHandler.FaceEnrollment)
+		elders.POST("/:id/face-enrollment", perm("elder:write"), behaviorHandler.FaceReEnroll)
 
 		// 长者档案（写）
 		authed.POST("/elders", perm("elder:write"), elderHandler.Create)

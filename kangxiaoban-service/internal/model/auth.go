@@ -88,5 +88,5 @@ func AutoMigrateAll(db *gorm.DB) error {
 		&MedicineStock{}, &DiningOrder{}, &Message{}, &OperationPolicy{}, &Area{},
 		&CarePackageTemplate{}, &CarePackageItem{}, &ElderCarePackageSubscription{}, &AssessmentPackageRecommendation{},
 		&AIPromptSuggestion{}, &AIModelConfig{}, &AIConversation{}, &AIMessage{}, &AIUsageLog{},
-		&AISkill{}, &AIMCPServer{}, &AISandboxSetting{}, &FaceEnrollment{}, &AssessmentAgentQuestionBank{}, &AssessmentAgentSession{}, &Medication{})
+		&AISkill{}, &AIMCPServer{}, &AISandboxSetting{}, &FaceEnrollment{}, &BehaviorEvent{}, &AssessmentAgentQuestionBank{}, &AssessmentAgentSession{}, &Medication{})
 }
