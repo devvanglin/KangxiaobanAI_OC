@@ -1,4 +1,5 @@
 import { abilityAccessCtrl, common, Permissions } from '@kit.AbilityKit';
+import { webview } from '@kit.ArkWeb';
 import {
   HdsNavDestination, HdsNavDestinationTitleMode, ScrollEffectType, TitleBarStyleOptions, hdsMaterial
 } from '@kit.UIDesignKit';
@@ -8,6 +9,16 @@ import { BusinessStore } from '../../network/BusinessStore';
 import { BreakpointUtil } from '../../util/BreakpointSystem';
 
 const MICROPHONE_PERMISSION: Permissions = 'ohos.permission.MICROPHONE';
+/** Mood Mates 云宝表情 ID（见 rawfile/moodmates/data/emotions.js，编号契约永不重排）。 */
+const EMOTION_IDLE: string = '02'; // 待机放空
+const EMOTION_WAKING: string = '01'; // 连接/唤醒
+const EMOTION_CURIOUS: string = '03'; // 倒计时即将到点的温和提醒
+const EMOTION_LISTENING: string = '35'; // 等待输入（聆听）
+const EMOTION_REPLYING: string = '39'; // 输出回复（嘴随播报开合）
+const EMOTION_THINKING: string = '30'; // 思考中（生成报告）
+const EMOTION_DONE: string = '33'; // 任务完成（撒花）
+const EMOTION_ERROR: string = '34'; // 出错/断线
+const COUNTDOWN_URGENT_SECONDS: number = 10;
 
 @ComponentV2
 export struct WideAssessmentAgentPage {
@@ -34,8 +45,16 @@ export struct WideAssessmentAgentPage {
   @Local assessmentId: number = 0;
   @Local packageStatus: string = '';
   @Local packageError: string = '';
+  /** 本题回答倒计时（秒）；-1 表示倒计时未启动（播报中/已作答）。 */
+  @Local countdownSeconds: number = -1;
   private client: AssessmentAgentClient = new AssessmentAgentClient();
   private scroller: Scroller = new Scroller();
+  private webController: webview.WebviewController = new webview.WebviewController();
+  private webReady: boolean = false;
+  private everConnected: boolean = false;
+  private currentEmotion: string = EMOTION_IDLE;
+  private countdownTotal: number = 0;
+  private countdownTimerId: number = -1;
 
   private isWideLayout(): boolean {
     try {
@@ -43,6 +62,10 @@ export struct WideAssessmentAgentPage {
     } catch (_error) {
       return false;
     }
+  }
+
+  private stageHeight(): number {
+    return this.isWideLayout() ? 380 : 250;
   }
 
   private currentProgress(): number {
@@ -58,9 +81,9 @@ export struct WideAssessmentAgentPage {
 
   private phaseLabel(): string {
     if (this.completed) return '已完成';
-    if (!this.connected) return '连接中';
+    if (!this.connected) return this.everConnected ? '连接断开' : '连接中';
     if (this.finishing || this.statusText.indexOf('生成') >= 0) return '处理中';
-    if (this.listening) return 'ASR 聆听';
+    if (this.listening) return '聆听中';
     if (this.answerReady) return this.microphoneAvailable ? '等待回答' : '文字回答';
     if (this.statusText.indexOf('提问') >= 0 || this.statusText.indexOf('播报') >= 0 ||
       this.assistantText.length > 0) return 'TTS 播报';
@@ -79,8 +102,95 @@ export struct WideAssessmentAgentPage {
   }
 
   aboutToDisappear(): void {
+    this.stopCountdown();
     void this.client.close();
   }
+
+  // ==================== 表情舞台（Mood Mates 云宝） ====================
+
+  /** 按当前评估阶段推导表情 ID，并同步到 Web 舞台。 */
+  private syncEmotion(): void {
+    let emotion: string = EMOTION_IDLE;
+    if (this.completed) {
+      emotion = EMOTION_DONE;
+    } else if (!this.connected) {
+      emotion = this.everConnected ? EMOTION_ERROR : EMOTION_WAKING;
+    } else if (this.finishing) {
+      emotion = EMOTION_THINKING;
+    } else if (this.listening || this.answerReady) {
+      emotion = this.isCountdownUrgent() ? EMOTION_CURIOUS : EMOTION_LISTENING;
+    } else if (this.assistantText.length > 0 || this.statusText.indexOf('播报') >= 0 ||
+      this.statusText.indexOf('提问') >= 0) {
+      emotion = EMOTION_REPLYING;
+    } else if (this.statusText.indexOf('生成') >= 0) {
+      emotion = EMOTION_THINKING;
+    } else if (!this.everConnected) {
+      emotion = EMOTION_WAKING;
+    }
+    this.applyEmotion(emotion);
+  }
+
+  private applyEmotion(id: string): void {
+    if (this.currentEmotion === id) { return; }
+    this.currentEmotion = id;
+    if (!this.webReady) { return; }
+    try {
+      this.webController.runJavaScript(
+        `window.stage && window.stage.setEmotion('${id}')`);
+    } catch (_error) {
+      // 舞台尚未就绪或已销毁；表情会在下一次阶段变化时重试。
+    }
+  }
+
+  private onStageReady(): void {
+    this.webReady = true;
+    // 页面加载完成前可能已经历过若干阶段，这里补发当前表情。
+    this.currentEmotion = '';
+    this.syncEmotion();
+  }
+
+  // ==================== 回答倒计时 ====================
+
+  private isCountdownActive(): boolean {
+    return this.countdownSeconds >= 0;
+  }
+
+  private isCountdownUrgent(): boolean {
+    return this.isCountdownActive() && this.countdownSeconds <= COUNTDOWN_URGENT_SECONDS;
+  }
+
+  /** 聆听窗口开启：按题库的 no_answer_timeout 启动倒计时。 */
+  private startCountdown(): void {
+    this.stopCountdown();
+    const timeout: number = Math.round(this.session.no_answer_timeout);
+    if (timeout <= 0) { return; }
+    this.countdownTotal = timeout;
+    this.countdownSeconds = timeout;
+    this.countdownTimerId = setInterval((): void => {
+      if (this.countdownSeconds <= 0) {
+        this.stopCountdown();
+        this.countdownSeconds = 0;
+        return;
+      }
+      this.countdownSeconds -= 1;
+      if (this.countdownSeconds === COUNTDOWN_URGENT_SECONDS) {
+        this.syncEmotion();
+      }
+    }, 1000);
+  }
+
+  private stopCountdown(holdRemainder: boolean = false): void {
+    if (this.countdownTimerId !== -1) {
+      clearInterval(this.countdownTimerId);
+      this.countdownTimerId = -1;
+    }
+    if (!holdRemainder) {
+      this.countdownSeconds = -1;
+      this.countdownTotal = 0;
+    }
+  }
+
+  // ==================== 会话流程 ====================
 
   private async connect(): Promise<void> {
     try {
@@ -90,14 +200,19 @@ export struct WideAssessmentAgentPage {
       }, (): void => {
         this.connected = false;
         if (!this.completed) { this.statusText = '连接已断开，可返回后重新进入评估'; }
+        this.stopCountdown();
+        this.syncEmotion();
       });
       this.connected = true;
+      this.everConnected = true;
       this.statusText = '评估服务已连接';
+      this.syncEmotion();
       if (this.microphoneAvailable) {
         await this.client.prepareMicrophone();
       }
     } catch (_error) {
       this.statusText = '评估服务连接失败，请检查网络后重试';
+      this.syncEmotion();
     }
   }
 
@@ -112,13 +227,18 @@ export struct WideAssessmentAgentPage {
       this.recognizedText = '';
       this.listening = false;
       this.answerReady = false;
+      this.stopCountdown();
       this.client.pauseMicrophone();
       this.statusText = '评估助手正在提问，请听完后再回答';
     } else if (event.type === 'asr') {
+      const hadSpeech: boolean = this.recognizedText.length > 0;
       this.recognizedText += event.text ?? '';
+      // 长者开口后服务端的静默窗口接管节奏，客户端倒计时使命结束。
+      if (!hadSpeech) { this.stopCountdown(true); }
     } else if (event.type === 'start') {
       this.listening = false;
       this.answerReady = false;
+      this.stopCountdown();
       this.client.pauseMicrophone();
       this.assistantText = '';
       this.statusText = '评估助手正在播报…';
@@ -135,11 +255,14 @@ export struct WideAssessmentAgentPage {
       this.statusText = this.microphoneAvailable ? '现在可以回答，正在聆听…' : '现在可以使用文字回答';
       this.listening = this.microphoneAvailable;
       this.answerReady = true;
+      this.startCountdown();
     } else if (event.type === 'assess_answer') {
       this.answered = Math.max(this.answered, event.index !== undefined ? event.index + 1 : this.answered);
+      this.stopCountdown();
     } else if (event.type === 'assess_status') {
       this.listening = false;
       this.answerReady = false;
+      this.stopCountdown();
       this.client.pauseMicrophone();
       this.statusText = event.status === 'generating' ? '正在生成并保存评估报告…' :
         event.status === 'recognizing' ? '正在确认完整回答…' : this.statusText;
@@ -151,10 +274,13 @@ export struct WideAssessmentAgentPage {
       this.statusText = '评估已完成，结果已保存到长者评估';
       void this.client.stopMicrophone();
       this.listening = false;
+      this.stopCountdown();
       void this.refreshCompletedAssessment(0);
     } else if (event.type === 'error') {
       this.statusText = event.message ?? '评估服务发生错误';
+      this.stopCountdown();
     }
+    this.syncEmotion();
   }
 
   private async refreshCompletedAssessment(attempt: number = 0): Promise<void> {
@@ -217,16 +343,20 @@ export struct WideAssessmentAgentPage {
     if (!this.connected || !this.answerReady || text.length === 0 || this.completed || this.finishing) { return; }
     this.answerReady = false;
     this.listening = false;
+    this.stopCountdown();
     this.client.pauseMicrophone();
     this.inputText = '';
     this.recognizedText = text;
+    this.syncEmotion();
     await this.client.sendText(text);
   }
 
   private async finishAssessment(): Promise<void> {
     if (!this.connected || this.completed || this.finishing) { return; }
     this.finishing = true;
+    this.stopCountdown();
     this.statusText = '正在结束评估并生成报告…';
+    this.syncEmotion();
     await this.client.stopAssessment();
   }
 
@@ -236,6 +366,8 @@ export struct WideAssessmentAgentPage {
       scrollEffectOpts: { enableScrollEffect: true, scrollEffectType: ScrollEffectType.GRADIENT_BLUR }
     };
   }
+
+  // ==================== 视图 ====================
 
   @Builder
   private sessionHeader() {
@@ -278,8 +410,8 @@ export struct WideAssessmentAgentPage {
       }.width('100%').alignItems(VerticalAlign.Center)
 
       Text(this.currentQuestion.length > 0 ? this.currentQuestion : '连接成功后，评估助手将自动播报第一题。')
-        .width('100%').fontSize(this.isWideLayout() ? 28 : 24).fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary')).lineHeight(this.isWideLayout() ? 42 : 36)
+        .width('100%').fontSize(this.isWideLayout() ? 26 : 22).fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary')).lineHeight(this.isWideLayout() ? 40 : 33)
 
       if (this.assistantText.length > 0) {
         Column({ space: 8 }) {
@@ -289,15 +421,92 @@ export struct WideAssessmentAgentPage {
             Text('TTS 播报内容').fontSize(12).fontWeight(FontWeight.Medium)
               .fontColor($r('sys.color.font_secondary'))
           }.width('100%')
-          Text(this.assistantText).width('100%').fontSize(15).lineHeight(24)
+          Text(this.assistantText).width('100%').fontSize(14).lineHeight(23)
             .fontColor($r('sys.color.font_secondary'))
         }.width('100%').padding(16).backgroundColor($r('sys.color.comp_background_secondary'))
           .borderRadius(12).alignItems(HorizontalAlign.Start)
       }
-    }.width('100%').padding(this.isWideLayout() ? 28 : 20)
-      .constraintSize({ minHeight: this.isWideLayout() ? 340 : 240 })
-      .alignItems(HorizontalAlign.Start).backgroundColor($r('sys.color.comp_background_primary'))
+    }.width('100%').padding(24).alignItems(HorizontalAlign.Start)
+      .constraintSize({ minHeight: 240 })
+      .backgroundColor($r('sys.color.comp_background_primary'))
       .borderRadius(18).border({ width: 0.5, color: $r('sys.color.comp_divider') })
+  }
+
+  /** 顶部：题目在左（weight 1），回答倒计时在右上角（固定宽）。 */
+  @Builder
+  private questionRow() {
+    Row({ space: 16 }) {
+      Column() { this.questionPanel() }.layoutWeight(1)
+      Column() { this.countdownCard() }
+        .width(this.isWideLayout() ? 216 : 150)
+        .alignItems(HorizontalAlign.Start)
+    }.width('100%').alignItems(VerticalAlign.Top)
+  }
+
+  /** 中央表情舞台：Mood Mates 云宝，表情随评估阶段实时切换。 */
+  @Builder
+  private expressionStage() {
+    Column({ space: 10 }) {
+      Stack({ alignContent: Alignment.Center }) {
+        Row()
+          .width('100%').height('100%')
+          .backgroundColor('#F3F7FF')
+          .borderRadius(20)
+        Web({ src: $rawfile('moodmates/assessment_stage.html'), controller: this.webController })
+          .width('86%').height('86%')
+          .javaScriptAccess(true)
+          .zoomAccess(false)
+          .backgroundColor(Color.Transparent)
+          .onPageEnd((): void => { this.onStageReady(); })
+      }.width('100%').height(this.stageHeight())
+      Row({ space: 8 }) {
+        Row().width(8).height(8).borderRadius(4).backgroundColor(this.phaseColor())
+        Text(this.phaseLabel()).fontSize(13).fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+        Text('康小伴评估助手').fontSize(12).fontColor($r('sys.color.font_tertiary'))
+          .margin({ left: 'auto' })
+      }.width('100%').padding({ left: 6, right: 6 })
+        .alignItems(VerticalAlign.Center)
+        .accessibilityText(`评估助手表情，当前状态${this.phaseLabel()}`)
+    }.width('100%').alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private countdownCard() {
+    Column({ space: 12 }) {
+      Row({ space: 10 }) {
+        SymbolGlyph($r('sys.symbol.timer')).fontSize(18)
+          .fontColor([this.isCountdownUrgent() ? $r('app.color.doctor_workspace_warning') :
+            $r('app.color.brand_blue')])
+        Text('回答倒计时').fontSize(13).fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+      }.width('100%').alignItems(VerticalAlign.Center)
+      Row({ space: 14 }) {
+        Stack({ alignContent: Alignment.Center }) {
+          Progress({ value: this.isCountdownActive() ? this.countdownSeconds :
+            (this.countdownTotal > 0 ? this.countdownTotal : 1),
+            total: this.countdownTotal > 0 ? this.countdownTotal : 1, type: ProgressType.Ring })
+            .width(62).height(62).style({ strokeWidth: 7 })
+            .color(this.isCountdownUrgent() ? $r('app.color.doctor_workspace_warning') :
+              $r('app.color.brand_blue'))
+          Text(this.isCountdownActive() ? `${this.countdownSeconds}` : '--')
+            .fontSize(19).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary'))
+        }
+        Column({ space: 3 }) {
+          Text(this.isCountdownUrgent() ? '快想一想吧' : this.isCountdownActive() ? '请在倒计时内回答' : '等待播报完成')
+            .fontSize(13).fontWeight(FontWeight.Medium)
+            .fontColor(this.isCountdownUrgent() ? $r('app.color.doctor_workspace_warning') :
+              $r('sys.color.font_primary'))
+          Text(this.isCountdownActive() ? '超时本题将自动跳过' : '倒计时会在聆听开始后启动')
+            .fontSize(11).fontColor($r('sys.color.font_tertiary'))
+        }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+      }.width('100%').alignItems(VerticalAlign.Center)
+    }.width('100%').padding(18)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(18).border({ width: 0.5, color: $r('sys.color.comp_divider') })
+      .accessibilityGroup(true)
+      .accessibilityText(this.isCountdownActive() ?
+        `回答倒计时剩余${this.countdownSeconds}秒` : '倒计时尚未启动')
   }
 
   @Builder
@@ -333,9 +542,9 @@ export struct WideAssessmentAgentPage {
           .fontColor($r('sys.color.font_secondary'))
         Text(this.recognizedText.length > 0 ? this.recognizedText :
           (this.answerReady ? '请开始回答，识别文字会实时显示在这里。' : '等待本题播报完成。'))
-          .width('100%').fontSize(17).lineHeight(27)
+          .width('100%').fontSize(16).lineHeight(25)
           .fontColor(this.recognizedText.length > 0 ? $r('sys.color.font_primary') : $r('sys.color.font_tertiary'))
-      }.width('100%').constraintSize({ minHeight: 128 }).padding(16)
+      }.width('100%').constraintSize({ minHeight: 110 }).padding(16)
         .backgroundColor($r('sys.color.comp_background_secondary')).borderRadius(12)
         .alignItems(HorizontalAlign.Start)
       Row({ space: 10 }) {
@@ -440,7 +649,7 @@ export struct WideAssessmentAgentPage {
             .onClick(() => this.onClose())
         }.width('100%')
       }
-    }.width('100%').padding(this.isWideLayout() ? 28 : 20).alignItems(HorizontalAlign.Start)
+    }.width('100%').padding(28).alignItems(HorizontalAlign.Start)
       .backgroundColor($r('sys.color.comp_background_primary')).borderRadius(18)
       .border({ width: 0.5, color: $r('sys.color.comp_divider') })
   }
@@ -451,20 +660,22 @@ export struct WideAssessmentAgentPage {
         Column({ space: 16 }) {
           this.sessionHeader()
           if (this.completed) {
+            this.expressionStage()
             this.completedCard()
           } else {
+            this.questionRow()
             if (this.isWideLayout()) {
               Row({ space: 16 }) {
-                Column() { this.questionPanel() }.layoutWeight(3)
-                Column() { this.answerPanel() }.layoutWeight(2)
+                Column() { this.expressionStage() }.layoutWeight(1)
+                Column() { this.answerPanel() }.layoutWeight(1)
               }.width('100%').alignItems(VerticalAlign.Top)
             } else {
-              this.questionPanel()
+              this.expressionStage()
               this.answerPanel()
             }
             this.assessmentActions()
           }
-        }.width('100%').constraintSize({ maxWidth: 1080 })
+        }.width('100%').constraintSize({ maxWidth: 1240 })
           .padding({ left: this.isWideLayout() ? 28 : 16, right: this.isWideLayout() ? 28 : 16,
             top: 80 + this.statusBarHeight, bottom: 24 + this.naviIndicatorHeight })
       }.width('100%').height('100%').scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring)
