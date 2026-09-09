@@ -56,13 +56,11 @@ func (c *OpenAIClient) doPlain(ctx context.Context, req ChatRequest) (ChatRespon
 	return resp, err
 }
 
-func (c *OpenAIClient) do(ctx context.Context, req ChatRequest, allowNative bool) (ChatResponse, bool, error) {
-	base := strings.TrimRight(strings.TrimSpace(c.BaseURL), "/")
-	if base == "" {
-		return ChatResponse{}, false, fmt.Errorf("model base url is empty")
-	}
-	useNative := allowNative && c.NativeTools && !c.toolsUnsupported && len(req.Tools) > 0
-
+// buildBody assembles the OpenAI wire body for one completion. The augmented
+// system prompt (tool schemas embedded) is prepended here, before body
+// assembly — append() re-slices, so prepending after body["messages"] was
+// assigned would silently drop the system message.
+func (c *OpenAIClient) buildBody(req ChatRequest, useNative bool) map[string]interface{} {
 	wireMessages := make([]map[string]interface{}, 0, len(req.Messages)+1)
 	systemPrompt := ""
 	for i, message := range req.Messages {
@@ -94,9 +92,6 @@ func (c *OpenAIClient) do(ctx context.Context, req ChatRequest, allowNative bool
 		}
 		wireMessages = append(wireMessages, entry)
 	}
-	// The augmented system prompt must be prepended before body assembly:
-	// append() re-slices, so assigning body["messages"] first would keep the
-	// old slice header and silently drop the system message.
 	if systemPrompt != "" {
 		wireMessages = append([]map[string]interface{}{{"role": "system", "content": systemPrompt}}, wireMessages...)
 	}
@@ -115,6 +110,17 @@ func (c *OpenAIClient) do(ctx context.Context, req ChatRequest, allowNative bool
 		body["tools"] = tools
 		body["tool_choice"] = "auto"
 	}
+	return body
+}
+
+func (c *OpenAIClient) do(ctx context.Context, req ChatRequest, allowNative bool) (ChatResponse, bool, error) {
+	base := strings.TrimRight(strings.TrimSpace(c.BaseURL), "/")
+	if base == "" {
+		return ChatResponse{}, false, fmt.Errorf("model base url is empty")
+	}
+	useNative := allowNative && c.NativeTools && !c.toolsUnsupported && len(req.Tools) > 0
+
+	body := c.buildBody(req, useNative)
 	encoded, err := json.Marshal(body)
 	if err != nil {
 		return ChatResponse{}, false, err

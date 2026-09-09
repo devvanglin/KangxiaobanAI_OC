@@ -71,7 +71,7 @@ func TestChatWithAgentWorkModeSendsSchemas(t *testing.T) {
 		}
 	}
 
-	exchange, err := svc.SendMessage(ctx, user.ID, conversation.ID, "现在院里一共有多少位在住长者？", "work")
+	exchange, err := svc.SendMessage(ctx, user.ID, conversation.ID, "现在院里一共有多少位在住长者？", "work", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

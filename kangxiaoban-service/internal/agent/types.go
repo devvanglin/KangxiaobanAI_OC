@@ -119,8 +119,9 @@ type RunRequest struct {
 	Tools         []*ToolDefinition
 	MaxTurns      int
 	Temperature   float64
-	ContextWindow int    // model context window used for history budgeting
-	Summary       string // rolling summary of previously compacted history
+	ContextWindow int            // model context window used for history budgeting
+	Summary       string         // rolling summary of previously compacted history
+	OnStream      StreamCallback // optional live activity feed for streaming UIs
 }
 
 // RunResult is the completed agent answer plus everything the UI needs to
@@ -159,8 +160,9 @@ func (r *RunRequest) buildSystemPrompt(withTools bool) string {
 	b.WriteString("\n\n你是康小伴平台的智能助理。回答使用简体中文，条理清晰，" +
 		"涉及健康与护理的内容仅作参考提示，不做诊断结论，紧急情况提醒联系值班人员。")
 	b.WriteString("\n\n【回答前先思考】\n" +
-		"- 每次回答前，先用 <think> 和 </think> 输出 1-3 句简要思考：用户意图、是否需要调用工具、回答计划。\n" +
-		"- 思考里不要写最终回答本身；思考结束后必须另起一段输出给用户看的最终中文回答。\n" +
+		"- 每次回答前，先用 <think> 和 </think> 输出 1-2 句简要思考：用户意图、是否需要调用工具、回答计划。\n" +
+		"- 思考里不要写面向用户的完整回答、列表或草案，控制在两句话以内。\n" +
+		"- 思考结束后必须另起一段输出给用户看的最终中文回答。\n" +
 		"- 需要机构数据时，思考结束后直接按工具规范调用工具。")
 	for _, skill := range r.Skills {
 		if trimmed := strings.TrimSpace(skill); trimmed != "" {
@@ -207,12 +209,29 @@ type ChatResponse struct {
 	CompletionTokens int64
 	TotalTokens      int64
 	FinishReason     string
+
+	// streaming accumulation of native delta.tool_calls
+	pendingToolID   string
+	pendingToolName string
+	pendingToolArgs string
 }
 
 // LLMClient performs one completion. Implementations must be safe for
 // sequential use inside the loop and must normalize provider quirks.
 type LLMClient interface {
 	ChatOnce(ctx context.Context, req ChatRequest) (ChatResponse, error)
+}
+
+// StreamCallback receives live agent activity while a completion is being
+// generated. kind is one of "reasoning" (think/reasoning text deltas),
+// "answer" (user-facing answer deltas), "toolcall" (raw tool-call text being
+// produced, informational) or "tool" (one executed step as JSON).
+type StreamCallback func(kind string, text string)
+
+// StreamingClient is implemented by LLM clients that can stream a completion
+// incrementally. The loop falls back to ChatOnce for plain clients.
+type StreamingClient interface {
+	ChatStream(ctx context.Context, req ChatRequest, emit StreamCallback) (ChatResponse, error)
 }
 
 // Agent runs the bounded tool-calling loop on top of an LLMClient.
@@ -252,12 +271,23 @@ func (a *Agent) Run(ctx context.Context, req RunRequest) (*RunResult, error) {
 			return nil, err
 		}
 		result.Turns = turn + 1
-		resp, err := a.LLM.ChatOnce(ctx, ChatRequest{
-			Model:       a.Model,
-			Messages:    messages,
-			Tools:       req.Tools,
-			Temperature: req.Temperature,
-		})
+		var resp ChatResponse
+		var err error
+		if streamer, ok := a.LLM.(StreamingClient); ok && req.OnStream != nil {
+			resp, err = streamer.ChatStream(ctx, ChatRequest{
+				Model:       a.Model,
+				Messages:    messages,
+				Tools:       req.Tools,
+				Temperature: req.Temperature,
+			}, req.OnStream)
+		} else {
+			resp, err = a.LLM.ChatOnce(ctx, ChatRequest{
+				Model:       a.Model,
+				Messages:    messages,
+				Tools:       req.Tools,
+				Temperature: req.Temperature,
+			})
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -323,6 +353,11 @@ func (a *Agent) Run(ctx context.Context, req RunRequest) (*RunResult, error) {
 					}
 				}
 				results = append(results, toolResponseLine(call.Name, output))
+				if req.OnStream != nil {
+					if encoded, marshalErr := json.Marshal(step); marshalErr == nil {
+						req.OnStream("tool", string(encoded))
+					}
+				}
 				result.Steps = append(result.Steps, step)
 				if call.Native {
 					messages = append(messages, ChatMessage{

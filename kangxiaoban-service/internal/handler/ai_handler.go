@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -64,6 +65,7 @@ type aiConversationReq struct {
 type aiMessageReq struct {
 	Content string `json:"content" binding:"required"`
 	Mode    string `json:"mode"` // chat 普通对话 / work 工作台数据助手
+	Stream  bool   `json:"stream"`
 }
 
 // Chat POST /api/v1/ai/chat
@@ -176,7 +178,36 @@ func (h *AIHandler) SendMessage(c *gin.Context) {
 		return
 	}
 	ctx := service.WithAIRoleScope(c.Request.Context(), aiRoleScope(claims))
-	exchange, err := h.svc.SendMessage(ctx, claims.UserID, id, req.Content, req.Mode)
+	if req.Stream {
+		// SSE 流式：reasoning/answer/tool 事件实时下发，最后一条 done 携带
+		// 与非流式完全一致的响应体（含落库后的两条消息）。
+		c.Header("Content-Type", "text/event-stream")
+		c.Header("Cache-Control", "no-cache")
+		c.Header("X-Accel-Buffering", "no")
+		emit := func(event, text string) {
+			if event == "toolcall" {
+				return // 原始协议文本不上送；客户端只看执行后的工具步骤
+			}
+			payload, _ := json.Marshal(map[string]string{"event": event, "text": text})
+			_, _ = c.Writer.WriteString("data: " + string(payload) + "\n\n")
+			c.Writer.Flush()
+		}
+		exchange, err := h.svc.SendMessage(ctx, claims.UserID, id, req.Content, req.Mode, emit)
+		if err != nil {
+			emit("error", "AI 服务暂时不可用，请稍后重试")
+			return
+		}
+		final, _ := json.Marshal(map[string]interface{}{
+			"event": "done", "conversation": exchange.Conversation,
+			"user_message": exchange.UserMessage, "assistant_message": exchange.AssistantMessage,
+			"answer": exchange.Answer, "model": exchange.Model,
+			"note": "AI 回答仅供参考，不构成临床诊断",
+		})
+		_, _ = c.Writer.WriteString("data: " + string(final) + "\n\n")
+		c.Writer.Flush()
+		return
+	}
+	exchange, err := h.svc.SendMessage(ctx, claims.UserID, id, req.Content, req.Mode, nil)
 	if err != nil {
 		handleAIConversationError(c, err, "发送 AI 消息失败")
 		return

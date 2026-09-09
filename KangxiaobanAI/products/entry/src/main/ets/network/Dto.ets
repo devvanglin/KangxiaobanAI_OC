@@ -109,6 +109,7 @@ export interface AiConversationCreateRequest {
 export interface AiConversationSendRequest {
   content: string;
   mode?: string;
+  stream?: boolean;
 }
 
 export interface AiConversationDeleteResponse {

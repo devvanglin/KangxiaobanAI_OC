@@ -104,7 +104,7 @@ func TestAISendMessagePersistsPairAndDeleteCascades(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	exchange, err := svc.SendMessage(ctx, 31, conversation.ID, " 跌倒后应该怎么处理？ ", "")
+	exchange, err := svc.SendMessage(ctx, 31, conversation.ID, " 跌倒后应该怎么处理？ ", "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +155,7 @@ func TestAISendMessagePreservesExplicitConversationTitle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	exchange, err := svc.SendMessage(ctx, 32, conversation.ID, "昨晚有哪些注意事项？", "work")
+	exchange, err := svc.SendMessage(ctx, 32, conversation.ID, "昨晚有哪些注意事项？", "work", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +177,7 @@ func TestAISendMessageRollsBackBothMessages(t *testing.T) {
 	if err := db.Exec(trigger).Error; err != nil {
 		t.Fatalf("create trigger: %v", err)
 	}
-	if _, err := svc.SendMessage(ctx, 41, conversation.ID, "测试原子写入", ""); err == nil {
+	if _, err := svc.SendMessage(ctx, 41, conversation.ID, "测试原子写入", "", nil); err == nil {
 		t.Fatal("SendMessage succeeded, want forced assistant failure")
 	}
 	var count int64
@@ -258,7 +258,7 @@ func TestAIHTTPFailureDoesNotFallBackOrPersistMessages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.SendMessage(ctx, 61, conversation.ID, "测试远程失败", ""); !errors.Is(err, ErrAIProviderUnavailable) {
+	if _, err := svc.SendMessage(ctx, 61, conversation.ID, "测试远程失败", "", nil); !errors.Is(err, ErrAIProviderUnavailable) {
 		t.Fatalf("SendMessage error = %v, want provider unavailable", err)
 	}
 	var count int64

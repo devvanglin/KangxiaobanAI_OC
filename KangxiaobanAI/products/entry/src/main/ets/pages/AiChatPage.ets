@@ -90,6 +90,14 @@ interface AiInformationFeedItem {
   prompt: string;
 }
 
+interface AiStreamDoneFrame {
+  conversation: AiConversation;
+  user_message: AiConversationMessage;
+  assistant_message: AiConversationMessage;
+  answer: string;
+  model: string;
+}
+
 @ComponentV2
 export struct AiChatPage {
   @Param caregiverWideImmersive: boolean = false;
@@ -936,25 +944,69 @@ export struct AiChatPage {
     }
     this.inputText = '';
     this.isGenerating = true;
-    const optimisticMessage: ChatMessage = { id: `pending-${Date.now()}`, role: 'user', content: text };
-    this.messages = [...this.messages, optimisticMessage];
+    const userMessage: ChatMessage = { id: `pending-${Date.now()}`, role: 'user', content: text };
+    const streamId: string = `streaming-${Date.now()}`;
+    const streamPlaceholder: ChatMessage = { id: streamId, role: 'ai', content: '', feedback: 'none', reasoning: '', trace: [] };
+    this.messages = [...this.messages, userMessage, streamPlaceholder];
     this.scheduleScrollToBottom(80);
     const requestVersion: number = ++this.aiRequestVersion;
-    try {
-      const conversationId: number = Number(this.activeSessionId);
-      const request: AiConversationSendRequest = { content: text, mode: this.embeddedAssistantMode === 1 ? 'work' : 'chat' };
-      const response = await ApiClient.post<AiConversationExchangeResponse>(
-        `/ai/conversations/${conversationId}/messages`, request, 190000);
+    const applyEvent = (event: string, payload: string): void => {
       if (requestVersion !== this.aiRequestVersion) {
         return;
       }
-      if (response.code !== 0 || !response.data || response.data.answer.trim().length === 0) {
-        throw new Error(response.msg || 'AI 服务暂不可用');
+      this.messages = this.messages.map((item: ChatMessage): ChatMessage => {
+        if (item.id !== streamId) {
+          return item;
+        }
+        if (event === 'reasoning') {
+          const reasoning: string = (item.reasoning ?? '') + payload;
+          return {
+            id: item.id, role: item.role, content: item.content, feedback: item.feedback,
+            reasoning: reasoning, trace: item.trace, model: item.model
+          };
+        }
+        if (event === 'answer') {
+          return {
+            id: item.id, role: item.role, content: item.content + payload, feedback: item.feedback,
+            reasoning: item.reasoning, trace: item.trace, model: item.model
+          };
+        }
+        if (event === 'tool') {
+          try {
+            const step: AiAgentStep = JSON.parse(payload) as AiAgentStep;
+            const trace: AiAgentStep[] = [...(item.trace ?? []), step];
+            return {
+              id: item.id, role: item.role, content: item.content, feedback: item.feedback,
+              reasoning: item.reasoning, trace: trace, model: item.model
+            };
+          } catch (_error) {
+            return item;
+          }
+        }
+        return item;
+      });
+      this.scheduleScrollToBottom(150);
+    };
+    try {
+      const conversationId: number = Number(this.activeSessionId);
+      const request: AiConversationSendRequest = {
+        content: text, mode: this.embeddedAssistantMode === 1 ? 'work' : 'chat', stream: true
+      };
+      const finalData: string = await ApiClient.postSSE(`/ai/conversations/${conversationId}/messages`, request,
+        (event: string, payload: string) => {
+          applyEvent(event, payload);
+        }, 190000);
+      if (requestVersion !== this.aiRequestVersion) {
+        return;
       }
-      const exchange: AiConversationExchangeResponse = response.data;
-      this.messages = [...this.messages.filter((item: ChatMessage): boolean => item.id !== optimisticMessage.id),
-        this.messageFromServer(exchange.user_message), this.messageFromServer(exchange.assistant_message)];
-      const updatedSession: ChatSession = this.sessionFromServer(exchange.conversation);
+      if (finalData.length === 0) {
+        throw new Error('AI 服务暂不可用');
+      }
+      const frame: AiStreamDoneFrame = JSON.parse(finalData) as AiStreamDoneFrame;
+      this.messages = [...this.messages.filter((item: ChatMessage): boolean =>
+        item.id !== userMessage.id && item.id !== streamId),
+        this.messageFromServer(frame.user_message), this.messageFromServer(frame.assistant_message)];
+      const updatedSession: ChatSession = this.sessionFromServer(frame.conversation);
       updatedSession.messages = this.cloneMessages(this.messages);
       this.sessions = [updatedSession, ...this.sessions.filter((item: ChatSession): boolean =>
         item.id !== updatedSession.id)];
@@ -962,7 +1014,8 @@ export struct AiChatPage {
       this.scheduleScrollToBottom(100);
     } catch (_error) {
       if (requestVersion === this.aiRequestVersion) {
-        this.messages = this.messages.filter((item: ChatMessage): boolean => item.id !== optimisticMessage.id);
+        this.messages = this.messages.filter((item: ChatMessage): boolean =>
+          item.id !== userMessage.id && item.id !== streamId);
         this.syncActiveSession(this.messages, false);
         this.isGenerating = false;
         this.showToast('AI 服务暂不可用，请稍后重试');
@@ -1256,7 +1309,7 @@ export struct AiChatPage {
       return '调用工具';
     }
     if (type === 'reasoning') {
-      return '思考';
+      return '思路';
     }
     if (type === 'retrieval') {
       return '知识库检索';
@@ -1275,7 +1328,7 @@ export struct AiChatPage {
           SymbolGlyph($r('sys.symbol.doc_text'))
             .fontSize(13)
             .fontColor([$r('app.color.brand_blue')])
-          Text('思考过程')
+          Text('回答过程')
             .fontSize(12)
             .fontColor($r('sys.color.font_secondary'))
         }

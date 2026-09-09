@@ -24,7 +24,7 @@ const agentNativeToolsDefault = false
 // role prompt + skills + budgeted history + tools → bounded loop → trace.
 // The http provider runs the full loop; the local deterministic provider
 // answers directly (it cannot call tools by design).
-func (s *AIService) chatWithAgent(ctx context.Context, userID uint, conversation model.AIConversation, content string, mode agent.Mode) (answer, modelName, reasoning, traceJSON string, err error) {
+func (s *AIService) chatWithAgent(ctx context.Context, userID uint, conversation model.AIConversation, content string, mode agent.Mode, emit agent.StreamCallback) (answer, modelName, reasoning, traceJSON string, err error) {
 	cfg, configRow := s.configForContext(ctx)
 	if cfg == nil || !cfg.Enabled {
 		return "", "", "", "", ErrAIProviderUnavailable
@@ -82,6 +82,7 @@ func (s *AIService) chatWithAgent(ctx context.Context, userID uint, conversation
 		Temperature:   temperature,
 		ContextWindow: contextWindow,
 		Summary:       summary,
+		OnStream:      emit,
 	})
 	if runErr != nil {
 		s.recordUsage(ctx, userID, configRow, provider, cfg.Model, resultTokens(result), 0, resultTokens(result), false, false, time.Since(startedAt))

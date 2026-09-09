@@ -269,8 +269,9 @@ func (s *AIService) UsageByModel(ctx context.Context) ([]ModelUsageStat, error) 
 
 // SendMessage asks the agent and atomically persists both sides of the
 // exchange. mode=chat keeps ordinary conversation (knowledge-base tool only);
-// mode=work exposes the institutional read-only data tools.
-func (s *AIService) SendMessage(ctx context.Context, userID, conversationID uint, content, mode string) (*AIExchange, error) {
+// mode=work exposes the institutional read-only data tools. When emit is
+// non-nil the exchange streams live activity events to the caller.
+func (s *AIService) SendMessage(ctx context.Context, userID, conversationID uint, content, mode string, emit agent.StreamCallback) (*AIExchange, error) {
 	content = strings.TrimSpace(content)
 	if userID == 0 || conversationID == 0 || content == "" {
 		return nil, fmt.Errorf("%w: user_id, conversation_id and content are required", ErrAIValidation)
@@ -280,7 +281,7 @@ func (s *AIService) SendMessage(ctx context.Context, userID, conversationID uint
 		First(&owned).Error; err != nil {
 		return nil, mapAIConversationNotFound(err)
 	}
-	answer, modelName, reasoning, trace, err := s.chatWithAgent(ctx, userID, owned, content, agent.NormalizeMode(mode))
+	answer, modelName, reasoning, trace, err := s.chatWithAgent(ctx, userID, owned, content, agent.NormalizeMode(mode), emit)
 	if err != nil {
 		return nil, err
 	}

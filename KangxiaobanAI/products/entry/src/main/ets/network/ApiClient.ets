@@ -27,6 +27,11 @@ function toRequestMethod(method: HttpMethod): http.RequestMethod {
   }
 }
 
+interface SseFrame {
+  event: string;
+  text: string;
+}
+
 /**
  * REST 请求封装。
  * 自动携带 Authorization: Bearer <token>；code==401 时清除本地会话。
@@ -243,6 +248,102 @@ export class ApiClient {
 
   public static post<T>(path: string, body?: Object, timeoutMs?: number): Promise<ApiResp<T>> {
     return ApiClient.request<T>('POST', path, body, timeoutMs);
+  }
+
+  /**
+   * SSE 流式 POST：每个完整事件通过 onEvent(event, text) 实时下发；
+   * Promise 以 done 事件的原始 JSON 文本收尾（由调用方解析最终响应体）。
+   */
+  public static postSSE(path: string, body: Object, onEvent: (event: string, text: string) => void,
+    timeoutMs: number = 190000): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      const httpRequest = http.createHttp();
+      const decoder: util.TextDecoder = util.TextDecoder.create('utf-8');
+      let buffer: string = '';
+      let lastDone: string = '';
+      let settled: boolean = false;
+      const watchdog: number = setTimeout(() => {
+        finishError(`请求超时(${timeoutMs}ms)`);
+      }, timeoutMs + 5000);
+      const finishOk = (): void => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(watchdog);
+        try {
+          httpRequest.destroy();
+        } catch (_error) {
+        }
+        resolve(lastDone);
+      };
+      const finishError = (message: string): void => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(watchdog);
+        try {
+          httpRequest.destroy();
+        } catch (_error) {
+        }
+        reject(new Error(message));
+      };
+      const processChunk = (chunk: ArrayBuffer): void => {
+        buffer += decoder.decodeToString(new Uint8Array(chunk));
+        let separator: number = buffer.indexOf('\n\n');
+        while (separator >= 0) {
+          const rawEvent: string = buffer.substring(0, separator);
+          buffer = buffer.substring(separator + 2);
+          const dataLines: string[] = rawEvent.split('\n')
+            .filter((line: string): boolean => line.startsWith('data:'));
+          if (dataLines.length > 0) {
+            const data: string = dataLines.map((line: string): string => line.substring(5).trimStart()).join('');
+            try {
+              const frame: SseFrame = JSON.parse(data) as SseFrame;
+              if (frame.event === 'done') {
+                lastDone = data;
+              }
+              if (frame.event === 'error') {
+                finishError(frame.text.length > 0 ? frame.text : 'AI 服务暂不可用');
+                return;
+              }
+              onEvent(frame.event, frame.text);
+            } catch (_error) {
+              // 跳过无法解析的帧
+            }
+          }
+          separator = buffer.indexOf('\n\n');
+        }
+      };
+      httpRequest.on('dataReceive', (chunk: ArrayBuffer) => {
+        processChunk(chunk);
+      });
+      httpRequest.on('dataEnd', () => {
+        finishOk();
+      });
+      const header: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Accept': 'text/event-stream'
+      };
+      const token: string = AuthStore.getToken();
+      if (token.length > 0) {
+        header['Authorization'] = 'Bearer ' + token;
+      }
+      const options: http.HttpRequestOptions = {
+        method: http.RequestMethod.POST,
+        header: header,
+        extraData: JSON.stringify(body),
+        expectDataType: http.HttpDataType.STRING,
+        connectTimeout: ApiClient.CONNECT_TIMEOUT_MS,
+        readTimeout: timeoutMs
+      };
+      httpRequest.requestInStream(ApiConfig.API_BASE + path, options, (err: BusinessError) => {
+        if (err && !settled) {
+          finishError('网络连接失败');
+        }
+      });
+    });
   }
 
   /** Upload one file as a multipart form field while retaining auth headers. */
