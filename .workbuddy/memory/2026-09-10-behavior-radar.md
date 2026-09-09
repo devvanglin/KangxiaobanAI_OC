@@ -1,0 +1,72 @@
+# 2026-09-10 · 行为识别 + 毫米波设备 大任务作战记录
+
+> 本文是重置上下文后的接续入口。任务由用户 2026-09-10 凌晨下达，跨度大、分阶段实施。
+> **每完成一步：更新本文的进度清单 → git 提交 → 推送远端。**
+
+## 任务总目标（用户原话归纳）
+
+### A. 人脸/行为识别管线（核心）
+1. GPU 服务器（10.10.1.1 或 10.10.1.2，二选一，用户忘了在哪台）上已部署 **InsightFace + EmotiEffLib + joyai**，
+   有 web 页面，人脸识别、表情识别、行为识别均已实测可用。SSH：用户名 `nvidia`，密码在
+   `.codex/private/fleet-ssh.json`（勿打印勿提交）。
+2. **入住建档**上传的【人像照】（现有 admission-intake-photos）→ 作为 InsightFace 人脸比对底照（注册/入库）。
+3. 摄像头（设备管理手动添加，RTSP）→ **绑定走廊**（区域体系已有 corridor 类型）。
+4. 摄像头画面出现人 → 三模型分析：InsightFace 认人（比对注册底照）+ EmotiEffLib 表情 + joyai 行为；
+   **人脸要裁切**出脸部小图。
+5. 表情再用 **NewAPI 里的 qwen 视觉模型复审**一次（最终表情以复审为准，记录两个来源）。
+6. 结果写入【长者】→【行为】页：谁、什么行为、什么表情、裁切脸图、**视频回放**（存 MinIO
+   `cctv-footage-storage` 桶），**带时间条，类似监控回放**。
+
+### B. 毫米波雷达（EMQX 自动接入）
+1. 设备管理【添加设备】**只允许手动添加摄像头**（毫米波从 UI 手动添加入口中移除）。
+2. 毫米波雷达通过 **EMQX** 网关自动上报 → 自动注册进设备列表（参考 MTQQ/ 目录协议：
+   `/Radar60SP/+/sys/property/post` 睡眠/呼吸心率，`/Radar60FL/+/sys/property/post` 跌倒）。
+3. 自动注册的雷达要能**手动指定类型**：呼吸心率检测设备 或 防跌倒检测设备。
+4. 雷达可**分配到房间**；房间被长者入住后 → 该雷达成为长者的设备，显示在【长者】→【设备】。
+5. 雷达数据落到【长者】对应位置：呼吸心率 → 体征/健康记录；跌倒 → 告警。
+
+## 环境事实（已核实）
+- 后端 Go：`kangxiaoban-service`，部署 10.10.1.12 docker（compose 目录
+  `/opt/kangxiaoban/kangxiaoban-service`，SSH api@…见 `.codex/private/backend-ssh.json`）。
+  部署脚本模式：上传 linux 二进制到 ~ → 备份旧二进制(.bak-<purpose>-<ts>) → install → docker build → compose up -d。
+- 前端 ArkTS：`KangxiaobanAI/products/entry`（V2 + HDS），构建：
+  DEVECO_SDK_HOME=DevEco sdk + jbr JAVA_HOME，hvigorw assembleHap（debug）。
+- MinIO：`10.10.1.13:9000`（.env KXB_MINIO_*；2026-09-10 凌晨曾挂过一次被用户修复；
+  新桶需求：`cctv-footage-storage`，可能需要创建）。
+- NewAPI：10.10.1.12:3030（OpenAI 兼容，qwen 视觉模型已在模型列表：Qwen3-VL-4B-Instruct 曾用于对话冒烟）。
+- 设备/告警后端：`internal/iot`（MQTT 订阅已存在：cfg.TopicSP=`/Radar60SP/+/sys/property/post`、
+  TopicFL=`/Radar60FL/+/sys/property/post`；`iot.ingest` HTTP 上报；设备离线扫描/告警升级协程）。
+- 入住照片：`admission_intakes` + `admission_intake_photos`，私有目录存储，有 `GET /admission-intake-photos/:id/content`。
+- 区域：`areas` 表含 corridor 等类型， WideAreaManagement 有 2D 摆位。
+- 【长者】详情页：`WideResidentPage`（护工）/`WideDoctorResidentPage`（医师），tab 结构里已有健康/风险等。
+- 服务器 .env 有历史遗留坏行（第 29 行附近游离 token，是 KXB_SANDBOX_API_KEY 值被截断），别用 godotenv
+  严格解析它；沙箱现在管理端 UI 可配置（ai_sandbox_settings，DB 优先 env 回退）。
+
+## 设计决策（实施中确定，随时补充）
+- 行为事件表 `behavior_events`（tenant, elder_id, device_id, area_id, detected_at,
+  face_crop_object, video_object, expression_emotieff, expression_qwen, expression_final,
+  behavior, confidence, match_score, review…）视频+脸图存 MinIO `cctv-footage-storage`。
+- 摄像头↔走廊绑定：iot_devices 加 area_id（或新绑定表）。
+- 人脸底照：入住人像照 → GPU 服务注册（embedding 库在 GPU 侧），elder_id ↔ 人脸 ID 映射落库。
+- 雷达：iot_devices 加 source(emqx_auto/manual)、radar_kind(breathing_hr/fall)、room 绑定走 area/room。
+
+## 进度清单
+- [x] 起始状态 git 提交推送（2ddb2b6a）
+- [x] 记忆文件建立（本文件）
+- [ ] 侦察 GPU 主机：找到 InsightFace/EmotiEffLib/joyai 部署、web 端口、API 形态（先 10.10.1.1 再 .2）
+- [ ] 调研（必要时上网）：EmotiEffLib 用法、joyai 是什么（可能是行为识别服务名）
+- [ ] 后端：入住人像照 → 人脸注册管线 + elder 映射
+- [ ] 后端：摄像头绑定走廊 + 行为事件表 + 事件写入 + MinIO 视频落桶
+- [ ] 后端：qwen 表情复审调用
+- [ ] 后端：EMQX 雷达自动注册 + 类型指定 + 房间分配 + 入住联动 + 数据落点
+- [ ] 前端：设备添加仅摄像头；雷达类型指定/房间分配 UI
+- [ ] 前端：【长者】行为 tab（时间条回放）+ 设备 tab 雷达
+- [ ] 构建验证 + 部署 + 设备端验证
+- [ ] AGENTS.md 更新
+
+## 关键坑位备忘
+- 前端构建必须带 DEVECO_SDK_HOME/JAVA_HOME/PATH（见仓库根 _build-with-java.bat）。
+- 服务器 .env 第 29 行游离 token；docker compose 环境传递靠 ${VAR:-default} 插值。
+- 远端 sudo 命令引号嵌套易碎：用 SFTP 传 .sh 再 `sudo bash` 执行。
+- hdc 需要绝对路径 + Windows 路径 install；截图用 snapshot_display + bat 包装 file recv。
+- git 禁止把 bin/ 构建产物、.env、密钥文件提交入库（bin/ 已 gitignore）。
