@@ -318,8 +318,9 @@ func (a *Agent) Run(ctx context.Context, req RunRequest) (*RunResult, error) {
 			continue
 		}
 		if strings.TrimSpace(resp.Content) != "" {
+			// The answer itself is rendered as the message body; the trace only
+			// records real activity (tools, reasoning, warnings).
 			result.Answer = strings.TrimSpace(resp.Content)
-			result.Steps = append(result.Steps, Step{Type: StepNotice, Title: "生成回答", Detail: truncateRunes(result.Answer, 200), OK: true})
 			result.appendStepLimit()
 			return result, nil
 		}

@@ -1225,7 +1225,8 @@ export struct WideDoctorAiPage {
   @Builder
   private aiMessageItem(message: ChatMessage) {
     Column({ space: 12 }) {
-      if (this.traceSteps(message).length > 0) {
+      if (this.traceSteps(message).length > 0 ||
+        (message.reasoning !== undefined && message.reasoning.length > 0)) {
         this.agentTraceBlock(message)
       }
       this.aiContent(message.content)
@@ -1247,7 +1248,9 @@ export struct WideDoctorAiPage {
   }
 
   private traceSteps(message: ChatMessage): AiAgentStep[] {
-    return message.trace ?? [];
+    // 信息性通知（如“生成回答”）只会复述答案，不属于思考活动；保留警告类通知。
+    return (message.trace ?? []).filter((step: AiAgentStep): boolean =>
+      step.type !== 'notice' || !step.ok);
   }
 
   private toggleTrace(message: ChatMessage): void {
