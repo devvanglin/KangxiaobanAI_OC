@@ -127,6 +127,15 @@
 - 注意:当前 Dify 知识库存的是心理量表/认知障碍类学术文献,没有机构制度文档;要答制度流程需上传对应文档
 - 前端思考/工具过程改为内联平铺展示(Kimi 式),去掉折叠;“真实模型”标注行按用户要求移除
 
+### 流式输出(2026-09-09 追加)
+- 后端 agent 支持 ChatStream(provider stream:true SSE 解析,think/reasoning 与 answer 增量经
+  zone 路由,跨 chunk 标签有 holdback 缓冲);工具调用前也先输出一句思考
+- POST /ai/conversations/:id/messages 带 stream:true 时以 text/event-stream 下发
+  reasoning/answer/tool 事件,最后 done 帧携带与非流式一致的落库响应
+- App 用 http.requestInStream 收流(ApiClient.postSSE),消息占位符实时渲染思考与回答增量,
+  工具步骤事件实时追加;命名改为“回答过程”;纯聊天无工具时不再显示过程块
+- 线上实测:173 个事件 7.8s 增量到达(0.6s 出首条思考)
+
 ### 已知边界/后续建议
 - 当前线上唯一对话模型 = Qwen3-VL-4B-Instruct(new-api → DGX-2:8000,max-model-len 4096,
   未开 --enable-auto-tool-choice → 走 hermes 文本协议;模型更换后无需改代码)
