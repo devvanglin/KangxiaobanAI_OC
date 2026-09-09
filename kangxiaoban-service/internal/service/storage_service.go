@@ -202,6 +202,21 @@ func SanitizeObjectKey(raw string) string {
 	return key
 }
 
+// ListAllKeys 列出桶内全部对象键（训练素材采样用；桶规模小，全量可接受）。
+func (s *StorageService) ListAllKeys(ctx context.Context, bucket string) ([]string, error) {
+	if !s.Available() {
+		return nil, ErrStorageNotConfigured
+	}
+	keys := make([]string, 0, 64)
+	for object := range s.client.ListObjects(ctx, bucket, minio.ListObjectsOptions{Recursive: true}) {
+		if object.Err != nil || object.Key == "" {
+			continue
+		}
+		keys = append(keys, object.Key)
+	}
+	return keys, nil
+}
+
 // UploadObject 上传/覆盖对象；size<0 表示未知长度，由 SDK 走分片上传。
 func (s *StorageService) UploadObject(ctx context.Context, bucket, key string,
 	reader io.Reader, size int64, contentType string) error {

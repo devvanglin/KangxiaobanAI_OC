@@ -93,6 +93,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	photoSvc := service.NewAdmissionPhotoService(db, cfg.Server.UploadDir)
 	faceEnrollSvc := service.NewFaceEnrollService(db, cfg.Face, cfg.Server.UploadDir)
 	behaviorHandler := handler.NewBehaviorHandler(db, storageSvc, faceEnrollSvc)
+	trainingSvc := service.NewTrainingService(storageSvc)
 	admissionHandler := handler.NewAdmissionHandler(admissionSvc, faceEnrollSvc, photoSvc)
 	notificationHandler := handler.NewNotificationHandler(notificationSvc)
 	messageHandler := handler.NewMessageHandler(messageSvc, hub, userRepo)
@@ -126,6 +127,14 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		authed.GET("/auth/me", authHandler.Me)
 
 		// 工作台
+		authed.GET("/training/daily", perm("dash:read"), func(c *gin.Context) {
+			session, err := trainingSvc.Daily(c.Request.Context())
+			if err != nil {
+				handler.Fail(c, http.StatusInternalServerError, 500, "训练素材加载失败")
+				return
+			}
+			handler.OK(c, session)
+		})
 		authed.GET("/dashboard/summary", perm("dash:read"), dashboardHandler.Summary)
 		authed.GET("/dashboard/cockpit", perm("dash:read"), dashboardHandler.Cockpit)
 		authed.GET("/dashboard/policy", perm("dash:read"), dashboardHandler.Policy)
