@@ -422,7 +422,7 @@ func (s *AIService) recordUsage(ctx context.Context, userID uint, configRow *mod
 // ragRetrieve 调用租户统一 Dify 知识库检索接口并返回参考片段。检索失败返回错误，
 // 由调用方决定是否阻断（对话永远不因检索失败而失败）。
 func (s *AIService) ragRetrieve(ctx context.Context, row *model.AIConnection, question string, topK int) ([]string, error) {
-	baseURL := strings.TrimRight(strings.TrimSpace(row.RAGBaseURL), "/")
+	baseURL := normalizeAPIBase(row.RAGBaseURL)
 	datasetID := strings.TrimSpace(row.RAGDatasetID)
 	if baseURL == "" || datasetID == "" {
 		return nil, ErrRAGNotConfigured
