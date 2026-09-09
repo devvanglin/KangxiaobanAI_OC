@@ -178,11 +178,18 @@ func (c *OpenAIClient) do(ctx context.Context, req ChatRequest, allowNative bool
 		response.TotalTokens = response.PromptTokens + response.CompletionTokens
 	}
 	// Prompt-based thinking: models instructed to reason in <think> blocks
-	// return the block inside content; move it into Reasoning.
+	// return the block inside content; move it into Reasoning. A tool call
+	// written inside the block still counts as an action.
 	if strings.Contains(response.Content, "<think>") {
 		think, remainder := ParseThinkBlock(response.Content)
 		response.Reasoning = appendReasoning(response.Reasoning, think)
 		response.Content = remainder
+	}
+	if len(response.ToolCalls) == 0 && hasTextToolCall(response.Reasoning) {
+		if calls, cleaned := ParseTextToolCalls(response.Reasoning); len(calls) > 0 {
+			response.Reasoning = strings.TrimSpace(cleaned)
+			response.ToolCalls = append(response.ToolCalls, calls...)
+		}
 	}
 	for _, call := range choice.Message.ToolCalls {
 		response.ToolCalls = append(response.ToolCalls, ToolInvocation{

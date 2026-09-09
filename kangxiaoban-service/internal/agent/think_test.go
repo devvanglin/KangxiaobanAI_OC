@@ -59,3 +59,28 @@ func TestRunSystemPromptIncludesThinkConvention(t *testing.T) {
 		t.Fatalf("think convention missing: %q", prompt)
 	}
 }
+
+// 模型偶尔把 <tool_call> 写进 <think> 块内部：思考里出现的工具请求仍然是
+// 真实动作，必须提取执行，不能当作纯文本吞掉。
+func TestRunRecoversToolCallInsideThink(t *testing.T) {
+	client := &scriptClient{replies: []ChatResponse{
+		{Content: "<think>\n需要查询在住长者名单。\n<tool_call>\n{\"name\": \"get_elder_count\", \"arguments\": {}}\n</tool_call>\n</think>"},
+		{Content: "共32位。"},
+	}}
+	agent := &Agent{LLM: client, Model: "qwen-test"}
+	result, err := agent.Run(context.Background(), RunRequest{
+		Mode: ModeWork, SystemPrompt: "p", UserMessage: "人数", Tools: []*ToolDefinition{echoTool()},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.ToolCallCount != 1 {
+		t.Fatalf("tool call inside think must still execute, got %d", result.ToolCallCount)
+	}
+	if result.Answer != "共32位。" {
+		t.Fatalf("unexpected answer: %q", result.Answer)
+	}
+	if strings.Contains(result.Reasoning, "<tool_call>") {
+		t.Fatalf("reasoning should not keep the raw tool call: %q", result.Reasoning)
+	}
+}

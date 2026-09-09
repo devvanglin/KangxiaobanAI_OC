@@ -274,6 +274,14 @@ func (a *Agent) Run(ctx context.Context, req RunRequest) (*RunResult, error) {
 			}
 			resp.Content = remainder
 		}
+		// Models sometimes emit the tool call inside the think block; a tool
+		// request written there is still an action, so recover it.
+		if len(resp.ToolCalls) == 0 && hasTextToolCall(resp.Reasoning) {
+			if calls, cleaned := ParseTextToolCalls(resp.Reasoning); len(calls) > 0 {
+				resp.Reasoning = strings.TrimSpace(cleaned)
+				resp.ToolCalls = calls
+			}
+		}
 		if len(resp.ToolCalls) == 0 && hasTextToolCall(resp.Content) {
 			if calls, remainder := ParseTextToolCalls(resp.Content); len(calls) > 0 {
 				resp.Content = strings.TrimSpace(remainder)
