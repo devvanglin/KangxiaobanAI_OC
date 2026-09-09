@@ -324,7 +324,17 @@ func (s *IotService) CreateDevice(ctx context.Context, device *model.IotDevice) 
 }
 
 func (s *IotService) UpdateDevice(ctx context.Context, id uint, updates map[string]interface{}) error {
-	return s.db.WithContext(ctx).Model(&model.IotDevice{}).Where("id = ?", id).Updates(updates).Error
+	if err := s.db.WithContext(ctx).Model(&model.IotDevice{}).Where("id = ?", id).Updates(updates).Error; err != nil {
+		return err
+	}
+	// 雷达被分配到新房间且房间有在住长者 → 自动绑定为长者设备。
+	if _, hasRoom := updates["room"]; hasRoom {
+		var dev model.IotDevice
+		if err := s.db.WithContext(ctx).Where("id = ?", id).First(&dev).Error; err == nil {
+			SyncElderForRadarRoom(ctx, s.db, &dev)
+		}
+	}
+	return nil
 }
 
 func (s *IotService) GetDevice(ctx context.Context, id uint) (*model.IotDevice, error) {

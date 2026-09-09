@@ -17,6 +17,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"kangxiaoban-service/internal/iot"
 	"kangxiaoban-service/internal/model"
 )
 
@@ -418,6 +419,8 @@ func (s *AdmissionService) CreateIntake(ctx context.Context, actor AdmissionActo
 			"elder_id": result.Intake.ElderID, "bed_id": result.Intake.BedID,
 		})
 	}
+	// 毫米波雷达房间绑定：长者入住后，房间内未绑定的雷达自动成为其设备。
+	iot.SyncMillimeterRadarBindingForElder(ctx, s.db, &result.Elder)
 	return result, nil
 }
 

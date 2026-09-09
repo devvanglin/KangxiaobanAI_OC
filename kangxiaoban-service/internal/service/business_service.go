@@ -8,15 +8,19 @@ import (
 	"gorm.io/gorm"
 
 	"kangxiaoban-service/internal/healthrisk"
+	"kangxiaoban-service/internal/iot"
 	"kangxiaoban-service/internal/model"
 	"kangxiaoban-service/internal/repository"
 )
 
 // ElderService 长者档案。
-type ElderService struct{ repo *repository.ElderRepository }
+type ElderService struct {
+	repo *repository.ElderRepository
+	db   *gorm.DB
+}
 
-func NewElderService(repo *repository.ElderRepository) *ElderService {
-	return &ElderService{repo: repo}
+func NewElderService(repo *repository.ElderRepository, db *gorm.DB) *ElderService {
+	return &ElderService{repo: repo, db: db}
 }
 
 func (s *ElderService) List(ctx context.Context, keyword string, status, careLevel, page, size int) ([]model.Elder, int64, error) {
@@ -29,7 +33,11 @@ func (s *ElderService) Create(ctx context.Context, e *model.Elder) error {
 	if e.Allergies == nil {
 		e.Allergies = []string{}
 	}
-	return s.repo.Create(ctx, e)
+	if err := s.repo.Create(ctx, e); err != nil {
+		return err
+	}
+	iot.SyncMillimeterRadarBindingForElder(ctx, s.db, e)
+	return nil
 }
 func (s *ElderService) Update(ctx context.Context, e *model.Elder) error {
 	// Older clients do not send allergies. Preserve the stored array unless the
@@ -41,7 +49,11 @@ func (s *ElderService) Update(ctx context.Context, e *model.Elder) error {
 		}
 		e.Allergies = current.Allergies
 	}
-	return s.repo.Update(ctx, e)
+	if err := s.repo.Update(ctx, e); err != nil {
+		return err
+	}
+	iot.SyncMillimeterRadarBindingForElder(ctx, s.db, e)
+	return nil
 }
 func (s *ElderService) Delete(ctx context.Context, id uint) error {
 	return s.repo.Delete(ctx, id)

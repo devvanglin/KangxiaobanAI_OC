@@ -110,7 +110,7 @@ func TestTenantContextAcrossBusinessModules(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	elderSvc := NewElderService(repository.NewElderRepository(db))
+	elderSvc := NewElderService(repository.NewElderRepository(db), db)
 	elders, total, err := elderSvc.List(ctx1, "二号机构专属", 0, 0, 1, 20)
 	if err != nil || total != 0 || len(elders) != 0 {
 		t.Fatalf("tenant 1 elder query leaked tenant 2: total=%d len=%d err=%v", total, len(elders), err)

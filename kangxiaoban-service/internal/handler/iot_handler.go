@@ -35,18 +35,17 @@ func (h *IotHandler) CreateDevice(c *gin.Context) {
 		Fail(c, 400, 400, "设备编号和设备类型必填")
 		return
 	}
-	protocol := "MQTT"
+	// 毫米波设备只能由 EMQX 网关自动接入（discovery_status=pending），
+	// 手动添加仅允许摄像头。
 	deviceType := strings.TrimSpace(req.DeviceType)
-	if deviceType == "camera" {
-		protocol = "RTSP"
-	}
 	if deviceType == "" {
-		if req.StreamURL != "" {
-			deviceType = "camera"
-		} else {
-			deviceType = "millimeter_wave"
-		}
+		deviceType = "camera"
 	}
+	if deviceType != "camera" {
+		Fail(c, 400, 400, "仅支持手动添加摄像头；毫米波设备由 EMQX 网关自动接入")
+		return
+	}
+	protocol := "RTSP"
 	streamURL := strings.TrimSpace(req.StreamURL)
 	if deviceType == "camera" && streamURL == "" {
 		Fail(c, 400, 400, "摄像头必须提供 RTSP 地址")

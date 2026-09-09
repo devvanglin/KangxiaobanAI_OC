@@ -117,7 +117,7 @@ func TestTaskServicePreloadsCarePlanInstructions(t *testing.T) {
 
 func TestElderAllergiesRemainCompatibleWithOlderClients(t *testing.T) {
 	_, db, _, ctx := newAdmissionTestService(t)
-	service := NewElderService(repository.NewElderRepository(db))
+	service := NewElderService(repository.NewElderRepository(db), db)
 
 	created := model.Elder{Name: "无过敏史测试长者"}
 	if err := service.Create(ctx, &created); err != nil {

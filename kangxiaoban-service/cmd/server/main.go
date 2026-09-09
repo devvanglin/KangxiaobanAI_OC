@@ -60,7 +60,7 @@ func main() {
 	go hub.Run()
 
 	authSvc := service.NewAuthService(userRepo, &cfg.JWT)
-	elderSvc := service.NewElderService(elderRepo)
+	elderSvc := service.NewElderService(elderRepo, db)
 	resourceSvc := service.NewResourceService(resourceRepo)
 	taskSvc := service.NewTaskService(taskRepo)
 	healthSvc := service.NewHealthService(healthRepo)
