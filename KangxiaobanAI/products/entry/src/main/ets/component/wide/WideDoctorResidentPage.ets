@@ -23,6 +23,7 @@ import {
 } from '../../model/DetailTypes';
 import { WideSlidingCapsule, WideSlidingCapsuleItem } from './WideSlidingCapsule';
 import { BusinessStore } from '../../network/BusinessStore';
+import { ElderBehaviorTimeline } from './ElderBehaviorTimeline';
 import { Alert, Bed, CareExecution, CareTask, Elder, HealthRecord, IotDevice, MedicationRecord, Room } from '../../network/Dto';
 
 type ResidentFilter = 'all' | 'warning' | 'danger';
@@ -1498,11 +1499,7 @@ export struct WideDoctorResidentPage {
   private behaviorContent(resident: ResidentData) {
     Column({ space: 12 }) {
       this.cardTitle('摄像头行为', resident.room)
-      Column({ space: 10 }) {
-        SymbolGlyph($r('sys.symbol.camera_fill')).fontSize(32).fontColor([$r('app.color.brand_blue')])
-        Text('摄像头行为识别接入中').fontSize(16).fontWeight(FontWeight.Medium)
-        Text('当前仅完成摄像头设备配置与在线状态展示，行为分析适配后将在这里显示事件。').fontSize(12).fontColor($r('sys.color.font_secondary')).textAlign(TextAlign.Center)
-      }.width('100%').padding(28).backgroundColor($r('sys.color.comp_background_secondary')).borderRadius(10).alignItems(HorizontalAlign.Center)
+      ElderBehaviorTimeline({ elderId: Number(resident.id) })
     }.width('100%')
     .padding({ left: 18, right: 18, top: 4, bottom: 18 })
     .backgroundColor($r('sys.color.comp_background_primary'))
