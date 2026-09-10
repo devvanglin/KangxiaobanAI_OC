@@ -87,6 +87,7 @@ func (h *IotHandler) UpdateDevice(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	var req struct {
 		DeviceType      string `json:"device_type"`
+		Product         string `json:"product"`
 		AreaID          *uint  `json:"area_id"`
 		Building        string `json:"building"`
 		Room            string `json:"room"`
@@ -113,6 +114,14 @@ func (h *IotHandler) UpdateDevice(c *gin.Context) {
 			updates["stream_url"] = ""
 			updates["stream_status"] = "unknown"
 		}
+	}
+	// 毫米波雷达类型（呼吸心率/防跌倒）由管理端在认领时指定。
+	if product := strings.TrimSpace(req.Product); product != "" {
+		if product != "breath_radar" && product != "fall_radar" {
+			Fail(c, 400, 400, "不支持的毫米波雷达类型")
+			return
+		}
+		updates["product"] = product
 	}
 	if streamURL := strings.TrimSpace(req.StreamURL); streamURL != "" {
 		updates["stream_url"] = streamURL

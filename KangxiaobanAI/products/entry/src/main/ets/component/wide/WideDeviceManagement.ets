@@ -7,7 +7,7 @@ import { ApiConfig } from '../../network/ApiConfig';
 interface PreviewResult { id: number; url: string; stream_url: string; }
 
 interface DeviceCreateRequest { device_id: string; product: string; device_type: string; room: string; building: string; bed: string; area_id?: number; stream_url?: string; }
-interface DeviceUpdateRequest { device_type: string; room: string; building: string; bed: string; area_id?: number; stream_url?: string; }
+interface DeviceUpdateRequest { device_type?: string; product?: string; room?: string; building?: string; bed?: string; area_id?: number; stream_url?: string; }
 interface AreaPage { list: Area[]; }
 interface SignalRecord { id: number; type: string; value: string; ts: string; }
 interface SignalPage { list: SignalRecord[]; }
@@ -26,7 +26,7 @@ export struct WideDeviceManagement {
   @Local showCreate: boolean = false;
   @Local editingDeviceId: number = 0;
   @Local deviceId: string = '';
-  @Local deviceType: string = '毫米波雷达';
+  @Local deviceType: string = '摄像头';
   @Local room: string = '';
   @Local bed: string = '';
   @Local cameraIp: string = '';
@@ -176,8 +176,11 @@ export struct WideDeviceManagement {
     return hostPart.split(':')[0];
   }
 
+  @Local editingProduct: string = 'breath_radar';
+
   private openEdit(device: IotDevice): void {
     this.editingDeviceId = device.id;
+    this.editingProduct = device.product === 'fall_radar' ? 'fall_radar' : 'breath_radar';
     this.deviceId = device.device_id ?? '';
     this.deviceType = device.device_type === 'camera' ? '摄像头' : device.device_type === 'other' ? '其他' : '毫米波雷达';
     this.room = device.room ?? '';
@@ -191,7 +194,7 @@ export struct WideDeviceManagement {
   private resetEditor(): void {
     this.editingDeviceId = 0;
     this.deviceId = '';
-    this.deviceType = '毫米波雷达';
+    this.deviceType = '摄像头';
     this.room = '';
     this.bed = '';
     this.cameraIp = '';
@@ -208,15 +211,23 @@ export struct WideDeviceManagement {
       this.error = '摄像头 IP 不能为空';
       return;
     }
+    if (!isCamera && this.editingDeviceId > 0 && this.room.trim().length === 0) {
+      this.error = '请为毫米波雷达分配房间';
+      return;
+    }
     const target: Room | undefined = this.businessStore.rooms.find((item: Room) => item.room_no === this.room);
     const request: DeviceUpdateRequest = {
-      device_type: isCamera ? 'camera' : this.deviceType === '其他' ? 'other' : 'millimeter_wave',
       room: this.room.trim(),
       building: target?.building ?? '',
       bed: this.bed.trim(),
-      area_id: this.areaId > 0 ? this.areaId : undefined,
-      stream_url: isCamera ? `rtsp://${this.cameraIp.trim()}:8554/stream0` : ''
+      area_id: this.areaId > 0 ? this.areaId : undefined
     };
+    if (isCamera) {
+      request.device_type = 'camera';
+      request.stream_url = `rtsp://${this.cameraIp.trim()}:8554/stream0`;
+    } else if (this.deviceType === '毫米波雷达') {
+      request.product = this.editingProduct;
+    }
     try {
       const response = await ApiClient.patch<IotDevice>(`/iot/devices/${this.editingDeviceId}`, request);
       if (response.code !== 0) {
@@ -416,38 +427,27 @@ export struct WideDeviceManagement {
       Column({ space: 12 }) {
         Text(this.editingDeviceId > 0 ? '编辑设备' : '添加设备').fontSize(20).fontWeight(FontWeight.Medium)
         TextInput({ placeholder: '设备编号', text: $$this.deviceId }).height(42).enabled(this.editingDeviceId === 0)
-        Row({ space: 8 }) {
-          Button({ type: ButtonType.Normal, stateEffect: true }) {
-            Row({ space: 6 }) {
-              SymbolGlyph($r('sys.symbol.dot_radiowaves_left_and_right')).fontSize(16)
-                .fontColor([this.deviceType === '毫米波雷达' ? Color.White : $r('sys.color.icon_secondary')])
-              Text('毫米波').fontSize(14)
-                .fontColor(this.deviceType === '毫米波雷达' ? Color.White : $r('sys.color.font_secondary'))
-            }
-          }.layoutWeight(1).height(36).borderRadius(8).backgroundColor(this.deviceType === '毫米波雷达' ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
-            .accessibilityText('选择毫米波雷达').onClick(() => this.deviceType = '毫米波雷达')
-          Button({ type: ButtonType.Normal, stateEffect: true }) {
-            Row({ space: 6 }) {
-              SymbolGlyph($r('sys.symbol.camera_fill')).fontSize(16)
-                .fontColor([this.deviceType === '摄像头' ? Color.White : $r('sys.color.icon_secondary')])
-              Text('摄像头').fontSize(14)
-                .fontColor(this.deviceType === '摄像头' ? Color.White : $r('sys.color.font_secondary'))
-            }
-          }.layoutWeight(1).height(36).borderRadius(8).backgroundColor(this.deviceType === '摄像头' ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
-            .accessibilityText('选择摄像头').onClick(() => this.deviceType = '摄像头')
-          Button({ type: ButtonType.Normal, stateEffect: true }) {
-            Row({ space: 6 }) {
-              SymbolGlyph($r('sys.symbol.device_2')).fontSize(16)
-                .fontColor([this.deviceType === '其他' ? Color.White : $r('sys.color.icon_secondary')])
-              Text('其他').fontSize(14)
-                .fontColor(this.deviceType === '其他' ? Color.White : $r('sys.color.font_secondary'))
-            }
-          }.layoutWeight(1).height(36).borderRadius(8)
-            .backgroundColor(this.deviceType === '其他' ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
-            .accessibilityText('选择其他设备').onClick(() => this.deviceType = '其他')
-        }.width('100%')
-        if (this.deviceType === '摄像头') { TextInput({ placeholder: '摄像头 IP，例如 192.168.1.20', text: $$this.cameraIp }).height(42) }
-        TextInput({ placeholder: '绑定房间号，可选，例如 101', text: $$this.room }).height(42)
+        Text('手动添加仅支持摄像头；毫米波雷达由 EMQX 网关自动发现。')
+          .fontSize(12).fontColor($r('sys.color.font_tertiary')).width('100%')
+        TextInput({ placeholder: '摄像头 IP，例如 192.168.1.20', text: $$this.cameraIp }).height(42)
+        if (this.editingDeviceId > 0 && this.deviceType === '毫米波雷达') {
+          Text('雷达类型').fontSize(13).fontColor($r('sys.color.font_secondary')).width('100%')
+          Row({ space: 8 }) {
+            Button({ type: ButtonType.Normal, stateEffect: true }) {
+              Text('呼吸心率检测').fontSize(13)
+                .fontColor(this.editingProduct === 'breath_radar' ? Color.White : $r('sys.color.font_secondary'))
+            }.layoutWeight(1).height(38).borderRadius(8)
+              .backgroundColor(this.editingProduct === 'breath_radar' ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
+              .accessibilityText('设为呼吸心率检测设备').onClick(() => this.editingProduct = 'breath_radar')
+            Button({ type: ButtonType.Normal, stateEffect: true }) {
+              Text('防跌倒检测').fontSize(13)
+                .fontColor(this.editingProduct === 'fall_radar' ? Color.White : $r('sys.color.font_secondary'))
+            }.layoutWeight(1).height(38).borderRadius(8)
+              .backgroundColor(this.editingProduct === 'fall_radar' ? $r('app.color.brand_blue') : $r('sys.color.comp_background_secondary'))
+              .accessibilityText('设为防跌倒检测设备').onClick(() => this.editingProduct = 'fall_radar')
+          }.width('100%')
+        }
+        TextInput({ placeholder: this.editingDeviceId > 0 && this.deviceType === '毫米波雷达' ? '分配房间号（必填，入住该房间的长者将自动绑定）' : '绑定房间号，可选，例如 101', text: $$this.room }).height(42)
         TextInput({ placeholder: '床位号，可选，例如 1', text: $$this.bed }).height(42)
         Text('绑定区域（可选）').fontSize(13).fontColor($r('sys.color.font_secondary'))
         Select(this.areaOptions())
