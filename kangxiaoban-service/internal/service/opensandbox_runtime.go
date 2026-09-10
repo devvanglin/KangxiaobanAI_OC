@@ -95,7 +95,13 @@ func (r *OpenSandboxRuntime) write(ctx context.Context, path, content string) (s
 	if len([]byte(content)) > 256*1024 {
 		return "", fmt.Errorf("文件内容超过 256KB 沙箱限制")
 	}
-	err = sandbox.UploadFile(ctx, strings.NewReader(content), opensandbox.UploadFileOptions{FileName: path, Metadata: opensandbox.FileMetadata{Path: remote, Mode: 0600}})
+	// OpenSandbox server versions in the deployed fleet parse the optional
+	// mode as an octal string. The Go SDK exposes it as an int, so sending the
+	// numeric 0600 value is rejected after the file has already been created
+	// ("strconv.ParseUint: parsing \"384\""). Omit the optional mode and let
+	// the execd file endpoint apply its safe default instead; the workspace is
+	// still isolated per runtime and the path is constrained above.
+	err = sandbox.UploadFile(ctx, strings.NewReader(content), opensandbox.UploadFileOptions{FileName: path, Metadata: opensandbox.FileMetadata{Path: remote}})
 	if err != nil {
 		return "", err
 	}
