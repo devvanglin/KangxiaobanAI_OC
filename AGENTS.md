@@ -509,6 +509,15 @@ the native client never connects to it directly. The Go backend at `10.10.1.12` 
 session, snapshots the current JSON question bank, and proxies the authenticated native WebSocket to AsLive's protected
 `/assessment-ws` endpoint using a server-only token. The token exists only in protected remote environment files.
 
+Since 2026-09-10 the AsLive host no longer runs ASR/TTS models in-process: `/home/ai/aslive/core/asr.py` and
+`core/tts.py` are thin HTTP clients over the local `voice2.service` (`/home/ai/voice_server/voice_server.py`,
+`127.0.0.1:8100`, conda env `voice2`), which hosts Qwen3-ASR-1.7B (multilingual ASR, ModelScope local snapshot)
+and CosyVoice-300M-SFT with the built-in `中文女` speaker (22050 Hz). The elderly-companion app
+(`kanxiaoban_laore`) connects directly to the public `/ws` chat endpoint on the same AsLive host. Backups of the
+replaced files: `/home/ai/aslive/core/*.bak-20260910` plus `/home/ai/aslive-core-backup-20260910.tar.gz`; restoring
+them and restarting `aslive` reverts the old FunASR paraformer + Kokoro stack (`voice2.service` can stay). Both
+`aslive` and `voice2` are systemd-managed with restart-on-failure.
+
 The operational intake form has three distinct outcomes: `保存草稿` keeps local unfinished input; `保存并返回` commits
 the elder, bed, care plan, bill and case attachment without starting an assessment; `进行评估` commits that same intake
 first and only then creates an Agent session. The salutation is derived from the committed gender snapshot: male uses
