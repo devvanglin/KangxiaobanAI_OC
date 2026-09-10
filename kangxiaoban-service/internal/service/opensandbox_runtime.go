@@ -41,13 +41,13 @@ func (r *OpenSandboxRuntime) get(ctx context.Context) (*opensandbox.Sandbox, err
 	if r.sandbox != nil {
 		return r.sandbox, nil
 	}
-	connection := opensandbox.ConnectionConfig{Domain: r.cfg.Domain, Protocol: r.cfg.Protocol, APIKey: r.cfg.APIKey, UseServerProxy: true, RequestTimeout: 30 * time.Second, DisableMetrics: true}
+	connection := opensandbox.ConnectionConfig{Domain: r.cfg.Domain, Protocol: r.cfg.Protocol, APIKey: r.cfg.APIKey, UseServerProxy: true, RequestTimeout: 600 * time.Second, DisableMetrics: true}
 	sandbox, err := opensandbox.CreateSandbox(ctx, connection, opensandbox.SandboxCreateOptions{
 		Image: r.cfg.Image, Entrypoint: []string{"/bin/sh", "-c", "while true; do sleep 3600; done"},
 		TimeoutSeconds: ptrInt(300), ResourceLimits: opensandbox.ResourceLimits{"cpu": "500m", "memory": "512Mi"},
 		NetworkPolicy: &opensandbox.NetworkPolicy{DefaultAction: "deny"},
 		Metadata:      map[string]string{"managed-by": "kangxiaoban-agent", "purpose": "model-tool"},
-		ReadyTimeout:  90 * time.Second,
+		ReadyTimeout:  240 * time.Second,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("创建 OpenSandbox 失败: %w", err)
@@ -71,6 +71,12 @@ func (r *OpenSandboxRuntime) close(ctx context.Context) {
 
 func safeSandboxPath(path string) (string, error) {
 	path = strings.TrimSpace(path)
+	// 模型常给绝对路径；把恰好落在工作区内的 /workspace 前缀归一化为相对路径。
+	if path == sandboxWorkspace {
+		path = ""
+	} else if strings.HasPrefix(path, sandboxWorkspace+"/") {
+		path = strings.TrimPrefix(path, sandboxWorkspace+"/")
+	}
 	if path == "" || strings.Contains(path, "\\") || strings.Contains(path, "..") || strings.HasPrefix(path, "/") || strings.ContainsAny(path, "\x00\r\n") {
 		return "", fmt.Errorf("路径必须是 /workspace 下的安全相对路径")
 	}

@@ -13,7 +13,9 @@ import (
 // several model turns plus tool calls, which is far slower than one REST
 // request; the value stays generous because on-prem models are slow and the
 // client UI owns its own spinner.
-const agentExchangeTimeout = 180 * time.Second
+// 480s：工作模式 AI 的沙箱工具首次创建隔离容器（含 egress 边车）在
+// 低配宿主上可能耗时 3-5 分钟，放宽到 8 分钟以保证端到端可用。
+const agentExchangeTimeout = 660 * time.Second
 
 // isAgentExchangePath reports whether the request is one AI agent exchange.
 func isAgentExchangePath(path string) bool {

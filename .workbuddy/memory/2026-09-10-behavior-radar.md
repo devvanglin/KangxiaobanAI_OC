@@ -146,3 +146,14 @@ ad-training-video(1)。方案：后端 GET /api/v1/training/daily（按日随机
 - [x] 前端 T2：DailyTrainingPanel（10 分钟倒计时/图片/音乐 AVPlayer/视频 Video 组件）+
        WideHomePage「申请协助」→「每日训练」按钮，已构建并装设备
 - [x] 部署验证（training/daily 线上 12 项素材实测通过）
+
+## 沙箱调试终态（2026-09-10，交接给 GPT）
+- 已修复：egress 边车缺 NET_ADMIN（drop_capabilities 移除 NET_ADMIN/NET_RAW 后边车健康：DNS redirect installed successfully、policy server listening）
+- 已修复：/opt/opensandbox/config.toml egress.readiness_timeout_seconds=480；.env 末行追加了正确的 KXB_SANDBOX_API_KEY（原 28-29 行断裂）
+- 已调大（代码已部署但需提交确认）：SDK RequestTimeout 600s（opensandbox_runtime.go）、agentExchangeTimeout 660s（middleware/timeout.go）
+- **未完结**：POST /v1/sandboxes 仍 500。最后一公里排查法：触发创建后约 2 分钟窗口内抓
+  `docker ps | grep egress` 容器名 → `docker logs <边车容器>` 看健康状态；同时宿主机
+  `curl http://127.0.0.1:<发布端口>/healthz`；并看 opensandbox-server 日志 500 响应体。
+  服务端 readiness 源码：容器内 /app/opensandbox_server/services/docker/networking.py（约 522-605 行）
+- **完整交接文档（给 GPT）：C:\Users\Shenyi\Desktop\任务交接-康小伴行为识别与沙箱.md** ——重置上下文后先读它。
+  环境凭据位置、全部进度、部署手册、行为红线都在里面。
