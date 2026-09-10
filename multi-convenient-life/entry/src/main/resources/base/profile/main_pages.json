@@ -1,8 +1,0 @@
-{
-  "src": [
-    "pages/Index",
-    "pages/FoodList",
-    "pages/GraphicText",
-    "pages/Living"
-  ]
-}

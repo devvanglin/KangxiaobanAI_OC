@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>康小伴 AI - 数据存储层关系图（MySQL + Redis + MinIO + RAG）</title>
+<style>
+  /* ============================================================
+     可编辑说明：
+     1. 修改文字：直接改 <text> 标签内容
+     2. 修改颜色：改下方 CSS 变量
+     3. 调整位置：改 <g> 的 transform="translate(x,y)"
+     4. 增删节点：复制一组带 id 的 <g>
+     ============================================================ */
+  :root {
+    --color-db:        #1890FF;   /* 主数据库 - 蓝 */
+    --color-db-bg:     #E6F4FF;
+    --color-redis:     #FF4D4F;   /* Redis - 红 */
+    --color-redis-bg:  #FFF1F0;
+    --color-minio:     #FA8C16;   /* MinIO - 橙 */
+    --color-minio-bg:  #FFF7E6;
+    --color-rag:       #722ED1;   /* RAG - 紫 */
+    --color-rag-bg:    #F9F0FF;
+    --color-backend:   #52C41A;   /* Go 后端 - 绿 */
+    --color-backend-bg:#F6FFED;
+    --color-text:      #1A1B1C;
+    --color-text-sub:  #6B7280;
+    --color-border:    #D9D9D9;
+    --color-arrow:     #8C8C8C;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif;
+    background: #FAFAFA;
+    color: var(--color-text);
+    padding: 24px;
+  }
+  .diagram-title {
+    font-size: 20px;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  .diagram-subtitle {
+    font-size: 13px;
+    color: var(--color-text-sub);
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .svg-wrap {
+    max-width: 960px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid var(--color-border);
+    padding: 16px;
+    overflow-x: auto;
+  }
+  svg { display: block; width: 100%; height: auto; }
+  .legend {
+    max-width: 960px;
+    margin: 16px auto 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-size: 12px;
+    color: var(--color-text-sub);
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+  .legend-line { display: inline-block; width: 24px; border-top: 2px solid #8C8C8C; }
+  .legend-line-dashed { display: inline-block; width: 24px; border-top: 2px dashed #8C8C8C; }
+</style>
+</head>
+<body>
+
+<div class="diagram-title">康小伴 AI · 数据存储层关系图</div>
+<div class="diagram-subtitle">MySQL/SQLite 主库 · Redis 缓存 · MinIO 对象存储 · RAG 向量知识库 — 以 Go 后端为协调中心</div>
+
+<div class="svg-wrap">
+<!-- ================================================================
+     SVG 数据存储关系图
+     viewBox: 0 0 920 720
+     布局：Go 后端居中，四个数据存储围绕
+     ================================================================ -->
+<svg viewBox="0 0 920 720" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- 箭头标记 -->
+    <marker id="ar-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10z" fill="#1890FF"/>
+    </marker>
+    <marker id="ar-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10z" fill="#FF4D4F"/>
+    </marker>
+    <marker id="ar-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10z" fill="#FA8C16"/>
+    </marker>
+    <marker id="ar-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10z" fill="#722ED1"/>
+    </marker>
+    <marker id="ar-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10z" fill="#8C8C8C"/>
+    </marker>
+  </defs>
+
+  <!-- ================================================================
+       中心：Go 后端
+       ================================================================ -->
+  <g id="node-backend" transform="translate(310, 290)">
+    <rect width="300" height="120" rx="14" fill="#F6FFED" stroke="#52C41A" stroke-width="2.5"/>
+    <!-- 图标：服务器 -->
+    <g transform="translate(24, 28)">
+      <rect x="0" y="0" width="36" height="10" rx="2" fill="none" stroke="#52C41A" stroke-width="1.5"/>
+      <rect x="0" y="14" width="36" height="10" rx="2" fill="none" stroke="#52C41A" stroke-width="1.5"/>
+      <rect x="0" y="28" width="36" height="10" rx="2" fill="none" stroke="#52C41A" stroke-width="1.5"/>
+      <circle cx="6" cy="5" r="1.5" fill="#52C41A"/>
+      <circle cx="6" cy="19" r="1.5" fill="#52C41A"/>
+      <circle cx="6" cy="33" r="1.5" fill="#52C41A"/>
+    </g>
+    <text x="150" y="48" text-anchor="middle" font-size="18" font-weight="700" fill="#52C41A">Go 后端服务</text>
+    <text x="150" y="70" text-anchor="middle" font-size="12" fill="#6B7280">kangxiaoban-service · 10.10.1.12</text>
+    <text x="150" y="90" text-anchor="middle" font-size="11" fill="#6B7280">数据访问统一入口 · 事务协调 · 鉴权 · 租户隔离</text>
+    <text x="150" y="106" text-anchor="middle" font-size="10" fill="#999">客户端不直连任何存储，全部经后端代理</text>
+  </g>
+
+  <!-- ================================================================
+       左上：主数据库 MySQL/SQLite
+       ================================================================ -->
+  <g id="node-mysql" transform="translate(40, 40)">
+    <rect width="260" height="180" rx="12" fill="#E6F4FF" stroke="#1890FF" stroke-width="2"/>
+    <text x="16" y="26" font-size="14" font-weight="700" fill="#1890FF">主数据库</text>
+    <text x="16" y="44" font-size="11" fill="#6B7280">MySQL / SQLite（可配置切换）</text>
+
+    <!-- 数据库圆柱图标 -->
+    <g transform="translate(20, 56)">
+      <ellipse cx="22" cy="8" rx="20" ry="7" fill="none" stroke="#1890FF" stroke-width="1.5"/>
+      <line x1="2" y1="8" x2="2" y2="40" stroke="#1890FF" stroke-width="1.5"/>
+      <line x1="42" y1="8" x2="42" y2="40" stroke="#1890FF" stroke-width="1.5"/>
+      <ellipse cx="22" cy="40" rx="20" ry="7" fill="none" stroke="#1890FF" stroke-width="1.5"/>
+      <ellipse cx="22" cy="24" rx="20" ry="7" fill="none" stroke="#1890FF" stroke-width="1" stroke-dasharray="3,2"/>
+    </g>
+    <text x="80" y="74" font-size="12" font-weight="600" fill="#1A1B1C">结构化业务数据</text>
+    <text x="80" y="92" font-size="10.5" fill="#6B7280">GORM · WAL 模式 · 租户级隔离</text>
+
+    <!-- 核心表 -->
+    <text x="16" y="118" font-size="10.5" font-weight="600" fill="#1890FF">核心表：</text>
+    <g transform="translate(16, 124)">
+      <rect width="72" height="16" rx="3" fill="#fff" stroke="#91D5FF" stroke-width="0.8"/>
+      <text x="36" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">users/roles</text>
+    </g>
+    <g transform="translate(94, 124)">
+      <rect width="72" height="16" rx="3" fill="#fff" stroke="#91D5FF" stroke-width="0.8"/>
+      <text x="36" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">elders/beds</text>
+    </g>
+    <g transform="translate(172, 124)">
+      <rect width="72" height="16" rx="3" fill="#fff" stroke="#91D5FF" stroke-width="0.8"/>
+      <text x="36" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">tasks/alerts</text>
+    </g>
+    <g transform="translate(16, 146)">
+      <rect width="72" height="16" rx="3" fill="#fff" stroke="#91D5FF" stroke-width="0.8"/>
+      <text x="36" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">health/meds</text>
+    </g>
+    <g transform="translate(94, 146)">
+      <rect width="72" height="16" rx="3" fill="#fff" stroke="#91D5FF" stroke-width="0.8"/>
+      <text x="36" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">ai/conversations</text>
+    </g>
+    <g transform="translate(172, 146)">
+      <rect width="72" height="16" rx="3" fill="#fff" stroke="#91D5FF" stroke-width="0.8"/>
+      <text x="36" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">audit_logs</text>
+    </g>
+    <text x="16" y="172" font-size="9.5" fill="#1890FF">✓ 已实现 · 权威数据源</text>
+  </g>
+
+  <!-- ================================================================
+       右上：Redis 缓存
+       ================================================================ -->
+  <g id="node-redis" transform="translate(620, 40)">
+    <rect width="260" height="180" rx="12" fill="#FFF1F0" stroke="#FF4D4F" stroke-width="2" stroke-dasharray="6,3"/>
+    <text x="16" y="26" font-size="14" font-weight="700" fill="#FF4D4F">Redis 缓存</text>
+    <text x="16" y="44" font-size="11" fill="#6B7280">内存键值存储 · 可选增强</text>
+
+    <!-- Redis 图标 -->
+    <g transform="translate(20, 56)">
+      <rect x="0" y="4" width="44" height="32" rx="4" fill="none" stroke="#FF4D4F" stroke-width="1.5"/>
+      <rect x="6" y="0" width="32" height="10" rx="2" fill="none" stroke="#FF4D4F" stroke-width="1.5"/>
+      <line x1="8" y1="18" x2="36" y2="18" stroke="#FF4D4F" stroke-width="1"/>
+      <line x1="8" y1="26" x2="28" y2="26" stroke="#FF4D4F" stroke-width="1"/>
+    </g>
+    <text x="80" y="74" font-size="12" font-weight="600" fill="#1A1B1C">热点数据加速</text>
+    <text x="80" y="92" font-size="10.5" fill="#6B7280">读缓存 · 会话 · 分布式锁</text>
+
+    <!-- 用途 -->
+    <text x="16" y="118" font-size="10.5" font-weight="600" fill="#FF4D4F">典型用途：</text>
+    <g transform="translate(16, 124)">
+      <rect width="108" height="16" rx="3" fill="#fff" stroke="#FFCCC7" stroke-width="0.8"/>
+      <text x="54" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">JWT 黑名单/续期</text>
+    </g>
+    <g transform="translate(130, 124)">
+      <rect width="108" height="16" rx="3" fill="#fff" stroke="#FFCCC7" stroke-width="0.8"/>
+      <text x="54" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">热点查询缓存</text>
+    </g>
+    <g transform="translate(16, 146)">
+      <rect width="108" height="16" rx="3" fill="#fff" stroke="#FFCCC7" stroke-width="0.8"/>
+      <text x="54" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">WebSocket 会话</text>
+    </g>
+    <g transform="translate(130, 146)">
+      <rect width="108" height="16" rx="3" fill="#fff" stroke="#FFCCC7" stroke-width="0.8"/>
+      <text x="54" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">限流/分布式锁</text>
+    </g>
+    <text x="16" y="172" font-size="9.5" fill="#FF4D4F">◐ 规划中 · 当前未接入</text>
+  </g>
+
+  <!-- ================================================================
+       左下：MinIO 对象存储
+       ================================================================ -->
+  <g id="node-minio" transform="translate(40, 480)">
+    <rect width="260" height="190" rx="12" fill="#FFF7E6" stroke="#FA8C16" stroke-width="2"/>
+    <text x="16" y="26" font-size="14" font-weight="700" fill="#FA8C16">MinIO 对象存储</text>
+    <text x="16" y="44" font-size="11" fill="#6B7280">S3 兼容 · 10.10.1.13:9000</text>
+
+    <!-- MinIO 图标 -->
+    <g transform="translate(20, 54)">
+      <rect x="0" y="0" width="44" height="36" rx="4" fill="none" stroke="#FA8C16" stroke-width="1.5"/>
+      <ellipse cx="22" cy="10" rx="14" ry="5" fill="none" stroke="#FA8C16" stroke-width="1.2"/>
+      <ellipse cx="22" cy="26" rx="14" ry="5" fill="none" stroke="#FA8C16" stroke-width="1.2"/>
+      <line x1="8" y1="10" x2="8" y2="26" stroke="#FA8C16" stroke-width="1.2"/>
+      <line x1="36" y1="10" x2="36" y2="26" stroke="#FA8C16" stroke-width="1.2"/>
+    </g>
+    <text x="80" y="72" font-size="12" font-weight="600" fill="#1A1B1C">非结构化文件</text>
+    <text x="80" y="90" font-size="10.5" fill="#6B7280">storage_service · 签名 URL 访问</text>
+
+    <!-- 存储内容 -->
+    <text x="16" y="114" font-size="10.5" font-weight="600" fill="#FA8C16">存储内容：</text>
+    <g transform="translate(16, 120)">
+      <rect width="108" height="16" rx="3" fill="#fff" stroke="#FFD591" stroke-width="0.8"/>
+      <text x="54" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">入住评估附件</text>
+    </g>
+    <g transform="translate(130, 120)">
+      <rect width="108" height="16" rx="3" fill="#fff" stroke="#FFD591" stroke-width="0.8"/>
+      <text x="54" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">RAG 知识库文档</text>
+    </g>
+    <g transform="translate(16, 142)">
+      <rect width="108" height="16" rx="3" fill="#fff" stroke="#FFD591" stroke-width="0.8"/>
+      <text x="54" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">头像/图片</text>
+    </g>
+    <g transform="translate(130, 142)">
+      <rect width="108" height="16" rx="3" fill="#fff" stroke="#FFD591" stroke-width="0.8"/>
+      <text x="54" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">导出 PDF/报表</text>
+    </g>
+    <g transform="translate(16, 164)">
+      <rect width="222" height="16" rx="3" fill="#fff" stroke="#FFD591" stroke-width="0.8"/>
+      <text x="111" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">Bucket 隔离：按租户/业务类型分桶</text>
+    </g>
+    <text x="16" y="184" font-size="9.5" fill="#FA8C16">✓ 已实现 · 未配置时返回 503</text>
+  </g>
+
+  <!-- ================================================================
+       右下：RAG 向量知识库
+       ================================================================ -->
+  <g id="node-rag" transform="translate(620, 480)">
+    <rect width="260" height="190" rx="12" fill="#F9F0FF" stroke="#722ED1" stroke-width="2"/>
+    <text x="16" y="26" font-size="14" font-weight="700" fill="#722ED1">RAG 向量知识库</text>
+    <text x="16" y="44" font-size="11" fill="#6B7280">Dify · 检索增强生成</text>
+
+    <!-- RAG 图标 -->
+    <g transform="translate(20, 54)">
+      <circle cx="14" cy="14" r="10" fill="none" stroke="#722ED1" stroke-width="1.5"/>
+      <circle cx="30" cy="22" r="10" fill="none" stroke="#722ED1" stroke-width="1.5"/>
+      <line x1="22" y1="18" x2="22" y2="18" stroke="#722ED1" stroke-width="1"/>
+      <path d="M8 8 L20 20" stroke="#722ED1" stroke-width="1" stroke-dasharray="2,2"/>
+      <text x="14" y="18" text-anchor="middle" font-size="8" fill="#722ED1">知</text>
+      <text x="30" y="26" text-anchor="middle" font-size="8" fill="#722ED1">模</text>
+    </g>
+    <text x="80" y="72" font-size="12" font-weight="600" fill="#1A1B1C">语义检索 + 上下文注入</text>
+    <text x="80" y="90" font-size="10.5" fill="#6B7280">ai_connection 配置 · 按角色启用</text>
+
+    <!-- 组成 -->
+    <text x="16" y="114" font-size="10.5" font-weight="600" fill="#722ED1">组成部分：</text>
+    <g transform="translate(16, 120)">
+      <rect width="108" height="16" rx="3" fill="#fff" stroke="#D3ADF7" stroke-width="0.8"/>
+      <text x="54" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">Dify Dataset</text>
+    </g>
+    <g transform="translate(130, 120)">
+      <rect width="108" height="16" rx="3" fill="#fff" stroke="#D3ADF7" stroke-width="0.8"/>
+      <text x="54" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">Embedding 向量</text>
+    </g>
+    <g transform="translate(16, 142)">
+      <rect width="108" height="16" rx="3" fill="#fff" stroke="#D3ADF7" stroke-width="0.8"/>
+      <text x="54" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">分段/索引规则</text>
+    </g>
+    <g transform="translate(130, 142)">
+      <rect width="108" height="16" rx="3" fill="#fff" stroke="#D3ADF7" stroke-width="0.8"/>
+      <text x="54" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">检索/Rerank</text>
+    </g>
+    <g transform="translate(16, 164)">
+      <rect width="222" height="16" rx="3" fill="#fff" stroke="#D3ADF7" stroke-width="0.8"/>
+      <text x="111" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">检索失败不阻塞对话 · 本地模型不检索</text>
+    </g>
+    <text x="16" y="184" font-size="9.5" fill="#722ED1">✓ 已实现 · HTTP 端点可配置</text>
+  </g>
+
+  <!-- ================================================================
+       连线：Go 后端 ↔ 主数据库
+       ================================================================ -->
+  <g id="conn-backend-mysql">
+    <line x1="310" y1="330" x2="300" y2="220" stroke="#1890FF" stroke-width="2" marker-end="url(#ar-blue)"/>
+    <line x1="340" y1="330" x2="330" y2="220" stroke="#1890FF" stroke-width="2" marker-end="url(#ar-blue)"/>
+    <!-- 标签 -->
+    <rect x="225" y="250" width="130" height="36" rx="6" fill="#fff" stroke="#1890FF" stroke-width="1"/>
+    <text x="290" y="266" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1890FF">GORM SQL 读写</text>
+    <text x="290" y="280" text-anchor="middle" font-size="9.5" fill="#6B7280">事务 · 租户过滤 · WAL</text>
+  </g>
+
+  <!-- ================================================================
+       连线：Go 后端 ↔ Redis
+       ================================================================ -->
+  <g id="conn-backend-redis">
+    <line x1="610" y1="330" x2="620" y2="220" stroke="#FF4D4F" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#ar-red)"/>
+    <line x1="640" y1="330" x2="650" y2="220" stroke="#FF4D4F" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#ar-red)"/>
+    <!-- 标签 -->
+    <rect x="565" y="250" width="130" height="36" rx="6" fill="#fff" stroke="#FF4D4F" stroke-width="1" stroke-dasharray="4,2"/>
+    <text x="630" y="266" text-anchor="middle" font-size="10.5" font-weight="600" fill="#FF4D4F">缓存读写（规划）</text>
+    <text x="630" y="280" text-anchor="middle" font-size="9.5" fill="#6B7280">Cache-Aside · TTL 过期</text>
+  </g>
+
+  <!-- ================================================================
+       连线：Go 后端 ↔ MinIO
+       ================================================================ -->
+  <g id="conn-backend-minio">
+    <line x1="310" y1="390" x2="300" y2="480" stroke="#FA8C16" stroke-width="2" marker-end="url(#ar-orange)"/>
+    <line x1="340" y1="390" x2="330" y2="480" stroke="#FA8C16" stroke-width="2" marker-end="url(#ar-orange)"/>
+    <!-- 标签 -->
+    <rect x="225" y="420" width="130" height="36" rx="6" fill="#fff" stroke="#FA8C16" stroke-width="1"/>
+    <text x="290" y="436" text-anchor="middle" font-size="10.5" font-weight="600" fill="#FA8C16">S3 API 上传/下载</text>
+    <text x="290" y="450" text-anchor="middle" font-size="9.5" fill="#6B7280">签名 URL · Bucket 隔离</text>
+  </g>
+
+  <!-- ================================================================
+       连线：Go 后端 ↔ RAG
+       ================================================================ -->
+  <g id="conn-backend-rag">
+    <line x1="610" y1="390" x2="620" y2="480" stroke="#722ED1" stroke-width="2" marker-end="url(#ar-purple)"/>
+    <line x1="640" y1="390" x2="650" y2="480" stroke="#722ED1" stroke-width="2" marker-end="url(#ar-purple)"/>
+    <!-- 标签 -->
+    <rect x="565" y="420" width="130" height="36" rx="6" fill="#fff" stroke="#722ED1" stroke-width="1"/>
+    <text x="630" y="436" text-anchor="middle" font-size="10.5" font-weight="600" fill="#722ED1">Dify HTTP 检索</text>
+    <text x="630" y="450" text-anchor="middle" font-size="9.5" fill="#6B7280">片段注入 · 失败降级</text>
+  </g>
+
+  <!-- ================================================================
+       跨存储关系：MySQL ↔ MinIO（元数据引用）
+       ================================================================ -->
+  <g id="conn-mysql-minio">
+    <!-- 曲线连接左下 -->
+    <path d="M 170 220 Q 170 350 170 480" fill="none" stroke="#FA8C16" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#ar-orange)"/>
+    <rect x="60" y="330" width="150" height="32" rx="6" fill="#fff" stroke="#FA8C16" stroke-width="1" stroke-dasharray="4,2"/>
+    <text x="135" y="345" text-anchor="middle" font-size="10" font-weight="600" fill="#FA8C16">storage_key 引用</text>
+    <text x="135" y="358" text-anchor="middle" font-size="9" fill="#6B7280">DB 存元数据 · MinIO 存文件</text>
+  </g>
+
+  <!-- ================================================================
+       跨存储关系：MySQL ↔ RAG（AI 日志/知识库关联）
+       ================================================================ -->
+  <g id="conn-mysql-rag">
+    <path d="M 750 220 Q 750 350 750 480" fill="none" stroke="#722ED1" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#ar-purple)"/>
+    <rect x="710" y="330" width="150" height="32" rx="6" fill="#fff" stroke="#722ED1" stroke-width="1" stroke-dasharray="4,2"/>
+    <text x="785" y="345" text-anchor="middle" font-size="10" font-weight="600" fill="#722ED1">ai_usage_logs 记录</text>
+    <text x="785" y="358" text-anchor="middle" font-size="9" fill="#6B7280">检索次数 · 耗时 · 成功标记</text>
+  </g>
+
+  <!-- ================================================================
+       跨存储关系：Redis ↔ MySQL（缓存失效）
+       ================================================================ -->
+  <g id="conn-redis-mysql">
+    <line x1="300" y1="130" x2="620" y2="130" stroke="#FF4D4F" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#ar-red)"/>
+    <rect x="380" y="108" width="160" height="28" rx="6" fill="#fff" stroke="#FF4D4F" stroke-width="1" stroke-dasharray="4,2"/>
+    <text x="460" y="121" text-anchor="middle" font-size="10" font-weight="600" fill="#FF4D4F">写 DB 后失效缓存</text>
+    <text x="460" y="133" text-anchor="middle" font-size="9" fill="#6B7280">Cache-Aside 模式（规划）</text>
+  </g>
+
+  <!-- ================================================================
+       跨存储关系：MinIO ↔ RAG（文档来源）
+       ================================================================ -->
+  <g id="conn-minio-rag">
+    <line x1="300" y1="575" x2="620" y2="575" stroke="#722ED1" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#ar-purple)"/>
+    <rect x="370" y="553" width="180" height="28" rx="6" fill="#fff" stroke="#722ED1" stroke-width="1" stroke-dasharray="4,2"/>
+    <text x="460" y="566" text-anchor="middle" font-size="10" font-weight="600" fill="#722ED1">知识库文档来源</text>
+    <text x="460" y="578" text-anchor="middle" font-size="9" fill="#6B7280">上传文件 → 分段 → 向量化索引</text>
+  </g>
+
+  <!-- ================================================================
+       底部说明
+       ================================================================ -->
+  <g id="footer" transform="translate(20, 690)">
+    <text x="0" y="0" font-size="10" fill="#999">
+      数据来源：kangxiaoban-service 源码（config.go / storage_service.go / ai_connection_backfill.go）· Redis 为规划组件，当前未接入
+    </text>
+  </g>
+</svg>
+</div>
+
+<!-- 图例 -->
+<div class="legend">
+  <div class="legend-item">
+    <span class="legend-dot" style="background:#1890FF;"></span>
+    <span>主数据库（已实现）</span>
+  </div>
+  <div class="legend-item">
+    <span class="legend-dot" style="background:#FF4D4F;"></span>
+    <span>Redis 缓存（规划中）</span>
+  </div>
+  <div class="legend-item">
+    <span class="legend-dot" style="background:#FA8C16;"></span>
+    <span>MinIO 对象存储（已实现）</span>
+  </div>
+  <div class="legend-item">
+    <span class="legend-dot" style="background:#722ED1;"></span>
+    <span>RAG 向量知识库（已实现）</span>
+  </div>
+  <div class="legend-item">
+    <span class="legend-dot" style="background:#52C41A;"></span>
+    <span>Go 后端（协调中心）</span>
+  </div>
+  <div class="legend-item">
+    <span class="legend-line"></span>
+    <span>实线 = 直接读写</span>
+  </div>
+  <div class="legend-item">
+    <span class="legend-line-dashed"></span>
+    <span>虚线 = 引用/关联/规划</span>
+  </div>
+</div>
+
+</body>
+</html>

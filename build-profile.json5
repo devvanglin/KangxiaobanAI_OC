@@ -1,0 +1,56 @@
+{
+  "app": {
+    "products": [
+      {
+        "name": "default",
+        "signingConfig": "default",
+        "targetSdkVersion": "26.0.0",
+        "compatibleSdkVersion": "6.1.0(23)",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          "strictMode": {
+            "caseSensitiveCheck": true,
+            "useNormalizedOHMUrl": true
+          }
+        }
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug"
+      },
+      {
+        "name": "release"
+      }
+    ],
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "C:\\Users\\OC_Tuf6\\.ohos\\config\\default_KangxiaobanAI_06jpVoG7w7mi22Z80lZBJ7EkZCH5DR2Wu6OqO5pSpOg=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001A25EF2F68583DC6467DE3ED74649D8EC4481A6028735DE50380B6D74B9DD711CE9A3291A6EF5E",
+          "profile": "C:\\Users\\OC_Tuf6\\.ohos\\config\\default_KangxiaobanAI_06jpVoG7w7mi22Z80lZBJ7EkZCH5DR2Wu6OqO5pSpOg=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "C:\\Users\\OC_Tuf6\\.ohos\\config\\default_KangxiaobanAI_06jpVoG7w7mi22Z80lZBJ7EkZCH5DR2Wu6OqO5pSpOg=.p12",
+          "storePassword": "0000001A8A0BED38187A06DD5076B2A6C1F923E68263E7D0E7F0EFCA1D492F2A85787F810E33094BEE26"
+        }
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "kanxiaoban",
+      "srcPath": "./products/entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    }
+  ]
+}

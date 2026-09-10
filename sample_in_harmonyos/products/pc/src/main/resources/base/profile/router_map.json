@@ -1,9 +1,0 @@
-{
-  "routerMap": [
-    {
-      "name": "MainPage",
-      "pageSourceFile": "src/main/ets/page/PcMainPage.ets",
-      "buildFunction": "MainPageBuilder"
-    }
-  ]
-}

@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>康小伴 AI - 用户 / 后端 / 数据库 关系图</title>
+<style>
+  /* ============================================================
+     可编辑说明：
+     1. 修改文字：直接改 <text> 标签内容
+     2. 修改颜色：改下方 CSS 变量或各 rect 的 fill
+     3. 调整位置：改 <g> 的 transform="translate(x,y)"
+     4. 增删节点：复制一组 <g class="node"> 即可
+     ============================================================ */
+  :root {
+    --color-user:      #5B8FF9;   /* 用户层 - 蓝 */
+    --color-user-bg:   #E8F0FE;
+    --color-backend:   #52C41A;   /* 后端层 - 绿 */
+    --color-backend-bg:#E6F7E6;
+    --color-data:      #FA8C16;   /* 数据层 - 橙 */
+    --color-data-bg:   #FFF3E6;
+    --color-external:  #722ED1;   /* 外部服务 - 紫 */
+    --color-ext-bg:    #F3E8FF;
+    --color-text:      #1A1B1C;
+    --color-text-sub:  #6B7280;
+    --color-border:    #D9D9D9;
+    --color-arrow:     #8C8C8C;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif;
+    background: #FAFAFA;
+    color: var(--color-text);
+    padding: 24px;
+  }
+  .diagram-title {
+    font-size: 20px;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  .diagram-subtitle {
+    font-size: 13px;
+    color: var(--color-text-sub);
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .svg-wrap {
+    max-width: 960px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid var(--color-border);
+    padding: 16px;
+    overflow-x: auto;
+  }
+  svg { display: block; width: 100%; height: auto; }
+  .legend {
+    max-width: 960px;
+    margin: 16px auto 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-size: 12px;
+    color: var(--color-text-sub);
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="diagram-title">康小伴 AI · 用户 / 后端 / 数据库 关系图</div>
+<div class="diagram-subtitle">基于 KangxiaobanAI 项目实际架构（HarmonyOS 客户端 → Go 后端 → SQLite/MySQL + 外部服务）</div>
+
+<div class="svg-wrap">
+<!-- ================================================================
+     SVG 架构图
+     viewBox: 0 0 920 680
+     三层结构：用户层(上) → 后端层(中) → 数据/外部服务层(下)
+     ================================================================ -->
+<svg viewBox="0 0 920 680" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- 箭头标记 -->
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#8C8C8C"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5B8FF9"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#52C41A"/>
+    </marker>
+    <marker id="arrow-orange" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#FA8C16"/>
+    </marker>
+    <marker id="arrow-purple" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#722ED1"/>
+    </marker>
+  </defs>
+
+  <!-- ================================================================
+       第一层：用户层 (y = 20 ~ 130)
+       ================================================================ -->
+  <g id="layer-user">
+    <!-- 层标签 -->
+    <rect x="20" y="20" width="880" height="110" rx="10"
+          fill="#E8F0FE" stroke="#5B8FF9" stroke-width="1.5" stroke-dasharray="6,3"/>
+    <text x="36" y="44" font-size="13" font-weight="600" fill="#5B8FF9">用户层 · HarmonyOS NEXT 原生客户端</text>
+
+    <!-- 护工端 -->
+    <g id="node-caregiver" transform="translate(100, 58)">
+      <rect width="180" height="56" rx="8" fill="#fff" stroke="#5B8FF9" stroke-width="1.5"/>
+      <text x="90" y="26" text-anchor="middle" font-size="14" font-weight="600" fill="#1A1B1C">护工端</text>
+      <text x="90" y="44" text-anchor="middle" font-size="11" fill="#6B7280">Caregiver · 日常照护工作台</text>
+    </g>
+
+    <!-- 医师端 -->
+    <g id="node-doctor" transform="translate(370, 58)">
+      <rect width="180" height="56" rx="8" fill="#fff" stroke="#5B8FF9" stroke-width="1.5"/>
+      <text x="90" y="26" text-anchor="middle" font-size="14" font-weight="600" fill="#1A1B1C">医师端</text>
+      <text x="90" y="44" text-anchor="middle" font-size="11" fill="#6B7280">Doctor · 评估 / 入住 / 健康管理</text>
+    </g>
+
+    <!-- 管理员端 -->
+    <g id="node-admin" transform="translate(640, 58)">
+      <rect width="180" height="56" rx="8" fill="#fff" stroke="#5B8FF9" stroke-width="1.5"/>
+      <text x="90" y="26" text-anchor="middle" font-size="14" font-weight="600" fill="#1A1B1C">管理员端</text>
+      <text x="90" y="44" text-anchor="middle" font-size="11" fill="#6B7280">Admin · 机构运营 / 系统管理</text>
+    </g>
+  </g>
+
+  <!-- ================================================================
+       连接：用户层 → 后端层
+       ================================================================ -->
+  <g id="conn-user-to-backend">
+    <!-- 三条线汇聚到后端入口 -->
+    <line x1="190" y1="130" x2="190" y2="165" stroke="#5B8FF9" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+    <line x1="460" y1="130" x2="460" y2="165" stroke="#5B8FF9" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+    <line x1="730" y1="130" x2="730" y2="165" stroke="#5B8FF9" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+
+    <!-- 协议标注 -->
+    <rect x="330" y="138" width="260" height="22" rx="11" fill="#fff" stroke="#5B8FF9" stroke-width="1"/>
+    <text x="460" y="153" text-anchor="middle" font-size="11" fill="#5B8FF9" font-weight="500">
+      HTTPS REST + WebSocket（JWT 认证 · 租户隔离）
+    </text>
+  </g>
+
+  <!-- ================================================================
+       第二层：后端层 (y = 175 ~ 445)
+       ================================================================ -->
+  <g id="layer-backend">
+    <rect x="20" y="175" width="880" height="270" rx="10"
+          fill="#E6F7E6" stroke="#52C41A" stroke-width="1.5" stroke-dasharray="6,3"/>
+    <text x="36" y="199" font-size="13" font-weight="600" fill="#52C41A">后端层 · Go 机构后端（10.10.1.12）</text>
+
+    <!-- 入口网关子层 -->
+    <g id="backend-gateway" transform="translate(40, 210)">
+      <rect width="840" height="52" rx="8" fill="#fff" stroke="#52C41A" stroke-width="1" opacity="0.9"/>
+      <text x="16" y="20" font-size="11" font-weight="600" fill="#52C41A">入口 &amp; 通信</text>
+
+      <!-- 认证授权 -->
+      <g transform="translate(16, 26)">
+        <rect width="150" height="20" rx="4" fill="#F0FFF0" stroke="#52C41A" stroke-width="0.8"/>
+        <text x="75" y="14" text-anchor="middle" font-size="10.5" fill="#1A1B1C">认证授权 JWT / RBAC</text>
+      </g>
+      <!-- REST API -->
+      <g transform="translate(180, 26)">
+        <rect width="130" height="20" rx="4" fill="#F0FFF0" stroke="#52C41A" stroke-width="0.8"/>
+        <text x="65" y="14" text-anchor="middle" font-size="10.5" fill="#1A1B1C">REST API /api/v1</text>
+      </g>
+      <!-- WebSocket -->
+      <g transform="translate(324, 26)">
+        <rect width="140" height="20" rx="4" fill="#F0FFF0" stroke="#52C41A" stroke-width="0.8"/>
+        <text x="70" y="14" text-anchor="middle" font-size="10.5" fill="#1A1B1C">WebSocket 实时通信</text>
+      </g>
+      <!-- MQTT -->
+      <g transform="translate(478, 26)">
+        <rect width="120" height="20" rx="4" fill="#F0FFF0" stroke="#52C41A" stroke-width="0.8"/>
+        <text x="60" y="14" text-anchor="middle" font-size="10.5" fill="#1A1B1C">MQTT 设备接入</text>
+      </g>
+      <!-- 租户隔离 -->
+      <g transform="translate(612, 26)">
+        <rect width="120" height="20" rx="4" fill="#F0FFF0" stroke="#52C41A" stroke-width="0.8"/>
+        <text x="60" y="14" text-anchor="middle" font-size="10.5" fill="#1A1B1C">多租户数据隔离</text>
+      </g>
+    </g>
+
+    <!-- 业务服务子层 -->
+    <g id="backend-business" transform="translate(40, 272)">
+      <rect width="840" height="72" rx="8" fill="#fff" stroke="#52C41A" stroke-width="1" opacity="0.9"/>
+      <text x="16" y="20" font-size="11" font-weight="600" fill="#52C41A">业务服务层</text>
+
+      <!-- 业务模块 - 第一行 -->
+      <g transform="translate(16, 28)">
+        <rect width="90" height="18" rx="4" fill="#F6FFED" stroke="#B7EB8F" stroke-width="0.8"/>
+        <text x="45" y="13" text-anchor="middle" font-size="10" fill="#1A1B1C">居民档案</text>
+      </g>
+      <g transform="translate(114, 28)">
+        <rect width="90" height="18" rx="4" fill="#F6FFED" stroke="#B7EB8F" stroke-width="0.8"/>
+        <text x="45" y="13" text-anchor="middle" font-size="10" fill="#1A1B1C">照护任务</text>
+      </g>
+      <g transform="translate(212, 28)">
+        <rect width="90" height="18" rx="4" fill="#F6FFED" stroke="#B7EB8F" stroke-width="0.8"/>
+        <text x="45" y="13" text-anchor="middle" font-size="10" fill="#1A1B1C">健康数据</text>
+      </g>
+      <g transform="translate(310, 28)">
+        <rect width="90" height="18" rx="4" fill="#F6FFED" stroke="#B7EB8F" stroke-width="0.8"/>
+        <text x="45" y="13" text-anchor="middle" font-size="10" fill="#1A1B1C">设备管理</text>
+      </g>
+      <g transform="translate(408, 28)">
+        <rect width="90" height="18" rx="4" fill="#F6FFED" stroke="#B7EB8F" stroke-width="0.8"/>
+        <text x="45" y="13" text-anchor="middle" font-size="10" fill="#1A1B1C">告警事件</text>
+      </g>
+      <g transform="translate(506, 28)">
+        <rect width="90" height="18" rx="4" fill="#F6FFED" stroke="#B7EB8F" stroke-width="0.8"/>
+        <text x="45" y="13" text-anchor="middle" font-size="10" fill="#1A1B1C">账单订阅</text>
+      </g>
+      <g transform="translate(604, 28)">
+        <rect width="90" height="18" rx="4" fill="#F6FFED" stroke="#B7EB8F" stroke-width="0.8"/>
+        <text x="45" y="13" text-anchor="middle" font-size="10" fill="#1A1B1C">排班考勤</text>
+      </g>
+      <g transform="translate(702, 28)">
+        <rect width="90" height="18" rx="4" fill="#F6FFED" stroke="#B7EB8F" stroke-width="0.8"/>
+        <text x="45" y="13" text-anchor="middle" font-size="10" fill="#1A1B1C">消息沟通</text>
+      </g>
+
+      <!-- 业务模块 - 第二行 -->
+      <g transform="translate(16, 50)">
+        <rect width="120" height="18" rx="4" fill="#F6FFED" stroke="#B7EB8F" stroke-width="0.8"/>
+        <text x="60" y="13" text-anchor="middle" font-size="10" fill="#1A1B1C">入住评估 (Appendix A/B/C)</text>
+      </g>
+      <g transform="translate(144, 50)">
+        <rect width="120" height="18" rx="4" fill="#F6FFED" stroke="#B7EB8F" stroke-width="0.8"/>
+        <text x="60" y="13" text-anchor="middle" font-size="10" fill="#1A1B1C">语音评估 Agent</text>
+      </g>
+      <g transform="translate(272, 50)">
+        <rect width="120" height="18" rx="4" fill="#F6FFED" stroke="#B7EB8F" stroke-width="0.8"/>
+        <text x="60" y="13" text-anchor="middle" font-size="10" fill="#1A1B1C">操作审计日志</text>
+      </g>
+      <g transform="translate(400, 50)">
+        <rect width="120" height="18" rx="4" fill="#F6FFED" stroke="#B7EB8F" stroke-width="0.8"/>
+        <text x="60" y="13" text-anchor="middle" font-size="10" fill="#1A1B1C">系统监控</text>
+      </g>
+      <g transform="translate(528, 50)">
+        <rect width="120" height="18" rx="4" fill="#F6FFED" stroke="#B7EB8F" stroke-width="0.8"/>
+        <text x="60" y="13" text-anchor="middle" font-size="10" fill="#1A1B1C">角色 / 用户管理</text>
+      </g>
+      <g transform="translate(656, 50)">
+        <rect width="120" height="18" rx="4" fill="#F6FFED" stroke="#B7EB8F" stroke-width="0.8"/>
+        <text x="60" y="13" text-anchor="middle" font-size="10" fill="#1A1B1C">区域 / 床位管理</text>
+      </g>
+    </g>
+
+    <!-- AI & 代理子层 -->
+    <g id="backend-ai" transform="translate(40, 356)">
+      <rect width="840" height="78" rx="8" fill="#fff" stroke="#52C41A" stroke-width="1" opacity="0.9"/>
+      <text x="16" y="20" font-size="11" font-weight="600" fill="#52C41A">AI 网关 &amp; 外部代理</text>
+
+      <!-- AI 网关 -->
+      <g transform="translate(16, 30)">
+        <rect width="240" height="40" rx="6" fill="#F9F0FF" stroke="#722ED1" stroke-width="1"/>
+        <text x="120" y="18" text-anchor="middle" font-size="11.5" font-weight="600" fill="#722ED1">AI 对话网关</text>
+        <text x="120" y="33" text-anchor="middle" font-size="10" fill="#6B7280">统一模型连接 · 角色提示词 · RAG · MCP · Skills</text>
+      </g>
+
+      <!-- 语音评估代理 -->
+      <g transform="translate(270, 30)">
+        <rect width="240" height="40" rx="6" fill="#F9F0FF" stroke="#722ED1" stroke-width="1"/>
+        <text x="120" y="18" text-anchor="middle" font-size="11.5" font-weight="600" fill="#722ED1">语音评估代理</text>
+        <text x="120" y="33" text-anchor="middle" font-size="10" fill="#6B7280">AsLive WebSocket 代理 · 题库快照 · 半双工</text>
+      </g>
+
+      <!-- 套餐推荐 -->
+      <g transform="translate(524, 30)">
+        <rect width="160" height="40" rx="6" fill="#F9F0FF" stroke="#722ED1" stroke-width="1"/>
+        <text x="80" y="18" text-anchor="middle" font-size="11.5" font-weight="600" fill="#722ED1">套餐推荐</text>
+        <text x="80" y="33" text-anchor="middle" font-size="10" fill="#6B7280">评估后异步生成照护计划</text>
+      </g>
+
+      <!-- OpenSandbox -->
+      <g transform="translate(698, 30)">
+        <rect width="126" height="40" rx="6" fill="#F9F0FF" stroke="#722ED1" stroke-width="1"/>
+        <text x="63" y="18" text-anchor="middle" font-size="11.5" font-weight="600" fill="#722ED1">OpenSandbox</text>
+        <text x="63" y="33" text-anchor="middle" font-size="10" fill="#6B7280">Agent 工具沙箱</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- ================================================================
+       连接：后端层 → 数据层
+       ================================================================ -->
+  <g id="conn-backend-to-data">
+    <!-- 主数据库连接 -->
+    <line x1="300" y1="445" x2="300" y2="480" stroke="#FA8C16" stroke-width="1.5" marker-end="url(#arrow-orange)"/>
+    <text x="310" y="465" font-size="10.5" fill="#FA8C16">SQL 读写</text>
+
+    <!-- 外部服务连接 -->
+    <line x1="620" y1="445" x2="620" y2="480" stroke="#722ED1" stroke-width="1.5" stroke-dasharray="4,2" marker-end="url(#arrow-purple)"/>
+    <text x="630" y="465" font-size="10.5" fill="#722ED1">HTTP / WS / MQTT 代理调用</text>
+  </g>
+
+  <!-- ================================================================
+       第三层：数据 & 外部服务层 (y = 485 ~ 660)
+       ================================================================ -->
+  <g id="layer-data">
+    <!-- 主数据库 -->
+    <g id="node-database" transform="translate(20, 485)">
+      <rect width="400" height="175" rx="10" fill="#FFF3E6" stroke="#FA8C16" stroke-width="1.5" stroke-dasharray="6,3"/>
+      <text x="16" y="24" font-size="13" font-weight="600" fill="#FA8C16">数据层 · 主数据库</text>
+
+      <!-- SQLite/MySQL -->
+      <g transform="translate(30, 38)">
+        <rect width="340" height="44" rx="8" fill="#fff" stroke="#FA8C16" stroke-width="1.5"/>
+        <!-- 数据库圆柱图标示意 -->
+        <ellipse cx="30" cy="22" rx="14" ry="6" fill="none" stroke="#FA8C16" stroke-width="1.2"/>
+        <line x1="16" y1="22" x2="16" y2="36" stroke="#FA8C16" stroke-width="1.2"/>
+        <line x1="44" y1="22" x2="44" y2="36" stroke="#FA8C16" stroke-width="1.2"/>
+        <ellipse cx="30" cy="36" rx="14" ry="6" fill="none" stroke="#FA8C16" stroke-width="1.2"/>
+        <text x="64" y="20" font-size="13" font-weight="600" fill="#1A1B1C">SQLite / MySQL</text>
+        <text x="64" y="36" font-size="10.5" fill="#6B7280">租户级持久化 · 可配置切换</text>
+      </g>
+
+      <!-- 主要数据表 -->
+      <text x="30" y="104" font-size="10.5" font-weight="600" fill="#FA8C16">核心数据表：</text>
+      <g transform="translate(30, 112)">
+        <rect width="100" height="16" rx="3" fill="#FFF7E6" stroke="#FFD591" stroke-width="0.8"/>
+        <text x="50" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">users / roles</text>
+      </g>
+      <g transform="translate(136, 112)">
+        <rect width="100" height="16" rx="3" fill="#FFF7E6" stroke="#FFD591" stroke-width="0.8"/>
+        <text x="50" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">elders / beds</text>
+      </g>
+      <g transform="translate(242, 112)">
+        <rect width="100" height="16" rx="3" fill="#FFF7E6" stroke="#FFD591" stroke-width="0.8"/>
+        <text x="50" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">tasks / alerts</text>
+      </g>
+      <g transform="translate(30, 134)">
+        <rect width="100" height="16" rx="3" fill="#FFF7E6" stroke="#FFD591" stroke-width="0.8"/>
+        <text x="50" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">health / meds</text>
+      </g>
+      <g transform="translate(136, 134)">
+        <rect width="100" height="16" rx="3" fill="#FFF7E6" stroke="#FFD591" stroke-width="0.8"/>
+        <text x="50" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">messages / ai</text>
+      </g>
+      <g transform="translate(242, 134)">
+        <rect width="100" height="16" rx="3" fill="#FFF7E6" stroke="#FFD591" stroke-width="0.8"/>
+        <text x="50" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">billing / plans</text>
+      </g>
+      <g transform="translate(30, 156)">
+        <rect width="100" height="16" rx="3" fill="#FFF7E6" stroke="#FFD591" stroke-width="0.8"/>
+        <text x="50" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">assessments</text>
+      </g>
+      <g transform="translate(136, 156)">
+        <rect width="100" height="16" rx="3" fill="#FFF7E6" stroke="#FFD591" stroke-width="0.8"/>
+        <text x="50" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">audit_logs</text>
+      </g>
+      <g transform="translate(242, 156)">
+        <rect width="100" height="16" rx="3" fill="#FFF7E6" stroke="#FFD591" stroke-width="0.8"/>
+        <text x="50" y="12" text-anchor="middle" font-size="9.5" fill="#1A1B1C">ai_usage_logs</text>
+      </g>
+    </g>
+
+    <!-- 外部服务 -->
+    <g id="node-external" transform="translate(440, 485)">
+      <rect width="460" height="175" rx="10" fill="#F3E8FF" stroke="#722ED1" stroke-width="1.5" stroke-dasharray="6,3"/>
+      <text x="16" y="24" font-size="13" font-weight="600" fill="#722ED1">外部服务层（后端代理访问，客户端不直连）</text>
+
+      <!-- AsLive -->
+      <g transform="translate(20, 38)">
+        <rect width="130" height="40" rx="6" fill="#fff" stroke="#722ED1" stroke-width="1"/>
+        <text x="65" y="18" text-anchor="middle" font-size="11" font-weight="600" fill="#722ED1">AsLive 运行时</text>
+        <text x="65" y="32" text-anchor="middle" font-size="9.5" fill="#6B7280">10.10.1.11:8000 · ASR/TTS</text>
+      </g>
+
+      <!-- AI 模型端点 -->
+      <g transform="translate(160, 38)">
+        <rect width="130" height="40" rx="6" fill="#fff" stroke="#722ED1" stroke-width="1"/>
+        <text x="65" y="18" text-anchor="middle" font-size="11" font-weight="600" fill="#722ED1">AI 模型端点</text>
+        <text x="65" y="32" text-anchor="middle" font-size="9.5" fill="#6B7280">OpenAI 兼容 / vLLM</text>
+      </g>
+
+      <!-- Dify RAG -->
+      <g transform="translate(300, 38)">
+        <rect width="130" height="40" rx="6" fill="#fff" stroke="#722ED1" stroke-width="1"/>
+        <text x="65" y="18" text-anchor="middle" font-size="11" font-weight="600" fill="#722ED1">Dify RAG</text>
+        <text x="65" y="32" text-anchor="middle" font-size="9.5" fill="#6B7280">知识库检索 · 向量嵌入</text>
+      </g>
+
+      <!-- MQTT Broker -->
+      <g transform="translate(20, 88)">
+        <rect width="130" height="40" rx="6" fill="#fff" stroke="#722ED1" stroke-width="1"/>
+        <text x="65" y="18" text-anchor="middle" font-size="11" font-weight="600" fill="#722ED1">MQTT Broker</text>
+        <text x="65" y="32" text-anchor="middle" font-size="9.5" fill="#6B7280">雷达 / 传感器数据</text>
+      </g>
+
+      <!-- RTSP 摄像头 -->
+      <g transform="translate(160, 88)">
+        <rect width="130" height="40" rx="6" fill="#fff" stroke="#722ED1" stroke-width="1"/>
+        <text x="65" y="18" text-anchor="middle" font-size="11" font-weight="600" fill="#722ED1">RTSP 摄像头</text>
+        <text x="65" y="32" text-anchor="middle" font-size="9.5" fill="#6B7280">手动配置 · 视觉适配待集成</text>
+      </g>
+
+      <!-- OpenSandbox 服务 -->
+      <g transform="translate(300, 88)">
+        <rect width="130" height="40" rx="6" fill="#fff" stroke="#722ED1" stroke-width="1"/>
+        <text x="65" y="18" text-anchor="middle" font-size="11" font-weight="600" fill="#722ED1">OpenSandbox</text>
+        <text x="65" y="32" text-anchor="middle" font-size="9.5" fill="#6B7280">Agent 工具容器 · 可选启用</text>
+      </g>
+
+      <!-- 说明 -->
+      <text x="20" y="152" font-size="10" fill="#722ED1">
+        ⚠ 客户端永远不直连外部服务，所有调用经 Go 后端代理 + 鉴权
+      </text>
+    </g>
+  </g>
+
+  <!-- ================================================================
+       底部说明
+       ================================================================ -->
+  <g id="footer-note" transform="translate(20, 668)">
+    <text x="0" y="0" font-size="10" fill="#999">
+      数据来源：KangxiaobanAI 项目 AGENTS.md / Go 后端源码 · 架构图可直接编辑 HTML 源码修改
+    </text>
+  </g>
+</svg>
+</div>
+
+<!-- 图例 -->
+<div class="legend">
+  <div class="legend-item">
+    <span class="legend-dot" style="background:#5B8FF9;"></span>
+    <span>用户层（HarmonyOS 客户端）</span>
+  </div>
+  <div class="legend-item">
+    <span class="legend-dot" style="background:#52C41A;"></span>
+    <span>后端层（Go 服务）</span>
+  </div>
+  <div class="legend-item">
+    <span class="legend-dot" style="background:#FA8C16;"></span>
+    <span>数据层（SQLite/MySQL）</span>
+  </div>
+  <div class="legend-item">
+    <span class="legend-dot" style="background:#722ED1;"></span>
+    <span>外部服务（后端代理访问）</span>
+  </div>
+  <div class="legend-item">
+    <span style="display:inline-block;width:20px;border-top:2px dashed #8C8C8C;"></span>
+    <span>虚线 = 代理 / 非直连</span>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,9 +1,0 @@
-{
-  "routerMap": [
-    {
-      "name": "UserView",
-      "pageSourceFile": "src/main/ets/view/UserView.ets",
-      "buildFunction": "UserBuilder"
-    }
-  ]
-}

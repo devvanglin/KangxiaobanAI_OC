@@ -1,9 +1,0 @@
-/node_modules
-/oh_modules
-/.preview
-/build
-/.cxx
-/.test
-/src/test
-/src/mock
-/src/ohosTest

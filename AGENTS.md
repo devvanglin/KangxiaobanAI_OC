@@ -1,30 +1,30 @@
-# KangxiaobanAI_OC Agent Handbook
+﻿# KangxiaobanAI Agent Handbook
 
-> Effective scope: this file applies to the whole workspace under `D:\Coding\KangxiaobanAI_OC`.
-> Baseline refreshed: 2026-08-30.
-> Current branch when this baseline was written: `main`.
+> Effective scope: this file applies to the whole repository under `C:\Users\OC_Tuf6\Documents\KangxiaobanAI`.
+> Baseline refreshed: 2026-09-10.
+> Current branch when this baseline was written: `shenyi_dev`.
 > This is an operational project constitution for coding agents. It records verified facts, fixed decisions,
-> reference-project boundaries, and the HarmonyOS implementation rules that must be followed.
+> project boundaries, and the HarmonyOS implementation rules that must be followed.
 
 ## 1. Project classification and fixed baseline
 
-This workspace is **one active product plus a local HarmonyOS implementation corpus**. It is not one monolithic
-application and the top-level projects are not equal delivery targets.
+This repository is a **monorepo for a multi-end elderly-care product suite**. The repository root itself IS the
+primary HarmonyOS client (`KangxiaobanAI`); all other components live as top-level subdirectories alongside it.
 
-1. `KangxiaobanAI` is the active product and default delivery target.
-2. `MusicHome`, `NavigationSettings`, `MultiDeviceCommunication`, and `MultiCommunityApplication` are multi-product,
-   multi-HAR architecture references.
-3. `ResponsiveLayout`, `transitions-collection`, `Spatialization`, `multi-tab-navigation`, and
-   `multi-convenient-life` are focused UI/UX technique references.
-4. `account-kit-samplecode-clientdemo-for-atomicservice-arkts`, `map-kit_-sample-code_-demo-arkts`,
-   `push-kit-sample-code-clientdemo-arkts`, and `visionkit-sample-code-arkts` are Kit capability samples.
-5. `sample_in_harmonyos`, `HarmonyOSComponentUXExamples-dev`, and `cases` are searchable knowledge bases.
-6. `hermes-agent` is a **third-party Python AI-agent runtime** (Nous Research, v0.21.0) kept as an architecture
-   reference only. It has no code coupling with `KangxiaobanAI`; its contracts and flow designs inform the product's
-   AI gateway, MCP, and Skills modules. Its local analysis lives in `docs/hermes-agent-architecture.md`.
-7. Unless the user names another project, product work belongs in `KangxiaobanAI` and sample projects remain read-only.
-8. Do not copy a sample wholesale. Select a matching API generation, extract the smallest verified pattern, and adapt
-   it to the active product's V2/HDS conventions.
+1. **Repository root** = `KangxiaobanAI` caregiver/doctor/administrator HarmonyOS client (default delivery target).
+   Its HarmonyOS project files (`build-profile.json5`, `AppScope/`, `products/`, `hvigor/`, `oh-package.json5`, etc.)
+   live directly at the repository root. Production source is under `products/entry/src/main/ets`.
+2. `server/` is the Go institution backend (REST + WebSocket/MQTT + SQLite/MySQL + RBAC + tenant scoping).
+3. `elderly/` is the elderly-companion HarmonyOS client that connects directly to the AsLive chat endpoint.
+4. `assessment-agent/` is the repository copy of the AsLive ASR/VAD/TTS/LLM transport runtime used by voice
+   assessment; the production instance runs on `10.10.1.11:8000` and is proxied by the Go backend.
+5. `docs/` contains architecture analyses, the HarmonyOS guide corpus, and the hermes-agent architecture reference
+   (`docs/hermes-agent-architecture.md`).
+6. Unless the user names another component, client work belongs in the repository root (`products/entry/src/main/ets`);
+   backend changes belong in `server/`; elderly-client changes belong in `elderly/`.
+7. All HarmonyOS clients use ArkUI V2 + HDS. When a pattern is needed that does not yet exist in the active codebase,
+   consult `docs/huawei-harmonyos-guides-complete-2026-08-10/` and current official HarmonyOS documentation rather
+   than copying from external samples.
 
 ### 1.1 Product definition
 
@@ -80,8 +80,7 @@ When facts disagree, use this order:
 1. current `build-profile.json5`, `app.json5`, `module.json5`, package manifests, route profiles, and source code;
 2. current generated build logs and artifacts, only as evidence of the build that produced them;
 3. this `AGENTS.md`, updating it when an intentional architecture change lands;
-4. root analysis documents and project README files;
-5. sample comments or marketing descriptions.
+4. root analysis documents and project README files.
 
 The locally added HarmonyOS guide corpus under
 `docs/huawei-harmonyos-guides-complete-2026-08-10/` may be used as a development, implementation, review, and
@@ -95,44 +94,31 @@ Known documentation drift:
 
 - `KANGXIAOBANAI_ARKTS_DEEP_PROJECT_REPORT.md` was accurate for an older snapshot but says API 23 and refers to files
   that are absent from the current source. The current product is API 24.
-- `PROJECT_MEMORY.md` and `ARKTS_HARMONYOS_OFFICIAL_SAMPLES_GUIDE.md` are useful indexes, but some names, counts,
-  versions, and paths are historical.
-- Some project README/IMPLEMENTATION text describes upstream samples rather than the current checked-out code.
+- `PROJECT_MEMORY.md` is a useful historical index, but some names, counts, versions, and paths are outdated.
+- `ARKTS_HARMONYOS_OFFICIAL_SAMPLES_GUIDE.md` references sample projects that were removed from the workspace on
+  2026-09-10; treat it as a historical index only.
 
 Never change code merely to make it match an old document. Update the document or record the drift after verifying the
 current implementation.
 
-## 3. Workspace safety and Git rules
+## 3. Repository safety and Git rules
 
-The workspace may be dirty. Existing changes belong to the user unless the current task created them.
+The repository may be dirty. Existing changes belong to the user unless the current task created them.
 
-Known tracked edits at the baseline date:
+There are untracked `.hvigor`, `build`, `oh_modules`, IDE, lock, and generated files inside each project. Preserve
+them unless the user explicitly asks for cleanup. Never run destructive Git or recursive cleanup commands to make the
+tree look clean.
 
-- `MusicHome/build-profile.json5` contains local signing configuration.
-- `MusicHome/products/tv/src/main/module.json5` locally adds `tablet` to TV module device types.
-- `NavigationSettings/build-profile.json5` contains local signing configuration.
+`build-profile.json5` currently has no `signingConfigs`; local or CI-injected configuration is required to
+produce a signed HAP. `elderly/build-profile.json5` likewise relies on local signing configuration. Never print,
+copy, quote, summarize, or commit secret values. If remediation is requested, rotate exposed material, remove it from
+tracked history, and replace it with local/CI-injected signing configuration. Deleting only the current value is not a
+complete remediation.
 
-There are also many untracked `.hvigor`, `build`, `oh_modules`, IDE, lock, and generated files. Preserve them unless the
-user explicitly asks for cleanup. Never run destructive Git or recursive cleanup commands to make the tree look clean.
-
-`hermes-agent/` is a **nested Git repository** (own `.git`, origin `NousResearch/hermes-agent`) and is **not listed in
-`.gitignore`**. Git therefore shows it as a single untracked entry `?? hermes-agent/`. Never run a blanket `git add .`
-while it is present: Git records a gitlink rather than its contents. Either add it to `.gitignore` or convert it to a
-proper submodule before any bulk staging. It is also not installed locally (no `.venv`); treat it as read-only source.
-
-Security-sensitive build profiles currently exist in:
-
-- `MusicHome/build-profile.json5`
-- `NavigationSettings/build-profile.json5`
-- `Spatialization/build-profile.json5`
-- `HarmonyOSComponentUXExamples-dev/build-profile.json5`
-- `map-kit_-sample-code_-demo-arkts/build-profile.json5`
-
-`KangxiaobanAI/build-profile.json5` currently has no `signingConfigs`; local or CI-injected configuration is required to
-produce a signed HAP. Some sample profiles contain local certificate paths and password fields; the Map sample may
-contain masked placeholders. Never print, copy, quote, summarize, or commit secret values. If remediation is requested,
-rotate exposed material, remove it from tracked history, and replace it with local/CI-injected signing configuration.
-Deleting only the current value is not a complete remediation.
+Historical note: prior to 2026-09-10 the repository contained third-party sample projects (`MusicHome`,
+`NavigationSettings`, `Spatialization`, `HarmonyOSComponentUXExamples-dev`, `map-kit_-sample-code_-demo-arkts`) whose
+tracked `build-profile.json5` files contained local signing configurations. Those projects have been removed, but the
+values may still exist in Git history. If a full audit is required, inspect history and rotate accordingly.
 
 ### 3.1 Local backend administration access
 
@@ -151,8 +137,8 @@ verify service health and the authenticated business endpoint after restart.
 
 Before changing a HarmonyOS project:
 
-1. Identify the exact top-level project and whether it is an entry/feature HAP, HAR, HSP, atomic service, widget,
-   ExtensionAbility, native hybrid, aggregate sample, or performance case.
+1. Identify the exact top-level project (`KangxiaobanAI` or `elderly`) and whether it is an entry/feature
+   HAP, HAR, HSP, atomic service, widget, ExtensionAbility, or native hybrid.
 2. Read the root `build-profile.json5` and `oh-package.json5`.
 3. Read `AppScope/app.json5`.
 4. Read every relevant module's `module.json5`, module `build-profile.json5`, and module `oh-package.json5`.
@@ -160,8 +146,9 @@ Before changing a HarmonyOS project:
    `Navigation/NavPathStack`, and destination builders.
 6. Determine target/compatible SDK, device types, state generation, HDS dependencies, permissions, and public HAR
    exports before selecting an API or decorator.
-7. Search this workspace for a same-generation implementation before inventing a pattern.
-8. Consult current official HarmonyOS documentation when local samples disagree or API availability is uncertain.
+7. Search the active codebase for an existing same-generation implementation before inventing a pattern.
+8. Consult `docs/huawei-harmonyos-guides-complete-2026-08-10/` and current official HarmonyOS documentation when
+   the local codebase does not cover the API or behavior.
 9. Preserve unrelated changes and modify the smallest coherent ownership boundary.
 10. Verify configuration, route consistency, static behavior, tests, build, and device forms in proportion to risk.
 
@@ -196,13 +183,13 @@ business source. Do not infer a module type from its directory name; the `module
 
 Current configuration files:
 
-- `KangxiaobanAI/build-profile.json5`
-- `KangxiaobanAI/AppScope/app.json5`
-- `KangxiaobanAI/oh-package.json5`
-- `KangxiaobanAI/products/entry/build-profile.json5`
-- `KangxiaobanAI/products/entry/oh-package.json5`
-- `KangxiaobanAI/products/entry/src/main/module.json5`
-- `KangxiaobanAI/products/entry/src/main/resources/base/profile/main_pages.json`
+- `build-profile.json5`
+- `AppScope/app.json5`
+- `oh-package.json5`
+- `products/entry/build-profile.json5`
+- `products/entry/oh-package.json5`
+- `products/entry/src/main/module.json5`
+- `products/entry/src/main/resources/base/profile/main_pages.json`
 
 ### 5.2 Startup and lifecycle
 
@@ -419,8 +406,8 @@ The current main source is ArkUI V2. New core components must default to:
 - `@Monitor` only for focused reactions without update cycles;
 - `AppStorageV2.connect` only for genuinely application-scoped models.
 
-Do not introduce V1 decorators into the core product without a documented interoperability need. Nearby API 17/20
-samples use V1 and are conceptual references only.
+Do not introduce V1 decorators into the core product without a documented interoperability need. Both active
+HarmonyOS clients (`KangxiaobanAI` and `elderly`) are ArkUI V2.
 
 ### 6.2 Global environment model
 
@@ -513,7 +500,7 @@ Since 2026-09-10 the AsLive host no longer runs ASR/TTS models in-process: `/hom
 `core/tts.py` are thin HTTP clients over the local `voice2.service` (`/home/ai/voice_server/voice_server.py`,
 `127.0.0.1:8100`, conda env `voice2`), which hosts Qwen3-ASR-1.7B (multilingual ASR, ModelScope local snapshot)
 and CosyVoice-300M-SFT with the built-in `中文女` speaker (22050 Hz). The elderly-companion app
-(`kanxiaoban_laore`) connects directly to the public `/ws` chat endpoint on the same AsLive host. Backups of the
+(`elderly`) connects directly to the public `/ws` chat endpoint on the same AsLive host. Backups of the
 replaced files: `/home/ai/aslive/core/*.bak-20260910` plus `/home/ai/aslive-core-backup-20260910.tar.gz`; restoring
 them and restarting `aslive` reverts the old FunASR paraformer + Kokoro stack (`voice2.service` can stay). Both
 `aslive` and `voice2` are systemd-managed with restart-on-failure.
@@ -539,8 +526,10 @@ short-lived OpenSandbox container with no host directory mounts, denied egress, 
 relative-path boundary. The sandbox API key stays in the backend environment. MCP tools remain external capabilities and
 are denied by the Agent sandbox by default; adding a new external tool requires an explicit reviewed policy change.
 Voice assessment is strict half-duplex. Each TTS turn carries a unique `turn_id`; the server ends generation with
-`await_playback` but does not accept PCM or start the no-answer timer. The native renderer must write every byte,
-`drain()` its playback buffer, and send `playback_complete(turn_id)`. Only the matching acknowledgement changes the
+`await_playback` but does not accept PCM or start the no-answer timer. The native renderer uses the push-mode
+`writeData` callback (deprecated `write()` API removed): it feeds every byte of the turn's Float32 PCM, pads silence
+while the queue is empty, and after the last byte has been handed to the system waits one extra buffer cycle,
+`drain()`s the playback buffer, and then sends `playback_complete(turn_id)`. Only the matching acknowledgement changes the
 server to `listening` and enables microphone PCM. While speaking, waiting for playback, processing ASR, or generating
 the next turn, microphone capture may stay allocated but its bytes must not be uploaded. Assessment end-of-utterance
 uses a longer silence window than ordinary chat so a natural thinking pause does not advance the question.
@@ -576,7 +565,7 @@ avoid height.
 
 ## 7. Core application: file ownership map
 
-Current production source is under `KangxiaobanAI/products/entry/src/main/ets`.
+Current production source is under `products/entry/src/main/ets`.
 
 | Path | Ownership and verified responsibility |
 |---|---|
@@ -855,12 +844,12 @@ directly affects the requested change.
 
 ## 12. Core application: verification baseline
 
-Recorded build evidence at the baseline date and latest workspace verification:
+Recorded build evidence at the baseline date and latest repository verification:
 
 - `assembleHap` for module `kanxiaoban`, product `default`, build mode `debug`, completed successfully on 2026-07-29
   with DevEco/Hvigor after setting `DEVECO_SDK_HOME` to the SDK root and using the bundled JBR;
 - the current build profile has no `signingConfigs`, so the generated artifact is
-  `KangxiaobanAI/products/entry/build/default/outputs/default/kanxiaoban-default-unsigned.hap`;
+  `products/entry/build/default/outputs/default/kanxiaoban-default-unsigned.hap`;
 - an unsigned artifact proves compilation/packaging only and is not release/install signing evidence;
 - the current top-command-bar, safe-area, and workspace edits pass `git diff --check` and the API 24 ArkTS compiler;
 - build logs retain non-fatal `router.replaceUrl` deprecation diagnostics and must be re-read after future builds.
@@ -871,7 +860,8 @@ Recorded build evidence at the baseline date and latest workspace verification:
 
 Do not commit `.hvigor`, `build`, `oh_modules`, IDE metadata, or generated cache files unless a task explicitly requires
 them. There is no root unified build wrapper or CI pipeline. Use the project's DevEco/Hvigor environment and report the
-exact module/product/mode used. A successful TV/default product build does not prove PC/watch/other products build.
+exact module/product/mode used. A successful build for one client (`KangxiaobanAI` or `elderly`) does not
+prove the other builds.
 
 The current tests under `products/entry/src/test` and `src/ohosTest` contain template `abc` assertions. They are not
 evidence of feature correctness.
@@ -890,7 +880,7 @@ For core product work, choose verification by risk:
 
 ## 13. HarmonyOS implementation rules
 
-These rules apply across the workspace, interpreted against each project's SDK and state generation.
+These rules apply across the repository, interpreted against each project's SDK and state generation.
 
 ### 13.1 ArkTS and declarative UI
 
@@ -1033,10 +1023,9 @@ live player/node for a shared-player transition instead of creating competing pl
 
 ### 13.13 Device/distributed capabilities
 
-The project name `MultiDeviceCommunication` is not evidence of distributed communication. For discovery,
-continuation, backup, Bluetooth, sensors, awareness, or distributed data, verify the actual imported Kit and capability.
-Model devices as transient: discovery timeout, reconnection, duplicate events, permission denial, version mismatch, and
-privacy boundaries are required.
+For discovery, continuation, backup, Bluetooth, sensors, awareness, or distributed data, verify the actual imported
+Kit and capability. Model devices as transient: discovery timeout, reconnection, duplicate events, permission denial,
+version mismatch, and privacy boundaries are required.
 
 ### 13.14 Storage, network, and files
 
@@ -1080,422 +1069,76 @@ Testing pyramid:
 Always review least privilege, authentication/token handling, role/tenant authorization, encrypted transport/storage,
 logs/screenshots/clipboard/notifications, input validation, Web boundaries, dependency provenance, and AI privacy/audit.
 
-## 14. SDK generations and reference-project selection
+## 14. SDK generations and active projects
 
-The workspace intentionally contains several SDK generations. The profile values below are a selection guide, not a
-license to mix source blindly:
+The repository contains two active HarmonyOS clients. Verify each project's profile before copying code between them:
 
-| Generation/profile family | Projects | Typical state/design generation | Typical device scope |
-|---|---|---|---|
-| `6.1.1(24)` target+compatible | `KangxiaobanAI` | ArkUI V2 + HDS | phone/tablet/2in1 |
-| `6.1.0(23)` target, `6.0.2(22)` compatible | `MusicHome`, `NavigationSettings`, `MultiDeviceCommunication`, `MultiCommunityApplication` | mostly V2, HDS branches | phone/tablet/2in1 plus product-specific forms |
-| `6.1.0(23)` target+compatible | `Spatialization`, `HarmonyOSComponentUXExamples-dev` | V2/HDS or catalog-specific | phone/tablet/PC/TV/wearable as declared |
-| `6.1.0(23)` target, `6.0.1(21)` compatible | `sample_in_harmonyos` | mixed large aggregate | phone/PC/TV/wearable |
-| `6.0.0(20)` target, `5.0.5(17)` compatible | `ResponsiveLayout` | ArkUI V1 | phone/tablet/2in1 |
-| `5.0.5(17)` target+compatible | `transitions-collection`, `multi-convenient-life`, `multi-tab-navigation`, Account/Map samples | mostly ArkUI V1 | sample-declared devices |
-| mixed case profiles | `cases` | API-dependent case by case | case-declared devices |
+| Project | Target SDK | Compatible SDK | State/design generation | Device scope |
+|---|---|---|---|---|
+| `KangxiaobanAI` | `6.1.1(24)` | `6.1.1(24)` | ArkUI V2 + HDS | phone/tablet/2in1 |
+| `elderly` | verify in `build-profile.json5` | verify in `build-profile.json5` | ArkUI V2 | verify in `module.json5` |
 
-Before copying code compare, in this order:
+Before copying code between clients, compare, in this order:
 
 1. target SDK and compatible SDK;
 2. `module.json5` module type and declared device types;
-3. V1 versus V2 decorators;
+3. V1 versus V2 decorators (both are V2, but verify);
 4. HDS package/API branch and fallback;
 5. route profile format and exported builder;
 6. permission, metadata, and Ability/ExtensionAbility declarations;
 7. actual build evidence.
 
-The root `oh-package.json5` model version is not the same thing as target API. For example, core package model version
-6.1.0 coexists with target/compatible SDK 6.1.1(24); use `build-profile.json5` for SDK facts.
+The root `oh-package.json5` model version is not the same thing as target API. Use `build-profile.json5` for SDK facts.
 
-## 15. Reference project catalog
+## 15. Architecture references
 
-The following entries are a durable navigation map. Each sample is a source of patterns, not a product dependency.
+All external sample projects, Kit demos, UI/UX technique references, and searchable knowledge bases were removed from
+the repository on 2026-09-10. Pattern lookup now uses:
 
-### 15.1 `MusicHome`: primary modular architecture reference
+1. the active codebase (`KangxiaobanAI`, `elderly`);
+2. `docs/huawei-harmonyos-guides-complete-2026-08-10/` — local HarmonyOS guide corpus;
+3. current official HarmonyOS documentation.
 
-Shape:
+### 15.1 `hermes-agent` architecture analysis (document-only)
 
-```text
-MusicHome/
-  common/musicbasic        HAR: models, state, utilities
-  features/player          HAR: player, lyrics, full-screen playback
-  features/playlist        HAR: playlist/detail/mini-player
-  features/recommendation  HAR: recommendation/home/wide panels
-  products/default         HAP: phone/tablet
-  products/pc              HAP: 2-in-1/PC
-  products/tv              HAP: TV
-  products/watch           HAP: wearable
-```
+The `hermes-agent` source tree (Nous Research, MIT, v0.21.0) was removed, but its analyzed architecture is preserved in
+**`docs/hermes-agent-architecture.md`**. It has zero code coupling with `KangxiaobanAI` and informs the product's AI
+gateway, MCP, and Skills modules.
 
-Profile family is target `6.1.0(23)` and compatible `6.0.2(22)`. It uses V2 models, `AppStorageV2.connect`, intent
-state, HDS Navigation/Tabs, API-version fallback, MediaKit, AVSessionKit, ImageKit, and ArkGraphics2D. The default shell
-keeps queue/index/progress/volume/full-screen/mini-bar state in a shared app model. Player ownership, lifecycle release,
-and backup ExtensionAbilities are the useful patterns.
-
-Canonical paths:
-
-- `common/musicbasic/src/main/ets/model/MusicAppState.ets`
-- `products/default/src/main/ets/pages/Index.ets`
-- `features/player/src/main/ets`
-- `features/playlist/src/main/ets`
-- `features/recommendation/src/main/ets`
-- product `module.json5` files under `products/*/src/main`
-
-Use it to design `common/features/products` boundaries for KangxiaobanAI. Do not copy music-domain state or assume its
-TV/watch APIs are valid in API 24. The latest recorded success proves the TV product in the local state only; it does not
-prove default/PC/watch products. The working tree has an existing signing-profile edit and a local TV device-type edit;
-preserve both.
-
-### 15.2 `NavigationSettings`: settings and parameterized V2 reference
-
-Shape: `common/multisettingbase` HAR, `features/multisettinglink` HAR, `products/default` HAP, and `products/pc` HAP.
-Profile target `6.1.0(23)`, compatible `6.0.2(22)`. Default declares phone/tablet; PC declares 2-in-1.
-
-Canonical paths and patterns:
-
-- `products/default/src/main/ets/pages/Index.ets`
-- `products/pc/src/main/ets/pages/Index.ets`
-- `features/multisettinglink/src/main/ets/viewmodel/WlanViewModel.ets`
-- `common/multisettingbase/src/main/ets`
-- product `route_map.json` files under `src/main/resources/base/profile`
-
-Uses `@ComponentV2`, `@Param`, `@Require`, `@Event`, `@Monitor`, `@ObservedV2/@Trace`, ViewModels, `WindowInfo`,
-`HdsNavigation/HdsNavDestination` for distribution OS API 60100+ and native `Navigation/NavDestination` fallback below
-that threshold. It demonstrates list/detail split on wide screens and named routes for WLAN, more connections, NFC, and
-settings details.
-
-WLAN/NFC values are fixed Huawei-Guest/demo data; no real WLAN/NFC Kit is connected. A default product build has been
-recorded. A historical PC failure was caused by using a phone device target for a 2-in-1 module; always build with the
-module's declared device form.
-
-### 15.3 `MultiDeviceCommunication`: message UI and ExtensionAbility reference
-
-Shape: `common/commonmultidevicecommunication` HAR, `features/message`, `features/social`, `features/user`,
-`features/commonui` HARs, and `products/default`/`products/pc` HAPs. Profile target `6.1.0(23)`, compatible `6.0.2(22)`.
-
-It demonstrates V2 ViewModel/state, HDS/native navigation branches, message/contact/social/mine tabs, wide split
-message detail, backup ExtensionAbility declarations, and feature route maps.
-
-Canonical paths:
-
-- `products/default/src/main/ets/pages/Index.ets`
-- `products/pc/src/main/ets/pages/Index.ets`
-- `features/message/src/main/ets`
-- `features/user/src/main/ets`
-- `features/social/src/main/ets`
-- `features/commonui/src/main/ets`
-
-Despite its name, it does not prove DistributedData, network synchronization, or real cross-device continuation. Treat
-messages, contacts, and profile data as local UI samples.
-
-### 15.4 `MultiCommunityApplication`: content-flow and wide sidebar reference
-
-Shape: `common/commonmulticommunityapplication` HAR, `features/contentcommunity`, `features/socialcommunity`,
-`features/commoncommunityui`, and `product/default`/`product/pc` HAPs. Profile target `6.1.0(23)`, compatible `6.0.2(22)`.
-
-Canonical paths:
-
-- `product/default/src/main/ets/pages/Index.ets`
-- `product/pc/src/main/ets/pages/Index.ets`
-- `features/contentcommunity/src/main/ets`
-- `features/socialcommunity/src/main/ets`
-- feature `router_map.json` files
-
-Uses V2 providers/local state, WaterFlow, HDS/API 60100 fallback, PC SideBarContainer, content/detail/comment routes,
-and feature-shared card components. It is useful for content-heavy layouts and wide navigation, but elderly-care tasks
-and alerts require ordered List semantics; do not make WaterFlow the default for every business list. All domain content is
-local mock data.
-
-### 15.5 `ResponsiveLayout`: canonical breakpoint/window reference
-
-Single entry project, target `6.0.0(20)`, compatible `5.0.5(17)`, declared phone/tablet/2in1. It is ArkUI V1 and includes
-route-map destinations for layout demonstrations.
-
-Canonical paths:
-
-- `entry/src/main/ets/pages/Index.ets`
-- `entry/src/main/ets/utils/WindowUtil.ets`
-- `entry/src/main/ets/utils/WidthBreakpointType.ets`
-- `entry/src/main/ets/views/*View.ets`
-
-Patterns include List lanes, WaterFlow columns, Swiper, Grid, SideBarContainer, list/detail split, two/three columns,
-mail/calendar/chat layouts, GridRow/GridCol, and bottom/side Tabs. `WindowUtil` covers size, avoid area, immersive mode,
-keyboard, fold, orientation, and cleanup. It is local data only. A gravity sensor registration in the sample must be
-paired with `off` before using that pattern in production.
-
-Use this project to improve wide KangxiaobanAI layout policy, but translate V1 state and API 20 syntax into current V2/API
-24 contracts.
-
-### 15.6 `transitions-collection`: advanced transition reference
-
-Single entry, phone-focused, target/compatible `5.0.5(17)`. The entry page uses `Navigation/NavPathStack` and a route map
-with many transition destinations.
-
-Canonical areas:
-
-- `entry/src/main/ets/pages/Index.ets`
-- `entry/src/main/ets/utils/customtransition/CustomNavigationUtils.ets`
-- `entry/src/main/ets/feature/*LongTakeTransition*`
-- `NodeController.ets`, `ImageGalleryNode.ets`, `AVPlayerManager.ets`, snapshot helpers
-
-Demonstrates geometry transitions for search/card/list/image, `bindSheet`/`bindContentCover`, custom navigation
-transitions and interactive back, component snapshots/PixelMaps, NodeController/BuilderNode live image/video migration,
-MediaKit AVPlayer ownership, and book-flip effects.
-
-It has no recorded build artifact. The route allow-list contains stale/nonexistent old names; listeners and PixelMap/
-AVPlayer cleanup need review. Use individual ideas only after API migration, lifecycle cleanup, Reduce Motion fallback,
-and real-device interruption/back testing.
-
-### 15.7 `multi-convenient-life`: V1 responsive business-page reference
-
-Single entry, target/compatible `5.0.5(17)`, phone/tablet. Main pages are `Index`, `FoodList`, `GraphicText`, and `Living`.
-It uses traditional `getRouter().pushUrl`, local constants/ViewModels, GridRow/GridCol, Navigation split/stack,
-SideBarContainer, and geometry transitions.
-
-Canonical paths:
-
-- `entry/src/main/ets/pages/Index.ets`
-- `entry/src/main/ets/pages/FoodList.ets`
-- `entry/src/main/ets/pages/GraphicText.ets`
-- `entry/src/main/ets/pages/Living.ets`
-- `entry/src/main/ets/components/*`
-
-Food/shop/comments/live data are local UI values. The Ability window-size listener lacks complete teardown and old router
-syntax should not be copied into API 24 core code without checking deprecation and route boundaries.
-
-### 15.8 `multi-tab-navigation`: navigation-style gallery
-
-Single entry, phone-only, target/compatible `5.0.5(17)`, with roughly thirteen independent main pages. It is a V1 gallery,
-not a business app.
-
-Canonical paths:
-
-- `entry/src/main/ets/pages/Index.ets`
-- `entry/src/main/ets/common/Constants.ets`
-- `entry/src/main/ets/viewmodel/TabViewModel.ets`
-- `entry/src/main/ets/pages/*Tab.ets`
-
-It covers fixed bottom Tabs/badges/controller, left/side/drawer tabs, underline/background/word tabs, rudder style,
-slide-and-more, nested Tabs, gesture/pan behavior, and a local Video tab. Use it only to compare interaction choices;
-do not treat API 17 V1 syntax as current HDS architecture.
-
-### 15.9 `Spatialization`: HDS material and awareness reference
-
-Target/compatible profile is `6.1.0(23)`, with phone/tablet entry product under `products/entry`. It uses V2,
-`AppStorageV2`, `@ObservedV2/@Trace`, HDS Navigation/Tabs, immersive/adaptive materials, Repeat/WaterFlow, and a
-breakpoint/window utility.
-
-Canonical paths:
-
-- `products/entry/src/main/ets/pages/MainPage.ets`
-- `products/entry/src/main/ets/view/ImmersiveLightView.ets`
-- `products/entry/src/main/ets/view/AdaptiveTabView.ets`
-- `products/entry/src/main/ets/view/SmartReachView.ets`
-- `products/entry/src/main/ets/util/BreakpointSystem.ets`
-- `products/entry/src/main/ets/util/WindowUtil.ets`
-
-`SmartReachView` actually calls `@kit.MultimodalAwarenessKit`, checks capability, listens for holding-hand changes, and
-performs cleanup. The module declares `ohos.permission.DETECT_GESTURE`, but its used-scene/Ability naming needs real
-device and permission verification. PreferenceManager and sample data are local. A prior build log contains both a
-successful signed artifact and an earlier material API mismatch; always use current target SDK signatures rather than
-copying old `MaterialLevel` names.
-
-### 15.10 `sample_in_harmonyos`: large aggregate application reference
-
-This is a multi-product sample aggregate with target `6.1.0(23)` and compatible `6.0.1(21)` profiles:
-
-```text
-products/phone
-products/pc
-products/tv
-products/wearable
-common
-features/abilitycommon
-features/commonbusiness
-features/componentlibrary
-features/devpractices
-features/exploration
-features/mine
-features/widgetcommon
-```
-
-Products expose Ability/backup/form/liveForm/UIExtension/shortcut patterns, while features expose router maps and public
-builders. It demonstrates `BaseVM`, account/push services, RDB, rawfile JSON `MockRequest`, dynamic sample installation,
-Insight Intent, forms, and product-specific layout.
-
-Canonical paths:
-
-- `products/phone/src/main/ets/page/MainPage.ets`
-- `products/phone/src/main/module.json5`
-- `products/pc/src/main/module.json5`
-- `features/*/src/main/resources/base/profile/router_map.json`
-- `common/src/main/ets`
-
-The rawfile/MockRequest layer is sample data, not a production backend. Its permissions, client IDs, product flavors,
-and form/extension declarations are examples; import only the capability and permission actually needed by the target.
-
-### 15.11 `HarmonyOSComponentUXExamples-dev`: device/component catalog
-
-Target/compatible profile is `6.1.0(23)`. It has a shared `commons/componentuxexamplesbase` HAR and phone, PC, TV,
-wearable products (the PC module is a feature-type product in its current manifest). It contains roughly 483 ETS files
-covering component behavior, source previews, input differences, and device-specific UX.
-
-Canonical paths:
-
-- `commons/componentuxexamplesbase/src/main/ets`
-- `products/phone/src/main/module.json5`
-- `products/pc/src/main/module.json5`
-- `products/tv/src/main/module.json5`
-- `products/wearable/src/main/module.json5`
-- each product's `router_map.json` and page/view directories
-
-Use it to inspect HDS/component behavior, focus/remote/input semantics, and device-specific variants. It is not a
-drop-in design system and its network permissions are not automatically valid for KangxiaobanAI.
-
-### 15.12 Kit samples
-
-#### Account Kit
-
-Project: `account-kit-samplecode-clientdemo-for-atomicservice-arkts`.
-
-- Profile target/compatible `5.0.5(17)`.
-- Entry: `entry/src/main/ets/pages/Index.ets`.
-- Uses Huawei ID provider/login request, silent login, random state/response validation, `FunctionalButton` account
-  surfaces, avatar/phone/address/invoice examples, and minors-protection capability checks.
-- Uses `PersistentStorage` only for demo silent-login mapping and local layout/window checks.
-- Requires real client configuration/account service to validate; it does not implement institution tenant/RBAC/session.
-
-#### Map Kit
-
-Project: `map-kit_-sample-code_-demo-arkts`.
-
-- Profile target/compatible `5.0.5(17)`.
-- Entry: `entry/src/main/ets/pages/Index.ets`; route profile `route_map`.
-- Declares location and approximate-location permissions and requests them at point of use.
-- Canonical pages: `MapControllerDemo.ets`, `OverlayDemo.ets`, `StaticMapDemo.ets`, `NaviDemo.ets`,
-  `AdvancedControlsDemo.ets`.
-- Covers map camera/position, markers/circle/polyline/polygon, static `PixelMap`, route planning, distance matrix,
-  text/nearby search, autocomplete, reverse geocode, and selection controls.
-- Requires real Map Kit/AGC/network configuration and device validation. Release `PixelMap` results and avoid retaining
-  location history without policy.
-
-#### Push Kit
-
-Project: `push-kit-sample-code-clientdemo-arkts`.
-
-- Profile is API 17-era compatible; inspect current target before copying.
-- Entry: `entry/src/main/ets/pages/Index.ets`, `GetTokenPage.ets`, `ExamplePage.ets`.
-- Additional abilities include `PushMessageAbility`, `VoIPUIAbility`, `RemoteNotificationExtAbility`, backup, and form
-  Ability; widget pages live under `widget/pages/WidgetCard.ets`.
-- Covers token, notification, revoke, card refresh, TTS, background, live-window, in-app call, and service-card flows.
-- Treat TODOs, provider configuration, notification channels, background restrictions, token refresh, and payload privacy
-  as unfinished. A declared background-location permission appears unrelated and must be justified or removed before
-  reuse.
-
-#### Vision Kit
-
-Project: `visionkit-sample-code-arkts`.
-
-- Profile target `6.1.0(23)`, compatible `5.0.5(17)`.
-- Entry: `entry/src/main/ets/pages/Index.ets`.
-- Declares `ohos.permission.CAMERA`, starts interactive liveness detection, reads result, and shows success/failure.
-- Use only with explicit purpose, cancellation/denial paths, hardware capability checks, and sensitive-result handling.
-
-### 15.13 `cases`: searchable feature and performance corpus
-
-`cases` is not a buildable product boundary. It contains a large `CommonAppDevelopment` collection, performance docs,
-and runnable positive/negative performance projects. Counts fluctuate with upstream content; the current snapshot is on
-the order of thousands of ETS files and hundreds of module profiles.
-
-Important areas:
-
-- `CommonAppDevelopment/feature`: UI/layout, navigation/dialog, animation/gesture, image/vision, media, Web/H5, files,
-  database, system Kit, foldable/immersive, and device cases;
-- `CommonAppDevelopment/common/routermodule`: dynamic route infrastructure and `@AppRouter` registrations;
-- `docs/performance`: cold start, imports, list/reuse, state, Web, animation, TaskPool, Native Drawing, memory/CPU/frame
-  measurement, SmartPerf, HiDumper, ArkUI Inspector;
-- `test/performance`: runnable comparisons such as Web prestart/preconnect, lazy import, taskpool serialization, RDB
-  offload, Native drawing, image white-block and cold-start variants.
-
-Correct use:
-
-1. reproduce and measure the active problem;
-2. search `rg` for the exact API/issue and select a case with a compatible SDK;
-3. read its README and both positive/negative implementations;
-4. extract the minimum pattern into the owning project;
-5. run the target project's own tests/build/profile.
-
-Never add `cases` wholesale as a dependency, copy a permission without need, or infer production readiness from a case
-that only renders a concept.
-
-### 15.14 `hermes-agent`: AI-agent runtime architecture reference
-
-A third-party Python agent runtime (Nous Research, MIT, v0.21.0) kept for architecture reference only. It has **zero
-code coupling** with `KangxiaobanAI` and must never be imported, vendored, or added as a build dependency. The analyzed
-architecture is recorded in **`docs/hermes-agent-architecture.md`** — read that file first; the summary below is only a
-pointer.
-
-Shape:
-
-```text
-hermes-agent/
-  run_agent.py          AIAgent facade (mixin-assembled)
-  agent/                conversation_loop.py + turn_*.py phases, prompt_builder,
-                        context_compressor, memory_provider, auxiliary_client, curator
-  model_tools.py        tool discovery + handle_function_call() dispatch
-  toolsets.py           TOOLSETS dict, _HERMES_CORE_TOOLS (28 toolsets / 70+ tools)
-  tools/                tool implementations + registry.py + mcp_tool*.py (22 files)
-  gateway/              messaging-platform adapters
-  plugins/              memory/, context_engine/, model-providers/ (40), kanban/, observability/
-  skills/               built-in skills (60)   optional-skills/: shipped but inactive (137)
-  optional-mcps/        65 MCP server catalogs
-```
-
-Two invariants worth carrying into this product:
+Two invariants carried into this product:
 
 1. **Per-conversation prompt caching is sacred.** The system prompt is byte-stable for the life of a conversation;
-   the ONLY sanctioned context mutation is compression. Mid-conversation injection rides a user message or tool result,
-   never the system prompt.
-2. **The core is a narrow waist.** New capability arrives as a CLI command + skill, a service-gated tool, a plugin, or
-   an MCP server — not as new core surface. Capability gating uses named toolsets, never a process env var.
+   the only sanctioned context mutation is compression.
+2. **The core is a narrow waist.** New capability arrives as a service-gated tool, plugin, MCP server, or skill — not
+   as new core surface.
 
-The four contracts worth re-implementing in Go for `KangxiaobanAI` are: the **SKILL.md frontmatter** contract
-(`name`, `description` <= 60 chars, `version`, `platforms`, `metadata.tags`, `prerequisites`), the **MCP lifecycle
-state machine** (discovery -> health -> OAuth -> lifecycle -> transport), the **prompt layering rule**
-(`stable` -> `context` -> `volatile`; skill index in `stable`, memory/user profile in `volatile`, both inside the
-cached prompt), and the **compression thresholds plus seven-section summary template** (gateway 85%, agent 50%;
-prune -> boundary -> structured summary -> reassemble). See `docs/hermes-agent-architecture.md` section 14 for the
-module-by-module mapping onto the product's `WideModelManagement` (模型管理 / 提示词库 / MCP 管理 / Skills 管理 / RAG 知识库).
+Four contracts re-implemented in Go for `KangxiaobanAI`: the **SKILL.md frontmatter** contract, the **MCP lifecycle
+state machine**, the **prompt layering rule** (`stable` -> `context` -> `volatile`), and the **compression thresholds
+plus seven-section summary template**. See `docs/hermes-agent-architecture.md` for the module-by-module mapping.
 
-## 16. Cross-project implementation index
+## 16. Implementation reference index
 
-Use this lookup before starting a new implementation:
+Use this lookup before starting a new implementation. All references point to the active codebase or preserved docs.
 
 | Need | First local reference | Adaptation rule |
 |---|---|---|
-| V2 observable app state | `MusicHome/common/musicbasic/.../MusicAppState.ets` | keep state ownership narrow; do not make every feature global |
-| HDS floating Tabs/MiniBar | `KangxiaobanAI/.../MainPage.ets`, `MusicHome/.../Index.ets` | check API 60100+ and material fallback |
-| HDS immersive material | `KangxiaobanAI/.../MaterialUtil.ets`, `Spatialization/.../ImmersiveLightView.ets` | detect support and bind Scroller |
-| Window/safe-area/fold | `KangxiaobanAI/.../WindowUtil.ets`, `ResponsiveLayout/.../WindowUtil.ets` | add symmetric listener release |
-| Responsive list/grid/split | `ResponsiveLayout/entry/src/main/ets/views`, `NavigationSettings/.../view` | use width/input mode, not device name only |
-| Parameterized V2 settings | `NavigationSettings/features/multisettinglink/...` | `@Param/@Require/@Event` ownership stays explicit |
-| Wide list/detail messaging | `MultiDeviceCommunication/...`, `KangxiaobanAI/.../WideMessagePage.ets` | mock data is not distributed sync |
-| Wide content/sidebar | `MultiCommunityApplication/...`, `ResponsiveLayout/...` | use ordered List for tasks/alerts |
-| Geometry transition | `KangxiaobanAI/.../TabPageView.ets` + `MainPage.ets` + `ResidentDetailPage.ets` | stable IDs and root-level animated insertion/removal above HDS Tabs |
-| Complex custom transition | `transitions-collection/.../utils/customtransition` | API migration, interruption, PixelMap/resource cleanup |
-| Live image/video node migration | `transitions-collection/.../NodeController.ets` | use only when live node continuity is required |
-| Account authorization | `account-kit-.../entry/src/main/ets/pages` | separate provider identity from institutional identity |
-| Push/notification | `push-kit-.../entry/src/main/ets` | minimal payload and authenticated landing |
-| Map/location | `map-kit_-.../entry/src/main/ets/pages` | consent, precision, retention, real service config |
-| Camera/liveness | `visionkit-.../entry/src/main/ets/pages/Index.ets` | sensitive data and capability/denial handling |
-| Component/remote UX | `HarmonyOSComponentUXExamples-dev/products/*` | verify declared form factor and input model |
-| Performance diagnosis | `cases/docs/performance`, `cases/test/performance` | measure before and after |
+| V2 observable app state | `products/entry/src/main/ets/model/GlobalInfoModel.ets` | keep state ownership narrow; do not make every feature global |
+| HDS floating Tabs/MiniBar | `products/entry/src/main/ets/pages/MainPage.ets` | check API 60100+ and material fallback |
+| HDS immersive material | `products/entry/src/main/ets/util/MaterialUtil.ets`, `MainPage.ets` | detect support and bind Scroller |
+| Window/safe-area/fold | `products/entry/src/main/ets/util/WindowUtil.ets` | add symmetric listener release |
+| Responsive list/grid/split | `products/entry/src/main/ets/component/wide/WideResidentPage.ets`, `WideMessagePage.ets` | use width/input mode, not device name only |
+| Parameterized V2 settings | `products/entry/src/main/ets/pages/MineDetailPage.ets` | `@Param/@Require/@Event` ownership stays explicit |
+| Wide list/detail messaging | `products/entry/src/main/ets/component/wide/WideMessagePage.ets` | server-backed, not mock data |
+| Geometry transition | `products/entry/src/main/ets/component/TabPageView.ets` + `MainPage.ets` + `ResidentDetailPage.ets` | stable IDs and root-level animated insertion/removal above HDS Tabs |
+| Account authorization | `products/entry/src/main/ets/pages/LoginPage.ets` | institution JWT/RBAC, separate from provider identity |
+| Camera/liveness (voice assessment) | `products/entry/src/main/ets/component/wide/WideAssessmentAgentPage.ets` | microphone permission at point of use, text fallback when denied |
+| Component/remote UX | `products/entry/src/main/ets/component/wide/*` | verify declared form factor and input model |
 | Agent turn loop / phases | `docs/hermes-agent-architecture.md` sections 3-5 | contracts only; re-implement in Go, never vendor Python |
 | Prompt layering + cache safety | `docs/hermes-agent-architecture.md` sections 6-7 | stable/context/volatile; only compression may mutate context |
-| Context compression | `docs/hermes-agent-architecture.md` section 8 | 85% gateway / 50% agent; summary model window must be >= main model |
+| Context compression | `docs/hermes-agent-architecture.md` section 8 | 85% gateway / 50% agent; summary model window >= main model |
 | MCP lifecycle | `docs/hermes-agent-architecture.md` section 9 | discovery -> health -> OAuth -> lifecycle -> transport |
-| Skills metadata contract | `docs/hermes-agent-architecture.md` sections 11, 14 | SKILL.md frontmatter; description <= 60 chars; built-in vs optional tiers |
+| Skills metadata contract | `docs/hermes-agent-architecture.md` sections 11, 14 | SKILL.md frontmatter; description <= 60 chars |
+| HarmonyOS API guidance | `docs/huawei-harmonyos-guides-complete-2026-08-10/` | dated snapshot; verify against current SDK and official docs |
 
 ## 17. Planned production architecture for `KangxiaobanAI`
 
@@ -1503,7 +1146,7 @@ This section is a **directional architecture baseline**, not a claim that these 
 incrementally only when the requested work establishes a stable boundary.
 
 ```text
-KangxiaobanAI/
+(repository root = KangxiaobanAI client)
   AppScope/
   common/
     core/             Result/AppError, logging, time, configuration
@@ -1564,7 +1207,7 @@ Fixed architectural decisions:
 
 - Use the existing code style, imports, HDS components, resource system, and state generation.
 - Keep edits inside the smallest coherent feature/ownership boundary.
-- Do not refactor unrelated sample projects.
+- Do not refactor unrelated projects or endpoints.
 - Do not overwrite user changes, signing profiles, IDE/device setup, or generated state.
 - Do not add a permission, Ability, route, product, HAR/HSP, dependency, or global state key without updating all linked
   configuration and documenting why.
@@ -1654,8 +1297,8 @@ Update this file in the same change when any of these stable facts change:
 - V1/V2 state architecture or global-state ownership;
 - real backend/auth/AI/Kit capability becoming implemented;
 - security or verification policy;
-- the `hermes-agent` reference version or any of its four adopted contracts — update
-  `docs/hermes-agent-architecture.md` in the same change.
+- the hermes-agent adopted contracts (prompt caching, narrow-waist core, SKILL.md frontmatter, MCP lifecycle,
+  prompt layering, compression template) — update `docs/hermes-agent-architecture.md` in the same change.
 
 Do not turn this file into a generated inventory of every source line. Source code remains the final detail. Keep paths,
 symbols, architecture boundaries, implementation methods, and known caveats detailed enough that a future agent can

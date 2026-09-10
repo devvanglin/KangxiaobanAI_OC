@@ -1,3 +1,0 @@
--keep
-./src/main/ets/model/ComponentData.ets
-./src/main/ets/model/ComponentDetailData.ets

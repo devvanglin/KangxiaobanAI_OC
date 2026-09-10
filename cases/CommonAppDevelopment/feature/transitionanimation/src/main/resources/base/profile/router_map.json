@@ -1,9 +1,0 @@
-{
-  "routerMap": [
-    {
-      "name": "SubDetailPage",
-      "pageSourceFile": "src/main/ets/components/pages/SubDetailPage.ets",
-      "buildFunction": "SubDetailPageBuilder"
-    }
-  ]
-}

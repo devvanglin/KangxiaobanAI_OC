@@ -1,2 +1,0 @@
--keep
-./src/main/ets/viewmodel

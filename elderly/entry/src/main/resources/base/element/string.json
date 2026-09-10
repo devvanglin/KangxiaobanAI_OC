@@ -1,0 +1,20 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "康小伴老人端语音助手"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "康小伴老人端语音助手"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "康小伴"
+    },
+    {
+      "name": "microphone_permission_reason",
+      "value": "用于和小伴语音对话，未授权时仍可使用文字聊天"
+    }
+  ]
+}

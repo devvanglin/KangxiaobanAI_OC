@@ -1,6 +1,0 @@
-{
-  "shortcut_sample_full" : {
-    "background": "$media:ic_shortcut_bg",
-    "foreground": "$media:ic_shortcut_sample"
-  }
-}
