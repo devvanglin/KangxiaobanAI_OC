@@ -58,16 +58,48 @@ func cropFace(frame []byte, bbox []float64) []byte {
 // cropForReview 复审输入与裁切脸图一致。
 func cropForReview(frame []byte, bbox []float64) []byte { return cropFace(frame, bbox) }
 
-// emotionChinese 把 EmotiEffLib 英文表情标签映射为中文；未知标签原样返回。
+// emotionChinese 把 EmotiEffLib 英文表情标签映射为中文。覆盖 AffectNet 7/8 类
+// 模型的实际输出词形（Anger/Happiness/Sadness/Surprise/Contempt 等，见
+// EmotiEffLib facial_analysis.py 的 idx_to_emotion_class）以及历史小写别名；
+// 未知标签原样返回。
 func emotionChinese(label string) string {
 	known := map[string]string{
-		"neutral": "中性", "happy": "高兴", "sad": "悲伤", "angry": "愤怒",
-		"surprised": "惊讶", "surprise": "惊讶", "fear": "恐惧", "disgust": "厌恶",
+		"neutral":   "中性",
+		"happiness": "高兴", "happy": "高兴",
+		"sadness": "悲伤", "sad": "悲伤",
+		"anger": "愤怒", "angry": "愤怒",
+		"surprise": "惊讶", "surprised": "惊讶",
+		"fear": "恐惧", "disgust": "厌恶",
+		"contempt": "轻蔑",
 	}
 	if zh, ok := known[strings.ToLower(strings.TrimSpace(label))]; ok {
 		return zh
 	}
 	return label
+}
+
+// abnormalBehaviorRules 是 JoyAI 行为文本的确定性异常规则：任一关键词命中即判
+// 异常并立即通知护工。保持保守，只收明确危险/激烈的行为词，避免把日常活动
+// （撕纸、看电视等）误报；生成式输出只做辅助，不在此扩展。
+var abnormalBehaviorRules = []string{
+	"摔倒", "跌倒", "倒地", "扑倒", "摔东西", "砸",
+	"张牙舞爪", "攻击", "打人", "推搡", "抓人", "咬人",
+	"挣扎", "自残", "撞头", "撞墙", "攀爬", "翻越",
+	"哭喊", "嘶吼", "尖叫", "大喊大叫",
+}
+
+// classifyAbnormal 返回命中的异常关键词；未命中返回空串。
+func classifyAbnormal(behavior string) string {
+	text := strings.TrimSpace(behavior)
+	if text == "" {
+		return ""
+	}
+	for _, keyword := range abnormalBehaviorRules {
+		if strings.Contains(text, keyword) {
+			return keyword
+		}
+	}
+	return ""
 }
 
 func maxInt(a, b int) int {

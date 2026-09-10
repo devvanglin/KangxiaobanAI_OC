@@ -17,6 +17,8 @@ interface BehaviorEventItem {
   video_object?: string;
   face_crop_url?: string;
   video_url?: string;
+  abnormal?: boolean;
+  abnormal_reason?: string;
   error?: string;
 }
 
@@ -156,6 +158,12 @@ export struct ElderBehaviorTimeline {
               .fontColor($r('sys.color.font_primary'))
               .width('100%').maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
             Row({ space: 8 }) {
+              if (event.abnormal === true) {
+                Text(`异常 ${event.abnormal_reason ?? ''}`.trim()).fontSize(11)
+                  .fontColor(Color.White)
+                  .padding({ left: 8, right: 8, top: 2, bottom: 2 }).borderRadius(8)
+                  .backgroundColor($r('app.color.doctor_workspace_danger'))
+              }
               if (event.expression.length > 0) {
                 Text(`表情 ${event.expression}`).fontSize(11)
                   .fontColor(this.expressionBadgeColor(event))

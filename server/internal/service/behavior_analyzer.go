@@ -33,6 +33,8 @@ type BehaviorAnalyzer struct {
 	cooldown    time.Duration
 	reviewModel string
 	ffmpegPath  string
+	comfort     *ComfortService
+	notifier    ComfortNotifier
 	stop        chan struct{}
 	once        sync.Once
 }
@@ -48,6 +50,12 @@ func NewBehaviorAnalyzer(db *gorm.DB, faceCfg config.FaceConfig, aiCfg *config.A
 		stop:        make(chan struct{}),
 	}
 }
+
+// SetNotifier 注入通知回调（异常行为立即通知护工）。
+func (a *BehaviorAnalyzer) SetNotifier(n ComfortNotifier) { a.notifier = n }
+
+// SetComfort 注入安抚会话服务（悲伤表情触发主动语音安抚）。
+func (a *BehaviorAnalyzer) SetComfort(c *ComfortService) { a.comfort = c }
 
 func envString(key, def string) string {
 	if v := strings.TrimSpace(getEnv(key)); v != "" {
@@ -83,20 +91,42 @@ type cameraTarget struct {
 }
 
 // analyzeOnce 每个 tick 分析一个绑定了区域的在线摄像头（轮询均摊负载；
-// 人脸服务的 RTSP 取帧是全局单路）。
+// 人脸服务的 RTSP 取帧是全局单路）。按租户迭代选 出全局最久未分析的摄像头，
+// 保证多租户下每一路都有机会被轮到。
 func (a *BehaviorAnalyzer) analyzeOnce() {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	var cameras []model.IotDevice
-	if err := a.db.WithContext(ctx).
-		Where("device_type = ? AND area_id IS NOT NULL AND stream_url <> '' AND discovery_status = ?",
-			"camera", "claimed").
-		Order("updated_at ASC").Limit(1).Find(&cameras).Error; err != nil || len(cameras) == 0 {
+	var tenantIDs []uint
+	// tenants 表不在租户作用域内，可以安全枚举。
+	if err := a.db.WithContext(ctx).Model(&model.Tenant{}).Pluck("id", &tenantIDs).Error; err != nil || len(tenantIDs) == 0 {
 		return
 	}
-	cam := cameras[0]
+	var chosen *model.IotDevice
+	var chosenTenant uint
+	for _, tenantID := range tenantIDs {
+		tctx := context.WithValue(ctx, model.TenantContextKey, tenantID)
+		var cameras []model.IotDevice
+		if err := a.db.WithContext(tctx).
+			Where("device_type = ? AND area_id IS NOT NULL AND stream_url <> '' AND discovery_status = ?",
+				"camera", "claimed").
+			Order("updated_at ASC").Limit(1).Find(&cameras).Error; err != nil || len(cameras) == 0 {
+			continue
+		}
+		if chosen == nil || cameras[0].UpdatedAt.Before(chosen.UpdatedAt) {
+			chosen = &cameras[0]
+			chosenTenant = tenantID
+		}
+	}
+	if chosen == nil {
+		return
+	}
+	tctx := context.WithValue(ctx, model.TenantContextKey, chosenTenant)
+	a.analyzeCamera(ctx, tctx, *chosen)
+}
+
+func (a *BehaviorAnalyzer) analyzeCamera(ctx, tctx context.Context, cam model.IotDevice) {
 	// 触碰 updated_at 之外的排序键没有意义；用 immediately+延迟字段旋转轮询顺序。
-	a.db.WithContext(ctx).Model(&model.IotDevice{}).Where("id = ?", cam.ID).
+	a.db.WithContext(tctx).Model(&model.IotDevice{}).Where("id = ?", cam.ID).
 		UpdateColumn("updated_at", time.Now())
 
 	frame, err := a.grabFrame(ctx, cam.StreamURL)
@@ -118,10 +148,10 @@ func (a *BehaviorAnalyzer) analyzeOnce() {
 		if _, err := fmt.Sscanf(*f.PersonID, "elder-%d", &elderID); err != nil || elderID == 0 {
 			continue
 		}
-		if a.recentlyRecorded(ctx, elderID, cam.DeviceID, now) {
+		if a.recentlyRecorded(tctx, elderID, cam.DeviceID, now) {
 			continue
 		}
-		a.processFace(ctx, cam, f, elderID, frame, now)
+		a.processFace(tctx, cam, f, elderID, frame, now)
 	}
 }
 
@@ -184,19 +214,54 @@ func (a *BehaviorAnalyzer) processFace(ctx context.Context, cam model.IotDevice,
 	}
 
 	// 4) 监控片段（需要容器内 ffmpeg；缺失则记原因）。
-	if key, err := a.cutClip(ctx, cam.StreamURL, now, elderID); err == nil {
+	if key, err := a.cutClip(ctx, cam, now, elderID); err == nil {
 		event.VideoObject = key
 	} else {
 		event.Error = strings.TrimPrefix(event.Error+"；", "；") + "片段失败: " + err.Error()
 	}
 
+	// 5) 异常行为判定（确定性关键词规则，生成式描述只作输入）。
+	event.AbnormalReason = classifyAbnormal(event.Behavior)
+	event.Abnormal = event.AbnormalReason != ""
+
 	if err := a.db.WithContext(ctx).Create(&event).Error; err != nil {
 		log.Printf("[behavior] insert event: %v", err)
+		return
+	}
+
+	// 6) 异常行为 → 立即通知护工（通知行由工作台客户端轮询，可靠送达）。
+	if event.Abnormal && a.notifier != nil {
+		name := a.elderName(ctx, cam.TenantID, elderID)
+		content := fmt.Sprintf("%s 在摄像头 %s 附近出现异常行为：%s（命中规则“%s”）",
+			name, cam.DeviceID, event.Behavior, event.AbnormalReason)
+		if err := a.notifier(ctx, cam.TenantID, "caregiver", "behavior",
+			"长者行为异常提醒", content, "warning"); err != nil {
+			log.Printf("[behavior] abnormal notify: %v", err)
+		}
+	}
+
+	// 7) 悲伤表情 → 创建主动安抚会话，老人端设备领取后执行语音安抚流程。
+	if event.Expression == "悲伤" && a.comfort != nil {
+		if session, err := a.comfort.CreateForSadEmotion(ctx, cam.TenantID, elderID,
+			cam.DeviceID, cam.AreaID, event.ID, event.Expression, event.Similarity); err != nil {
+			log.Printf("[behavior] comfort create: %v", err)
+		} else if session != nil {
+			log.Printf("[behavior] comfort session %d created for elder %d", session.ID, elderID)
+		}
 	}
 }
 
-// cutClip 用 ffmpeg 从 RTSP 录 8 秒片段并上传 MinIO。
-func (a *BehaviorAnalyzer) cutClip(ctx context.Context, rtspURL string, now time.Time, elderID uint) (string, error) {
+func (a *BehaviorAnalyzer) elderName(ctx context.Context, tenantID, elderID uint) string {
+	tctx := context.WithValue(ctx, model.TenantContextKey, tenantID)
+	var elder model.Elder
+	if err := a.db.WithContext(tctx).Select("name").First(&elder, elderID).Error; err != nil {
+		return fmt.Sprintf("长者%d", elderID)
+	}
+	return elder.Name
+}
+
+// cutClip 用 ffmpeg 从 RTSP 录 8 秒片段并上传 MinIO（对象键按租户/设备隔离）。
+func (a *BehaviorAnalyzer) cutClip(ctx context.Context, cam model.IotDevice, now time.Time, elderID uint) (string, error) {
 	if strings.TrimSpace(a.ffmpegPath) == "" {
 		return "", fmt.Errorf("ffmpeg 未配置")
 	}
@@ -204,14 +269,14 @@ func (a *BehaviorAnalyzer) cutClip(ctx context.Context, rtspURL string, now time
 		return "", fmt.Errorf("ffmpeg 不可用")
 	}
 	out := &bytes.Buffer{}
-	cmd := exec.CommandContext(ctx, a.ffmpegPath, "-y", "-rtsp_transport", "tcp", "-i", rtspURL,
+	cmd := exec.CommandContext(ctx, a.ffmpegPath, "-y", "-rtsp_transport", "tcp", "-i", cam.StreamURL,
 		"-t", "8", "-c:v", "libx264", "-preset", "ultrafast", "-an", "-f", "mp4", "-movflags", "frag_keyframe+empty_moov", "-")
 	cmd.Stdout = out
 	cmd.Stderr = nil
 	if err := cmd.Run(); err != nil {
 		return "", err
 	}
-	key := fmt.Sprintf("clips/tenant-1/%s/%d-elder-%d.mp4", "cam", now.UnixMilli(), elderID)
+	key := fmt.Sprintf("clips/tenant-%d/%s/%d-elder-%d.mp4", cam.TenantID, cam.DeviceID, now.UnixMilli(), elderID)
 	if err := a.storage.UploadObject(ctx, cctvBucket, key, bytes.NewReader(out.Bytes()), int64(out.Len()), "video/mp4"); err != nil {
 		return "", err
 	}

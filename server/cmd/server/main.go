@@ -88,13 +88,18 @@ func main() {
 	go iotSvc.StartOfflineScanner()
 	go iotSvc.StartEscalationScanner()
 	// 摄像头行为分析器：轮询绑定区域的摄像头，识别长者行为/表情并存档。
+	comfortSvc := service.NewComfortService(db)
+	comfortSvc.SetNotifier(notificationSvc.CreateRoleNotificationContext)
+	go comfortSvc.StartScanner()
 	if cfg.Face.Enabled && strings.TrimSpace(cfg.Face.BaseURL) != "" {
 		analyzer := service.NewBehaviorAnalyzer(db, cfg.Face, &cfg.AI, storageSvc, cfg.Stream.FfmpegPath)
+		analyzer.SetNotifier(notificationSvc.CreateRoleNotificationContext)
+		analyzer.SetComfort(comfortSvc)
 		analyzer.Start()
 	}
 
 	r := router.New(db, cfg, hub, iotSvc, userRepo, authSvc, elderSvc, resourceSvc, taskSvc, healthSvc,
-		scheduleSvc, financeSvc, medicationSvc, auditSvc, auditRepo, supplySvc, careSvc, assessmentAgentSvc, admissionSvc, notificationSvc, messageSvc, aiSvc, storageSvc)
+		scheduleSvc, financeSvc, medicationSvc, auditSvc, auditRepo, supplySvc, careSvc, assessmentAgentSvc, admissionSvc, notificationSvc, messageSvc, aiSvc, storageSvc, comfortSvc)
 
 	log.Printf("Kangxiaoban 后端服务启动: http://0.0.0.0:%s (db=%s)", cfg.Server.Port, cfg.Database.Driver)
 	server := &http.Server{

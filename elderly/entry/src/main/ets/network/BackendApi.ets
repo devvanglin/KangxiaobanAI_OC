@@ -66,6 +66,16 @@ export interface CarePlanInfo {
   items?: CarePlanItemInfo[] | null;
 }
 
+/** 摄像头悲伤表情触发的主动安抚会话（老人端领取后走语音安抚流程）。 */
+export interface ComfortSessionInfo {
+  id: number;
+  elder_id: number;
+  device_id?: string;
+  status?: string;
+  trigger?: string;
+  expression?: string;
+}
+
 /** 后端统一响应外壳：{code, msg, data}。 */
 interface ApiEnvelope {
   code: number;
@@ -181,6 +191,40 @@ class BackendApiImpl {
     }
     const data = env.data as PlanListData;
     return data.list ?? [];
+  }
+
+  /** 查询该长者最早一个待领取的安抚会话；没有则返回 null。 */
+  public async fetchPendingComfort(elderId: number): Promise<ComfortSessionInfo | null> {
+    const env = await this.requestJson('GET', `/api/v1/comfort/pending?elder_id=${elderId}`);
+    if (env.code !== 0 || !env.data) {
+      return null;
+    }
+    return env.data as ComfortSessionInfo;
+  }
+
+  /** 领取安抚会话：设备开始播放开场白。 */
+  public async comfortStart(sessionId: number): Promise<void> {
+    const env = await this.requestJson('POST', `/api/v1/comfort/sessions/${sessionId}/start`, '{}');
+    if (env.code !== 0) {
+      throw new Error(`领取安抚会话失败: ${env.msg ?? env.code}`);
+    }
+  }
+
+  /** 老人有语音回应，上报第一句 ASR 文本。 */
+  public async comfortRespond(sessionId: number, transcript: string): Promise<void> {
+    const env = await this.requestJson('POST', `/api/v1/comfort/sessions/${sessionId}/respond`,
+      JSON.stringify({ transcript: transcript }));
+    if (env.code !== 0) {
+      throw new Error(`上报回应失败: ${env.msg ?? env.code}`);
+    }
+  }
+
+  /** 老人无回应：后端通知护工前往查看。 */
+  public async comfortNoResponse(sessionId: number): Promise<void> {
+    const env = await this.requestJson('POST', `/api/v1/comfort/sessions/${sessionId}/no-response`, '{}');
+    if (env.code !== 0) {
+      throw new Error(`上报无回应失败: ${env.msg ?? env.code}`);
+    }
   }
 }
 

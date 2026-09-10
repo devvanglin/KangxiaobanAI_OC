@@ -45,11 +45,12 @@ func (h *WSHandler) Serve(c *gin.Context) {
 		return
 	}
 	client := &ws.Client{
-		Hub:    h.hub,
-		Conn:   conn,
-		Send:   make(chan []byte, 32),
-		UserID: claims.UserID,
-		Roles:  claims.Roles,
+		Hub:      h.hub,
+		Conn:     conn,
+		Send:     make(chan []byte, 32),
+		UserID:   claims.UserID,
+		TenantID: claims.TenantID,
+		Roles:    claims.Roles,
 	}
 	h.hub.Register(client)
 	client.Start()

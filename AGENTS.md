@@ -125,7 +125,9 @@ values may still exist in Git history. If a full audit is required, inspect hist
 The currently configured institution backend is hosted at `10.10.1.12`. Its SSH user is `api`, and the corresponding
 password-based connection details are stored locally in `.codex/private/backend-ssh.json`. Before asking the user for
 backend SSH credentials, future agents must first read that local file and try the configured connection. Ask again only
-when the file is absent or authentication has actually failed.
+when the file is absent or authentication has actually failed. Two sibling Git-ignored files, `.codex/private/gpu-ssh.json`
+(`10.10.1.11`, AsLive voice host) and `.codex/private/fleet-ssh.json` (the full five-host fleet: backend, two DGX Spark
+model hosts, MQTT gateway, AsLive host), follow the same rules.
 
 The local credentials file is deliberately Git-ignored. Never print, quote, summarize, stage, commit, or copy its
 password into this handbook, source code, scripts, command output, logs, reports, or chat. Deployment work must first
@@ -355,8 +357,9 @@ require `admin:all` and return typed not-configured/unavailable errors that the 
 The `评估题库` module edits the tenant-owned, versioned JSON contract used by the voice-assessment Agent. Each session
 snapshots the selected version so later edits do not change an assessment already in progress.
 Device management accepts MQTT radar
-metadata and manually configured RTSP cameras. Camera behavior remains an explicit empty state until the vision
-adapter is integrated.
+metadata and manually configured RTSP cameras. Camera analysis is now server-side: the Go backend's behavior
+analyzer (`internal/service/behavior_analyzer.go`) polls area-bound cameras, and the phone camera module lists
+recorded behavior events rather than a live adapter surface. See section 6.8 for the camera pipeline contract.
 
 `HdsNavigation` uses an immersive/adaptive system material title bar, gradient-blur scroll effect, the currently active
 bound Scroller, a back button hidden except for compact caregiver or doctor-resident local-detail state, a hidden title bar for the other
@@ -562,6 +565,33 @@ assessment, care plan/items, tasks, notifications, and audit trail.
 Responsive behavior remains asymmetric: MD/LG use stacked compact sections while XL enables wider assessment and plan
 layouts. Current-step context and previous/next actions stay in the fixed footer, including the live navigation-indicator
 avoid height.
+
+### 6.8 Camera behavior analysis and proactive comfort
+
+The camera pipeline is backend-owned and DGX-backed (InsightFace + EmotiEffLib + JoyAI on the face service,
+`KXB_FACE_SERVICE_URL`, self-signed HTTPS):
+
+1. Admission intake portrait photos auto-enroll `elder-<ID>` faces (`face_enrollments`, async best-effort,
+   retry via `POST /elders/:id/face-enrollment`).
+2. `BehaviorAnalyzer` polls one area-bound online camera per 10 s tick (per-tenant selection, RTSP global
+   single-stream), persists `behavior_events` (who + expression `emotieff`→`qwen` review + JoyAI behavior text
+   + face crop + 8 s clip in MinIO `cctv-footage-storage`), and fires deterministic post-insert actions:
+   abnormal behavior keywords (`abnormalBehaviorRules`) immediately notify the caregiver role, and a final
+   expression of `悲伤` creates a comfort session under a per-elder cooldown
+   (`KXB_COMFORT_COOLDOWN_MINUTES`, default 30).
+3. `ComfortSession` (`comfort_sessions`) state machine: `pending → talking → responded | reported`, plus
+   scanner-closed. The elderly client polls `GET /comfort/pending?elder_id=`, claims via `start`, plays the
+   proactive greeting through the normal AsLive chat pipeline, listens for the first ASR reply for
+   15 s (`COMFORT_NO_RESPONSE_MS`), then reports `respond` (with transcript) or `no-response`; the backend
+   notifies the caregiver role (`type=comfort`) on no-response, and its own minute scanner reports
+   unclaimed pendings after `KXB_COMFORT_PENDING_TTL_MINUTES` (default 10) and closes stale talking sessions.
+4. `GET /elders/:id/behavior-events` feeds `ElderBehaviorTimeline` in the caregiver/doctor resident pages,
+   including the `abnormal` badge. Emotion label mapping covers EmotiEffLib's actual AffectNet word forms
+   (`Sadness`/`Happiness`/`Anger`/`Contempt` …), not only legacy lowercase aliases.
+
+The elderly client (`elderly/`) is a single-page companion that talks directly to AsLive `/ws` and polls the
+Go backend REST (`BackendApi.ets`) for elder profile/tasks/plans and the comfort flow; it has no push channel
+and no persistence. Do not promise device-verified comfort behavior without real-device ASR/TTS tests.
 
 ## 7. Core application: file ownership map
 

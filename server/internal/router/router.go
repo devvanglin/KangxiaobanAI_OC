@@ -36,6 +36,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	messageSvc *service.MessageService,
 	aiSvc *service.AIService,
 	storageSvc *service.StorageService,
+	comfortSvc *service.ComfortService,
 ) *gin.Engine {
 	// WebSocket authentication currently supports a query token for native clients. Skip access logging
 	// for that path so reverse-proxy or application logs never persist the JWT-bearing query string.
@@ -104,6 +105,7 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 	carePackageHandler := handler.NewCarePackageHandler(db)
 	medicationHandler := handler.NewMedicationHandler(db)
 	storageHandler := handler.NewStorageAdminHandler(storageSvc)
+	comfortHandler := handler.NewComfortHandler(comfortSvc)
 
 	// 访问校验封装
 	perm := func(code string) gin.HandlerFunc { return middleware.RequirePermission(userRepo, code) }
@@ -280,6 +282,12 @@ func New(db *gorm.DB, cfg *config.Config, hub *ws.Hub, iotSvc *iot.IotService,
 		authed.GET("/admission-intake-photos/:id/content", perm("admission:read"), admissionHandler.IntakePhotoContent)
 		authed.GET("/notifications", notificationHandler.List)
 		authed.PATCH("/notifications/:id/read", notificationHandler.MarkRead)
+
+		// 主动语音安抚（悲伤表情触发）：老人端设备轮询领取并回报状态。
+		authed.GET("/comfort/pending", perm("elder:read"), comfortHandler.Pending)
+		authed.POST("/comfort/sessions/:id/start", perm("elder:write"), comfortHandler.Start)
+		authed.POST("/comfort/sessions/:id/respond", perm("elder:write"), comfortHandler.Respond)
+		authed.POST("/comfort/sessions/:id/no-response", perm("elder:write"), comfortHandler.NoResponse)
 		authed.GET("/messages", messageHandler.List)
 		authed.POST("/messages", messageHandler.Send)
 		authed.PATCH("/messages/:id/read", messageHandler.MarkRead)

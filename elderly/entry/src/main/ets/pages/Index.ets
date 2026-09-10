@@ -5,7 +5,7 @@ import { VoiceAgentConfig } from '../network/VoiceAgentConfig';
 import { WindowEnv } from '../util/WindowEnv';
 import {
   BackendApi, BackendConfig,
-  CarePlanInfo, CareTaskInfo, ElderInfo
+  CarePlanInfo, CareTaskInfo, ComfortSessionInfo, ElderInfo
 } from '../network/BackendApi';
 
 const MICROPHONE_PERMISSION: Permissions = 'ohos.permission.MICROPHONE';
@@ -25,6 +25,10 @@ const CARE_REMIND_FIRST_MS: number = 20 * 60 * 1000;
 const CARE_REMIND_INTERVAL_MS: number = 45 * 60 * 1000;
 /** 关怀提醒条自动收起时长。 */
 const CARE_REMIND_SHOW_MS: number = 30 * 1000;
+/** 主动安抚：设备轮询待领取安抚会话的间隔（后端识别到悲伤表情后创建）。 */
+const COMFORT_POLL_MS: number = 10 * 1000;
+/** 主动安抚：开场白播完后等待老人开口的时限，超时上报护工。 */
+const COMFORT_NO_RESPONSE_MS: number = 15 * 1000;
 const WEEKDAY_NAMES: string[] = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
 /**
@@ -76,6 +80,14 @@ struct Index {
   private remindLoopTimerId: number = -1;
   private remindHideTimerId: number = -1;
   private nextRemindIsWater: boolean = true;
+  /** 主动语音安抚（后端摄像头识别到悲伤表情后触发）。'' 为空闲，其余见 beginComfort。 */
+  @Local comfortBanner: string = '';
+  private comfortSessionId: number = -1;
+  private comfortPhase: string = ''; // '' / greeting(开场白播报中) / awaiting(等老人回应) / responded
+  private comfortAsrBuffer: string = '';
+  private comfortPollTimerId: number = -1;
+  private comfortNoRespTimerId: number = -1;
+  private comfortPolling: boolean = false;
 
   aboutToAppear(): void {
     this.refreshClock();
@@ -89,6 +101,8 @@ struct Index {
     this.stopElderSpeechTimer();
     this.stopSpeakingFallbackTimer();
     this.stopCareReminders();
+    this.stopComfortPolling();
+    this.stopComfortNoResponseTimer();
     if (this.clockTimerId !== -1) {
       clearInterval(this.clockTimerId);
       this.clockTimerId = -1;
@@ -184,6 +198,127 @@ struct Index {
       this.remindLoopTimerId = -1;
     }
     this.dismissReminder();
+  }
+
+  // ==================== 主动语音安抚（悲伤表情触发） ====================
+
+  private startComfortPolling(): void {
+    if (this.comfortPollTimerId !== -1) { return; }
+    this.comfortPollTimerId = setInterval((): void => {
+      void this.pollComfort();
+    }, COMFORT_POLL_MS);
+  }
+
+  private stopComfortPolling(): void {
+    if (this.comfortPollTimerId !== -1) {
+      clearInterval(this.comfortPollTimerId);
+      this.comfortPollTimerId = -1;
+    }
+  }
+
+  /** 已绑定长者且小伴空闲时，向后端领取待处理的安抚会话。 */
+  private async pollComfort(): Promise<void> {
+    if (this.comfortPolling || this.elder === null || !this.connected || this.comfortSessionId !== -1 ||
+      this.speaking || this.thinking || this.elderSpeaking) {
+      return;
+    }
+    this.comfortPolling = true;
+    try {
+      const session: ComfortSessionInfo | null = await BackendApi.fetchPendingComfort(this.elder.id);
+      if (session !== null) {
+        await this.beginComfort(session);
+      }
+    } catch (_error) {
+      // 后端暂不可达：下个轮询周期再试。
+    } finally {
+      this.comfortPolling = false;
+    }
+  }
+
+  /** 领取安抚会话并主动开场：小伴先开口问候，随后等老人回应。 */
+  private async beginComfort(session: ComfortSessionInfo): Promise<void> {
+    if (this.comfortSessionId !== -1 || this.elder === null || !this.connected) { return; }
+    try {
+      await BackendApi.comfortStart(session.id);
+    } catch (_error) {
+      return; // 领取失败（可能已被其他终端处理）：留待后端扫描器兜底。
+    }
+    this.comfortSessionId = session.id;
+    this.comfortPhase = 'greeting';
+    this.comfortAsrBuffer = '';
+    const honorific: string = this.elderHonorific(this.elder);
+    this.comfortBanner = `小伴注意到${honorific}心情不太好，正陪着您说说话`;
+    this.syncEmotion();
+    // 走既有聊天管道下发安抚开场：大模型会先说"刚才发现您心情不太好"，随后正常对话。
+    const name: string = (this.elder.name ?? '').length > 0 ? this.elder.name : honorific;
+    await this.sendComfortInstruction(
+      `（护理系统事件：摄像头刚刚观察到${name}表情悲伤，心情可能不好。` +
+      `请立刻温柔主动地关心${this.elderHonorific(this.elder)}，第一句话就说` +
+      `"刚才发现您心情不太好，和我说说话吧"，语气轻柔、语速放缓，之后耐心倾听。）`);
+  }
+
+  /** 与 sendTextMessage 相同的状态切换，但不把系统指令显示成"您说"。 */
+  private async sendComfortInstruction(message: string): Promise<void> {
+    if (!this.connected || message.length === 0) { return; }
+    this.thinking = true;
+    this.elderSpeaking = false;
+    this.speaking = false;
+    this.responseEnded = false;
+    this.assistantText = '';
+    this.dismissReminder();
+    this.client.pauseMicrophone();
+    this.statusText = '让我想想哈…';
+    this.syncEmotion();
+    const sent: boolean = await this.client.sendChat(message);
+    if (!sent) {
+      this.thinking = false;
+      this.statusText = '发送失败，请再试一次';
+      this.syncEmotion();
+      // 安抚开场发不出去：按无回应上报，让护工接手。
+      if (this.comfortPhase === 'greeting') {
+        void this.reportComfortNoResponse();
+      }
+    }
+  }
+
+  private stopComfortNoResponseTimer(): void {
+    if (this.comfortNoRespTimerId !== -1) {
+      clearTimeout(this.comfortNoRespTimerId);
+      this.comfortNoRespTimerId = -1;
+    }
+  }
+
+  /** 老人在时限内开口了：上报第一句回应，安抚会话完成，转入正常陪聊。 */
+  private async completeComfortResponded(): Promise<void> {
+    if (this.comfortPhase !== 'awaiting') { return; }
+    this.comfortPhase = 'responded';
+    this.stopComfortNoResponseTimer();
+    const id: number = this.comfortSessionId;
+    if (id === -1) { return; }
+    try {
+      await BackendApi.comfortRespond(id, this.comfortAsrBuffer.trim().slice(0, 500));
+    } catch (_error) {
+      // 上报失败不影响陪伴对话本身。
+    }
+    this.comfortSessionId = -1;
+    this.comfortBanner = '';
+  }
+
+  /** 老人始终没有开口：上报后端，由后端通知护工前来查看。 */
+  private async reportComfortNoResponse(): Promise<void> {
+    this.comfortPhase = '';
+    this.stopComfortNoResponseTimer();
+    const id: number = this.comfortSessionId;
+    if (id === -1) { return; }
+    this.comfortSessionId = -1;
+    try {
+      await BackendApi.comfortNoResponse(id);
+    } catch (_error) {
+      // 上报失败时后端扫描器仍会兜底通知护工。
+    }
+    this.comfortBanner = '';
+    this.statusText = '已经叫护理员来陪陪您啦';
+    this.syncEmotion();
   }
 
   // ==================== 长者档案（机构后端） ====================
@@ -321,6 +456,7 @@ struct Index {
         this.handleEvent(event);
       }, (): void => {
         this.connected = false;
+        this.stopComfortPolling();
         this.statusText = '小伴走神了，点下方按钮叫它回来';
         this.syncEmotion();
       });
@@ -339,6 +475,7 @@ struct Index {
         this.microphoneAvailable = this.client.resumeMicrophone();
       }
       this.startCareReminders();
+      this.startComfortPolling();
       this.syncEmotion();
     } catch (_error) {
       this.connected = false;
@@ -436,6 +573,16 @@ struct Index {
       this.microphoneAvailable = false;
     }
     this.statusText = this.microphoneAvailable ? '我一直都在呢，再聊点什么吧' : '点下方输入框和我说话';
+    // 安抚开场白播完：进入"等老人回应"窗口，超时未开口则上报护工。
+    if (this.comfortPhase === 'greeting') {
+      this.comfortPhase = 'awaiting';
+      this.comfortAsrBuffer = '';
+      this.comfortNoRespTimerId = setTimeout((): void => {
+        this.comfortNoRespTimerId = -1;
+        void this.reportComfortNoResponse();
+      }, COMFORT_NO_RESPONSE_MS);
+      this.statusText = this.microphoneAvailable ? '我在听呢，和我说说话吧' : this.statusText;
+    }
     this.syncEmotion();
   }
 
@@ -463,11 +610,19 @@ struct Index {
     if (event.type === 'asr') {
       // 老人开口：接收任务表情；静默后自动回到聆听。
       this.refreshElderSpeech();
-      this.recognizedText += event.text ?? '';
+      const heard: string = event.text ?? '';
+      this.recognizedText += heard;
+      if (this.comfortPhase === 'awaiting' && heard.trim().length > 0) {
+        this.comfortAsrBuffer += heard;
+      }
       this.statusText = '在听呢，您慢慢说';
     } else if (event.type === 'start') {
       // 服务端开始生成回复：思考中。播报/思考期间静默麦克风——
       // 不允许插话，扬声器声音也不能被回采成“老人插话”截断 TTS。
+      // 安抚等待期收到 start 说明老人这句话说完了 → 上报第一句回应。
+      if (this.comfortPhase === 'awaiting' && this.comfortAsrBuffer.trim().length > 0) {
+        void this.completeComfortResponded();
+      }
       this.thinking = true;
       this.speaking = false;
       this.responseEnded = false;
@@ -508,6 +663,10 @@ struct Index {
     } else if (event.type === 'error') {
       this.client.pauseMicrophone();
       this.statusText = event.message ?? '小伴遇到了点问题，请再说一次';
+      // 安抚流程被错误打断：按无回应上报，让护工接手，避免会话悬挂。
+      if (this.comfortPhase === 'greeting' || this.comfortPhase === 'awaiting') {
+        void this.reportComfortNoResponse();
+      }
     }
     this.syncEmotion();
   }
@@ -671,9 +830,27 @@ struct Index {
     }
   }
 
+  /** 主动安抚提示条：小伴注意到长者情绪低落并主动陪伴时显示。 */
   @Builder
-  private elderLine() {
-    Text(this.recognizedText.length > 0 ? `您说：${this.recognizedText}` : ' ')
+  private comfortNotice() {
+    if (this.comfortBanner.length > 0) {
+      Row({ space: 10 }) {
+        Text('💙').fontSize(20)
+        Text(this.comfortBanner)
+          .fontSize(19)
+          .fontWeight(FontWeight.Medium)
+          .fontColor('#1B2B4D')
+      }
+      .padding({ left: 16, right: 16, top: 10, bottom: 10 })
+      .borderRadius(999)
+      .backgroundColor('#E3EEFF')
+      .border({ width: 1, color: '#B9D2F5' })
+      .accessibilityText(`情绪陪伴：${this.comfortBanner}`)
+    }
+  }
+
+  @Builder
+  private elderLine() {    Text(this.recognizedText.length > 0 ? `您说：${this.recognizedText}` : ' ')
       .fontSize(20)
       .fontColor('#4A5A76')
       .maxLines(2)
@@ -783,6 +960,7 @@ struct Index {
         this.clockLine()
         Blank(8)
         this.reminderBanner()
+        this.comfortNotice()
         this.elderLine()
         this.ballStage()
         this.assistantLine()
